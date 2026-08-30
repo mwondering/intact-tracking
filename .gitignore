@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+build/
+dist/
+*.egg-info/
+rollouts/
+runs/
+environment_ref_base.md
+jepa_ref_base.md

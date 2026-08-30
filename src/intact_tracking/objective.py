@@ -1,0 +1,194 @@
+"""Paired physical/deployment INTACT objective for tracking windows."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+import torch
+
+from .model import SIGReg, TrackingINTACT
+
+
+@dataclass(frozen=True)
+class INTACTLossConfig:
+    """Weights match the roles in the reference INTACT single-task objective."""
+
+    forward_weight: float = 1.0
+    sigreg_weight: float = 0.02
+    physical_weight: float = 0.1
+    goal_weight: float = 0.05
+    physical_start: int = 0
+    goal_start: int = 0
+
+    def __post_init__(self) -> None:
+        for name in (
+            "forward_weight",
+            "sigreg_weight",
+            "physical_weight",
+            "goal_weight",
+        ):
+            if getattr(self, name) < 0:
+                raise ValueError(f"{name} must be non-negative")
+        if self.physical_start < 0 or self.goal_start < 0:
+            raise ValueError("Intent start indices must be non-negative")
+
+
+def predict_adjacent_latents(
+    model: TrackingINTACT,
+    embeddings: torch.Tensor,
+    action_embeddings: torch.Tensor,
+    history_size: int,
+) -> torch.Tensor:
+    """Match INTACT's causal adjacent-latent prediction schedule."""
+    transitions = embeddings.size(1) - 1
+    if transitions < 1:
+        raise ValueError("A training window needs at least one transition")
+    if action_embeddings.shape[:2] != (embeddings.size(0), transitions):
+        raise ValueError(
+            "Action embeddings must align with latent transitions: "
+            f"{tuple(action_embeddings.shape)} vs {tuple(embeddings.shape)}"
+        )
+    prefix = min(history_size, transitions)
+    predictions = [model.predict(embeddings[:, :prefix], action_embeddings[:, :prefix])]
+    for index in range(prefix, transitions):
+        start = max(0, index - history_size + 1)
+        prediction = model.predict(
+            embeddings[:, start : index + 1],
+            action_embeddings[:, start : index + 1],
+        )[:, -1:]
+        predictions.append(prediction)
+    return torch.cat(predictions, dim=1)
+
+
+def construct_intents(
+    embeddings: torch.Tensor,
+    goal_embedding: torch.Tensor,
+    *,
+    physical_start: int = 0,
+    goal_start: int = 0,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Construct attached physical intent and stop-gradient deployment intent.
+
+    ``goal_embedding`` comes from the future reference observation available to
+    the deployed tracker.  Only that occurrence is detached; the physical
+    successor and every current-state occurrence remain attached.
+    """
+    max_start = embeddings.size(1) - 2
+    for name, value in (("physical_start", physical_start), ("goal_start", goal_start)):
+        if value < 0 or value > max_start:
+            raise ValueError(
+                f"{name} must be in [0,{max_start}], got {value} for T={embeddings.size(1)}"
+            )
+    physical_current = embeddings[:, physical_start:-1]
+    physical_successor = embeddings[:, physical_start + 1 :]
+    physical_intent = physical_successor - physical_current
+
+    deployment_current = embeddings[:, goal_start:-1]
+    if goal_embedding.ndim != 2 or goal_embedding.shape != (
+        embeddings.size(0),
+        embeddings.size(-1),
+    ):
+        raise ValueError(
+            "Goal embedding must be [B,D], got "
+            f"{tuple(goal_embedding.shape)} for {tuple(embeddings.shape)}"
+        )
+    fixed_goal = goal_embedding.detach()[:, None].expand_as(deployment_current)
+    goal_intent = fixed_goal - deployment_current
+    return physical_intent, goal_intent
+
+
+def _masked_mean(value: torch.Tensor, mask: torch.Tensor | None) -> torch.Tensor:
+    if mask is None:
+        return value.mean()
+    weights = mask.to(device=value.device, dtype=value.dtype)
+    return (value * weights).sum() / weights.sum().clamp_min(1)
+
+
+def intact_objective(
+    model: TrackingINTACT,
+    batch: dict[str, torch.Tensor],
+    loss_config: INTACTLossConfig | None = None,
+    sigreg: SIGReg | None = None,
+) -> dict[str, torch.Tensor]:
+    """Run Forward MSE + SIGReg + the paired shared-actor likelihoods."""
+    cfg = loss_config or INTACTLossConfig()
+    required = {
+        "observation",
+        "goal_observation",
+        "action",
+        "previous_action",
+        "context",
+    }
+    missing = sorted(required.difference(batch))
+    if missing:
+        raise KeyError(f"Missing INTACT batch fields: {missing}")
+    for name in required:
+        if not torch.isfinite(batch[name]).all():
+            raise ValueError(f"Batch field {name!r} contains non-finite values")
+
+    context_mask = batch.get("context_mask")
+    world = model.encode_context(batch["context"], context_mask)
+    embeddings = model.encode_observation(batch["observation"], world)
+    goal_embedding = model.encode_observation(batch["goal_observation"], world)
+    action_embeddings = model.action_encoder(batch["action"])
+    predictions = predict_adjacent_latents(
+        model,
+        embeddings,
+        action_embeddings,
+        model.config.forward_history,
+    )
+    targets = embeddings[:, 1:]
+    transition_mask = batch.get("transition_mask")
+    forward_per_step = (predictions - targets).square().mean(dim=-1)
+    forward_loss = _masked_mean(forward_per_step, transition_mask)
+
+    physical_intent, goal_intent = construct_intents(
+        embeddings,
+        goal_embedding,
+        physical_start=cfg.physical_start,
+        goal_start=cfg.goal_start,
+    )
+    physical_mask = batch.get("physical_mask", transition_mask)
+    if physical_mask is not None:
+        physical_mask = physical_mask[:, cfg.physical_start :]
+    goal_mask = batch.get("goal_mask", transition_mask)
+    if goal_mask is not None:
+        goal_mask = goal_mask[:, cfg.goal_start :]
+
+    physical_stats = model.action_nll(
+        z=embeddings[:, cfg.physical_start : -1],
+        intent=physical_intent,
+        previous_action=batch["previous_action"][:, cfg.physical_start :],
+        target_action=batch["action"][:, cfg.physical_start :],
+        mask=physical_mask,
+    )
+    goal_stats = model.action_nll(
+        z=embeddings[:, cfg.goal_start : -1],
+        intent=goal_intent,
+        previous_action=batch["previous_action"][:, cfg.goal_start :],
+        target_action=batch["action"][:, cfg.goal_start :],
+        mask=goal_mask,
+    )
+
+    sigreg_module = sigreg
+    if sigreg_module is None:
+        sigreg_module = SIGReg().to(device=embeddings.device)
+    sigreg_loss = sigreg_module(embeddings.transpose(0, 1))
+    action_loss = (
+        cfg.physical_weight * physical_stats["loss"] + cfg.goal_weight * goal_stats["loss"]
+    )
+    total = cfg.forward_weight * forward_loss + cfg.sigreg_weight * sigreg_loss + action_loss
+    return {
+        "loss": total,
+        "forward_loss": forward_loss,
+        "sigreg_loss": sigreg_loss,
+        "action_loss": action_loss,
+        "physical_nll": physical_stats["loss"],
+        "goal_nll": goal_stats["loss"],
+        "physical_mae": _masked_mean(physical_stats["mae"], physical_mask).detach(),
+        "goal_mae": _masked_mean(goal_stats["mae"], goal_mask).detach(),
+        "predictions": predictions,
+        "embeddings": embeddings,
+        "goal_embedding": goal_embedding,
+        "world_embedding": world,
+    }
