@@ -13,7 +13,6 @@ from intact_tracking.environment.runtime import create_runtime, prepare_rollout
 from .mjlab_adapter import (
     _clear_missing_motion_exclusions,
     _policy_observations,
-    _reset_all,
     _snapshot,
 )
 
@@ -92,8 +91,8 @@ class FixedDRTrackerRollout:
 
     MJLab applies ``startup`` events while the environment is constructed. All
     other event modes are removed before construction, and this class never
-    reapplies startup events. Manual resets therefore resample motion and robot
-    state while preserving each vector slot's physics parameters.
+    reapplies startup events. Per-slot auto-resets therefore resample motion and
+    robot state while preserving every slot's physics parameters.
     """
 
     def __init__(self, config: FixedDRRolloutConfig) -> None:
@@ -113,7 +112,12 @@ class FixedDRTrackerRollout:
             num_envs=config.num_envs,
         )
         prepared.env.seed = int(config.seed)
-        prepared.env.auto_reset = False
+        # Online replay discards transitions marked as reset boundaries, so it
+        # does not need the true terminal observation. Let MJLab reset only the
+        # completed slots inside ``step``. A synchronous all-environment reset
+        # makes the probability of obtaining a 105-step causal window collapse
+        # as ``num_envs`` grows (for example at 4096 environments).
+        prepared.env.auto_reset = True
         self.cleared_motion_exclusions = _clear_missing_motion_exclusions(prepared.env)
         self.startup_events, self.removed_non_startup_events = _keep_startup_events(prepared.env)
         self.device = config.device or ("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -147,6 +151,10 @@ class FixedDRTrackerRollout:
             self.episode_steps = torch.zeros_like(self.world_ids)
             self.env_ids = torch.arange(config.num_envs, device=self.env.device, dtype=torch.long)
             self.collector_step = 0
+            self.reset_events = 0
+            self.environments_reset = 0
+            # Retained in logs/checkpoints for backward compatibility. Online
+            # rollout now uses asynchronous per-slot resets, so this stays zero.
             self.synchronous_resets = 0
             self.motion_ids_seen: set[int] = set()
 
@@ -181,7 +189,9 @@ class FixedDRTrackerRollout:
                 "startup DR fixed per vector slot before rollout and never resampled"
             ),
             "motion_contract": "random motion resampling at initialization and reset",
-            "reset_contract": "synchronous manual reset; startup events are never reapplied",
+            "reset_contract": (
+                "asynchronous per-slot auto-reset; startup events are never reapplied"
+            ),
         }
 
     def _assert_fixed_dr(self) -> None:
@@ -207,8 +217,7 @@ class FixedDRTrackerRollout:
         next_observations = _policy_observations(raw_next, self.num_envs)
         after = _snapshot(self.env, next_observations)
         done = terminated | truncated
-        synchronous_boundary = bool(done.any())
-        reset_boundary = torch.full_like(done, synchronous_boundary)
+        reset_boundary = done.clone()
         collector_steps = torch.full_like(self.episode_ids, self.collector_step)
         batch = {
             "proprio": before["proprio"],
@@ -233,14 +242,17 @@ class FixedDRTrackerRollout:
 
         self.collector_step += 1
         self.episode_steps += 1
-        if synchronous_boundary:
-            self.observations = _reset_all(self.env, self.num_envs)
+        done_count = int(done.count_nonzero().item())
+        if done_count:
+            # MJLab has already reset precisely these slots and returned their
+            # post-reset observations. Boundary transitions are excluded from
+            # causal replay samples, while unaffected slots remain continuous.
             self._assert_fixed_dr()
-            self.episode_ids += 1
-            self.episode_steps.zero_()
-            self.synchronous_resets += 1
-        else:
-            self.observations = next_observations
+            self.episode_ids[done] += 1
+            self.episode_steps[done] = 0
+            self.reset_events += 1
+            self.environments_reset += done_count
+        self.observations = next_observations
         return batch
 
     def close(self) -> None:

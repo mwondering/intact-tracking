@@ -7,6 +7,7 @@ import importlib.metadata
 import json
 import os
 import random
+import time
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Callable, TypeVar
@@ -83,6 +84,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Causal replay sample capacity per rank.",
     )
     parser.add_argument("--log-interval", type=int, default=10)
+    parser.add_argument(
+        "--warmup-log-interval",
+        type=int,
+        default=10,
+        help="Print replay/reset progress every N warmup vector steps.",
+    )
     parser.add_argument("--checkpoint-interval", type=int, default=1000)
 
     parser.add_argument("--learning-rate", type=float, default=5e-4)
@@ -148,6 +155,7 @@ def _validate_arguments(args: argparse.Namespace) -> None:
         "batch_size",
         "replay_capacity",
         "log_interval",
+        "warmup_log_interval",
         "block_size",
         "horizon",
         "embed_dim",
@@ -252,6 +260,8 @@ def _aggregate_online_counts(
             "transitions": rollout.transitions,
             "replay_size": len(replay),
             "samples_generated": replay.total_samples_generated,
+            "reset_events": rollout.reset_events,
+            "environments_reset": rollout.environments_reset,
             "synchronous_resets": rollout.synchronous_resets,
             "dr_invariance_checks": rollout.dr_invariance_checks,
             "motions_seen": len(rollout.motion_ids_seen),
@@ -275,6 +285,8 @@ def _checkpoint_online_state(
             "transitions": rollout.transitions,
             "replay_size": len(replay),
             "samples_generated": replay.total_samples_generated,
+            "reset_events": rollout.reset_events,
+            "environments_reset": rollout.environments_reset,
             "synchronous_resets": rollout.synchronous_resets,
             "dr_invariance_checks": rollout.dr_invariance_checks,
             "motion_ids_seen": sorted(rollout.motion_ids_seen),
@@ -462,8 +474,45 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         world_id_offset=world_id_offset,
     )
 
+    startup_started = time.monotonic()
+    print(
+        json.dumps(
+            {
+                "event": "startup",
+                "stage": "creating_rollout",
+                "rank": distributed.rank,
+                "device": str(device),
+                "num_envs_per_rank": args.num_envs,
+            },
+            sort_keys=True,
+        ),
+        flush=True,
+    )
     rollout = FixedDRTrackerRollout(rollout_config)
+    print(
+        json.dumps(
+            {
+                "event": "startup",
+                "stage": "rollout_ready",
+                "rank": distributed.rank,
+                "elapsed_seconds": time.monotonic() - startup_started,
+            },
+            sort_keys=True,
+        ),
+        flush=True,
+    )
     try:
+        print(
+            json.dumps(
+                {
+                    "event": "startup",
+                    "stage": "waiting_for_all_ranks",
+                    "rank": distributed.rank,
+                },
+                sort_keys=True,
+            ),
+            flush=True,
+        )
         rollout_metadata = distributed.all_gather_object(rollout.metadata)
         run_config = {
             "method": "INTACT-online",
@@ -515,6 +564,21 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             lambda: _write_json(output_dir / "run_config.json", run_config),
         )
 
+        warmup_started = time.monotonic()
+        if distributed.is_main:
+            print(
+                json.dumps(
+                    {
+                        "event": "warmup_start",
+                        "minimum_steps": replay.minimum_steps,
+                        "requested_warmup_steps": args.warmup_steps,
+                        "batch_size_per_rank": args.batch_size,
+                        "num_envs_per_rank": args.num_envs,
+                    },
+                    sort_keys=True,
+                ),
+                flush=True,
+            )
         while True:
             locally_ready = (
                 rollout.collector_step >= args.warmup_steps and len(replay) >= args.batch_size
@@ -530,6 +594,74 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                     "Motions may reset before the causal query is complete."
                 )
             replay.add_step(rollout.step())
+            if (
+                rollout.collector_step == 1
+                or rollout.collector_step % args.warmup_log_interval == 0
+            ):
+                rank_progress = distributed.all_gather_object(
+                    {
+                        "rank": distributed.rank,
+                        "env_steps": rollout.collector_step,
+                        "replay_size": len(replay),
+                        "samples_generated": replay.total_samples_generated,
+                        "reset_events": rollout.reset_events,
+                        "environments_reset": rollout.environments_reset,
+                    }
+                )
+                if distributed.is_main:
+                    elapsed = max(time.monotonic() - warmup_started, 1e-9)
+                    print(
+                        json.dumps(
+                            {
+                                "event": "warmup_progress",
+                                "env_steps": rollout.collector_step,
+                                "elapsed_seconds": elapsed,
+                                "vector_steps_per_second": rollout.collector_step / elapsed,
+                                "replay_size_min": min(
+                                    item["replay_size"] for item in rank_progress
+                                ),
+                                "replay_size_max": max(
+                                    item["replay_size"] for item in rank_progress
+                                ),
+                                "samples_generated_global": sum(
+                                    item["samples_generated"] for item in rank_progress
+                                ),
+                                "reset_events_global": sum(
+                                    item["reset_events"] for item in rank_progress
+                                ),
+                                "environments_reset_global": sum(
+                                    item["environments_reset"] for item in rank_progress
+                                ),
+                            },
+                            sort_keys=True,
+                        ),
+                        flush=True,
+                    )
+
+        final_warmup_progress = distributed.all_gather_object(
+            {
+                "replay_size": len(replay),
+                "samples_generated": replay.total_samples_generated,
+            }
+        )
+        if distributed.is_main:
+            print(
+                json.dumps(
+                    {
+                        "event": "warmup_complete",
+                        "env_steps": rollout.collector_step,
+                        "elapsed_seconds": time.monotonic() - warmup_started,
+                        "replay_size_min": min(
+                            item["replay_size"] for item in final_warmup_progress
+                        ),
+                        "replay_size_max": max(
+                            item["replay_size"] for item in final_warmup_progress
+                        ),
+                    },
+                    sort_keys=True,
+                ),
+                flush=True,
+            )
 
         model = TrackingINTACT(model_config).to(device)
         sigreg = SIGReg(num_proj=args.sigreg_projections).to(device)

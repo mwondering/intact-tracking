@@ -96,8 +96,8 @@ rollout 时可用的 simulator/reference 完整状态：
 - MJLab class-based event 的 reset callback 在初始化 reset 后被禁用，避免其绕过 event mode
   在后续 episode reset 中重采样参数。
 - motion command 在初始化和 episode reset 时随机采样 motion；机器人同步重置到 reference。
-- `auto_reset=False`。任一 slot 终止时，先保留真实 terminal transition，再同步 reset 所有 slot，
-  以保持 observation history 严格对齐。
+- `auto_reset=True`。终止的 slot 独立 reset，其他 slot 的 causal history 不受影响；boundary
+  transition 不进入训练 window，因此在线训练不依赖 terminal observation。
 - tracker 权重严格加载后执行 `requires_grad_(False)` 和 `eval()`；优化器只持有 INTACT 参数。
 
 内存 replay 保存未归一化 transition，并维护在线 running statistics。query 必须位于一个连续

@@ -109,7 +109,9 @@ def verify(
     online_state = checkpoint.get("online_state", {})
     if online_state.get("replay_size", 0) < 1:
         raise RuntimeError("Checkpoint has no online replay progress")
-    if online_state.get("dr_invariance_checks") != online_state.get("synchronous_resets"):
+    if online_state.get("synchronous_resets") != 0:
+        raise RuntimeError("Online rollout unexpectedly used synchronous all-environment resets")
+    if online_state.get("dr_invariance_checks") != online_state.get("reset_events"):
         raise RuntimeError("Not every episode reset received a fixed-DR invariance check")
 
     return {
