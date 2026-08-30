@@ -122,10 +122,6 @@ def _seed_everything(seed: int) -> None:
         torch.cuda.manual_seed_all(seed)
 
 
-def _to_device(batch: dict[str, torch.Tensor], device: torch.device) -> dict[str, torch.Tensor]:
-    return {name: value.to(device, non_blocking=True) for name, value in batch.items()}
-
-
 def _scalar_metrics(output: dict[str, torch.Tensor]) -> dict[str, float]:
     names = (
         "loss",
@@ -259,12 +255,13 @@ def _aggregate_online_counts(
             "rank_env_steps": rollout.collector_step,
             "transitions": rollout.transitions,
             "replay_size": len(replay),
+            "replay_storage_bytes": replay.storage_bytes,
             "samples_generated": replay.total_samples_generated,
             "reset_events": rollout.reset_events,
             "environments_reset": rollout.environments_reset,
             "synchronous_resets": rollout.synchronous_resets,
             "dr_invariance_checks": rollout.dr_invariance_checks,
-            "motions_seen": len(rollout.motion_ids_seen),
+            "motions_seen": rollout.motions_seen_count,
         }
     )
     totals["env_steps"] = totals.pop("rank_env_steps") // distributed.world_size
@@ -284,6 +281,7 @@ def _checkpoint_online_state(
             "env_steps": rollout.collector_step,
             "transitions": rollout.transitions,
             "replay_size": len(replay),
+            "replay_storage_bytes": replay.storage_bytes,
             "samples_generated": replay.total_samples_generated,
             "reset_events": rollout.reset_events,
             "environments_reset": rollout.environments_reset,
@@ -472,6 +470,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         capacity=args.replay_capacity,
         seed=rank_seed,
         world_id_offset=world_id_offset,
+        device=device,
     )
 
     startup_started = time.monotonic()
@@ -551,8 +550,10 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             "tracker_checkpoint_sha256": tracker_sha256,
             "mjlab_version": importlib.metadata.version("mjlab"),
             "replay": {
-                "storage": "rank-local in-memory raw transitions and causal samples",
+                "storage": "rank-local device-resident vectorized ring buffers",
+                "device_per_rank": str(replay.device),
                 "capacity_per_rank": args.replay_capacity,
+                "estimated_storage_bytes_per_rank": replay.estimated_storage_bytes,
                 "minimum_full_context_steps_per_world": replay.minimum_steps,
                 "normalization": "global running statistics over every live rank stream",
                 "context_scope": "same fixed-DR world only; never crosses ranks",
@@ -603,6 +604,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                         "rank": distributed.rank,
                         "env_steps": rollout.collector_step,
                         "replay_size": len(replay),
+                        "replay_storage_bytes": replay.storage_bytes,
                         "samples_generated": replay.total_samples_generated,
                         "reset_events": rollout.reset_events,
                         "environments_reset": rollout.environments_reset,
@@ -622,6 +624,9 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                                 ),
                                 "replay_size_max": max(
                                     item["replay_size"] for item in rank_progress
+                                ),
+                                "replay_storage_bytes_global": sum(
+                                    item["replay_storage_bytes"] for item in rank_progress
                                 ),
                                 "samples_generated_global": sum(
                                     item["samples_generated"] for item in rank_progress
@@ -704,10 +709,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             train_metrics: list[dict[str, float]] = []
             gradient_norms: list[float] = []
             for _ in range(args.gradient_steps_per_update):
-                batch = _to_device(
-                    replay.sample_batch(args.batch_size, normalization=normalization),
-                    device,
-                )
+                batch = replay.sample_batch(args.batch_size, normalization=normalization)
                 optimizer.zero_grad(set_to_none=True)
                 output = training_module(batch)
                 if not isinstance(output, dict):

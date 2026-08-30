@@ -100,10 +100,12 @@ rollout 时可用的 simulator/reference 完整状态：
   transition 不进入训练 window，因此在线训练不依赖 terminal observation。
 - tracker 权重严格加载后执行 `requires_grad_(False)` 和 `eval()`；优化器只持有 INTACT 参数。
 
-内存 replay 保存未归一化 transition，并维护在线 running statistics。query 必须位于一个连续
-episode 内；16 个 context token 只从同一固定 physics world 的 query 之前选取，可以跨越
-早先 episode。`B=5`、`H=5` 时，首个合法样本最早出现在每个 world 的
-`(16 + 5) × 5 = 105` 个环境步之后；不使用 padded context。
+每个 rank 的 replay、rolling transition history、context ring 和 running sufficient
+statistics 都常驻该 rank 的 GPU；rollout 主路径不再把 vector batch 搬到 CPU，也不再逐环境
+执行 Python sample construction。query 必须位于一个连续 episode 内；16 个 context token
+只从同一固定 physics world 的 query 之前选取，可以跨越早先 episode。`B=5`、`H=5` 时，
+首个合法样本最早出现在每个 world 的 `(16 + 5) × 5 = 105` 个环境步之后；不使用 padded
+context。
 
 ## 正式在线训练
 
@@ -141,6 +143,10 @@ tracker、固定 DR vector worlds 和本地 causal replay；完整 INTACT 模型
 参数的梯度。16 个 context token 始终来自同一个 rank 内的同一个固定 physics world，不会跨
 world 或跨 rank 拼接。在线 observation/proprio/action 的 sufficient statistics 每轮经
 all-reduce 合并，因此所有 rank 使用同一份全局 normalization。
+
+`--replay-capacity` 同时决定每张卡上 GPU sample ring 的容量。默认维度下，
+`num-envs=4096, replay-capacity=8192` 的 rolling history、context 和 replay 合计约占
+482 MiB/卡；`run_config.json` 会记录启动前估算值，训练日志记录实际分配字节数。
 
 `--num-envs`、`--batch-size`、`--replay-capacity` 都是**每个 rank**的值。例如
 `GPUS=0,1 --num-envs 16 --batch-size 64` 表示全局 32 个环境、每个 optimizer step 的全局

@@ -156,7 +156,7 @@ class FixedDRTrackerRollout:
             # Retained in logs/checkpoints for backward compatibility. Online
             # rollout now uses asynchronous per-slot resets, so this stays zero.
             self.synchronous_resets = 0
-            self.motion_ids_seen: set[int] = set()
+            self._motion_ids_seen = torch.empty(0, dtype=torch.long, device=self.env.device)
 
             actor = self._runtime.actor
             if actor.training or any(parameter.requires_grad for parameter in actor.parameters()):
@@ -172,6 +172,14 @@ class FixedDRTrackerRollout:
     @property
     def transitions(self) -> int:
         return self.collector_step * self.num_envs
+
+    @property
+    def motions_seen_count(self) -> int:
+        return self._motion_ids_seen.numel()
+
+    @property
+    def motion_ids_seen(self) -> tuple[int, ...]:
+        return tuple(int(value) for value in self._motion_ids_seen.tolist())
 
     @property
     def metadata(self) -> dict[str, Any]:
@@ -194,19 +202,41 @@ class FixedDRTrackerRollout:
             ),
         }
 
-    def _assert_fixed_dr(self) -> None:
+    def _assert_fixed_dr(self, env_ids: torch.Tensor | None = None) -> None:
+        unchanged: torch.Tensor | None = None
         for name, expected in self._fixed_dr_model_fields.items():
-            actual = getattr(self.env.sim.model, name).clone()
-            if not torch.equal(actual, expected):
-                raise RuntimeError(f"Physics DR field {name!r} changed during an episode reset")
+            actual = getattr(self.env.sim.model, name)
+            if (
+                env_ids is not None
+                and actual.ndim > 0
+                and expected.ndim > 0
+                and actual.shape[0] == self.num_envs
+                and expected.shape[0] == self.num_envs
+            ):
+                actual = actual[env_ids]
+                expected = expected[env_ids]
+            field_unchanged = torch.eq(actual, expected).all()
+            unchanged = (
+                field_unchanged
+                if unchanged is None
+                else torch.logical_and(unchanged, field_unchanged)
+            )
+        if unchanged is None or not bool(unchanged):
+            raise RuntimeError("A fixed physics DR field changed during an episode reset")
         self.dr_invariance_checks += 1
+
+    def _record_motion_ids(self, motion_ids: torch.Tensor) -> None:
+        self._motion_ids_seen = torch.unique(
+            torch.cat((self._motion_ids_seen, motion_ids.detach().to(dtype=torch.long).flatten()))
+        )
 
     def step(self) -> dict[str, torch.Tensor]:
         """Collect one transition from every vector slot."""
         if self.closed:
             raise RuntimeError("Cannot step a closed rollout")
         before = _snapshot(self.env, self.observations)
-        self.motion_ids_seen.update(int(value) for value in before["motion_id"].tolist())
+        if self.collector_step == 0:
+            self._record_motion_ids(before["motion_id"])
         action = self.policy(self.observations)
         if not isinstance(action, torch.Tensor):
             raise TypeError(f"Frozen tracker must return a Tensor, got {type(action).__name__}")
@@ -242,14 +272,16 @@ class FixedDRTrackerRollout:
 
         self.collector_step += 1
         self.episode_steps += 1
-        done_count = int(done.count_nonzero().item())
+        done_ids = done.nonzero(as_tuple=False).flatten()
+        done_count = int(done_ids.numel())
         if done_count:
             # MJLab has already reset precisely these slots and returned their
             # post-reset observations. Boundary transitions are excluded from
             # causal replay samples, while unaffected slots remain continuous.
-            self._assert_fixed_dr()
-            self.episode_ids[done] += 1
-            self.episode_steps[done] = 0
+            self._assert_fixed_dr(done_ids)
+            self._record_motion_ids(after["motion_id"][done_ids])
+            self.episode_ids[done_ids] += 1
+            self.episode_steps[done_ids] = 0
             self.reset_events += 1
             self.environments_reset += done_count
         self.observations = next_observations

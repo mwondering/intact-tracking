@@ -27,7 +27,7 @@ def test_online_rollout_resets_only_completed_slots(monkeypatch) -> None:
         device = "cpu"
 
         def __init__(self) -> None:
-            self.sim = SimpleNamespace(model=SimpleNamespace())
+            self.sim = SimpleNamespace(model=SimpleNamespace(body_mass=torch.ones(3, 1)))
 
         def step(self, action: torch.Tensor):
             assert action.shape == (3, 29)
@@ -51,7 +51,7 @@ def test_online_rollout_resets_only_completed_slots(monkeypatch) -> None:
     rollout.observations = "before"
     rollout.policy = lambda _observations: torch.zeros(3, 29)
     rollout._clip_actions = None
-    rollout._fixed_dr_model_fields = {}
+    rollout._fixed_dr_model_fields = {"body_mass": torch.ones(3, 1)}
     rollout.dr_invariance_checks = 0
     rollout.world_ids = torch.arange(3)
     rollout.episode_ids = torch.zeros(3, dtype=torch.long)
@@ -61,7 +61,7 @@ def test_online_rollout_resets_only_completed_slots(monkeypatch) -> None:
     rollout.reset_events = 0
     rollout.environments_reset = 0
     rollout.synchronous_resets = 0
-    rollout.motion_ids_seen = set()
+    rollout._motion_ids_seen = torch.arange(3)
 
     batch = rollout.step()
 
@@ -75,3 +75,4 @@ def test_online_rollout_resets_only_completed_slots(monkeypatch) -> None:
     assert rollout.environments_reset == 1
     assert rollout.synchronous_resets == 0
     assert rollout.dr_invariance_checks == 1
+    assert rollout.motions_seen_count == 3

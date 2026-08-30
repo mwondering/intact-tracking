@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 import torch
 
 from intact_tracking.data import OnlineNormalization, OnlineReplayBuffer, RolloutDimensions
@@ -148,6 +149,100 @@ def test_online_replay_offsets_world_ids_for_distributed_ranks() -> None:
     assert replay.world_ids == (6, 7)
     assert set(batch["world_id"].tolist()) == {6, 7}
     assert replay.normalization().world_ids == (6, 7)
+
+
+def test_online_replay_materializes_the_exact_causal_window() -> None:
+    replay = OnlineReplayBuffer(
+        num_worlds=1,
+        dimensions=DIMENSIONS,
+        block_size=2,
+        horizon=2,
+        context_tokens=16,
+        capacity=1,
+    )
+    for step in range(replay.minimum_steps):
+        replay.add_step(_step_batch(step))
+
+    observations = replay._samples["observation"][0]
+    actions = replay._samples["action"][0]
+    previous = replay._samples["previous_action"][0]
+    context_before = replay._samples["context_before"][0]
+    context_after = replay._samples["context_after"][0]
+
+    expected_observations = torch.stack(
+        (
+            _step_batch(32)["observation"][0],
+            _step_batch(34)["observation"][0],
+            _step_batch(35)["next_observation"][0],
+        )
+    )
+    expected_actions = torch.stack(
+        tuple(
+            torch.stack((_step_batch(start)["action"][0], _step_batch(start + 1)["action"][0]))
+            for start in (32, 34)
+        )
+    )
+    expected_previous = torch.stack(
+        (
+            torch.stack((_step_batch(30)["action"][0], _step_batch(31)["action"][0])),
+            expected_actions[0],
+        )
+    )
+    expected_context_before = torch.stack(
+        tuple(_step_batch(step)["proprio"][0] for step in range(0, 32, 2))
+    )
+    expected_context_after = torch.stack(
+        tuple(_step_batch(step)["next_proprio"][0] for step in range(1, 32, 2))
+    )
+    torch.testing.assert_close(observations, expected_observations)
+    torch.testing.assert_close(actions, expected_actions)
+    torch.testing.assert_close(previous, expected_previous)
+    torch.testing.assert_close(context_before, expected_context_before)
+    torch.testing.assert_close(context_after, expected_context_after)
+
+
+def test_online_replay_boundary_is_independent_per_world() -> None:
+    replay = OnlineReplayBuffer(
+        num_worlds=2,
+        dimensions=DIMENSIONS,
+        block_size=2,
+        horizon=2,
+        context_tokens=16,
+        capacity=4,
+    )
+    for collector_step in range(replay.minimum_steps):
+        batch = _step_batch(collector_step, num_worlds=2)
+        if collector_step == 20:
+            batch["reset_boundary"][1] = True
+        elif collector_step > 20:
+            batch["episode_id"][1] = 1
+            batch["episode_step"][1] = collector_step - 21
+        replay.add_step(batch)
+
+    assert len(replay) == 1
+    assert replay._samples["world_id"][0].item() == 0
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA is unavailable")
+def test_online_replay_and_normalization_remain_on_gpu() -> None:
+    device = torch.device("cuda:0")
+    replay = OnlineReplayBuffer(
+        num_worlds=2,
+        dimensions=DIMENSIONS,
+        block_size=2,
+        horizon=2,
+        context_tokens=16,
+        capacity=8,
+        device=device,
+    )
+    for step in range(replay.minimum_steps):
+        batch = {name: value.to(device) for name, value in _step_batch(step, num_worlds=2).items()}
+        replay.add_step(batch)
+
+    sampled = replay.sample_batch(2)
+    assert replay.storage_bytes == replay.estimated_storage_bytes
+    assert replay.normalizer.observation.total.device == device
+    assert all(value.device == device for value in sampled.values())
 
 
 def test_online_normalization_merges_additive_rank_statistics() -> None:
