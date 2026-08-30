@@ -12,10 +12,13 @@ usage() {
     "" \
     "Environment:" \
     "  PYTHON_BIN  Python executable (default: this repository's .venv)" \
-    "  DEVICE      Simulator/training device (default: cuda:0)" \
+    "  DEVICE      Single-process device (default: cuda:0)" \
+    "  GPUS        Comma-separated GPU IDs; 2+ IDs launch one torchrun rank per GPU" \
     "" \
     "Example:" \
-    "  $0 checkpoint.pt motions/ runs/intact_online --updates 10000 --batch-size 64"
+    "  GPUS=0,1 $0 checkpoint.pt motions/ runs/intact_online --updates 10000 --batch-size 64" \
+    "" \
+    "--num-envs, --batch-size, and --replay-capacity are per GPU/rank."
 }
 
 if (( $# == 0 )) || [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
@@ -31,6 +34,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 INTACT_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 PYTHON_BIN="${PYTHON_BIN:-${INTACT_ROOT}/.venv/bin/python}"
 DEVICE="${DEVICE:-cuda:0}"
+GPUS="${GPUS:-}"
 
 CHECKPOINT_FILE="$1"
 MOTION_SOURCE="$2"
@@ -80,6 +84,24 @@ fi
 mkdir -p "${OUTPUT_DIR}"
 OUTPUT_DIR="$(realpath --canonicalize-existing -- "${OUTPUT_DIR}")"
 
+NPROC=1
+if [[ -n "${GPUS}" ]]; then
+  if ! [[ "${GPUS}" =~ ^[0-9]+(,[0-9]+)*$ ]]; then
+    echo "GPUS must be comma-separated non-negative GPU IDs, got: ${GPUS}" >&2
+    exit 2
+  fi
+  IFS=',' read -r -a gpu_ids <<< "${GPUS}"
+  declare -A seen_gpu_ids=()
+  for gpu_id in "${gpu_ids[@]}"; do
+    if [[ -n "${seen_gpu_ids[${gpu_id}]:-}" ]]; then
+      echo "GPUS contains a duplicate GPU ID: ${gpu_id}" >&2
+      exit 2
+    fi
+    seen_gpu_ids["${gpu_id}"]=1
+  done
+  NPROC="${#gpu_ids[@]}"
+fi
+
 on_exit() {
   status=$?
   if (( status != 0 )); then
@@ -88,16 +110,34 @@ on_exit() {
 }
 trap on_exit EXIT
 
-command=(
-  env -u PYTHONPATH "${PYTHON_BIN}" -m intact_tracking.cli.online_train
+command=(env -u PYTHONPATH)
+if [[ -n "${GPUS}" ]]; then
+  command+=(CUDA_VISIBLE_DEVICES="${GPUS}")
+fi
+command+=("${PYTHON_BIN}")
+if (( NPROC > 1 )); then
+  command+=(
+    -m torch.distributed.run
+    --standalone
+    --nproc-per-node "${NPROC}"
+    -m intact_tracking.cli.online_train
+  )
+else
+  command+=(
+    -m intact_tracking.cli.online_train
+  )
+fi
+command+=(
   --checkpoint-file "${CHECKPOINT_FILE}"
   "${motion_argument[@]}"
   --output-dir "${OUTPUT_DIR}"
-  --device "${DEVICE}"
-  "$@"
 )
+if (( NPROC == 1 )); then
+  command+=(--device "${DEVICE}")
+fi
+command+=("$@")
 
-printf 'Launching pure online training:'
+printf 'Launching pure online training (%d rank(s)):' "${NPROC}"
 printf ' %q' "${command[@]}"
 printf '\n'
 

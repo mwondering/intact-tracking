@@ -122,23 +122,48 @@ episode 内；16 个 context token 只从同一固定 physics world 的 query �
 ```
 
 第二个位置参数也可以是单个 motion `.npz`。脚本默认使用仓库 `.venv` 和 `cuda:0`；
-可通过 `PYTHON_BIN=/path/to/python` 与 `DEVICE=cuda:1` 指定解释器和单张 GPU。当前在线
-模拟器与 INTACT 训练位于同一进程、同一设备，不实现跨 GPU DDP。
+可通过 `PYTHON_BIN=/path/to/python` 与 `DEVICE=cuda:1` 指定解释器和单张 GPU。
 
-训练调度如下：先至少采集 `warmup-steps`；如果合法 replay sample 尚不足一个
-`batch-size`，就自动继续 rollout，直到凑齐或触及 `max-warmup-steps`。第一次优化随即发生。
+单机多卡使用 `GPUS` 指定物理 GPU：
+
+```bash
+GPUS=0,2,3 ./scripts/run_training.sh \
+  /path/to/checkpoint.pt \
+  /path/to/motion_directory \
+  /path/to/runs/intact_online_ddp \
+  --num-envs 16 \
+  --batch-size 64 \
+  --updates 10000
+```
+
+脚本会通过 `torchrun` 为每张可见 GPU 启动一个进程。每个 rank 在自己的 GPU 上运行冻结
+tracker、固定 DR vector worlds 和本地 causal replay；完整 INTACT 模型经 DDP 同步全部可训练
+参数的梯度。16 个 context token 始终来自同一个 rank 内的同一个固定 physics world，不会跨
+world 或跨 rank 拼接。在线 observation/proprio/action 的 sufficient statistics 每轮经
+all-reduce 合并，因此所有 rank 使用同一份全局 normalization。
+
+`--num-envs`、`--batch-size`、`--replay-capacity` 都是**每个 rank**的值。例如
+`GPUS=0,1 --num-envs 16 --batch-size 64` 表示全局 32 个环境、每个 optimizer step 的全局
+batch 为 128。DDP 对各 rank 梯度取平均，learning rate 不会随卡数自动放大。motion 目录由
+各 rank 分片加载；如果传入单个 motion 文件，则每个 rank 使用相同 motion、不同固定 DR
+world。全局 `world_id = rank × num_envs + local_env_id`，不会冲突。
+
+训练调度如下：每个 rank 先至少采集 `warmup-steps`；如果任一 rank 的合法 replay sample
+尚不足本地 `batch-size`，所有 rank 就继续 rollout，直到全部就绪或触及
+`max-warmup-steps`。第一次同步优化随即发生。
 此后每轮先新增 `rollout-steps-per-update` 个 vector-environment step，再执行
 `gradient-steps-per-update` 个 mini-batch 更新。因而：
 
-- `--batch-size` 控制每次梯度更新抽取的 causal window 数；
+- `--batch-size` 控制每个 rank 每次梯度更新抽取的 causal window 数；
 - `--updates` 控制 rollout/update 轮数；
 - 总 optimizer step 数为 `updates × gradient-steps-per-update`；
-- 一次环境步产生 `num-envs` 条 transition。
+- `W` 张卡的一次环境步产生 `W × num-envs` 条 transition。
 
 默认 logger 不依赖 W&B。终端按 `log-interval` 打印一条 JSON，包含 `loss`、
 `forward_loss`、`sigreg_loss`、`action_loss`、`physical_nll`、`goal_nll`、两项 MAE、
 gradient norm、learning rate、env/optimizer step、replay size、reset 与 motion 计数。
-完整逐轮记录写入 `metrics.jsonl`，并生成：
+终端和文件中的 loss 是所有 rank 的均值，transition/replay/reset 等计数是全局和；只有 rank 0
+打印、记录和保存 checkpoint。完整逐轮记录写入 `metrics.jsonl`，并生成：
 
 - `run_config.json`：训练、tracker、motion、固定 DR 和在线 replay 契约；
 - `normalization.json`：截至 checkpoint 的在线 running statistics；
@@ -200,6 +225,13 @@ DEVICE=cuda:1 OUTPUT_ROOT=/data/smoke \
 ./scripts/run_smoke_test.sh /path/to/checkpoint.pt /path/to/motions
 ```
 
+双卡 smoke 使用同一入口：
+
+```bash
+GPUS=0,1 OUTPUT_ROOT=/data/smoke \
+./scripts/run_smoke_test.sh /path/to/checkpoint.pt /path/to/motions
+```
+
 脚本会校验 tracker 冻结、startup DR 在 rollout 期间不再采样的运行契约、随机 motion 已参与 rollout、
 至少 105 个因果环境步、固定 16-token context、有限 loss、精确一个 optimizer step、在线
 normalization 及非空 `last.pt`。
@@ -215,8 +247,9 @@ uv build
 
 当前测试覆盖共享四槽 actor、goal endpoint stop-gradient、physical successor attached
 gradient、固定 16-token contract、Direct recurrent plan、跨 shard episode 索引、离线与
-在线的因果 same-world context、跨 episode context、raw-zero previous action、replay 容量
-和 world-disjoint split。真实 checkpoint 的端到端验证由在线 smoke 脚本完成。
+在线的因果 same-world context、跨 episode context、raw-zero previous action、replay 容量、
+全局 normalization 合并、DDP 梯度同步和 world-disjoint split。真实 checkpoint 的端到端
+验证由在线 smoke 脚本完成。
 
 ## 当前边界
 
@@ -224,4 +257,4 @@ gradient、固定 16-token contract、Direct recurrent plan、跨 shard episode 
 在线训练没有独立 validation split；需要泛化评估时，应另启固定 DR seeds/worlds 的只读评估。
 当前 checkpoint 不保存 replay 内容，因此尚不支持 bit-exact 中断续训。Stage II RL action
 head 尚未加入；在正确 context 相对 no/wrong/shuffled context 的收益通过验证前，不进入
-Stage II。
+Stage II。当前正式 launcher 支持单机多卡；多节点 torchrun 尚未作为受支持配置验证。

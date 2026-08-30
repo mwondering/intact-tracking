@@ -25,7 +25,11 @@ def _assert_finite_metrics(name: str, metrics: dict[str, Any]) -> None:
             raise RuntimeError(f"{name}.{metric} is not finite: {value!r}")
 
 
-def verify(run_dir: Path, expected_num_envs: int) -> dict[str, Any]:
+def verify(
+    run_dir: Path,
+    expected_num_envs: int,
+    expected_world_size: int = 1,
+) -> dict[str, Any]:
     run_config = _read_json(run_dir / "run_config.json")
     history = _read_json(run_dir / "history.json")
     normalization = _read_json(run_dir / "normalization.json")
@@ -48,6 +52,13 @@ def verify(run_dir: Path, expected_num_envs: int) -> dict[str, Any]:
     for name, expected in expected_arguments.items():
         if arguments.get(name) != expected:
             raise RuntimeError(f"Unexpected smoke argument {name}: {arguments.get(name)!r}")
+    distributed = run_config.get("distributed", {})
+    if distributed.get("world_size") != expected_world_size:
+        raise RuntimeError(f"Unexpected distributed world size: {distributed.get('world_size')!r}")
+    if distributed.get("global_num_envs") != expected_num_envs * expected_world_size:
+        raise RuntimeError("Smoke run recorded an incorrect global environment count")
+    if distributed.get("global_batch_size") != expected_world_size:
+        raise RuntimeError("Smoke run recorded an incorrect global DDP batch size")
 
     rollout = run_config.get("rollout", {})
     if rollout.get("tracker_frozen") is not True:
@@ -68,7 +79,8 @@ def verify(run_dir: Path, expected_num_envs: int) -> dict[str, Any]:
     minimum_steps = (16 + 5) * 5
     if record.get("env_steps", 0) < minimum_steps:
         raise RuntimeError(f"Online update started before full context: {record['env_steps']}")
-    if record.get("transitions", 0) < expected_num_envs * minimum_steps:
+    minimum_transitions = expected_num_envs * expected_world_size * minimum_steps
+    if record.get("transitions", 0) < minimum_transitions:
         raise RuntimeError("Online transition count is smaller than the causal warmup")
     if record.get("replay_size", 0) < 1 or record.get("samples_generated", 0) < 1:
         raise RuntimeError("Online replay did not contain a trainable causal sample")
@@ -90,6 +102,8 @@ def verify(run_dir: Path, expected_num_envs: int) -> dict[str, Any]:
     if not checkpoint_path.is_file() or checkpoint_path.stat().st_size == 0:
         raise RuntimeError(f"Checkpoint is missing or empty: {checkpoint_path}")
     checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+    if checkpoint.get("distributed", {}).get("world_size") != expected_world_size:
+        raise RuntimeError("Checkpoint has an incorrect distributed world size")
     if checkpoint.get("tracker", {}).get("frozen") is not True:
         raise RuntimeError("Checkpoint does not mark the tracker as frozen")
     online_state = checkpoint.get("online_state", {})
@@ -113,8 +127,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run-dir", type=Path, required=True)
     parser.add_argument("--expected-num-envs", type=int, required=True)
+    parser.add_argument("--expected-world-size", type=int, default=1)
     args = parser.parse_args()
-    result = verify(args.run_dir.resolve(), args.expected_num_envs)
+    result = verify(
+        args.run_dir.resolve(),
+        args.expected_num_envs,
+        args.expected_world_size,
+    )
     print(json.dumps(result, indent=2, sort_keys=True))
 
 

@@ -29,11 +29,14 @@ class FixedDRRolloutConfig:
     num_envs: int = 16
     device: str | None = None
     seed: int = 0
+    world_id_offset: int = 0
     stochastic_policy: bool = False
 
     def __post_init__(self) -> None:
         if self.num_envs < 1:
             raise ValueError("num_envs must be positive")
+        if self.world_id_offset < 0:
+            raise ValueError("world_id_offset must be non-negative")
         if bool(self.motion_path) == bool(self.motion_file):
             raise ValueError("Provide exactly one of motion_path or motion_file")
 
@@ -134,10 +137,15 @@ class FixedDRTrackerRollout:
             self.wrapped = self._runtime.wrapped
             self.policy = self._runtime.policy
             self.observations = self.wrapped.get_observations()
-            self.world_ids = torch.arange(config.num_envs, device=self.env.device, dtype=torch.long)
+            self.world_ids = torch.arange(
+                config.world_id_offset,
+                config.world_id_offset + config.num_envs,
+                device=self.env.device,
+                dtype=torch.long,
+            )
             self.episode_ids = torch.zeros_like(self.world_ids)
             self.episode_steps = torch.zeros_like(self.world_ids)
-            self.env_ids = self.world_ids.clone()
+            self.env_ids = torch.arange(config.num_envs, device=self.env.device, dtype=torch.long)
             self.collector_step = 0
             self.synchronous_resets = 0
             self.motion_ids_seen: set[int] = set()
@@ -163,6 +171,7 @@ class FixedDRTrackerRollout:
             "checkpoint_path": str(self.checkpoint_path),
             "checkpoint_task_id": self.checkpoint_task_id,
             "tracker_frozen": True,
+            "world_id_offset": self.config.world_id_offset,
             "startup_events": self.startup_events,
             "removed_non_startup_events": self.removed_non_startup_events,
             "disabled_startup_reset_callbacks": self.disabled_startup_reset_callbacks,

@@ -36,6 +36,16 @@ class _RunningMoments:
         variance = (self.square_total / self.count - mean.square()).clamp_min(epsilon**2)
         return mean.to(torch.float32), variance.sqrt().to(torch.float32)
 
+    def packed(self) -> torch.Tensor:
+        """Return additive sufficient statistics as ``count, sum, square_sum``."""
+        return torch.cat(
+            (
+                torch.tensor([self.count], dtype=torch.float64),
+                self.total,
+                self.square_total,
+            )
+        )
+
 
 class OnlineNormalization:
     """Running train-stream statistics applied when a replay batch is sampled."""
@@ -58,6 +68,73 @@ class OnlineNormalization:
         observation_mean, observation_std = self.observation.mean_std(self.epsilon)
         proprio_mean, proprio_std = self.proprio.mean_std(self.epsilon)
         action_mean, action_std = self.action.mean_std(self.epsilon)
+        return NormalizationStats(
+            observation_mean=tuple(float(value) for value in observation_mean),
+            observation_std=tuple(float(value) for value in observation_std),
+            proprio_mean=tuple(float(value) for value in proprio_mean),
+            proprio_std=tuple(float(value) for value in proprio_std),
+            action_mean=tuple(float(value) for value in action_mean),
+            action_std=tuple(float(value) for value in action_std),
+            world_ids=world_ids,
+            epsilon=self.epsilon,
+        )
+
+    @property
+    def packed_size(self) -> int:
+        return sum(
+            1 + 2 * width
+            for width in (
+                self.dimensions.observation,
+                self.dimensions.proprio,
+                self.dimensions.action,
+            )
+        )
+
+    def packed_statistics(self, device: torch.device | str | None = None) -> torch.Tensor:
+        """Pack additive moments for an optional distributed all-reduce."""
+        packed = torch.cat(
+            (
+                self.observation.packed(),
+                self.proprio.packed(),
+                self.action.packed(),
+            )
+        )
+        return packed.to(device=device) if device is not None else packed
+
+    def snapshot_from_packed(
+        self,
+        packed: torch.Tensor,
+        world_ids: tuple[int, ...],
+    ) -> NormalizationStats:
+        """Build normalization from globally summed sufficient statistics."""
+        flat = packed.detach().to(device="cpu", dtype=torch.float64).flatten()
+        if flat.numel() != self.packed_size:
+            raise ValueError(
+                f"Packed normalization has {flat.numel()} values, expected {self.packed_size}"
+            )
+        if not torch.isfinite(flat).all():
+            raise ValueError("Packed normalization contains non-finite values")
+
+        offset = 0
+
+        def read(width: int) -> tuple[torch.Tensor, torch.Tensor]:
+            nonlocal offset
+            count_value = flat[offset]
+            count = int(count_value.item())
+            if count < 1 or count_value != count:
+                raise ValueError(f"Invalid packed normalization count: {count_value.item()}")
+            offset += 1
+            total = flat[offset : offset + width]
+            offset += width
+            square_total = flat[offset : offset + width]
+            offset += width
+            mean = total / count
+            variance = (square_total / count - mean.square()).clamp_min(self.epsilon**2)
+            return mean.to(torch.float32), variance.sqrt().to(torch.float32)
+
+        observation_mean, observation_std = read(self.dimensions.observation)
+        proprio_mean, proprio_std = read(self.dimensions.proprio)
+        action_mean, action_std = read(self.dimensions.action)
         return NormalizationStats(
             observation_mean=tuple(float(value) for value in observation_mean),
             observation_std=tuple(float(value) for value in observation_std),
@@ -142,12 +219,16 @@ class OnlineReplayBuffer:
         context_tokens: int = 16,
         capacity: int = 8192,
         seed: int = 0,
+        world_id_offset: int = 0,
     ) -> None:
         if num_worlds < 1 or block_size < 1 or horizon < 1 or capacity < 1:
             raise ValueError("num_worlds, block_size, horizon and capacity must be positive")
         if context_tokens != 16:
             raise ValueError("Online INTACT context_tokens is fixed at 16")
+        if world_id_offset < 0:
+            raise ValueError("world_id_offset must be non-negative")
         self.num_worlds = int(num_worlds)
+        self.world_id_offset = int(world_id_offset)
         self.dimensions = dimensions or RolloutDimensions()
         self.block_size = int(block_size)
         self.horizon = int(horizon)
@@ -172,7 +253,7 @@ class OnlineReplayBuffer:
 
     @property
     def world_ids(self) -> tuple[int, ...]:
-        return tuple(range(self.num_worlds))
+        return tuple(range(self.world_id_offset, self.world_id_offset + self.num_worlds))
 
     def normalization(self) -> NormalizationStats:
         return self.normalizer.snapshot(self.world_ids)
@@ -295,10 +376,13 @@ class OnlineReplayBuffer:
         generated = 0
         for env_id in range(self.num_worlds):
             transition = self._transition(batch, env_id)
-            if transition.world_id != env_id:
+            expected_world_id = self.world_id_offset + env_id
+            if transition.world_id != expected_world_id:
                 raise ValueError(
-                    "Online fixed-world contract requires world_id == env_id; "
-                    f"slot {env_id} reported {transition.world_id}"
+                    "Online fixed-world contract requires world_id == "
+                    "world_id_offset + env_id; "
+                    f"slot {env_id} expected {expected_world_id}, "
+                    f"reported {transition.world_id}"
                 )
             episode = self._episodes[env_id]
             episode.append(transition)
@@ -333,7 +417,11 @@ class OnlineReplayBuffer:
             )
         )
 
-    def sample_batch(self, batch_size: int) -> dict[str, torch.Tensor]:
+    def sample_batch(
+        self,
+        batch_size: int,
+        normalization: NormalizationStats | None = None,
+    ) -> dict[str, torch.Tensor]:
         if batch_size < 1:
             raise ValueError("batch_size must be positive")
         if len(self._samples) < batch_size:
@@ -343,7 +431,7 @@ class OnlineReplayBuffer:
         population = list(self._samples)
         indices = self._rng.choice(len(population), size=batch_size, replace=False)
         selected = [population[int(index)] for index in indices]
-        stats = self.normalization()
+        stats = normalization or self.normalization()
         obs_mean, obs_std, prop_mean, prop_std, action_mean, action_std = (
             self._normalization_tensors(stats)
         )

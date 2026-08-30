@@ -1,23 +1,32 @@
-"""Train INTACT online from a frozen tracker and live fixed-DR MJLab worlds."""
+"""Train INTACT online from frozen trackers and live fixed-DR MJLab worlds."""
 
 from __future__ import annotations
 
 import argparse
 import importlib.metadata
 import json
+import os
 import random
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, TypeVar
 
 import numpy as np
 import torch
+from torch.nn.parallel import DistributedDataParallel
 
-from intact_tracking.data import OnlineReplayBuffer, RolloutDimensions
+from intact_tracking.data import (
+    NormalizationStats,
+    OnlineReplayBuffer,
+    RolloutDimensions,
+)
+from intact_tracking.distributed import DistributedContext
 from intact_tracking.model import SIGReg, TrackingINTACT, TrackingINTACTConfig
-from intact_tracking.objective import INTACTLossConfig, intact_objective
+from intact_tracking.objective import INTACTLossConfig, TrackingINTACTObjective
 from intact_tracking.rollout import FixedDRRolloutConfig, FixedDRTrackerRollout
 from intact_tracking.rollout.mjlab_adapter import _sha256
+
+T = TypeVar("T")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -28,8 +37,21 @@ def build_parser() -> argparse.ArgumentParser:
     motion.add_argument("--motion-file")
     parser.add_argument("--output-dir", required=True)
     parser.add_argument("--task-id")
-    parser.add_argument("--num-envs", type=int, default=16)
-    parser.add_argument("--device")
+    parser.add_argument(
+        "--num-envs",
+        type=int,
+        default=16,
+        help="Vector environments per process/GPU (global count is WORLD_SIZE times this).",
+    )
+    parser.add_argument(
+        "--device",
+        help="Single-process device only; torchrun assigns cuda:LOCAL_RANK automatically.",
+    )
+    parser.add_argument(
+        "--distributed-backend",
+        choices=("nccl", "gloo"),
+        help="Optional torchrun backend override (default: NCCL on CUDA, Gloo on CPU).",
+    )
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--stochastic-policy", action="store_true")
 
@@ -37,19 +59,29 @@ def build_parser() -> argparse.ArgumentParser:
         "--warmup-steps",
         type=int,
         default=120,
-        help="Minimum vector-environment steps before the first optimizer update.",
+        help="Minimum vector-environment steps per rank before the first update.",
     )
     parser.add_argument(
         "--max-warmup-steps",
         type=int,
         default=10_000,
-        help="Fail if reset boundaries prevent a full replay batch by this step.",
+        help="Fail if every rank lacks a full local replay batch by this step.",
     )
     parser.add_argument("--updates", type=int, default=10_000)
     parser.add_argument("--rollout-steps-per-update", type=int, default=5)
     parser.add_argument("--gradient-steps-per-update", type=int, default=1)
-    parser.add_argument("--batch-size", type=int, default=64)
-    parser.add_argument("--replay-capacity", type=int, default=8192)
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=64,
+        help="Batch size per rank (global DDP batch is WORLD_SIZE times this).",
+    )
+    parser.add_argument(
+        "--replay-capacity",
+        type=int,
+        default=8192,
+        help="Causal replay sample capacity per rank.",
+    )
     parser.add_argument("--log-interval", type=int, default=10)
     parser.add_argument("--checkpoint-interval", type=int, default=1000)
 
@@ -159,6 +191,103 @@ def _write_json(path: Path, value: Any) -> None:
     path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n")
 
 
+def _main_process_call(
+    distributed: DistributedContext,
+    action: Callable[[], T],
+) -> T:
+    """Run filesystem work on rank 0 and propagate its result or failure."""
+    payload: dict[str, Any] | None = None
+    if distributed.is_main:
+        try:
+            payload = {"ok": True, "value": action()}
+        except BaseException as error:
+            payload = {
+                "ok": False,
+                "error_type": type(error).__name__,
+                "error": str(error),
+            }
+    payload = distributed.broadcast_object(payload)
+    if payload is None or not payload["ok"]:
+        details = payload or {"error_type": "RuntimeError", "error": "missing result"}
+        raise RuntimeError(f"Rank-0 operation failed ({details['error_type']}): {details['error']}")
+    return payload["value"]
+
+
+def _prepare_paths(args: argparse.Namespace) -> dict[str, str]:
+    output_dir = Path(args.output_dir).expanduser().resolve()
+    output_dir.mkdir(parents=True, exist_ok=True)
+    if (output_dir / "last.pt").exists() or (output_dir / "run_config.json").exists():
+        raise FileExistsError(f"Refusing to overwrite an existing run in {output_dir}")
+    checkpoint_path = Path(args.checkpoint_file).expanduser().resolve()
+    if not checkpoint_path.is_file():
+        raise FileNotFoundError(checkpoint_path)
+    return {
+        "output_dir": str(output_dir),
+        "checkpoint_path": str(checkpoint_path),
+        "tracker_sha256": _sha256(checkpoint_path),
+    }
+
+
+def _global_normalization(
+    distributed: DistributedContext,
+    replay: OnlineReplayBuffer,
+    global_num_envs: int,
+) -> NormalizationStats:
+    packed = replay.normalizer.packed_statistics(distributed.device)
+    distributed.all_reduce_sum(packed)
+    return replay.normalizer.snapshot_from_packed(
+        packed,
+        tuple(range(global_num_envs)),
+    )
+
+
+def _aggregate_online_counts(
+    distributed: DistributedContext,
+    replay: OnlineReplayBuffer,
+    rollout: FixedDRTrackerRollout,
+) -> dict[str, int]:
+    totals = distributed.sum_integers(
+        {
+            "rank_env_steps": rollout.collector_step,
+            "transitions": rollout.transitions,
+            "replay_size": len(replay),
+            "samples_generated": replay.total_samples_generated,
+            "synchronous_resets": rollout.synchronous_resets,
+            "dr_invariance_checks": rollout.dr_invariance_checks,
+            "motions_seen": len(rollout.motion_ids_seen),
+        }
+    )
+    totals["env_steps"] = totals.pop("rank_env_steps") // distributed.world_size
+    return totals
+
+
+def _checkpoint_online_state(
+    distributed: DistributedContext,
+    replay: OnlineReplayBuffer,
+    rollout: FixedDRTrackerRollout,
+) -> dict[str, Any]:
+    rank_states = distributed.all_gather_object(
+        {
+            "rank": distributed.rank,
+            "device": str(distributed.device),
+            "world_ids": list(replay.world_ids),
+            "env_steps": rollout.collector_step,
+            "transitions": rollout.transitions,
+            "replay_size": len(replay),
+            "samples_generated": replay.total_samples_generated,
+            "synchronous_resets": rollout.synchronous_resets,
+            "dr_invariance_checks": rollout.dr_invariance_checks,
+            "motion_ids_seen": sorted(rollout.motion_ids_seen),
+        }
+    )
+    counts = _aggregate_online_counts(distributed, replay, rollout)
+    return {
+        **counts,
+        "ranks": rank_states,
+        "domain_randomization_contract": rollout.metadata["domain_randomization_contract"],
+    }
+
+
 def _checkpoint_state(
     *,
     update: int,
@@ -169,9 +298,12 @@ def _checkpoint_state(
     scheduler: torch.optim.lr_scheduler.LRScheduler,
     model_config: TrackingINTACTConfig,
     loss_config: INTACTLossConfig,
-    replay: OnlineReplayBuffer,
+    normalization: NormalizationStats,
+    online_state: dict[str, Any],
     rollout: FixedDRTrackerRollout,
     tracker_sha256: str,
+    distributed: DistributedContext,
+    batch_size_per_rank: int,
 ) -> dict[str, Any]:
     return {
         "update": update,
@@ -182,30 +314,28 @@ def _checkpoint_state(
         "scheduler": scheduler.state_dict(),
         "model_config": asdict(model_config),
         "loss_config": asdict(loss_config),
-        "normalization": asdict(replay.normalization()),
+        "normalization": asdict(normalization),
+        "distributed": {
+            "enabled": distributed.enabled,
+            "backend": distributed.backend,
+            "world_size": distributed.world_size,
+            "batch_size_per_rank": batch_size_per_rank,
+            "global_batch_size": batch_size_per_rank * distributed.world_size,
+        },
         "tracker": {
             "checkpoint_path": str(rollout.checkpoint_path),
             "checkpoint_sha256": tracker_sha256,
             "task_id": rollout.checkpoint_task_id,
             "frozen": True,
         },
-        "online_state": {
-            "env_steps": rollout.collector_step,
-            "transitions": rollout.transitions,
-            "replay_size": len(replay),
-            "samples_generated": replay.total_samples_generated,
-            "synchronous_resets": rollout.synchronous_resets,
-            "dr_invariance_checks": rollout.dr_invariance_checks,
-            "motion_ids_seen": sorted(rollout.motion_ids_seen),
-            "domain_randomization_contract": rollout.metadata["domain_randomization_contract"],
-        },
+        "online_state": online_state,
     }
 
 
 def _save_checkpoint(
     output_dir: Path,
     state: dict[str, Any],
-    normalization: Any,
+    normalization: NormalizationStats,
     history: list[dict[str, Any]],
     *,
     numbered: bool,
@@ -223,21 +353,70 @@ def _save_checkpoint(
     temporary.replace(target)
 
 
-def run(args: argparse.Namespace) -> Path:
-    _validate_arguments(args)
-    _seed_everything(args.seed)
-    torch.set_float32_matmul_precision("high")
-    output_dir = Path(args.output_dir).expanduser().resolve()
-    output_dir.mkdir(parents=True, exist_ok=True)
-    if (output_dir / "last.pt").exists() or (output_dir / "run_config.json").exists():
-        raise FileExistsError(f"Refusing to overwrite an existing run in {output_dir}")
+def _save_current_checkpoint(
+    *,
+    distributed: DistributedContext,
+    output_dir: Path,
+    update: int,
+    optimizer_steps: int,
+    model: TrackingINTACT,
+    sigreg: SIGReg,
+    optimizer: torch.optim.Optimizer,
+    scheduler: torch.optim.lr_scheduler.LRScheduler,
+    model_config: TrackingINTACTConfig,
+    loss_config: INTACTLossConfig,
+    normalization: NormalizationStats,
+    replay: OnlineReplayBuffer,
+    rollout: FixedDRTrackerRollout,
+    tracker_sha256: str,
+    history: list[dict[str, Any]],
+    batch_size_per_rank: int,
+    numbered: bool,
+) -> None:
+    online_state = _checkpoint_online_state(distributed, replay, rollout)
 
-    checkpoint_path = Path(args.checkpoint_file).expanduser().resolve()
-    if not checkpoint_path.is_file():
-        raise FileNotFoundError(checkpoint_path)
-    tracker_sha256 = _sha256(checkpoint_path)
-    device = torch.device(args.device or ("cuda:0" if torch.cuda.is_available() else "cpu"))
+    def save() -> None:
+        state = _checkpoint_state(
+            update=update,
+            optimizer_steps=optimizer_steps,
+            model=model,
+            sigreg=sigreg,
+            optimizer=optimizer,
+            scheduler=scheduler,
+            model_config=model_config,
+            loss_config=loss_config,
+            normalization=normalization,
+            online_state=online_state,
+            rollout=rollout,
+            tracker_sha256=tracker_sha256,
+            distributed=distributed,
+            batch_size_per_rank=batch_size_per_rank,
+        )
+        _save_checkpoint(
+            output_dir,
+            state,
+            normalization,
+            history,
+            numbered=numbered,
+        )
+
+    _main_process_call(distributed, save)
+
+
+def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
+    rank_seed = args.seed + distributed.rank
+    _seed_everything(rank_seed)
+    torch.set_float32_matmul_precision("high")
+    paths = _main_process_call(distributed, lambda: _prepare_paths(args))
+    output_dir = Path(paths["output_dir"])
+    checkpoint_path = Path(paths["checkpoint_path"])
+    tracker_sha256 = paths["tracker_sha256"]
+    device = distributed.device
     dimensions = RolloutDimensions()
+    global_num_envs = args.num_envs * distributed.world_size
+    global_batch_size = args.batch_size * distributed.world_size
+    world_id_offset = distributed.rank * args.num_envs
+
     model_config = TrackingINTACTConfig(
         observation_dim=dimensions.observation,
         proprio_dim=dimensions.proprio,
@@ -268,7 +447,8 @@ def run(args: argparse.Namespace) -> Path:
         task_id=args.task_id,
         num_envs=args.num_envs,
         device=str(device),
-        seed=args.seed,
+        seed=rank_seed,
+        world_id_offset=world_id_offset,
         stochastic_policy=args.stochastic_policy,
     )
     replay = OnlineReplayBuffer(
@@ -278,11 +458,13 @@ def run(args: argparse.Namespace) -> Path:
         horizon=args.horizon,
         context_tokens=16,
         capacity=args.replay_capacity,
-        seed=args.seed,
+        seed=rank_seed,
+        world_id_offset=world_id_offset,
     )
 
     rollout = FixedDRTrackerRollout(rollout_config)
     try:
+        rollout_metadata = distributed.all_gather_object(rollout.metadata)
         run_config = {
             "method": "INTACT-online",
             "mode": "pure online rollout-and-update",
@@ -293,35 +475,81 @@ def run(args: argparse.Namespace) -> Path:
                 "intent_actor": "one shared four-slot Gaussian actor",
                 "context_tokens": 16,
                 "context_injection": "shared latent FiLM; no fifth actor slot",
+                "distributed": "full-model synchronous data parallelism",
             },
             "arguments": vars(args),
             "model": asdict(model_config),
             "loss": asdict(loss_config),
-            "rollout": rollout.metadata,
+            "rollout": rollout_metadata[0],
+            "rollout_ranks": rollout_metadata,
+            "distributed": {
+                "enabled": distributed.enabled,
+                "backend": distributed.backend,
+                "world_size": distributed.world_size,
+                "launcher": "torchrun" if distributed.enabled else "single process",
+                "num_envs_per_rank": args.num_envs,
+                "global_num_envs": global_num_envs,
+                "batch_size_per_rank": args.batch_size,
+                "global_batch_size": global_batch_size,
+                "replay_capacity_per_rank": args.replay_capacity,
+                "global_replay_capacity": args.replay_capacity * distributed.world_size,
+                "rank_seed": "seed + global_rank",
+                "world_id": "global_rank * num_envs + local_env_id",
+                "gradient_reduction": "DDP mean over all ranks",
+                "normalization": "globally summed sufficient statistics",
+                "checkpoint_owner": "rank 0",
+            },
             "tracker_checkpoint_sha256": tracker_sha256,
             "mjlab_version": importlib.metadata.version("mjlab"),
             "replay": {
-                "storage": "in-memory raw transitions and causal samples",
-                "capacity": args.replay_capacity,
+                "storage": "rank-local in-memory raw transitions and causal samples",
+                "capacity_per_rank": args.replay_capacity,
                 "minimum_full_context_steps_per_world": replay.minimum_steps,
-                "normalization": "running statistics over the live stream",
+                "normalization": "global running statistics over every live rank stream",
+                "context_scope": "same fixed-DR world only; never crosses ranks",
                 "validation_split": None,
             },
         }
-        _write_json(output_dir / "run_config.json", run_config)
+        _main_process_call(
+            distributed,
+            lambda: _write_json(output_dir / "run_config.json", run_config),
+        )
 
-        while rollout.collector_step < args.warmup_steps or len(replay) < args.batch_size:
-            replay.add_step(rollout.step())
-            if rollout.collector_step >= args.max_warmup_steps and len(replay) < args.batch_size:
+        while True:
+            locally_ready = (
+                rollout.collector_step >= args.warmup_steps and len(replay) >= args.batch_size
+            )
+            if distributed.all_true(locally_ready):
+                break
+            if rollout.collector_step >= args.max_warmup_steps:
+                replay_sizes = distributed.all_gather_object(len(replay))
                 raise RuntimeError(
-                    "Online warmup reached max-warmup-steps without a full replay batch: "
-                    f"steps={rollout.collector_step}, replay={len(replay)}, "
-                    f"batch_size={args.batch_size}. Motions may reset before the "
-                    f"{args.horizon * args.block_size}-step query is complete."
+                    "Online warmup reached max-warmup-steps before every rank had a "
+                    f"full local batch: steps={rollout.collector_step}, "
+                    f"replay_sizes={replay_sizes}, batch_size_per_rank={args.batch_size}. "
+                    "Motions may reset before the causal query is complete."
                 )
+            replay.add_step(rollout.step())
 
         model = TrackingINTACT(model_config).to(device)
         sigreg = SIGReg(num_proj=args.sigreg_projections).to(device)
+        objective = TrackingINTACTObjective(
+            model,
+            loss_config=loss_config,
+            sigreg=sigreg,
+        )
+        training_module: torch.nn.Module
+        if distributed.enabled:
+            ddp_options: dict[str, Any] = {"broadcast_buffers": False}
+            if device.type == "cuda":
+                ddp_options.update(
+                    device_ids=[device.index],
+                    output_device=device.index,
+                )
+            training_module = DistributedDataParallel(objective, **ddp_options)
+        else:
+            training_module = objective
+
         optimizer = torch.optim.AdamW(
             model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay
         )
@@ -332,24 +560,28 @@ def run(args: argparse.Namespace) -> Path:
         history: list[dict[str, Any]] = []
         metrics_path = output_dir / "metrics.jsonl"
         optimizer_steps = 0
+        normalization = _global_normalization(distributed, replay, global_num_envs)
 
         for update in range(1, args.updates + 1):
             if update > 1:
                 for _ in range(args.rollout_steps_per_update):
                     replay.add_step(rollout.step())
 
-            model.train()
+            normalization = _global_normalization(distributed, replay, global_num_envs)
+            training_module.train()
             train_metrics: list[dict[str, float]] = []
             gradient_norms: list[float] = []
             for _ in range(args.gradient_steps_per_update):
-                batch = _to_device(replay.sample_batch(args.batch_size), device)
-                optimizer.zero_grad(set_to_none=True)
-                output = intact_objective(
-                    model,
-                    batch,
-                    loss_config=loss_config,
-                    sigreg=sigreg,
+                batch = _to_device(
+                    replay.sample_batch(args.batch_size, normalization=normalization),
+                    device,
                 )
+                optimizer.zero_grad(set_to_none=True)
+                output = training_module(batch)
+                if not isinstance(output, dict):
+                    raise TypeError("INTACT objective module must return a metric dictionary")
+                if not torch.isfinite(output["loss"]):
+                    raise RuntimeError(f"Non-finite loss at optimizer step {optimizer_steps + 1}")
                 output["loss"].backward()
                 gradient_norm = torch.nn.utils.clip_grad_norm_(
                     model.parameters(), args.gradient_clip
@@ -364,31 +596,37 @@ def run(args: argparse.Namespace) -> Path:
                 train_metrics.append(_scalar_metrics(output))
                 gradient_norms.append(float(gradient_norm.detach()))
 
+            global_train_metrics = distributed.mean_scalars(_average(train_metrics))
+            global_gradient_norm = distributed.mean_scalars(
+                {"gradient_norm": sum(gradient_norms) / len(gradient_norms)}
+            )["gradient_norm"]
+            counts = _aggregate_online_counts(distributed, replay, rollout)
             record = {
                 "update": update,
                 "optimizer_steps": optimizer_steps,
-                "env_steps": rollout.collector_step,
-                "transitions": rollout.transitions,
-                "replay_size": len(replay),
-                "samples_generated": replay.total_samples_generated,
-                "synchronous_resets": rollout.synchronous_resets,
-                "dr_invariance_checks": rollout.dr_invariance_checks,
-                "motions_seen": len(rollout.motion_ids_seen),
+                **counts,
+                "num_envs_per_rank": args.num_envs,
+                "global_num_envs": global_num_envs,
+                "batch_size_per_rank": args.batch_size,
+                "global_batch_size": global_batch_size,
                 "learning_rate": optimizer.param_groups[0]["lr"],
-                "gradient_norm": sum(gradient_norms) / len(gradient_norms),
-                "train": _average(train_metrics),
+                "gradient_norm": global_gradient_norm,
+                "train": global_train_metrics,
             }
-            history.append(record)
-            with metrics_path.open("a") as handle:
-                handle.write(json.dumps(record, sort_keys=True) + "\n")
-            if update == 1 or update % args.log_interval == 0 or update == args.updates:
-                print(json.dumps(record, sort_keys=True), flush=True)
+            if distributed.is_main:
+                history.append(record)
+                with metrics_path.open("a") as handle:
+                    handle.write(json.dumps(record, sort_keys=True) + "\n")
+                if update == 1 or update % args.log_interval == 0 or update == args.updates:
+                    print(json.dumps(record, sort_keys=True), flush=True)
 
             checkpoint_due = bool(args.checkpoint_interval) and (
                 update % args.checkpoint_interval == 0
             )
             if checkpoint_due:
-                state = _checkpoint_state(
+                _save_current_checkpoint(
+                    distributed=distributed,
+                    output_dir=output_dir,
                     update=update,
                     optimizer_steps=optimizer_steps,
                     model=model,
@@ -397,19 +635,18 @@ def run(args: argparse.Namespace) -> Path:
                     scheduler=scheduler,
                     model_config=model_config,
                     loss_config=loss_config,
+                    normalization=normalization,
                     replay=replay,
                     rollout=rollout,
                     tracker_sha256=tracker_sha256,
-                )
-                _save_checkpoint(
-                    output_dir,
-                    state,
-                    replay.normalization(),
-                    history,
+                    history=history,
+                    batch_size_per_rank=args.batch_size,
                     numbered=True,
                 )
 
-        final_state = _checkpoint_state(
+        _save_current_checkpoint(
+            distributed=distributed,
+            output_dir=output_dir,
             update=args.updates,
             optimizer_steps=optimizer_steps,
             model=model,
@@ -418,25 +655,36 @@ def run(args: argparse.Namespace) -> Path:
             scheduler=scheduler,
             model_config=model_config,
             loss_config=loss_config,
+            normalization=normalization,
             replay=replay,
             rollout=rollout,
             tracker_sha256=tracker_sha256,
-        )
-        _save_checkpoint(
-            output_dir,
-            final_state,
-            replay.normalization(),
-            history,
+            history=history,
+            batch_size_per_rank=args.batch_size,
             numbered=False,
         )
+        distributed.barrier()
         return output_dir / "last.pt"
     finally:
         rollout.close()
 
 
+def run(args: argparse.Namespace) -> Path:
+    _validate_arguments(args)
+    distributed = DistributedContext.initialize(
+        requested_device=args.device,
+        requested_backend=args.distributed_backend,
+    )
+    try:
+        return _run(args, distributed)
+    finally:
+        distributed.close()
+
+
 def main() -> None:
     checkpoint = run(build_parser().parse_args())
-    print(checkpoint)
+    if int(os.environ.get("RANK", "0")) == 0:
+        print(checkpoint)
 
 
 if __name__ == "__main__":

@@ -192,3 +192,31 @@ def intact_objective(
         "goal_embedding": goal_embedding,
         "world_embedding": world,
     }
+
+
+class TrackingINTACTObjective(torch.nn.Module):
+    """Module-form objective so DDP observes the complete training forward pass.
+
+    Calling :func:`intact_objective` directly through ``DDP.module`` would bypass
+    DDP's forward bookkeeping.  This wrapper preserves the original objective
+    while making gradient synchronization correct and explicit.
+    """
+
+    def __init__(
+        self,
+        model: TrackingINTACT,
+        loss_config: INTACTLossConfig | None = None,
+        sigreg: SIGReg | None = None,
+    ) -> None:
+        super().__init__()
+        self.model = model
+        self.loss_config = loss_config or INTACTLossConfig()
+        self.sigreg = sigreg or SIGReg()
+
+    def forward(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+        return intact_objective(
+            self.model,
+            batch,
+            loss_config=self.loss_config,
+            sigreg=self.sigreg,
+        )

@@ -12,9 +12,10 @@ usage() {
     "" \
     "Environment:" \
     "  PYTHON_BIN     Python executable (default: this repository's .venv)" \
-    "  DEVICE         Simulator/training device (default: cuda:0)" \
+    "  DEVICE         Single-process device (default: cuda:0)" \
+    "  GPUS           Comma-separated GPU IDs; 2+ IDs run a DDP smoke test" \
     "  OUTPUT_ROOT    Smoke artifact parent (default: ./runs)" \
-    "  SMOKE_NUM_ENVS Vector environment count (default: 3)"
+    "  SMOKE_NUM_ENVS Vector environments per GPU/rank (default: 3)"
 }
 
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
@@ -32,6 +33,7 @@ PYTHON_BIN="${PYTHON_BIN:-${INTACT_ROOT}/.venv/bin/python}"
 CHECKPOINT_FILE="${1:-${CHECKPOINT_FILE:-}}"
 MOTION_SOURCE="${2:-${MOTION_PATH:-}}"
 DEVICE="${DEVICE:-cuda:0}"
+GPUS="${GPUS:-}"
 OUTPUT_ROOT="${OUTPUT_ROOT:-${INTACT_ROOT}/runs}"
 SMOKE_NUM_ENVS="${SMOKE_NUM_ENVS:-3}"
 
@@ -42,6 +44,23 @@ fi
 if ! [[ "${SMOKE_NUM_ENVS}" =~ ^[1-9][0-9]*$ ]]; then
   echo "SMOKE_NUM_ENVS must be a positive integer, got: ${SMOKE_NUM_ENVS}" >&2
   exit 2
+fi
+NPROC=1
+if [[ -n "${GPUS}" ]]; then
+  if ! [[ "${GPUS}" =~ ^[0-9]+(,[0-9]+)*$ ]]; then
+    echo "GPUS must be comma-separated non-negative GPU IDs, got: ${GPUS}" >&2
+    exit 2
+  fi
+  IFS=',' read -r -a gpu_ids <<< "${GPUS}"
+  declare -A seen_gpu_ids=()
+  for gpu_id in "${gpu_ids[@]}"; do
+    if [[ -n "${seen_gpu_ids[${gpu_id}]:-}" ]]; then
+      echo "GPUS contains a duplicate GPU ID: ${gpu_id}" >&2
+      exit 2
+    fi
+    seen_gpu_ids["${gpu_id}"]=1
+  done
+  NPROC="${#gpu_ids[@]}"
 fi
 if [[ ! -x "${PYTHON_BIN}" ]]; then
   echo "Python executable not found: ${PYTHON_BIN}" >&2
@@ -79,32 +98,52 @@ on_exit() {
 }
 trap on_exit EXIT
 
-echo "[1/2] Running live frozen-tracker rollout and one immediate INTACT update"
+echo "[1/2] Running ${NPROC}-rank frozen-tracker rollout and one immediate INTACT update"
+
+command=(env -u PYTHONPATH)
+if [[ -n "${GPUS}" ]]; then
+  command+=(CUDA_VISIBLE_DEVICES="${GPUS}")
+fi
+command+=("${PYTHON_BIN}")
+if (( NPROC > 1 )); then
+  command+=(
+    -m torch.distributed.run
+    --standalone
+    --nproc-per-node "${NPROC}"
+    -m intact_tracking.cli.online_train
+  )
+else
+  command+=(-m intact_tracking.cli.online_train)
+fi
+command+=(
+    --checkpoint-file "${CHECKPOINT_FILE}"
+    "${motion_argument[@]}"
+    --output-dir "${TRAIN_DIR}"
+    --num-envs "${SMOKE_NUM_ENVS}"
+    --warmup-steps 105
+    --max-warmup-steps 2000
+    --updates 1
+    --rollout-steps-per-update 5
+    --gradient-steps-per-update 1
+    --batch-size 1
+    --replay-capacity 32
+    --log-interval 1
+    --checkpoint-interval 1
+    --block-size 5
+    --horizon 5
+)
+if (( NPROC == 1 )); then
+  command+=(--device "${DEVICE}")
+fi
 (
   cd "${INTACT_ROOT}"
-  env -u PYTHONPATH "${PYTHON_BIN}" -m intact_tracking.cli.online_train \
-      --checkpoint-file "${CHECKPOINT_FILE}" \
-      "${motion_argument[@]}" \
-      --output-dir "${TRAIN_DIR}" \
-      --num-envs "${SMOKE_NUM_ENVS}" \
-      --warmup-steps 105 \
-      --max-warmup-steps 2000 \
-      --updates 1 \
-      --rollout-steps-per-update 5 \
-      --gradient-steps-per-update 1 \
-      --batch-size 1 \
-      --replay-capacity 32 \
-      --log-interval 1 \
-      --checkpoint-interval 1 \
-      --block-size 5 \
-      --horizon 5 \
-      --device "${DEVICE}" \
-      2>&1 | tee "${TRAIN_DIR}/train.log"
+  "${command[@]}" 2>&1 | tee "${TRAIN_DIR}/train.log"
 )
 
 echo "[2/2] Verifying online schedule, fixed DR contract, losses, and checkpoint"
 env -u PYTHONPATH "${PYTHON_BIN}" "${INTACT_ROOT}/scripts/verify_online_smoke.py" \
     --run-dir "${TRAIN_DIR}" \
-    --expected-num-envs "${SMOKE_NUM_ENVS}"
+    --expected-num-envs "${SMOKE_NUM_ENVS}" \
+    --expected-world-size "${NPROC}"
 
 echo "Smoke test passed: ${SMOKE_ROOT}"
