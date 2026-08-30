@@ -295,7 +295,9 @@ Desired Motion Intent 可以由当前 robot state 与 Reference Motion 所定义
 
 # 9. World Model 的联合监督训练
 
-World Model 第一阶段完全使用 rollout data 进行监督 / 自监督训练，不使用 RL。
+World Model 第一阶段采用纯在线 rollout 进行监督 / 自监督训练，不使用 RL：冻结 Tracker，
+为每个并行环境在进程启动时固定采样一套 DR，随机加载 motion；一旦内存 replay 中形成完整
+16-token causal context 和 query batch，就立即更新 World Model，而不是先生成离线数据集。
 
 同一条数据：
 
@@ -393,7 +395,7 @@ World-Aware Prior
 
 ## Stage I：World Learning
 
-冻结 Large Tracker，通过不同 randomized dynamics 下的大量 rollout训练：
+冻结 Large Tracker，通过不同 randomized dynamics 下的在线 rollout 与即时 replay 更新训练：
 
 > Interaction Encoder
 > JEPA Forward Predictor
@@ -404,6 +406,10 @@ World-Aware Prior
 > **从 Interaction Context 中理解当前 World。**
 
 这一阶段完全是 supervised / self-supervised learning。
+
+每个并行环境的 physics DR 在整次训练进程内固定，episode reset 只随机重采样 motion 与
+机器人初始状态。这样 16-token interaction context 始终描述同一个 world，同时 motion
+内容持续变化，避免把 motion identity 当作 dynamics context。
 
 ---
 

@@ -186,7 +186,10 @@ def create_runtime(
             raise KeyError("Checkpoint has neither actor_state_dict nor policy weights")
         actor.load_state_dict(state, strict=True)
         del state, checkpoint
+        actor.requires_grad_(False)
         actor.eval()
+        if any(parameter.requires_grad for parameter in actor.parameters()):
+            raise RuntimeError("Frozen tracker still has trainable parameters")
     except BaseException:
         env.close()
         raise

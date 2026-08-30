@@ -1,8 +1,9 @@
 # INTACT Tracking
 
-本仓库提供一个完整闭环：使用仓库内的 MJLab 环境与冻结的 SPV5-2 tracker
-执行 rollout，生成可移植训练数据，再训练 context-conditioned INTACT。环境构造、MDP
-terms、策略结构、G1 MJCF 与 mesh 均随本包安装；运行时不需要另一个代码仓库或额外的
+本仓库的正式路径是纯在线训练：使用仓库内的 MJLab 环境与冻结的 SPV5-2 tracker
+持续执行 rollout，transition 直接进入内存 causal replay；一旦凑齐完整训练 batch，立即
+更新 context-conditioned INTACT。过程中不生成或读取 `manifest.json`。环境构造、MDP
+terms、策略结构、G1 MJCF 与 mesh 均随本包安装；运行时不需要另一个源码仓库或额外的
 `PYTHONPATH`。
 
 实现保留 INTACT 的训练骨架：一个 observation Encoder、一个 LeWM-style Forward
@@ -85,10 +86,70 @@ rollout 时可用的 simulator/reference 完整状态：
 这两个 raw state 不要求部署可得，也不进入当前核心 INTACT 训练；它们仅供数据审计和
 后续 probe 使用。完整字段定义见 `src/intact_tracking/data/schema.py`。
 
-## 采集 rollout
+## 纯在线 rollout 契约
 
-采集器根据 checkpoint 中保存的 `cfg` 重建环境和 SPV5-2 actor，并严格加载 actor
-权重。只需要显式给出 checkpoint、motion 数据和输出目录：
+正式训练启动时，每个 vector slot 对应一个固定 physics world：
+
+- 仅保留 checkpoint 中 `mode=startup` 的 DR event；它们在首条 rollout 前确定每个 slot 的
+  DR 参数。
+- 整个训练进程不再调用 startup DR，因此 reset 和 motion 切换都不会改变该 slot 的物理参数。
+- MJLab class-based event 的 reset callback 在初始化 reset 后被禁用，避免其绕过 event mode
+  在后续 episode reset 中重采样参数。
+- motion command 在初始化和 episode reset 时随机采样 motion；机器人同步重置到 reference。
+- `auto_reset=False`。任一 slot 终止时，先保留真实 terminal transition，再同步 reset 所有 slot，
+  以保持 observation history 严格对齐。
+- tracker 权重严格加载后执行 `requires_grad_(False)` 和 `eval()`；优化器只持有 INTACT 参数。
+
+内存 replay 保存未归一化 transition，并维护在线 running statistics。query 必须位于一个连续
+episode 内；16 个 context token 只从同一固定 physics world 的 query 之前选取，可以跨越
+早先 episode。`B=5`、`H=5` 时，首个合法样本最早出现在每个 world 的
+`(16 + 5) × 5 = 105` 个环境步之后；不使用 padded context。
+
+## 正式在线训练
+
+```bash
+./scripts/run_training.sh \
+  /path/to/checkpoint.pt \
+  /path/to/motion_directory \
+  /path/to/runs/intact_online \
+  --num-envs 16 \
+  --warmup-steps 120 \
+  --updates 10000 \
+  --rollout-steps-per-update 5 \
+  --gradient-steps-per-update 1 \
+  --batch-size 64 \
+  --replay-capacity 8192
+```
+
+第二个位置参数也可以是单个 motion `.npz`。脚本默认使用仓库 `.venv` 和 `cuda:0`；
+可通过 `PYTHON_BIN=/path/to/python` 与 `DEVICE=cuda:1` 指定解释器和单张 GPU。当前在线
+模拟器与 INTACT 训练位于同一进程、同一设备，不实现跨 GPU DDP。
+
+训练调度如下：先至少采集 `warmup-steps`；如果合法 replay sample 尚不足一个
+`batch-size`，就自动继续 rollout，直到凑齐或触及 `max-warmup-steps`。第一次优化随即发生。
+此后每轮先新增 `rollout-steps-per-update` 个 vector-environment step，再执行
+`gradient-steps-per-update` 个 mini-batch 更新。因而：
+
+- `--batch-size` 控制每次梯度更新抽取的 causal window 数；
+- `--updates` 控制 rollout/update 轮数；
+- 总 optimizer step 数为 `updates × gradient-steps-per-update`；
+- 一次环境步产生 `num-envs` 条 transition。
+
+默认 logger 不依赖 W&B。终端按 `log-interval` 打印一条 JSON，包含 `loss`、
+`forward_loss`、`sigreg_loss`、`action_loss`、`physical_nll`、`goal_nll`、两项 MAE、
+gradient norm、learning rate、env/optimizer step、replay size、reset 与 motion 计数。
+完整逐轮记录写入 `metrics.jsonl`，并生成：
+
+- `run_config.json`：训练、tracker、motion、固定 DR 和在线 replay 契约；
+- `normalization.json`：截至 checkpoint 的在线 running statistics；
+- `update_XXXXXX.pt`、`last.pt`：INTACT、优化器、scheduler 与在线进度；
+- `history.json`：所有 update 的结构化记录；
+- `train.log`：正式脚本捕获的完整终端输出。
+
+## 可选离线导出
+
+离线 collector 仍保留用于数据审计、复现实验或 probe，不是正式训练的前置步骤。它根据
+checkpoint 中保存的 `cfg` 重建环境和 SPV5-2 actor，并严格加载 actor 权重：
 
 ```bash
 uv run intact-tracking-collect \
@@ -116,38 +177,15 @@ checkpoint 的 actor 为 `SPV52HeightContactEstimatorActor`，机器人 asset �
 - 每 3000 个控制步重新采样 startup DR，并分配新的 `world_id`。
 - manifest 保存 checkpoint SHA-256、task id、MJLab 版本、采集配置和重置协议。
 
-分片是 mmap-readable 的 NumPy column store。训练至少需要三个不同 `world_id`，数据集
-按 world 而不是 clip 随机拆分。
-
-## 正式训练
-
-```bash
-./scripts/run_training.sh \
-  /path/to/rollouts/run_000/manifest.json \
-  /path/to/runs/intact_tracking_e5 \
-  --epochs 5 \
-  --batch-size 256 \
-  --workers 4
-```
-
-脚本默认使用仓库 `.venv` 和 `cuda:0`；可通过 `PYTHON_BIN=/path/to/python` 与
-`DEVICE=cuda:1` 覆盖。其余参数直接转发给训练 CLI。输出目录必须为空，脚本完整遍历
-每个 epoch，并拒绝 smoke batch 上限与 padded context。默认保持 `B=5`、`H=5`、
-固定 16-token context、INTACT 模型和联合损失配置。
-
-训练统计量只使用 train worlds。缺失的 previous action 先在原始动作空间补零，再做
-z-score。输出目录包含：
-
-- `run_config.json`：训练架构、超参数和 world split；
-- `normalization.json`：仅由 train worlds 估计的统计量；
-- `epoch_XXX.pt`、`last.pt`：模型与优化器 checkpoint；
-- `history.json`：Forward、physical、goal 与 SIGReg 指标。
+分片是 mmap-readable 的 NumPy column store。若确实需要旧的离线训练，可运行
+`uv run intact-tracking-train-offline --manifest ...`；该兼容入口按 physics world 拆分数据，
+但不再是 `intact-tracking-train` 或 `scripts/run_training.sh` 的默认行为。
 
 ## 端到端 smoke test
 
-最小 smoke 使用三个独立静态 world 采集 360 条 transition，随后以 `batch-size=1`
-执行一次完整 INTACT optimizer step 和一次 validation batch。它使用正式模型宽度、
-Forward、SIGReg、共享四槽 actor和完整 16-token context：
+最小 smoke 在同一进程内启动真实 MJLab、冻结 tracker、在线采样，然后以
+`batch-size=1` 执行一次完整 INTACT optimizer step。它使用正式模型宽度、Forward、
+SIGReg、共享四槽 actor 和完整 16-token context：
 
 ```bash
 ./scripts/run_smoke_test.sh \
@@ -162,8 +200,9 @@ DEVICE=cuda:1 OUTPUT_ROOT=/data/smoke \
 ./scripts/run_smoke_test.sh /path/to/checkpoint.pt /path/to/motions
 ```
 
-脚本会校验 transition/world 数量、固定 16-token contract、有限 loss、精确的一个训练
-batch、一个验证 batch 及非空 `last.pt`。
+脚本会校验 tracker 冻结、startup DR 在 rollout 期间不再采样的运行契约、随机 motion 已参与 rollout、
+至少 105 个因果环境步、固定 16-token context、有限 loss、精确一个 optimizer step、在线
+normalization 及非空 `last.pt`。
 
 ## 开发验证
 
@@ -175,12 +214,14 @@ uv build
 ```
 
 当前测试覆盖共享四槽 actor、goal endpoint stop-gradient、physical successor attached
-gradient、固定 16-token contract、Direct recurrent plan、跨 shard episode 索引、因果
-same-world context、raw-zero previous action 和 world-disjoint split。真实 checkpoint 的
-端到端验证由 smoke 脚本完成。
+gradient、固定 16-token contract、Direct recurrent plan、跨 shard episode 索引、离线与
+在线的因果 same-world context、跨 episode context、raw-zero previous action、replay 容量
+和 world-disjoint split。真实 checkpoint 的端到端验证由在线 smoke 脚本完成。
 
 ## 当前边界
 
-当前完成“仓库内 rollout → causal window → INTACT 联合训练”的闭环。大规模数据采集与
-正式训练需在目标算力上执行；Stage II RL action head 尚未加入。在正确 context 相对
-no/wrong/shuffled context 的收益通过验证前，不进入 Stage II。
+当前完成“冻结 tracker 在线 rollout → 内存 causal replay → 即时 INTACT 联合更新”的闭环。
+在线训练没有独立 validation split；需要泛化评估时，应另启固定 DR seeds/worlds 的只读评估。
+当前 checkpoint 不保存 replay 内容，因此尚不支持 bit-exact 中断续训。Stage II RL action
+head 尚未加入；在正确 context 相对 no/wrong/shuffled context 的收益通过验证前，不进入
+Stage II。

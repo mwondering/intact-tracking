@@ -4,25 +4,25 @@ set -Eeuo pipefail
 
 usage() {
   printf '%s\n' \
-    "Usage: $0 MANIFEST OUTPUT_DIR [TRAIN_OPTIONS...]" \
+    "Usage: $0 CHECKPOINT MOTION_SOURCE OUTPUT_DIR [ONLINE_OPTIONS...]" \
     "" \
-    "Run a complete INTACT training job over every batch in every epoch." \
-    "MANIFEST is a rollout manifest.json; OUTPUT_DIR must be new or empty." \
-    "Additional options are forwarded to intact_tracking.cli.train." \
+    "Run pure online INTACT training: frozen tracker rollout and immediate updates." \
+    "MOTION_SOURCE may be a motion directory or one motion .npz file." \
+    "OUTPUT_DIR must be new or empty. No rollout manifest is required." \
     "" \
     "Environment:" \
     "  PYTHON_BIN  Python executable (default: this repository's .venv)" \
-    "  DEVICE      Training device (default: cuda:0)" \
+    "  DEVICE      Simulator/training device (default: cuda:0)" \
     "" \
     "Example:" \
-    "  $0 /data/rollout/manifest.json runs/intact_e5 --epochs 5 --batch-size 256"
+    "  $0 checkpoint.pt motions/ runs/intact_online --updates 10000 --batch-size 64"
 }
 
 if (( $# == 0 )) || [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   usage
   exit 0
 fi
-if (( $# < 2 )); then
+if (( $# < 3 )); then
   usage >&2
   exit 2
 fi
@@ -32,22 +32,15 @@ INTACT_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 PYTHON_BIN="${PYTHON_BIN:-${INTACT_ROOT}/.venv/bin/python}"
 DEVICE="${DEVICE:-cuda:0}"
 
-MANIFEST="$1"
-OUTPUT_DIR="$2"
-shift 2
+CHECKPOINT_FILE="$1"
+MOTION_SOURCE="$2"
+OUTPUT_DIR="$3"
+shift 3
 
 for argument in "$@"; do
   case "${argument}" in
-    --max-train-batches|--max-train-batches=*|--max-validation-batches|--max-validation-batches=*)
-      echo "Formal training forbids smoke batch limits: ${argument}" >&2
-      exit 2
-      ;;
-    --allow-padded-context)
-      echo "Formal training requires all 16 context tokens; padded context is disabled" >&2
-      exit 2
-      ;;
-    --manifest|--manifest=*|--output-dir|--output-dir=*|--device|--device=*)
-      echo "Pass manifest/output positionally and device through DEVICE: ${argument}" >&2
+    --checkpoint-file|--checkpoint-file=*|--motion-path|--motion-path=*|--motion-file|--motion-file=*|--output-dir|--output-dir=*|--device|--device=*)
+      echo "Pass checkpoint/motion/output positionally and device through DEVICE: ${argument}" >&2
       exit 2
       ;;
   esac
@@ -58,11 +51,23 @@ if [[ ! -x "${PYTHON_BIN}" ]]; then
   echo "Create the repository environment first: uv sync --extra dev" >&2
   exit 2
 fi
-if [[ ! -f "${MANIFEST}" ]]; then
-  echo "Rollout manifest not found: ${MANIFEST}" >&2
+if [[ ! -f "${CHECKPOINT_FILE}" ]]; then
+  echo "Checkpoint not found: ${CHECKPOINT_FILE}" >&2
   exit 2
 fi
-MANIFEST="$(realpath --canonicalize-existing -- "${MANIFEST}")"
+CHECKPOINT_FILE="$(realpath --canonicalize-existing -- "${CHECKPOINT_FILE}")"
+
+motion_argument=()
+if [[ -d "${MOTION_SOURCE}" ]]; then
+  MOTION_SOURCE="$(realpath --canonicalize-existing -- "${MOTION_SOURCE}")"
+  motion_argument=(--motion-path "${MOTION_SOURCE}")
+elif [[ -f "${MOTION_SOURCE}" ]]; then
+  MOTION_SOURCE="$(realpath --canonicalize-existing -- "${MOTION_SOURCE}")"
+  motion_argument=(--motion-file "${MOTION_SOURCE}")
+else
+  echo "Motion source is neither a directory nor a file: ${MOTION_SOURCE}" >&2
+  exit 2
+fi
 
 if [[ -e "${OUTPUT_DIR}" && ! -d "${OUTPUT_DIR}" ]]; then
   echo "Output path exists and is not a directory: ${OUTPUT_DIR}" >&2
@@ -78,20 +83,21 @@ OUTPUT_DIR="$(realpath --canonicalize-existing -- "${OUTPUT_DIR}")"
 on_exit() {
   status=$?
   if (( status != 0 )); then
-    echo "Training failed; partial artifacts kept at: ${OUTPUT_DIR}" >&2
+    echo "Online training failed; partial artifacts kept at: ${OUTPUT_DIR}" >&2
   fi
 }
 trap on_exit EXIT
 
 command=(
-  env -u PYTHONPATH "${PYTHON_BIN}" -m intact_tracking.cli.train
-  --manifest "${MANIFEST}"
+  env -u PYTHONPATH "${PYTHON_BIN}" -m intact_tracking.cli.online_train
+  --checkpoint-file "${CHECKPOINT_FILE}"
+  "${motion_argument[@]}"
   --output-dir "${OUTPUT_DIR}"
   --device "${DEVICE}"
   "$@"
 )
 
-printf 'Launching full training:'
+printf 'Launching pure online training:'
 printf ' %q' "${command[@]}"
 printf '\n'
 
