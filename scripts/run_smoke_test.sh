@@ -123,14 +123,16 @@ command+=(
     --warmup-steps 105
     --max-warmup-steps 2000
     --updates 1
-    --rollout-steps-per-update 5
+    --rollout-steps-per-update 1
     --gradient-steps-per-update 1
     --batch-size 1
     --replay-capacity 32
     --log-interval 1
     --checkpoint-interval 1
-    --block-size 5
-    --horizon 5
+    --effect-steps 5
+    --query-transitions 5
+    --context-chunk-steps 5
+    --sample-stride 1
 )
 if (( NPROC == 1 )); then
   command+=(--device "${DEVICE}")

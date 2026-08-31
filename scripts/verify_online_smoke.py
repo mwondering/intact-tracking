@@ -44,10 +44,13 @@ def verify(
     expected_arguments = {
         "num_envs": expected_num_envs,
         "updates": 1,
+        "rollout_steps_per_update": 1,
         "gradient_steps_per_update": 1,
         "batch_size": 1,
-        "block_size": 5,
-        "horizon": 5,
+        "effect_steps": 5,
+        "query_transitions": 5,
+        "context_chunk_steps": 5,
+        "sample_stride": 1,
     }
     for name, expected in expected_arguments.items():
         if arguments.get(name) != expected:
@@ -84,8 +87,20 @@ def verify(
         raise RuntimeError("Online transition count is smaller than the causal warmup")
     if record.get("replay_size", 0) < 1 or record.get("samples_generated", 0) < 1:
         raise RuntimeError("Online replay did not contain a trainable causal sample")
+    if record.get("new_samples_generated", 0) < 1:
+        raise RuntimeError("First update did not count windows generated during warmup")
     _assert_finite_metrics("train", record.get("train", {}))
-    _assert_finite_metrics("optimizer", {"gradient_norm": record.get("gradient_norm")})
+    _assert_finite_metrics(
+        "optimizer",
+        {
+            "gradient_norm": record.get("gradient_norm"),
+            "gradient_norm_max": record.get("gradient_norm_max"),
+            "gradient_norm_p95": record.get("gradient_norm_p95"),
+            "gradient_clip_fraction": record.get("gradient_clip_fraction"),
+        },
+    )
+    if record.get("window", {}).get("updates") != 1:
+        raise RuntimeError("Smoke run did not record rolling stability diagnostics")
 
     for name in (
         "observation_mean",
@@ -102,6 +117,8 @@ def verify(
     if not checkpoint_path.is_file() or checkpoint_path.stat().st_size == 0:
         raise RuntimeError(f"Checkpoint is missing or empty: {checkpoint_path}")
     checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+    if checkpoint.get("architecture_version") != "single_step_effect_v1":
+        raise RuntimeError("Checkpoint does not use the single-step actor architecture")
     if checkpoint.get("distributed", {}).get("world_size") != expected_world_size:
         raise RuntimeError("Checkpoint has an incorrect distributed world size")
     if checkpoint.get("tracker", {}).get("frozen") is not True:

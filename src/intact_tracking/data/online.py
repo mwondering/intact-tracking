@@ -204,16 +204,27 @@ class OnlineReplayBuffer:
         *,
         num_worlds: int,
         dimensions: RolloutDimensions | None = None,
-        block_size: int = 5,
-        horizon: int = 5,
+        effect_steps: int = 5,
+        query_transitions: int = 5,
+        context_chunk_steps: int = 5,
+        sample_stride: int = 1,
         context_tokens: int = 16,
         capacity: int = 8192,
         seed: int = 0,
         world_id_offset: int = 0,
         device: torch.device | str | None = None,
     ) -> None:
-        if num_worlds < 1 or block_size < 1 or horizon < 1 or capacity < 1:
-            raise ValueError("num_worlds, block_size, horizon and capacity must be positive")
+        positive = {
+            "num_worlds": num_worlds,
+            "effect_steps": effect_steps,
+            "query_transitions": query_transitions,
+            "context_chunk_steps": context_chunk_steps,
+            "sample_stride": sample_stride,
+            "capacity": capacity,
+        }
+        invalid = {name: value for name, value in positive.items() if value < 1}
+        if invalid:
+            raise ValueError(f"Online replay arguments must be positive: {invalid}")
         if context_tokens != 16:
             raise ValueError("Online INTACT context_tokens is fixed at 16")
         if world_id_offset < 0:
@@ -221,33 +232,38 @@ class OnlineReplayBuffer:
         self.num_worlds = int(num_worlds)
         self.world_id_offset = int(world_id_offset)
         self.dimensions = dimensions or RolloutDimensions()
-        self.block_size = int(block_size)
-        self.horizon = int(horizon)
+        self.effect_steps = int(effect_steps)
+        self.query_transitions = int(query_transitions)
+        self.context_chunk_steps = int(context_chunk_steps)
+        self.sample_stride = int(sample_stride)
         self.context_tokens = int(context_tokens)
         self.capacity = int(capacity)
         self.device = torch.device(device or "cpu")
-        self.query_steps = self.block_size * self.horizon
-        self.minimum_steps = self.block_size * (self.context_tokens + self.horizon)
-        self._history_length = self.query_steps + self.block_size
-        self._context_capacity = self.context_tokens + self.horizon
+        self.query_steps = self.effect_steps * self.query_transitions
+        if self.query_steps % self.context_chunk_steps:
+            raise ValueError(
+                "effect_steps * query_transitions must be divisible by "
+                "context_chunk_steps so causal context exclusion is exact"
+            )
+        self._query_context_chunks = self.query_steps // self.context_chunk_steps
+        self.minimum_steps = self.context_tokens * self.context_chunk_steps + self.query_steps
+        self._history_length = self.query_steps + 1
+        self._context_capacity = self.context_tokens + self._query_context_chunks
         self._world_ids = tuple(range(self.world_id_offset, self.world_id_offset + self.num_worlds))
         self._generator = torch.Generator(device=self.device).manual_seed(seed)
-        self._block_offsets = torch.arange(
-            self.block_size - 1, -1, -1, dtype=torch.long, device=self.device
-        )
-        self._query_offsets = torch.arange(
-            self.query_steps - 1, -1, -1, dtype=torch.long, device=self.device
-        )
-        self._previous_offsets = torch.arange(
-            self.query_steps + self.block_size - 1,
-            self.query_steps - 1,
+        self._context_chunk_offsets = torch.arange(
+            self.context_chunk_steps - 1,
+            -1,
             -1,
             dtype=torch.long,
             device=self.device,
         )
+        self._query_offsets = torch.arange(
+            self.query_steps - 1, -1, -1, dtype=torch.long, device=self.device
+        )
         self._context_offsets = torch.arange(
             self._context_capacity - 1,
-            self.horizon - 1,
+            self._query_context_chunks - 1,
             -1,
             dtype=torch.long,
             device=self.device,
@@ -284,15 +300,17 @@ class OnlineReplayBuffer:
     def estimated_storage_bytes(self) -> int:
         dims = self.dimensions
         float_count = (
-            self._history_length * self.num_worlds * (dims.proprio + dims.observation + dims.action)
+            self._history_length
+            * self.num_worlds
+            * (dims.proprio + 2 * dims.observation + dims.action)
             + self._context_capacity
             * self.num_worlds
-            * (2 * dims.proprio + self.block_size * dims.action)
+            * (2 * dims.proprio + self.context_chunk_steps * dims.action)
             + self.capacity
             * (
-                (self.horizon + 2) * dims.observation
-                + 2 * self.horizon * self.block_size * dims.action
-                + self.context_tokens * (2 * dims.proprio + self.block_size * dims.action)
+                (2 * self.query_transitions + 1) * dims.observation
+                + self.query_transitions * (self.effect_steps + 2) * dims.action
+                + self.context_tokens * (2 * dims.proprio + self.context_chunk_steps * dims.action)
             )
         )
         integer_count = self.num_worlds + 2 * self.capacity
@@ -360,6 +378,9 @@ class OnlineReplayBuffer:
             "observation": torch.zeros(
                 (*history_prefix, dims.observation), dtype=torch.float32, device=self.device
             ),
+            "next_reference_observation": torch.zeros(
+                (*history_prefix, dims.observation), dtype=torch.float32, device=self.device
+            ),
             "action": torch.zeros(
                 (*history_prefix, dims.action), dtype=torch.float32, device=self.device
             ),
@@ -369,7 +390,7 @@ class OnlineReplayBuffer:
                 (*context_prefix, dims.proprio), dtype=torch.float32, device=self.device
             ),
             "actions": torch.empty(
-                (*context_prefix, self.block_size, dims.action),
+                (*context_prefix, self.context_chunk_steps, dims.action),
                 dtype=torch.float32,
                 device=self.device,
             ),
@@ -385,20 +406,32 @@ class OnlineReplayBuffer:
         dims = self.dimensions
         self._samples = {
             "observation": torch.empty(
-                (self.capacity, self.horizon + 1, dims.observation),
+                (self.capacity, self.query_transitions + 1, dims.observation),
                 dtype=torch.float32,
                 device=self.device,
             ),
             "goal_observation": torch.empty(
-                (self.capacity, dims.observation), dtype=torch.float32, device=self.device
+                (self.capacity, self.query_transitions, dims.observation),
+                dtype=torch.float32,
+                device=self.device,
+            ),
+            "forward_action": torch.empty(
+                (
+                    self.capacity,
+                    self.query_transitions,
+                    self.effect_steps,
+                    dims.action,
+                ),
+                dtype=torch.float32,
+                device=self.device,
             ),
             "action": torch.empty(
-                (self.capacity, self.horizon, self.block_size, dims.action),
+                (self.capacity, self.query_transitions, dims.action),
                 dtype=torch.float32,
                 device=self.device,
             ),
             "previous_action": torch.empty(
-                (self.capacity, self.horizon, self.block_size, dims.action),
+                (self.capacity, self.query_transitions, dims.action),
                 dtype=torch.float32,
                 device=self.device,
             ),
@@ -408,7 +441,12 @@ class OnlineReplayBuffer:
                 device=self.device,
             ),
             "context_actions": torch.empty(
-                (self.capacity, self.context_tokens, self.block_size, dims.action),
+                (
+                    self.capacity,
+                    self.context_tokens,
+                    self.context_chunk_steps,
+                    dims.action,
+                ),
                 dtype=torch.float32,
                 device=self.device,
             ),
@@ -432,7 +470,7 @@ class OnlineReplayBuffer:
         env_ids = valid.nonzero(as_tuple=False).flatten()
         if env_ids.numel() == 0:
             return
-        time_ids = (history_position - self._block_offsets).remainder(self._history_length)
+        time_ids = (history_position - self._context_chunk_offsets).remainder(self._history_length)
         slots = self._context_counts[env_ids].remainder(self._context_capacity)
         self._context["before"][env_ids, slots] = self._history["proprio"][time_ids[0], env_ids]
         actions = self._history["action"][time_ids[:, None], env_ids[None, :]].permute(1, 0, 2)
@@ -460,7 +498,7 @@ class OnlineReplayBuffer:
         ].permute(1, 0, 2)
         observations = torch.cat(
             (
-                query_observation[:, :: self.block_size],
+                query_observation[:, :: self.effect_steps],
                 batch["next_observation"][env_ids, None],
             ),
             dim=1,
@@ -468,21 +506,27 @@ class OnlineReplayBuffer:
         query_actions = self._history["action"][query_time_ids[:, None], env_ids[None, :]].permute(
             1, 0, 2
         )
-        query_actions = query_actions.reshape(
-            generated, self.horizon, self.block_size, self.dimensions.action
+        forward_actions = query_actions.reshape(
+            generated,
+            self.query_transitions,
+            self.effect_steps,
+            self.dimensions.action,
         )
+        policy_actions = forward_actions[:, :, 0]
 
-        previous_time_ids = (history_position - self._previous_offsets).remainder(
-            self._history_length
-        )
-        previous_first = self._history["action"][
-            previous_time_ids[:, None], env_ids[None, :]
-        ].permute(1, 0, 2)
-        has_previous = completed_steps[env_ids] >= self.query_steps + self.block_size
+        previous_time_id = (history_position - self.query_steps) % self._history_length
+        previous_first = self._history["action"][previous_time_id, env_ids]
+        has_previous = completed_steps[env_ids] >= self.query_steps + 1
         previous_first = torch.where(
-            has_previous[:, None, None], previous_first, torch.zeros_like(previous_first)
+            has_previous[:, None], previous_first, torch.zeros_like(previous_first)
         )
-        previous_actions = torch.cat((previous_first[:, None], query_actions[:, :-1]), dim=1)
+        previous_from_query = query_actions[:, self.effect_steps - 1 :: self.effect_steps][:, :-1]
+        previous_actions = torch.cat((previous_first[:, None], previous_from_query), dim=1)
+
+        query_references = self._history["next_reference_observation"][
+            query_time_ids[:, None], env_ids[None, :]
+        ].permute(1, 0, 2)
+        goals = query_references[:, self.effect_steps - 1 :: self.effect_steps]
 
         context_slots = (
             self._context_counts[env_ids, None] - 1 - self._context_offsets[None, :]
@@ -490,8 +534,9 @@ class OnlineReplayBuffer:
         context_env_ids = env_ids[:, None].expand_as(context_slots)
         samples = {
             "observation": observations,
-            "goal_observation": batch["next_reference_observation"][env_ids],
-            "action": query_actions,
+            "goal_observation": goals,
+            "forward_action": forward_actions,
+            "action": policy_actions,
             "previous_action": previous_actions,
             "context_before": self._context["before"][context_env_ids, context_slots],
             "context_actions": self._context["actions"][context_env_ids, context_slots],
@@ -529,18 +574,23 @@ class OnlineReplayBuffer:
         history_position = self._history_write
         self._history["proprio"][history_position].copy_(batch["proprio"])
         self._history["observation"][history_position].copy_(batch["observation"])
+        self._history["next_reference_observation"][history_position].copy_(
+            batch["next_reference_observation"]
+        )
         self._history["action"][history_position].copy_(batch["action"])
 
         completed_steps = batch["episode_step"] + 1
-        block_boundary = completed_steps.remainder(self.block_size) == 0
+        context_boundary = completed_steps.remainder(self.context_chunk_steps) == 0
         valid_context = (
-            block_boundary & (completed_steps >= self.block_size) & ~batch["reset_boundary"]
+            context_boundary
+            & (completed_steps >= self.context_chunk_steps)
+            & ~batch["reset_boundary"]
         )
         self._append_context_chunks(batch, history_position, valid_context)
         if self._context_counts is None:
             raise RuntimeError("Online context storage is not initialized")
         valid_sample = (
-            block_boundary
+            (completed_steps.remainder(self.sample_stride) == 0)
             & (completed_steps >= self.query_steps)
             & (self._context_counts >= self._context_capacity)
             & ~batch["reset_boundary"]
@@ -594,20 +644,26 @@ class OnlineReplayBuffer:
 
         observations = (selected["observation"] - obs_mean) / obs_std
         goals = (selected["goal_observation"] - obs_mean) / obs_std
+        forward_actions = (selected["forward_action"] - action_mean) / action_std
         actions = (selected["action"] - action_mean) / action_std
         previous = (selected["previous_action"] - action_mean) / action_std
         context_before = (selected["context_before"] - prop_mean) / prop_std
         context_actions = (selected["context_actions"] - action_mean) / action_std
         context_after = (selected["context_after"] - prop_mean) / prop_std
-        actions = actions.flatten(start_dim=2)
-        previous = previous.flatten(start_dim=2)
+        forward_actions = forward_actions.flatten(start_dim=2)
         context = torch.cat(
             (context_before, context_actions.flatten(start_dim=2), context_after), dim=-1
         )
-        mask = torch.ones(batch_size, self.horizon, dtype=torch.bool, device=self.device)
+        mask = torch.ones(
+            batch_size,
+            self.query_transitions,
+            dtype=torch.bool,
+            device=self.device,
+        )
         return {
             "observation": observations,
             "goal_observation": goals,
+            "forward_action": forward_actions,
             "action": actions,
             "previous_action": previous,
             "context": context,

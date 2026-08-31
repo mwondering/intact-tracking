@@ -23,41 +23,48 @@ checkpoint 与 motion 数据是运行输入，不随仓库分发。
 
 ## Notation 与固定 context
 
-控制频率为 50 Hz。环境动作记为 `u_s ∈ R^29`，一个模型 action block 包含
-`B=5` 个环境动作：
+控制频率为 50 Hz。环境动作记为 `u_t ∈ R^29`。actor 始终只预测当前一步
+`u_t`；`E=5` 步动作序列只作为 Forward 的条件：
 
 ```text
-a_t = [u_Bt, ..., u_Bt+B-1] ∈ R^145
+U_t = [u_t, ..., u_t+E-1] ∈ R^(5×29)
 ```
 
-默认训练窗口包含 `H=5` 个 action block。核心变量为：
+默认训练 window 包含 `H=5` 个相邻的 effect-span transition。核心变量为：
 
 ```text
-z_t       = E(o_t, w_t)
-z_t+1     = E(o_t+1, w_t)
-z_g       = E(o_g, w_t)
+z_t           = Encoder(o_t, w)
+z_robot,t+E   = Encoder(o_robot,t+E, w)
+z_ref,t+E     = Encoder(o_ref,t+E, w)
 
-m_local   = z_t+1 - z_t
-m_goal    = sg(z_g) - z_t
+m_physical = z_robot,t+E - z_t
+m_goal     = stopgrad(z_ref,t+E) - z_t
 ```
 
 两种 intent 进入同一个 actor，四槽 grammar 不变：
 
 ```text
-[z_t, m_t, z_t ⊙ m_t, A(a_t-1)] → p(a_t | z_t, m_t, a_t-1)
+[z_t, m_t, z_t ⊙ m_t, A_prev(u_t-1)] → p(u_t | z_t, m_t, u_t-1)
 ```
+
+Forward 则显式读取完整 `U_t`，预测 `z_robot,t+E`。因此未来第 5 步 endpoint 由 5 个
+真实动作共同解释，而 physical/goal NLL 的 label 都只有当前 `u_t`。默认
+`sample_stride=1`，相邻 window 每个环境步平移一次，长期来看每个动作都会成为单步 label。
 
 `w_t` 由固定 16 个 interaction token 编码，并通过共享 FiLM 调制 `z`，不会成为
 第五个 actor slot：
 
 ```text
-κ_i = [p_i, a_i, p_i+1]
+κ_i = [p_i, u_i:i+4, p_i+5]
 C_t = [κ_t^1, ..., κ_t^16]
 w_t = ContextEncoder(C_t)
 ```
 
-每个 token 覆盖 5 个控制步，即 100 ms；16 个有效 token 对应 1.6 s 的历史交互证据。
+每个 token 默认覆盖 5 个控制步，即 100 ms；16 个有效 token 对应 1.6 s 的历史交互证据。
 正式训练不允许填充缺失 context。
+
+完整训练框图、时间索引与所有可调节点见
+[docs/training_flow.md](docs/training_flow.md)。
 
 ## Rollout 字段语义
 
@@ -103,9 +110,10 @@ rollout 时可用的 simulator/reference 完整状态：
 每个 rank 的 replay、rolling transition history、context ring 和 running sufficient
 statistics 都常驻该 rank 的 GPU；rollout 主路径不再把 vector batch 搬到 CPU，也不再逐环境
 执行 Python sample construction。query 必须位于一个连续 episode 内；16 个 context token
-只从同一固定 physics world 的 query 之前选取，可以跨越早先 episode。`B=5`、`H=5` 时，
-首个合法样本最早出现在每个 world 的 `(16 + 5) × 5 = 105` 个环境步之后；不使用 padded
-context。
+只从同一固定 physics world 的 query 之前选取，可以跨越早先 episode。默认
+`effect_steps=5`、`query_transitions=5`、`context_chunk_steps=5` 时，首个合法样本最早出现在
+每个 world 的 `16 × 5 + 5 × 5 = 105` 个环境步之后；不使用 padded context。达到该条件后，
+`sample_stride=1` 会使每个有效环境每推进一步就产生一个新 window。
 
 ## 正式在线训练
 
@@ -114,13 +122,17 @@ context。
   /path/to/checkpoint.pt \
   /path/to/motion_directory \
   /path/to/runs/intact_online \
-  --num-envs 16 \
+  --num-envs 4096 \
   --warmup-steps 120 \
-  --updates 10000 \
-  --rollout-steps-per-update 5 \
-  --gradient-steps-per-update 1 \
-  --batch-size 64 \
-  --replay-capacity 8192
+  --updates 100000 \
+  --rollout-steps-per-update 1 \
+  --gradient-steps-per-update 8 \
+  --batch-size 512 \
+  --replay-capacity 8192 \
+  --effect-steps 5 \
+  --query-transitions 5 \
+  --context-chunk-steps 5 \
+  --sample-stride 1
 ```
 
 第二个位置参数也可以是单个 motion `.npz`。脚本默认使用仓库 `.venv` 和 `cuda:0`；
@@ -146,7 +158,7 @@ all-reduce 合并，因此所有 rank 使用同一份全局 normalization。
 
 `--replay-capacity` 同时决定每张卡上 GPU sample ring 的容量。默认维度下，
 `num-envs=4096, replay-capacity=8192` 的 rolling history、context 和 replay 合计约占
-482 MiB/卡；`run_config.json` 会记录启动前估算值，训练日志记录实际分配字节数。
+489 MiB/卡；`run_config.json` 会记录启动前估算值，训练日志记录实际分配字节数。
 
 `--num-envs`、`--batch-size`、`--replay-capacity` 都是**每个 rank**的值。例如
 `GPUS=0,1 --num-envs 16 --batch-size 64` 表示全局 32 个环境、每个 optimizer step 的全局
@@ -165,9 +177,16 @@ world。全局 `world_id = rank × num_envs + local_env_id`，不会冲突。
 - 总 optimizer step 数为 `updates × gradient-steps-per-update`；
 - `W` 张卡的一次环境步产生 `W × num-envs` 条 transition。
 
+忽略 reset，在默认 `sample_stride=1` 下，每张卡一个 rollout step 也会产生约
+`num-envs` 个新 window。因而 `num-envs=4096`、`rollout-steps-per-update=1`、
+`batch-size=512`、`gradient-steps-per-update=8` 时，每卡每轮约新增 4096 个 window，同时
+抽取 `512 × 8 = 4096` 个 window。这个调度比与 Forward 的 `effect_steps=5` 无关。
+
 默认 logger 不依赖 W&B。终端按 `log-interval` 打印一条 JSON，包含 `loss`、
 `forward_loss`、`sigreg_loss`、`action_loss`、`physical_nll`、`goal_nll`、两项 MAE、
-gradient norm、learning rate、env/optimizer step、replay size、reset 与 motion 计数。
+Forward NMSE、latent scale/collapse、四项加权 loss contribution、Gaussian log-std、
+gradient mean/max/p95/clip fraction、learning rate、env/optimizer step、replay size、reset 与
+motion 计数。每条记录还在 `window` 中保存最近 `metric-window` 轮的均值和标准差。
 终端和文件中的 loss 是所有 rank 的均值，transition/replay/reset 等计数是全局和；只有 rank 0
 打印、记录和保存 checkpoint。完整逐轮记录写入 `metrics.jsonl`，并生成：
 
@@ -252,14 +271,16 @@ uv build
 ```
 
 当前测试覆盖共享四槽 actor、goal endpoint stop-gradient、physical successor attached
-gradient、固定 16-token contract、Direct recurrent plan、跨 shard episode 索引、离线与
+gradient、固定 16-token contract、单步 Direct action、跨 shard episode 索引、离线与
 在线的因果 same-world context、跨 episode context、raw-zero previous action、replay 容量、
-全局 normalization 合并、DDP 梯度同步和 world-disjoint split。真实 checkpoint 的端到端
+逐步滑动采样、全局 normalization 合并、DDP 梯度同步和 world-disjoint split。真实 checkpoint 的端到端
 验证由在线 smoke 脚本完成。
 
 ## 当前边界
 
 当前完成“冻结 tracker 在线 rollout → 内存 causal replay → 即时 INTACT 联合更新”的闭环。
+当前架构版本为 `single_step_effect_v1`；旧版 145 维 action-block actor checkpoint 与新的
+29 维单步 actor 不兼容，Stage-I 需要重新训练。
 在线训练没有独立 validation split；需要泛化评估时，应另启固定 DR seeds/worlds 的只读评估。
 当前 checkpoint 不保存 replay 内容，因此尚不支持 bit-exact 中断续训。Stage II RL action
 head 尚未加入；在正确 context 相对 no/wrong/shuffled context 的收益通过验证前，不进入

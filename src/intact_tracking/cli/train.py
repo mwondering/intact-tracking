@@ -39,8 +39,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--gradient-clip", type=float, default=1.0)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--device")
-    parser.add_argument("--block-size", type=int, default=5)
-    parser.add_argument("--horizon", type=int, default=5)
+    parser.add_argument("--effect-steps", type=int, default=5)
+    parser.add_argument(
+        "--query-transitions", "--horizon", dest="query_transitions", type=int, default=5
+    )
+    parser.add_argument("--context-chunk-steps", type=int, default=5)
+    parser.add_argument("--sample-stride", type=int, default=1)
     parser.add_argument("--train-fraction", type=float, default=0.8)
     parser.add_argument("--validation-fraction", type=float, default=0.1)
     parser.add_argument("--allow-padded-context", action="store_true")
@@ -83,6 +87,20 @@ def _scalar_metrics(output: dict[str, torch.Tensor]) -> dict[str, float]:
         "goal_nll",
         "physical_mae",
         "goal_mae",
+        "forward_nmse",
+        "forward_target_variance",
+        "weighted_forward_loss",
+        "weighted_sigreg_loss",
+        "weighted_physical_nll",
+        "weighted_goal_nll",
+        "physical_log_std",
+        "goal_log_std",
+        "latent_mean_abs",
+        "latent_rms",
+        "latent_std_mean",
+        "latent_std_min",
+        "latent_std_max",
+        "latent_collapsed_fraction",
     )
     return {name: float(output[name].detach()) for name in names}
 
@@ -132,8 +150,10 @@ def run(args: argparse.Namespace) -> Path:
         seed=args.seed,
     )
     dataset_kwargs = {
-        "block_size": args.block_size,
-        "horizon": args.horizon,
+        "effect_steps": args.effect_steps,
+        "query_transitions": args.query_transitions,
+        "context_chunk_steps": args.context_chunk_steps,
+        "sample_stride": args.sample_stride,
         "context_tokens": 16,
         "require_full_context": not args.allow_padded_context,
     }
@@ -175,7 +195,8 @@ def run(args: argparse.Namespace) -> Path:
         observation_dim=dims.observation,
         proprio_dim=dims.proprio,
         action_dim=dims.action,
-        action_block_size=args.block_size,
+        effect_steps=args.effect_steps,
+        context_chunk_steps=args.context_chunk_steps,
         context_tokens=16,
         embed_dim=args.embed_dim,
         encoder_hidden_dim=args.encoder_hidden_dim,
@@ -209,11 +230,14 @@ def run(args: argparse.Namespace) -> Path:
     statistics.to_json(output_dir / "normalization.json")
     run_config = {
         "method": "INTACT",
+        "architecture_version": model_config.architecture_version,
         "training_architecture": {
             "forward": "LeWM-style causal Forward Predictor",
-            "physical_intent": "attached z[t+1] - z[t]",
-            "goal_intent": "stop-gradient z_goal - z[t]",
-            "intent_actor": "one shared four-slot Gaussian actor",
+            "forward_transition": "effect_steps raw controls: z[t] -> z[t+effect_steps]",
+            "physical_intent": "attached z[t+effect_steps] - z[t]",
+            "goal_intent": "stop-gradient z_ref[t+effect_steps] - z[t]",
+            "intent_actor": "one shared four-slot Gaussian actor; one 29-D action",
+            "policy_action_steps": 1,
             "context_tokens": 16,
             "context_injection": "shared latent FiLM; no fifth actor slot",
         },
@@ -277,6 +301,7 @@ def run(args: argparse.Namespace) -> Path:
         history.append(epoch_record)
         print(json.dumps(epoch_record, sort_keys=True))
         checkpoint = {
+            "architecture_version": model_config.architecture_version,
             "epoch": epoch,
             "model": model.state_dict(),
             "optimizer": optimizer.state_dict(),

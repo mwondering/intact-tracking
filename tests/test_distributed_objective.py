@@ -20,9 +20,10 @@ def _batch(rank: int) -> dict[str, torch.Tensor]:
     horizon = 3
     return {
         "observation": torch.randn(batch_size, horizon + 1, 4, generator=generator),
-        "goal_observation": torch.randn(batch_size, 4, generator=generator),
-        "action": torch.randn(batch_size, horizon, 4, generator=generator),
-        "previous_action": torch.randn(batch_size, horizon, 4, generator=generator),
+        "goal_observation": torch.randn(batch_size, horizon, 4, generator=generator),
+        "forward_action": torch.randn(batch_size, horizon, 4, generator=generator),
+        "action": torch.randn(batch_size, horizon, 2, generator=generator),
+        "previous_action": torch.randn(batch_size, horizon, 2, generator=generator),
         "context": torch.randn(batch_size, 16, 10, generator=generator),
         "context_mask": torch.ones(batch_size, 16, dtype=torch.bool),
     }
@@ -41,7 +42,8 @@ def _ddp_worker(rank: int, world_size: int, store_path: str, result_path: str) -
             observation_dim=4,
             proprio_dim=3,
             action_dim=2,
-            action_block_size=2,
+            effect_steps=2,
+            context_chunk_steps=2,
             context_tokens=16,
             embed_dim=8,
             encoder_hidden_dim=16,

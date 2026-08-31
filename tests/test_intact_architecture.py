@@ -12,7 +12,8 @@ def _config() -> TrackingINTACTConfig:
         observation_dim=8,
         proprio_dim=6,
         action_dim=2,
-        action_block_size=2,
+        effect_steps=2,
+        context_chunk_steps=2,
         context_tokens=16,
         embed_dim=16,
         encoder_hidden_dim=32,
@@ -30,9 +31,10 @@ def _config() -> TrackingINTACTConfig:
 def _batch(config: TrackingINTACTConfig, batch_size: int = 3, horizon: int = 5):
     return {
         "observation": torch.randn(batch_size, horizon + 1, config.observation_dim),
-        "goal_observation": torch.randn(batch_size, config.observation_dim),
-        "action": torch.randn(batch_size, horizon, config.action_block_dim),
-        "previous_action": torch.randn(batch_size, horizon, config.action_block_dim),
+        "goal_observation": torch.randn(batch_size, horizon, config.observation_dim),
+        "forward_action": torch.randn(batch_size, horizon, config.forward_action_dim),
+        "action": torch.randn(batch_size, horizon, config.action_dim),
+        "previous_action": torch.randn(batch_size, horizon, config.action_dim),
         "context": torch.randn(batch_size, config.context_tokens, config.context_token_dim),
         "context_mask": torch.ones(batch_size, config.context_tokens, dtype=torch.bool),
         "transition_mask": torch.ones(batch_size, horizon, dtype=torch.bool),
@@ -49,6 +51,12 @@ def test_paired_objective_is_finite_and_updates_shared_components() -> None:
     output["loss"].backward()
     assert any(parameter.grad is not None for parameter in model.encoder.parameters())
     assert any(parameter.grad is not None for parameter in model.context_encoder.parameters())
+    assert any(
+        parameter.grad is not None for parameter in model.forward_action_encoder.parameters()
+    )
+    assert any(
+        parameter.grad is not None for parameter in model.previous_action_encoder.parameters()
+    )
     assert any(parameter.grad is not None for parameter in model.intent_actor.parameters())
     # There is exactly one actor object serving both physical and goal calls.
     actor_modules = [
@@ -59,7 +67,7 @@ def test_paired_objective_is_finite_and_updates_shared_components() -> None:
 
 def test_goal_endpoint_is_detached_but_physical_successor_is_attached() -> None:
     embeddings = torch.randn(2, 6, 4, requires_grad=True)
-    goal = torch.randn(2, 4, requires_grad=True)
+    goal = torch.randn(2, 5, 4, requires_grad=True)
     physical, deployment = construct_intents(embeddings, goal)
     loss = physical.square().mean() + deployment.square().mean()
     loss.backward()
@@ -88,18 +96,34 @@ def test_context_count_is_fixed_at_sixteen() -> None:
             torch.randn(2, 15, config.context_token_dim),
             torch.ones(2, 15, dtype=torch.bool),
         )
+    with pytest.raises(ValueError, match="fixed at 16"):
+        TrackingINTACTConfig(context_tokens=15)
 
 
-def test_direct_plan_returns_action_blocks_without_search() -> None:
+def test_direct_control_returns_one_action_without_forward_rollout() -> None:
     config = _config()
     model = TrackingINTACT(config).eval()
+    forward_calls: list[bool] = []
+    hook = model.predictor.register_forward_pre_hook(
+        lambda _module, _inputs: forward_calls.append(True)
+    )
     plan = model.direct_plan(
         observation=torch.randn(2, config.observation_dim),
         goal_observation=torch.randn(2, config.observation_dim),
-        previous_action=torch.zeros(2, config.action_block_dim),
+        previous_action=torch.zeros(2, config.action_dim),
         context=torch.randn(2, 16, config.context_token_dim),
         context_mask=torch.ones(2, 16, dtype=torch.bool),
-        horizon=3,
+        horizon=1,
     )
-    assert plan.shape == (2, 3, config.action_block_dim)
+    hook.remove()
+    assert plan.shape == (2, 1, config.action_dim)
     assert torch.isfinite(plan).all()
+    assert not forward_calls
+    with pytest.raises(ValueError, match="horizon=1"):
+        model.direct_plan(
+            observation=torch.randn(2, config.observation_dim),
+            goal_observation=torch.randn(2, config.observation_dim),
+            previous_action=torch.zeros(2, config.action_dim),
+            context=torch.randn(2, 16, config.context_token_dim),
+            horizon=2,
+        )

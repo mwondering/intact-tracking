@@ -26,10 +26,12 @@ def _modulate(x: torch.Tensor, shift: torch.Tensor, scale: torch.Tensor) -> torc
 class TrackingINTACTConfig:
     """Shape and capacity contract for the first tracking implementation."""
 
+    architecture_version: str = "single_step_effect_v1"
     observation_dim: int = 64
     proprio_dim: int = 122
     action_dim: int = 29
-    action_block_size: int = 5
+    effect_steps: int = 5
+    context_chunk_steps: int = 5
     context_tokens: int = 16
     embed_dim: int = 192
     encoder_hidden_dim: int = 512
@@ -53,16 +55,19 @@ class TrackingINTACTConfig:
         invalid = {name: value for name, value in positive.items() if value <= 0}
         if invalid:
             raise ValueError(f"All integer dimensions must be positive, got {invalid}")
+        if self.context_tokens != 16:
+            raise ValueError("Tracking INTACT context_tokens is fixed at 16")
         if self.embed_dim % self.context_heads:
             raise ValueError("embed_dim must be divisible by context_heads")
 
     @property
-    def action_block_dim(self) -> int:
-        return self.action_dim * self.action_block_size
+    def forward_action_dim(self) -> int:
+        """Width of the action sequence conditioning one Forward transition."""
+        return self.action_dim * self.effect_steps
 
     @property
     def context_token_dim(self) -> int:
-        return 2 * self.proprio_dim + self.action_block_dim
+        return 2 * self.proprio_dim + self.action_dim * self.context_chunk_steps
 
 
 class SIGReg(nn.Module):
@@ -272,8 +277,8 @@ class ObservationEncoder(nn.Module):
         return self.net(observation.float())
 
 
-class ActionBlockEncoder(nn.Module):
-    """Embed one flattened B-step action block per latent transition."""
+class ActionEncoder(nn.Module):
+    """Embed a flattened action vector or finite action sequence."""
 
     def __init__(self, input_dim: int, embed_dim: int, mlp_scale: int = 4) -> None:
         super().__init__()
@@ -287,7 +292,8 @@ class ActionBlockEncoder(nn.Module):
     def forward(self, action: torch.Tensor) -> torch.Tensor:
         if action.size(-1) != self.input_dim:
             raise ValueError(
-                f"Expected flattened action blocks of width {self.input_dim}, got {action.size(-1)}"
+                f"Expected a flattened action input of width {self.input_dim}, "
+                f"got {action.size(-1)}"
             )
         return self.net(action.float())
 
@@ -455,7 +461,8 @@ class TrackingINTACT(nn.Module):
             dropout=cfg.dropout,
         )
         self.context_film = ContextFiLM(cfg.embed_dim)
-        self.action_encoder = ActionBlockEncoder(cfg.action_block_dim, cfg.embed_dim)
+        self.forward_action_encoder = ActionEncoder(cfg.forward_action_dim, cfg.embed_dim)
+        self.previous_action_encoder = ActionEncoder(cfg.action_dim, cfg.embed_dim)
         self.predictor = ARPredictor(
             num_frames=cfg.forward_history,
             depth=cfg.forward_depth,
@@ -470,7 +477,7 @@ class TrackingINTACT(nn.Module):
         self.intent_actor = IntentActionActor(
             embed_dim=cfg.embed_dim,
             action_emb_dim=cfg.embed_dim,
-            action_dim=cfg.action_block_dim,
+            action_dim=cfg.action_dim,
             hidden_dim=cfg.actor_hidden_dim,
             depth=cfg.actor_depth,
             dropout=cfg.dropout,
@@ -501,7 +508,7 @@ class TrackingINTACT(nn.Module):
         intent: torch.Tensor,
         previous_action: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        previous_embedding = self.action_encoder(previous_action)
+        previous_embedding = self.previous_action_encoder(previous_action)
         return self.intent_actor(z, intent, previous_embedding)
 
     def action_nll(
@@ -533,18 +540,20 @@ class TrackingINTACT(nn.Module):
         }
 
     @torch.inference_mode()
-    def direct_plan(
+    def direct_action(
         self,
         observation: torch.Tensor,
         goal_observation: torch.Tensor,
         previous_action: torch.Tensor,
         context: torch.Tensor,
         context_mask: torch.Tensor | None = None,
-        horizon: int = 1,
     ) -> torch.Tensor:
-        """Run paper-style zero-search recurrent Direct control."""
-        if horizon < 1:
-            raise ValueError("horizon must be positive")
+        """Predict the one deployable action for the current control step.
+
+        ``goal_observation`` is the reference endpoint ``effect_steps`` into the
+        future.  Forward is a training-only representation objective here; the
+        deployed tracking path does not roll latent dynamics forward.
+        """
         world = self.encode_context(context, context_mask)
         current = self.encode_observation(observation, world)
         goal = self.encode_observation(goal_observation, world)
@@ -554,22 +563,33 @@ class TrackingINTACT(nn.Module):
             goal = goal[:, -1]
         else:
             goal = goal.reshape(goal.size(0), -1)
-        previous = previous_action
-        latent_history = current
-        action_history: list[torch.Tensor] = []
-        plan: list[torch.Tensor] = []
-        for _ in range(horizon):
-            z = latent_history[:, -1]
-            intent = goal - z
-            action = self.intent_actor.action_mean(z, intent, self.action_encoder(previous))
-            plan.append(action)
-            action_history.append(action)
-            history = min(self.config.forward_history, latent_history.size(1))
-            latent_input = latent_history[:, -history:]
-            action_input = torch.stack(action_history[-history:], dim=1)
-            if action_input.size(1) < history:
-                raise RuntimeError("Action and latent histories became misaligned")
-            successor = self.predict(latent_input, self.action_encoder(action_input))[:, -1:]
-            latent_history = torch.cat([latent_history, successor], dim=1)
-            previous = action
-        return torch.stack(plan, dim=1)
+        z = current[:, -1]
+        intent = goal - z
+        previous_embedding = self.previous_action_encoder(previous_action)
+        return self.intent_actor.action_mean(z, intent, previous_embedding)
+
+    @torch.inference_mode()
+    def direct_plan(
+        self,
+        observation: torch.Tensor,
+        goal_observation: torch.Tensor,
+        previous_action: torch.Tensor,
+        context: torch.Tensor,
+        context_mask: torch.Tensor | None = None,
+        horizon: int = 1,
+    ) -> torch.Tensor:
+        """Compatibility wrapper returning ``[B,1,action_dim]``.
+
+        Tracking deployment intentionally supports one action only.  A longer
+        open-loop plan would require future actions that this actor does not
+        predict and would conflate policy horizon with the Forward effect span.
+        """
+        if horizon != 1:
+            raise ValueError("Single-step tracking only supports horizon=1")
+        return self.direct_action(
+            observation=observation,
+            goal_observation=goal_observation,
+            previous_action=previous_action,
+            context=context,
+            context_mask=context_mask,
+        )[:, None]

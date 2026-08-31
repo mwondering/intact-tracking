@@ -115,8 +115,8 @@ class FixedDRTrackerRollout:
         # Online replay discards transitions marked as reset boundaries, so it
         # does not need the true terminal observation. Let MJLab reset only the
         # completed slots inside ``step``. A synchronous all-environment reset
-        # makes the probability of obtaining a 105-step causal window collapse
-        # as ``num_envs`` grows (for example at 4096 environments).
+        # makes the probability of obtaining a full-context causal window
+        # collapse as ``num_envs`` grows (for example at 4096 environments).
         prepared.env.auto_reset = True
         self.cleared_motion_exclusions = _clear_missing_motion_exclusions(prepared.env)
         self.startup_events, self.removed_non_startup_events = _keep_startup_events(prepared.env)

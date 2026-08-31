@@ -8,6 +8,7 @@ import json
 import os
 import random
 import time
+from collections import deque
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Callable, TypeVar
@@ -69,7 +70,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Fail if every rank lacks a full local replay batch by this step.",
     )
     parser.add_argument("--updates", type=int, default=10_000)
-    parser.add_argument("--rollout-steps-per-update", type=int, default=5)
+    parser.add_argument(
+        "--rollout-steps-per-update",
+        type=int,
+        default=1,
+        help="New vector-environment steps collected between optimizer update groups.",
+    )
     parser.add_argument("--gradient-steps-per-update", type=int, default=1)
     parser.add_argument(
         "--batch-size",
@@ -85,6 +91,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--log-interval", type=int, default=10)
     parser.add_argument(
+        "--metric-window",
+        type=int,
+        default=100,
+        help="Rolling update window used for mean/std stability diagnostics.",
+    )
+    parser.add_argument(
         "--warmup-log-interval",
         type=int,
         default=10,
@@ -95,8 +107,32 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--learning-rate", type=float, default=5e-4)
     parser.add_argument("--weight-decay", type=float, default=1e-3)
     parser.add_argument("--gradient-clip", type=float, default=1.0)
-    parser.add_argument("--block-size", type=int, default=5)
-    parser.add_argument("--horizon", type=int, default=5)
+    parser.add_argument(
+        "--effect-steps",
+        type=int,
+        default=5,
+        help="Raw action steps conditioning each Forward endpoint prediction.",
+    )
+    parser.add_argument(
+        "--query-transitions",
+        "--horizon",
+        dest="query_transitions",
+        type=int,
+        default=5,
+        help="Adjacent effect-span transitions retained in one training window.",
+    )
+    parser.add_argument(
+        "--context-chunk-steps",
+        type=int,
+        default=5,
+        help="Action-response steps represented by each of the 16 context tokens.",
+    )
+    parser.add_argument(
+        "--sample-stride",
+        type=int,
+        default=1,
+        help="Episode-step stride between materialized sliding replay windows.",
+    )
     parser.add_argument("--embed-dim", type=int, default=192)
     parser.add_argument("--encoder-hidden-dim", type=int, default=512)
     parser.add_argument("--context-depth", type=int, default=2)
@@ -132,12 +168,69 @@ def _scalar_metrics(output: dict[str, torch.Tensor]) -> dict[str, float]:
         "goal_nll",
         "physical_mae",
         "goal_mae",
+        "forward_nmse",
+        "forward_target_variance",
+        "weighted_forward_loss",
+        "weighted_sigreg_loss",
+        "weighted_physical_nll",
+        "weighted_goal_nll",
+        "physical_log_std",
+        "goal_log_std",
+        "latent_mean_abs",
+        "latent_rms",
+        "latent_std_mean",
+        "latent_std_min",
+        "latent_std_max",
+        "latent_collapsed_fraction",
     )
     return {name: float(output[name].detach()) for name in names}
 
 
 def _average(metrics: list[dict[str, float]]) -> dict[str, float]:
     return {name: sum(item[name] for item in metrics) / len(metrics) for name in metrics[0]}
+
+
+def _gradient_statistics(
+    distributed: DistributedContext,
+    local_norms: list[float],
+    clip_threshold: float,
+) -> dict[str, float]:
+    gathered = distributed.all_gather_object(local_norms)
+    values = np.asarray(
+        [value for rank_values in gathered for value in rank_values], dtype=np.float64
+    )
+    if values.size == 0:
+        raise RuntimeError("No gradient norms were recorded for this update")
+    return {
+        "gradient_norm": float(values.mean()),
+        "gradient_norm_max": float(values.max()),
+        "gradient_norm_p95": float(np.quantile(values, 0.95)),
+        "gradient_clip_fraction": float(np.mean(values > clip_threshold)),
+    }
+
+
+def _rolling_statistics(records: deque[dict[str, Any]]) -> dict[str, Any]:
+    train_names = tuple(records[0]["train"])
+    train_values = {
+        name: np.asarray([record["train"][name] for record in records], dtype=np.float64)
+        for name in train_names
+    }
+    gradient_names = (
+        "gradient_norm",
+        "gradient_norm_max",
+        "gradient_clip_fraction",
+    )
+    gradient_values = {
+        name: np.asarray([record[name] for record in records], dtype=np.float64)
+        for name in gradient_names
+    }
+    return {
+        "updates": len(records),
+        "train_mean": {name: float(values.mean()) for name, values in train_values.items()},
+        "train_std": {name: float(values.std()) for name, values in train_values.items()},
+        "gradient_mean": {name: float(values.mean()) for name, values in gradient_values.items()},
+        "gradient_max": {name: float(values.max()) for name, values in gradient_values.items()},
+    }
 
 
 def _validate_arguments(args: argparse.Namespace) -> None:
@@ -151,9 +244,12 @@ def _validate_arguments(args: argparse.Namespace) -> None:
         "batch_size",
         "replay_capacity",
         "log_interval",
+        "metric_window",
         "warmup_log_interval",
-        "block_size",
-        "horizon",
+        "effect_steps",
+        "query_transitions",
+        "context_chunk_steps",
+        "sample_stride",
         "embed_dim",
         "encoder_hidden_dim",
         "context_depth",
@@ -174,6 +270,10 @@ def _validate_arguments(args: argparse.Namespace) -> None:
         raise ValueError("max-warmup-steps must be at least warmup-steps")
     if args.replay_capacity < args.batch_size:
         raise ValueError("replay-capacity must be at least batch-size")
+    if (args.effect_steps * args.query_transitions) % args.context_chunk_steps:
+        raise ValueError(
+            "effect-steps * query-transitions must be divisible by context-chunk-steps"
+        )
     for name in (
         "learning_rate",
         "forward_weight",
@@ -316,6 +416,7 @@ def _checkpoint_state(
     batch_size_per_rank: int,
 ) -> dict[str, Any]:
     return {
+        "architecture_version": model_config.architecture_version,
         "update": update,
         "optimizer_steps": optimizer_steps,
         "model": model.state_dict(),
@@ -431,7 +532,8 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         observation_dim=dimensions.observation,
         proprio_dim=dimensions.proprio,
         action_dim=dimensions.action,
-        action_block_size=args.block_size,
+        effect_steps=args.effect_steps,
+        context_chunk_steps=args.context_chunk_steps,
         context_tokens=16,
         embed_dim=args.embed_dim,
         encoder_hidden_dim=args.encoder_hidden_dim,
@@ -464,8 +566,10 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
     replay = OnlineReplayBuffer(
         num_worlds=args.num_envs,
         dimensions=dimensions,
-        block_size=args.block_size,
-        horizon=args.horizon,
+        effect_steps=args.effect_steps,
+        query_transitions=args.query_transitions,
+        context_chunk_steps=args.context_chunk_steps,
+        sample_stride=args.sample_stride,
         context_tokens=16,
         capacity=args.replay_capacity,
         seed=rank_seed,
@@ -516,12 +620,22 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         run_config = {
             "method": "INTACT-online",
             "mode": "pure online rollout-and-update",
+            "architecture_version": model_config.architecture_version,
             "training_architecture": {
                 "forward": "LeWM-style causal Forward Predictor",
-                "physical_intent": "attached z[t+1] - z[t]",
-                "goal_intent": "stop-gradient z_goal - z[t]",
-                "intent_actor": "one shared four-slot Gaussian actor",
+                "forward_transition": (
+                    "effect_steps raw tracker actions condition z[t] -> z[t+effect_steps]"
+                ),
+                "physical_intent": "attached z[t+effect_steps] - z[t]",
+                "goal_intent": (
+                    "stop-gradient z_ref[t+effect_steps] - z[t], aligned per transition"
+                ),
+                "intent_actor": "one shared four-slot Gaussian actor; one 29-D action",
+                "policy_action_steps": 1,
+                "actor_target": "u_t only; future actions condition Forward only",
                 "context_tokens": 16,
+                "context_chunk_steps": args.context_chunk_steps,
+                "sample_stride": args.sample_stride,
                 "context_injection": "shared latent FiLM; no fifth actor slot",
                 "distributed": "full-model synchronous data parallelism",
             },
@@ -541,6 +655,10 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                 "global_batch_size": global_batch_size,
                 "replay_capacity_per_rank": args.replay_capacity,
                 "global_replay_capacity": args.replay_capacity * distributed.world_size,
+                "nominal_new_windows_per_update": (
+                    global_num_envs * args.rollout_steps_per_update / args.sample_stride
+                ),
+                "sampled_windows_per_update": (global_batch_size * args.gradient_steps_per_update),
                 "rank_seed": "seed + global_rank",
                 "world_id": "global_rank * num_envs + local_env_id",
                 "gradient_reduction": "DDP mean over all ranks",
@@ -555,6 +673,10 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                 "capacity_per_rank": args.replay_capacity,
                 "estimated_storage_bytes_per_rank": replay.estimated_storage_bytes,
                 "minimum_full_context_steps_per_world": replay.minimum_steps,
+                "effect_steps": args.effect_steps,
+                "query_transitions": args.query_transitions,
+                "context_chunk_steps": args.context_chunk_steps,
+                "sample_stride": args.sample_stride,
                 "normalization": "global running statistics over every live rank stream",
                 "context_scope": "same fixed-DR world only; never crosses ranks",
                 "validation_split": None,
@@ -695,9 +817,13 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             optimizer, T_max=optimizer_steps_target
         )
         history: list[dict[str, Any]] = []
+        rolling_records: deque[dict[str, Any]] = deque(maxlen=args.metric_window)
         metrics_path = output_dir / "metrics.jsonl"
         optimizer_steps = 0
         normalization = _global_normalization(distributed, replay, global_num_envs)
+        # The first update counts all windows produced during warmup; later
+        # updates count only windows produced since the preceding update.
+        previous_samples_generated = 0
 
         for update in range(1, args.updates + 1):
             if update > 1:
@@ -731,10 +857,13 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                 gradient_norms.append(float(gradient_norm.detach()))
 
             global_train_metrics = distributed.mean_scalars(_average(train_metrics))
-            global_gradient_norm = distributed.mean_scalars(
-                {"gradient_norm": sum(gradient_norms) / len(gradient_norms)}
-            )["gradient_norm"]
+            gradient_statistics = _gradient_statistics(
+                distributed, gradient_norms, args.gradient_clip
+            )
             counts = _aggregate_online_counts(distributed, replay, rollout)
+            new_samples_generated = counts["samples_generated"] - previous_samples_generated
+            previous_samples_generated = counts["samples_generated"]
+            sampled_windows = global_batch_size * args.gradient_steps_per_update
             record = {
                 "update": update,
                 "optimizer_steps": optimizer_steps,
@@ -743,11 +872,19 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                 "global_num_envs": global_num_envs,
                 "batch_size_per_rank": args.batch_size,
                 "global_batch_size": global_batch_size,
+                "new_samples_generated": new_samples_generated,
+                "sampled_windows": sampled_windows,
+                "policy_action_labels_sampled": (sampled_windows * args.query_transitions),
+                "sampled_to_new_window_ratio": (
+                    sampled_windows / new_samples_generated if new_samples_generated else None
+                ),
                 "learning_rate": optimizer.param_groups[0]["lr"],
-                "gradient_norm": global_gradient_norm,
+                **gradient_statistics,
                 "train": global_train_metrics,
             }
             if distributed.is_main:
+                rolling_records.append(record)
+                record["window"] = _rolling_statistics(rolling_records)
                 history.append(record)
                 with metrics_path.open("a") as handle:
                     handle.write(json.dumps(record, sort_keys=True) + "\n")

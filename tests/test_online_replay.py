@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 import torch
 
+from intact_tracking.cli.online_train import _validate_arguments, build_parser
 from intact_tracking.data import OnlineNormalization, OnlineReplayBuffer, RolloutDimensions
 
 DIMENSIONS = RolloutDimensions(
@@ -12,6 +13,29 @@ DIMENSIONS = RolloutDimensions(
     robot_state=1,
     reference_state=1,
 )
+
+
+def test_online_cli_decouples_collection_and_model_time_scales() -> None:
+    args = build_parser().parse_args(
+        [
+            "--checkpoint-file",
+            "tracker.pt",
+            "--motion-file",
+            "motion.npz",
+            "--output-dir",
+            "run",
+        ]
+    )
+    _validate_arguments(args)
+    assert args.rollout_steps_per_update == 1
+    assert args.effect_steps == 5
+    assert args.query_transitions == 5
+    assert args.context_chunk_steps == 5
+    assert args.sample_stride == 1
+
+    args.context_chunk_steps = 4
+    with pytest.raises(ValueError, match="must be divisible"):
+        _validate_arguments(args)
 
 
 def _step_batch(
@@ -54,8 +78,10 @@ def test_online_replay_waits_for_sixteen_causal_context_tokens() -> None:
     replay = OnlineReplayBuffer(
         num_worlds=2,
         dimensions=DIMENSIONS,
-        block_size=2,
-        horizon=2,
+        effect_steps=2,
+        query_transitions=2,
+        context_chunk_steps=2,
+        sample_stride=1,
         context_tokens=16,
         capacity=8,
         seed=3,
@@ -69,9 +95,10 @@ def test_online_replay_waits_for_sixteen_causal_context_tokens() -> None:
 
     batch = replay.sample_batch(2)
     assert batch["observation"].shape == (2, 3, 2)
-    assert batch["goal_observation"].shape == (2, 2)
-    assert batch["action"].shape == (2, 2, 4)
-    assert batch["previous_action"].shape == (2, 2, 4)
+    assert batch["goal_observation"].shape == (2, 2, 2)
+    assert batch["forward_action"].shape == (2, 2, 4)
+    assert batch["action"].shape == (2, 2, 2)
+    assert batch["previous_action"].shape == (2, 2, 2)
     assert batch["context"].shape == (2, 16, 10)
     assert batch["context_mask"].all()
     assert batch["transition_mask"].all()
@@ -83,8 +110,10 @@ def test_online_replay_keeps_context_across_reset_but_not_query() -> None:
     replay = OnlineReplayBuffer(
         num_worlds=1,
         dimensions=DIMENSIONS,
-        block_size=2,
-        horizon=2,
+        effect_steps=2,
+        query_transitions=2,
+        context_chunk_steps=2,
+        sample_stride=1,
         context_tokens=16,
         capacity=4,
     )
@@ -105,7 +134,7 @@ def test_online_replay_keeps_context_across_reset_but_not_query() -> None:
     stats = replay.normalization()
     action_mean = torch.tensor(stats.action_mean)
     action_std = torch.tensor(stats.action_std)
-    expected_raw_zero = ((torch.zeros(2, 2) - action_mean) / action_std).flatten()
+    expected_raw_zero = (torch.zeros(2) - action_mean) / action_std
     torch.testing.assert_close(batch["previous_action"][0, 0], expected_raw_zero)
     assert batch["episode_id"].item() == 1
     assert batch["context_mask"].all()
@@ -115,23 +144,43 @@ def test_online_replay_capacity_evicts_old_samples() -> None:
     replay = OnlineReplayBuffer(
         num_worlds=1,
         dimensions=DIMENSIONS,
-        block_size=2,
-        horizon=2,
+        effect_steps=2,
+        query_transitions=2,
+        context_chunk_steps=2,
+        sample_stride=1,
         context_tokens=16,
         capacity=2,
     )
     for step in range(40):
         replay.add_step(_step_batch(step))
-    assert replay.total_samples_generated == 3
+    assert replay.total_samples_generated == 5
     assert len(replay) == 2
+
+
+def test_online_replay_sample_stride_is_independent_of_effect_span() -> None:
+    replay = OnlineReplayBuffer(
+        num_worlds=1,
+        dimensions=DIMENSIONS,
+        effect_steps=2,
+        query_transitions=2,
+        context_chunk_steps=2,
+        sample_stride=2,
+        context_tokens=16,
+        capacity=8,
+    )
+    for step in range(40):
+        replay.add_step(_step_batch(step))
+    assert replay.total_samples_generated == 3
 
 
 def test_online_replay_offsets_world_ids_for_distributed_ranks() -> None:
     replay = OnlineReplayBuffer(
         num_worlds=2,
         dimensions=DIMENSIONS,
-        block_size=2,
-        horizon=2,
+        effect_steps=2,
+        query_transitions=2,
+        context_chunk_steps=2,
+        sample_stride=1,
         context_tokens=16,
         capacity=4,
         world_id_offset=6,
@@ -155,8 +204,10 @@ def test_online_replay_materializes_the_exact_causal_window() -> None:
     replay = OnlineReplayBuffer(
         num_worlds=1,
         dimensions=DIMENSIONS,
-        block_size=2,
-        horizon=2,
+        effect_steps=2,
+        query_transitions=2,
+        context_chunk_steps=2,
+        sample_stride=1,
         context_tokens=16,
         capacity=1,
     )
@@ -164,6 +215,8 @@ def test_online_replay_materializes_the_exact_causal_window() -> None:
         replay.add_step(_step_batch(step))
 
     observations = replay._samples["observation"][0]
+    goals = replay._samples["goal_observation"][0]
+    forward_actions = replay._samples["forward_action"][0]
     actions = replay._samples["action"][0]
     previous = replay._samples["previous_action"][0]
     context_before = replay._samples["context_before"][0]
@@ -176,16 +229,23 @@ def test_online_replay_materializes_the_exact_causal_window() -> None:
             _step_batch(35)["next_observation"][0],
         )
     )
-    expected_actions = torch.stack(
+    expected_forward_actions = torch.stack(
         tuple(
             torch.stack((_step_batch(start)["action"][0], _step_batch(start + 1)["action"][0]))
             for start in (32, 34)
         )
     )
+    expected_actions = expected_forward_actions[:, 0]
     expected_previous = torch.stack(
         (
-            torch.stack((_step_batch(30)["action"][0], _step_batch(31)["action"][0])),
-            expected_actions[0],
+            _step_batch(31)["action"][0],
+            _step_batch(33)["action"][0],
+        )
+    )
+    expected_goals = torch.stack(
+        (
+            _step_batch(33)["next_reference_observation"][0],
+            _step_batch(35)["next_reference_observation"][0],
         )
     )
     expected_context_before = torch.stack(
@@ -195,6 +255,8 @@ def test_online_replay_materializes_the_exact_causal_window() -> None:
         tuple(_step_batch(step)["next_proprio"][0] for step in range(1, 32, 2))
     )
     torch.testing.assert_close(observations, expected_observations)
+    torch.testing.assert_close(goals, expected_goals)
+    torch.testing.assert_close(forward_actions, expected_forward_actions)
     torch.testing.assert_close(actions, expected_actions)
     torch.testing.assert_close(previous, expected_previous)
     torch.testing.assert_close(context_before, expected_context_before)
@@ -205,8 +267,10 @@ def test_online_replay_boundary_is_independent_per_world() -> None:
     replay = OnlineReplayBuffer(
         num_worlds=2,
         dimensions=DIMENSIONS,
-        block_size=2,
-        horizon=2,
+        effect_steps=2,
+        query_transitions=2,
+        context_chunk_steps=2,
+        sample_stride=1,
         context_tokens=16,
         capacity=4,
     )
@@ -229,8 +293,10 @@ def test_online_replay_and_normalization_remain_on_gpu() -> None:
     replay = OnlineReplayBuffer(
         num_worlds=2,
         dimensions=DIMENSIONS,
-        block_size=2,
-        horizon=2,
+        effect_steps=2,
+        query_transitions=2,
+        context_chunk_steps=2,
+        sample_stride=1,
         context_tokens=16,
         capacity=8,
         device=device,

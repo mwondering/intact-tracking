@@ -151,6 +151,18 @@ World Model 的第一项训练任务是 Action-Conditioned Future Prediction。
 
 完整 Action Chunk 必须显式作为输入，而不是让模型自己预测未来 policy action。
 
+当前实现固定 actor 的控制输出为单步 29 维 action，同时把 Forward effect span 独立设置为
+5 步。对任意环境时刻 `t`：
+
+```text
+Forward: [u_t, ..., u_t+4] + z_t + context -> z_robot,t+5
+Actor:   z_t + endpoint intent + u_t-1 -> u_t
+```
+
+也就是说，5 步 action sequence 只服务 Forward dynamics supervision；physical/goal inverse
+分支的 label 都是当前一步 `u_t`。在线 sampler 默认每步滑动一个起点，因此不会因为
+effect span 为 5 而丢掉中间四步 action supervision。
+
 因此 JEPA 学习的是：
 
 > **“在我从 Context 推断出的这个世界里，如果施加这一串 Actions，最终会发生什么？”**
@@ -193,7 +205,7 @@ State Encoder             Action Encoder
                compare
                   │
                   ▼
-          EMA Target Encoder
+       Shared State Encoder
                   ▲
                   │
            Real Future State
@@ -207,7 +219,7 @@ State Encoder             Action Encoder
 > Action Encoder：MLP
 > JEPA Predictor：4–6 layer Transformer
 > Latent Dimension：256–384
-> Target Encoder：EMA State Encoder
+> Future Target：同一个 State Encoder 的 attached latent（保留 INTACT 的训练路由）
 
 由于输入是结构化 proprioception 而非视觉数据，模型无需很大。
 
@@ -249,11 +261,12 @@ Current State 到 Real Future State 之间的变化定义为：
 
 > **Realized Physical Intent**
 
-而产生这一变化的真实 Action 已经存在于 rollout 中。
+而产生这一变化的真实当前 Action 已经存在于 rollout 中。虽然 endpoint 也受到随后 4 步
+动作影响，但完整动作序列只作为 Forward 条件；inverse actor 保持部署所需的单步输出。
 
 因此同一条数据可以反过来训练：
 
-> **World Context + Current State + Realized Physical Intent → Action**
+> **World Context + Current State + Realized Physical Intent + Previous Action → Current Action**
 
 不需要额外 action label 或 RL。
 
@@ -327,6 +340,10 @@ World Model 第一阶段采用纯在线 rollout 进行监督 / 自监督训练�
 > **Future Intent → Action**
 
 共享同一个 World Context representation。
+
+当前 Stage-I 的完整实现框图、精确时间索引以及各节点可调参数见
+[docs/training_flow.md](docs/training_flow.md)。默认使用 16 个 context token、每 token 5 步、
+Forward effect span 5 步、query 内 5 个 transition，以及 `sample_stride=1` 的逐步滑动采样。
 
 Forward objective 迫使 Context 表达当前环境如何响应 action；
 

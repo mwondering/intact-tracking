@@ -78,15 +78,19 @@ def test_writer_and_dataset_preserve_shapes_and_world_boundaries(tmp_path) -> No
     dataset = RolloutWindowDataset(
         manifest,
         world_ids=[1],
-        block_size=2,
-        horizon=3,
+        effect_steps=2,
+        query_transitions=3,
+        context_chunk_steps=2,
+        sample_stride=1,
         context_tokens=16,
         require_full_context=True,
     )
     sample = dataset[0]
     assert sample["observation"].shape == (4, dimensions.observation)
-    assert sample["action"].shape == (3, 2 * dimensions.action)
-    assert sample["previous_action"].shape == (3, 2 * dimensions.action)
+    assert sample["goal_observation"].shape == (3, dimensions.observation)
+    assert sample["forward_action"].shape == (3, 2 * dimensions.action)
+    assert sample["action"].shape == (3, dimensions.action)
+    assert sample["previous_action"].shape == (3, dimensions.action)
     assert sample["context"].shape == (
         16,
         2 * dimensions.proprio + 2 * dimensions.action,
@@ -101,23 +105,26 @@ def test_raw_zero_previous_action_is_normalized_after_padding(tmp_path) -> None:
     raw = RolloutWindowDataset(
         manifest,
         world_ids=[0],
-        block_size=2,
-        horizon=2,
+        effect_steps=2,
+        query_transitions=2,
+        context_chunk_steps=2,
+        sample_stride=1,
         require_full_context=False,
     )
     stats = raw.compute_normalization()
     normalized = RolloutWindowDataset(
         manifest,
         world_ids=[0],
-        block_size=2,
-        horizon=2,
+        effect_steps=2,
+        query_transitions=2,
+        context_chunk_steps=2,
+        sample_stride=1,
         require_full_context=False,
         normalization=stats,
     )
     sample = normalized[0]
     expected_frame = -torch.tensor(stats.action_mean) / torch.tensor(stats.action_std)
-    expected = expected_frame.repeat(2)
-    assert torch.allclose(sample["previous_action"][0], expected)
+    assert torch.allclose(sample["previous_action"][0], expected_frame)
     assert sample["context_mask"].sum() == 0
 
 
@@ -158,9 +165,11 @@ def test_training_smoke_is_limited_to_one_batch(tmp_path) -> None:
             "1",
             "--workers",
             "0",
-            "--block-size",
+            "--effect-steps",
             "2",
-            "--horizon",
+            "--query-transitions",
+            "2",
+            "--context-chunk-steps",
             "2",
             "--embed-dim",
             "8",

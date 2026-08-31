@@ -69,9 +69,10 @@ def construct_intents(
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Construct attached physical intent and stop-gradient deployment intent.
 
-    ``goal_embedding`` comes from the future reference observation available to
-    the deployed tracker.  Only that occurrence is detached; the physical
-    successor and every current-state occurrence remain attached.
+    ``goal_embedding[:, k]`` is the reference endpoint aligned with physical
+    successor ``embeddings[:, k + 1]``.  Only the reference occurrence is
+    detached; the physical successor and every current-state occurrence remain
+    attached.
     """
     max_start = embeddings.size(1) - 2
     for name, value in (("physical_start", physical_start), ("goal_start", goal_start)):
@@ -84,16 +85,18 @@ def construct_intents(
     physical_intent = physical_successor - physical_current
 
     deployment_current = embeddings[:, goal_start:-1]
-    if goal_embedding.ndim != 2 or goal_embedding.shape != (
+    expected_goal_shape = (
         embeddings.size(0),
+        embeddings.size(1) - 1,
         embeddings.size(-1),
-    ):
+    )
+    if goal_embedding.ndim != 3 or goal_embedding.shape != expected_goal_shape:
         raise ValueError(
-            "Goal embedding must be [B,D], got "
-            f"{tuple(goal_embedding.shape)} for {tuple(embeddings.shape)}"
+            "Aligned goal embeddings must be [B,T-1,D], got "
+            f"{tuple(goal_embedding.shape)}; expected {expected_goal_shape}"
         )
-    fixed_goal = goal_embedding.detach()[:, None].expand_as(deployment_current)
-    goal_intent = fixed_goal - deployment_current
+    aligned_goal = goal_embedding[:, goal_start:].detach()
+    goal_intent = aligned_goal - deployment_current
     return physical_intent, goal_intent
 
 
@@ -115,6 +118,7 @@ def intact_objective(
     required = {
         "observation",
         "goal_observation",
+        "forward_action",
         "action",
         "previous_action",
         "context",
@@ -130,7 +134,7 @@ def intact_objective(
     world = model.encode_context(batch["context"], context_mask)
     embeddings = model.encode_observation(batch["observation"], world)
     goal_embedding = model.encode_observation(batch["goal_observation"], world)
-    action_embeddings = model.action_encoder(batch["action"])
+    action_embeddings = model.forward_action_encoder(batch["forward_action"])
     predictions = predict_adjacent_latents(
         model,
         embeddings,
@@ -177,16 +181,42 @@ def intact_objective(
     action_loss = (
         cfg.physical_weight * physical_stats["loss"] + cfg.goal_weight * goal_stats["loss"]
     )
-    total = cfg.forward_weight * forward_loss + cfg.sigreg_weight * sigreg_loss + action_loss
+    weighted_forward = cfg.forward_weight * forward_loss
+    weighted_sigreg = cfg.sigreg_weight * sigreg_loss
+    weighted_physical = cfg.physical_weight * physical_stats["loss"]
+    weighted_goal = cfg.goal_weight * goal_stats["loss"]
+    total = weighted_forward + weighted_sigreg + weighted_physical + weighted_goal
+
+    # Scale-aware diagnostics make latent MSE and Gaussian NLL interpretable.
+    # These values are observational only and do not alter the INTACT objective.
+    flat_embeddings = embeddings.detach().reshape(-1, embeddings.size(-1)).float()
+    latent_std = flat_embeddings.std(dim=0, unbiased=False)
+    target_variance = targets.detach().float().var(unbiased=False)
     return {
         "loss": total,
         "forward_loss": forward_loss,
+        "forward_nmse": (forward_loss.detach().float() / target_variance.clamp_min(1e-8)),
+        "forward_target_variance": target_variance,
         "sigreg_loss": sigreg_loss,
         "action_loss": action_loss,
+        "weighted_forward_loss": weighted_forward.detach(),
+        "weighted_sigreg_loss": weighted_sigreg.detach(),
+        "weighted_physical_nll": weighted_physical.detach(),
+        "weighted_goal_nll": weighted_goal.detach(),
         "physical_nll": physical_stats["loss"],
         "goal_nll": goal_stats["loss"],
         "physical_mae": _masked_mean(physical_stats["mae"], physical_mask).detach(),
         "goal_mae": _masked_mean(goal_stats["mae"], goal_mask).detach(),
+        "physical_log_std": _masked_mean(
+            physical_stats["log_std"].mean(dim=-1), physical_mask
+        ).detach(),
+        "goal_log_std": _masked_mean(goal_stats["log_std"].mean(dim=-1), goal_mask).detach(),
+        "latent_mean_abs": flat_embeddings.mean(dim=0).abs().mean(),
+        "latent_rms": flat_embeddings.square().mean().sqrt(),
+        "latent_std_mean": latent_std.mean(),
+        "latent_std_min": latent_std.min(),
+        "latent_std_max": latent_std.max(),
+        "latent_collapsed_fraction": (latent_std < 0.1).float().mean(),
         "predictions": predictions,
         "embeddings": embeddings,
         "goal_embedding": goal_embedding,

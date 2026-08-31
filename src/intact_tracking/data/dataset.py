@@ -156,23 +156,32 @@ def _moments(arrays: list[np.ndarray], width: int) -> tuple[np.ndarray, np.ndarr
 
 
 class RolloutWindowDataset(Dataset[dict[str, torch.Tensor]]):
-    """Sample H-block queries with exactly 16 prior same-world context tokens."""
+    """Sample sliding causal queries with 16 prior same-world context tokens."""
 
     def __init__(
         self,
         manifest_path: str | Path,
         *,
         world_ids: list[int] | tuple[int, ...] | None = None,
-        block_size: int = 5,
-        horizon: int = 5,
+        effect_steps: int = 5,
+        query_transitions: int = 5,
+        context_chunk_steps: int = 5,
+        sample_stride: int = 1,
         context_tokens: int = 16,
         require_full_context: bool = True,
         normalization: NormalizationStats | None = None,
     ) -> None:
         super().__init__()
-        if block_size < 1 or horizon < 1 or context_tokens != 16:
+        if (
+            effect_steps < 1
+            or query_transitions < 1
+            or context_chunk_steps < 1
+            or sample_stride < 1
+            or context_tokens != 16
+        ):
             raise ValueError(
-                "block_size and horizon must be positive; context_tokens is fixed at 16"
+                "effect_steps, query_transitions, context_chunk_steps and sample_stride "
+                "must be positive; context_tokens is fixed at 16"
             )
         self.manifest_path = Path(manifest_path).expanduser().resolve()
         self.root = self.manifest_path.parent
@@ -180,8 +189,10 @@ class RolloutWindowDataset(Dataset[dict[str, torch.Tensor]]):
         if self.manifest["schema_version"] != SCHEMA_VERSION:
             raise ValueError(f"Unsupported manifest schema {self.manifest['schema_version']!r}")
         self.dimensions = RolloutDimensions(**self.manifest["dimensions"])
-        self.block_size = int(block_size)
-        self.horizon = int(horizon)
+        self.effect_steps = int(effect_steps)
+        self.query_transitions = int(query_transitions)
+        self.context_chunk_steps = int(context_chunk_steps)
+        self.sample_stride = int(sample_stride)
         self.context_tokens = int(context_tokens)
         self.require_full_context = bool(require_full_context)
         self.normalization = normalization
@@ -239,11 +250,14 @@ class RolloutWindowDataset(Dataset[dict[str, torch.Tensor]]):
     def _build_sample_index(self) -> list[_SampleRef]:
         context_by_world: dict[int, list[_ChunkRef]] = {world: [] for world in self.world_ids}
         queries: list[_ChunkRef] = []
-        query_length = self.block_size * self.horizon
+        query_length = self.effect_steps * self.query_transitions
         for key, refs in self.episodes.items():
-            for start in range(0, len(refs), self.block_size):
-                if self._chunk_valid(refs, start, self.block_size):
-                    context_by_world[key[0]].append(self._chunk(key, start, self.block_size))
+            for start in range(0, len(refs), self.context_chunk_steps):
+                if self._chunk_valid(refs, start, self.context_chunk_steps):
+                    context_by_world[key[0]].append(
+                        self._chunk(key, start, self.context_chunk_steps)
+                    )
+            for start in range(0, len(refs), self.sample_stride):
                 if self._chunk_valid(refs, start, query_length):
                     queries.append(self._chunk(key, start, query_length))
         for chunks in context_by_world.values():
@@ -306,10 +320,12 @@ class RolloutWindowDataset(Dataset[dict[str, torch.Tensor]]):
     def __len__(self) -> int:
         return len(self.samples)
 
-    def _transition_block(self, episode_key: tuple[int, int], start: int) -> list[_TransitionRef]:
-        return self.episodes[episode_key][start : start + self.block_size]
+    def _transition_chunk(
+        self, episode_key: tuple[int, int], start: int, length: int
+    ) -> list[_TransitionRef]:
+        return self.episodes[episode_key][start : start + length]
 
-    def _action_block(self, refs: list[_TransitionRef]) -> np.ndarray:
+    def _action_sequence(self, refs: list[_TransitionRef]) -> np.ndarray:
         value = np.stack([self._value(ref, "action") for ref in refs]).astype(
             np.float32, copy=False
         )
@@ -332,41 +348,51 @@ class RolloutWindowDataset(Dataset[dict[str, torch.Tensor]]):
         observations = []
         actions = []
         previous_actions = []
-        raw_zero = np.zeros((self.block_size, self.dimensions.action), dtype=np.float32)
-        for teacher_step in range(self.horizon):
-            start = query.start + teacher_step * self.block_size
-            block = self._transition_block(query.episode_key, start)
+        goals = []
+        forward_actions = []
+        raw_zero = np.zeros(self.dimensions.action, dtype=np.float32)
+        for teacher_step in range(self.query_transitions):
+            start = query.start + teacher_step * self.effect_steps
+            block = self._transition_chunk(query.episode_key, start, self.effect_steps)
             observations.append(self._observation(self._value(block[0], "observation")))
-            actions.append(self._action_block(block))
-            previous_start = start - self.block_size
+            forward_actions.append(self._action_sequence(block))
+            action = np.asarray(self._value(block[0], "action"), dtype=np.float32)
+            if self.normalization is not None:
+                action = self.normalization.action(action)
+            actions.append(action)
+            previous_start = start - 1
             if previous_start >= 0:
-                previous = self._transition_block(query.episode_key, previous_start)
-                previous_actions.append(self._action_block(previous))
+                previous_ref = query_refs[previous_start]
+                previous = np.asarray(self._value(previous_ref, "action"), dtype=np.float32)
+                if self.normalization is not None:
+                    previous = self.normalization.action(previous)
+                previous_actions.append(previous)
             else:
                 previous = raw_zero
                 if self.normalization is not None:
                     previous = self.normalization.action(previous)
-                previous_actions.append(previous.reshape(-1))
-        final_ref = query_refs[query.start + self.horizon * self.block_size - 1]
+                previous_actions.append(previous)
+            goals.append(self._observation(self._value(block[-1], "next_reference_observation")))
+        final_ref = query_refs[query.start + self.query_transitions * self.effect_steps - 1]
         observations.append(self._observation(self._value(final_ref, "next_observation")))
-        goal = self._observation(self._value(final_ref, "next_reference_observation"))
 
-        token_dim = 2 * self.dimensions.proprio + self.block_size * self.dimensions.action
+        token_dim = 2 * self.dimensions.proprio + self.context_chunk_steps * self.dimensions.action
         context = np.zeros((self.context_tokens, token_dim), dtype=np.float32)
         context_mask = np.zeros(self.context_tokens, dtype=np.bool_)
         offset = self.context_tokens - len(sample.context)
         for token_index, chunk in enumerate(sample.context, start=offset):
-            refs = self._transition_block(chunk.episode_key, chunk.start)
+            refs = self._transition_chunk(chunk.episode_key, chunk.start, self.context_chunk_steps)
             before = self._proprio(self._value(refs[0], "proprio"))
-            action = self._action_block(refs)
+            action = self._action_sequence(refs)
             after = self._proprio(self._value(refs[-1], "next_proprio"))
             context[token_index] = np.concatenate((before, action, after))
             context_mask[token_index] = True
 
-        step_mask = np.ones(self.horizon, dtype=np.bool_)
+        step_mask = np.ones(self.query_transitions, dtype=np.bool_)
         return {
             "observation": torch.from_numpy(np.stack(observations).astype(np.float32)),
-            "goal_observation": torch.from_numpy(goal.astype(np.float32)),
+            "goal_observation": torch.from_numpy(np.stack(goals).astype(np.float32)),
+            "forward_action": torch.from_numpy(np.stack(forward_actions).astype(np.float32)),
             "action": torch.from_numpy(np.stack(actions).astype(np.float32)),
             "previous_action": torch.from_numpy(np.stack(previous_actions).astype(np.float32)),
             "context": torch.from_numpy(context),

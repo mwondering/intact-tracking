@@ -39,6 +39,8 @@ def verify(manifest_path: Path, run_dir: Path, expected_transitions: int) -> dic
         raise RuntimeError(f"Smoke rollout needs at least three worlds, got {worlds}")
     if run_config.get("method") != "INTACT":
         raise RuntimeError("Training run is not marked as INTACT")
+    if run_config.get("architecture_version") != "single_step_effect_v1":
+        raise RuntimeError("Training run does not use the single-step actor architecture")
     if run_config.get("model", {}).get("context_tokens") != 16:
         raise RuntimeError("Model did not preserve the fixed 16-token context contract")
     arguments = run_config.get("arguments", {})
@@ -46,8 +48,10 @@ def verify(manifest_path: Path, run_dir: Path, expected_transitions: int) -> dic
         "batch_size": 1,
         "max_train_batches": 1,
         "max_validation_batches": 1,
-        "block_size": 5,
-        "horizon": 5,
+        "effect_steps": 5,
+        "query_transitions": 5,
+        "context_chunk_steps": 5,
+        "sample_stride": 1,
         "allow_padded_context": False,
     }
     for name, expected in expected_arguments.items():
