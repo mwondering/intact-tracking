@@ -1,0 +1,248 @@
+from __future__ import annotations
+
+from types import SimpleNamespace
+
+import torch
+
+from intact_tracking.cli.residual_train import _validate_arguments, _wandb_payload, build_parser
+from intact_tracking.data import (
+    ResidualOnlineReplayBuffer,
+    RolloutDimensions,
+)
+from intact_tracking.residual_model import ResidualTrackingConfig, ResidualTrackingModel
+from intact_tracking.residual_objective import ResidualLossConfig, ResidualTrainingObjective
+from intact_tracking.wandb_logger import WandbLogger
+
+
+def _config() -> ResidualTrackingConfig:
+    return ResidualTrackingConfig(
+        policy_observation_dim=8,
+        proprio_dim=6,
+        action_dim=3,
+        state_dim=71,
+        context_dim=16,
+        context_depth=1,
+        context_heads=4,
+        hidden_dim=32,
+        forward_depth=1,
+        backward_depth=1,
+        policy_depth=1,
+        residual_scale=0.2,
+    )
+
+
+def _model_batch(config: ResidualTrackingConfig, batch_size: int = 4):
+    return {
+        "context": torch.randn(
+            batch_size, config.context_tokens, config.context_token_dim
+        ),
+        "context_mask": torch.ones(
+            batch_size, config.context_tokens, dtype=torch.bool
+        ),
+        "state": torch.randn(batch_size, config.horizon + 1, config.state_dim),
+        "reference_state": torch.randn(batch_size, config.horizon, config.state_dim),
+        "action": torch.randn(batch_size, config.horizon, config.action_dim),
+        "previous_action": torch.randn(batch_size, config.action_dim),
+        "tracker_action": torch.randn(batch_size, config.horizon, config.action_dim),
+        "policy_observation": torch.randn(
+            batch_size, config.horizon, config.policy_observation_dim
+        ),
+        "action_mean": torch.zeros(config.action_dim),
+        "action_std": torch.ones(config.action_dim),
+        "state_mean": torch.zeros(config.state_dim),
+        "state_std": torch.ones(config.state_dim),
+    }
+
+
+def _gradient_norm(module: torch.nn.Module) -> float:
+    return float(
+        sum(
+            parameter.grad.detach().square().sum()
+            for parameter in module.parameters()
+            if parameter.grad is not None
+        ).sqrt()
+    )
+
+
+def test_tracking_loss_only_updates_residual_policy() -> None:
+    config = _config()
+    model = ResidualTrackingModel(config)
+    objective = ResidualTrainingObjective(
+        model,
+        ResidualLossConfig(
+            forward_weight=0.0,
+            backward_weight=0.0,
+            tracking_weight=1.0,
+            residual_l2_weight=0.0,
+            residual_smooth_weight=0.0,
+        ),
+    )
+    output = objective(_model_batch(config))
+    output["loss"].backward()
+
+    assert _gradient_norm(model.residual_policy) > 0.0
+    assert _gradient_norm(model.context_encoder) == 0.0
+    assert _gradient_norm(model.forward_predictor) == 0.0
+    assert _gradient_norm(model.backward_predictor) == 0.0
+
+
+def test_forward_and_backward_losses_update_context_and_predictors() -> None:
+    config = _config()
+    model = ResidualTrackingModel(config)
+    objective = ResidualTrainingObjective(
+        model,
+        ResidualLossConfig(
+            forward_weight=1.0,
+            backward_weight=1.0,
+            tracking_weight=0.0,
+            residual_l2_weight=0.0,
+            residual_smooth_weight=0.0,
+        ),
+    )
+    output = objective(_model_batch(config))
+    output["loss"].backward()
+
+    assert _gradient_norm(model.context_encoder) > 0.0
+    assert _gradient_norm(model.forward_predictor) > 0.0
+    assert _gradient_norm(model.backward_predictor) > 0.0
+    assert _gradient_norm(model.residual_policy) == 0.0
+
+
+def test_residual_replay_builds_strictly_causal_five_step_window() -> None:
+    dimensions = RolloutDimensions(
+        proprio=6,
+        observation=4,
+        action=3,
+        robot_state=71,
+        reference_state=71,
+    )
+    replay = ResidualOnlineReplayBuffer(
+        num_worlds=2,
+        policy_observation_dim=8,
+        dimensions=dimensions,
+        capacity=32,
+        device="cpu",
+    )
+    for step in range(85):
+        scalar = torch.full((2, 1), float(step))
+        state = scalar.expand(2, 71).clone()
+        batch = {
+            "proprio": scalar.expand(2, 6).clone(),
+            "next_proprio": (scalar + 1).expand(2, 6).clone(),
+            "policy_observation": scalar.expand(2, 8).clone(),
+            "tracker_action": scalar.expand(2, 3).clone(),
+            "action": scalar.expand(2, 3).clone(),
+            "robot_state": state,
+            "next_robot_state": state + 1,
+            "reference_state": state + 10,
+            "next_reference_state": state + 11,
+            "reset_boundary": torch.zeros(2, dtype=torch.bool),
+            "world_id": torch.arange(2),
+            "episode_id": torch.zeros(2, dtype=torch.long),
+            "episode_step": torch.full((2,), step, dtype=torch.long),
+            "collector_step": torch.full((2,), step, dtype=torch.long),
+        }
+        replay.add_step(batch)
+
+    assert len(replay) == 2
+    torch.testing.assert_close(
+        replay._samples["policy_observation"][0, :, 0], torch.arange(80.0, 85.0)
+    )
+    torch.testing.assert_close(
+        replay._samples["state"][0, :, 0], torch.arange(80.0, 86.0)
+    )
+    assert replay._samples["previous_action"][0, 0].item() == 79.0
+    # The sample context ends at step 79 and therefore never overlaps query 80:85.
+    assert replay._samples["context_before"][0, 0, 0].item() == 0.0
+    assert replay._samples["context_before"][0, -1, 0].item() == 75.0
+
+    packed = replay.normalizer.packed_statistics()
+    stats = replay.normalizer.snapshot_from_packed(packed, replay.world_ids)
+    sampled = replay.sample_batch(2, stats)
+    assert sampled["state"].shape == (2, 6, 71)
+    assert sampled["policy_observation"].shape == (2, 5, 8)
+    assert sampled["context"].shape == (2, 16, 2 * 6 + 5 * 3)
+    assert torch.isfinite(sampled["context"]).all()
+
+
+def test_residual_cli_enables_wandb_and_five_step_collection_by_default() -> None:
+    args = build_parser().parse_args(
+        [
+            "--checkpoint-file",
+            "tracker.pt",
+            "--motion-file",
+            "motion.npz",
+            "--output-dir",
+            "run",
+        ]
+    )
+    _validate_arguments(args)
+    assert args.rollout_steps_per_update == 5
+    assert args.wandb
+    assert args.wandb_project == "intact-residual-tracking"
+
+
+def test_wandb_logger_is_rank_zero_only(monkeypatch, tmp_path) -> None:
+    calls = []
+
+    class FakeRun:
+        id = "run-id"
+        url = "https://wandb.invalid/run-id"
+
+        def define_metric(self, *args, **kwargs):
+            calls.append(("define", args, kwargs))
+
+        def log(self, payload, step):
+            calls.append(("log", payload, step))
+
+        def finish(self, exit_code):
+            calls.append(("finish", exit_code))
+
+    fake_wandb = SimpleNamespace(init=lambda **kwargs: calls.append(("init", kwargs)) or FakeRun())
+    monkeypatch.setattr(
+        "intact_tracking.wandb_logger.importlib.import_module", lambda _name: fake_wandb
+    )
+    logger = WandbLogger(
+        enabled=True,
+        is_main=True,
+        project="project",
+        output_dir=tmp_path,
+        config={"value": 1},
+    )
+    logger.log({"train/loss": 1.0}, step=3)
+    logger.finish()
+    assert [call[0] for call in calls].count("init") == 1
+    assert ("log", {"train/loss": 1.0}, 3) in calls
+    assert ("finish", 0) in calls
+
+
+def test_wandb_payload_exposes_training_tracking_and_replay_curves() -> None:
+    error_name = "error_joint_pos"
+    payload = _wandb_payload(
+        {
+            "update": 2,
+            "optimizer_steps": 4,
+            "learning_rate_model": 3.0e-4,
+            "learning_rate_policy": 1.0e-4,
+            "gradient_norm": 1.0,
+            "model_gradient_norm": 0.75,
+            "policy_gradient_norm": 0.25,
+            "replay_size": 32,
+            "samples_generated": 40,
+            "new_samples_generated": 8,
+            "replay_storage_bytes": 1024,
+            "train": {"loss": 3.0, "residual_rms": 0.02},
+            "tracking": {error_name: 0.8},
+            "tracking_baseline": {error_name: 1.0},
+            "tracking_comparison": {
+                f"{error_name}_ratio_to_tracker": 0.8,
+                f"{error_name}_relative_improvement": 0.2,
+            },
+        }
+    )
+
+    assert payload["train/loss"] == 3.0
+    assert payload[f"tracking/rollout_{error_name}"] == 0.8
+    assert payload[f"tracking/{error_name}_relative_improvement"] == 0.2
+    assert payload["optimization/policy_gradient_norm"] == 0.25
+    assert payload["replay/new_samples_generated"] == 8

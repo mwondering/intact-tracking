@@ -107,6 +107,36 @@ def _masked_mean(value: torch.Tensor, mask: torch.Tensor | None) -> torch.Tensor
     return (value * weights).sum() / weights.sum().clamp_min(1)
 
 
+def _action_scale(
+    batch: dict[str, torch.Tensor], target_action: torch.Tensor
+) -> torch.Tensor:
+    """Return an action standard deviation broadcastable over ``[B,T,A]``.
+
+    The scale is diagnostic metadata only: normalized actions remain the model
+    inputs and loss targets.  Unit scale keeps direct objective calls and older
+    callers backward compatible.
+    """
+    scale = batch.get("action_scale")
+    if scale is None:
+        return target_action.new_ones(1, 1, target_action.size(-1))
+    scale = scale.to(device=target_action.device, dtype=target_action.dtype)
+    if scale.size(-1) != target_action.size(-1):
+        raise ValueError(
+            "action_scale width must match target actions: "
+            f"{scale.size(-1)} vs {target_action.size(-1)}"
+        )
+    while scale.ndim < target_action.ndim:
+        scale = scale.unsqueeze(-2)
+    try:
+        torch.broadcast_shapes(scale.shape, target_action.shape)
+    except RuntimeError as error:
+        raise ValueError(
+            "action_scale must broadcast over target actions: "
+            f"{tuple(scale.shape)} vs {tuple(target_action.shape)}"
+        ) from error
+    return scale
+
+
 def intact_objective(
     model: TrackingINTACT,
     batch: dict[str, torch.Tensor],
@@ -192,11 +222,105 @@ def intact_objective(
     flat_embeddings = embeddings.detach().reshape(-1, embeddings.size(-1)).float()
     latent_std = flat_embeddings.std(dim=0, unbiased=False)
     target_variance = targets.detach().float().var(unbiased=False)
+    with torch.no_grad():
+        forward_copy_per_step = (embeddings[:, :-1] - targets).square().mean(dim=-1)
+        forward_copy_mse = _masked_mean(forward_copy_per_step, transition_mask)
+        forward_state_cosine_similarity = _masked_mean(
+            torch.nn.functional.cosine_similarity(
+                predictions.float(), targets.float(), dim=-1, eps=1e-8
+            ),
+            transition_mask,
+        )
+
+        # Decode the predicted and real physical endpoints through the exact
+        # same inverse actor.  This exposes the control-space consequence of
+        # Forward error without adding a loss term or changing any gradients.
+        physical_current = embeddings[:, cfg.physical_start : -1].detach()
+        predicted_physical_intent = (
+            predictions[:, cfg.physical_start :].detach() - physical_current
+        )
+        rng_devices = []
+        if physical_current.is_cuda:
+            rng_devices = [
+                physical_current.device.index
+                if physical_current.device.index is not None
+                else torch.cuda.current_device()
+            ]
+        # Preserve RNG state as well as gradients: configured actor dropout must
+        # not make enabling diagnostics alter subsequent optimizer updates.
+        with torch.random.fork_rng(devices=rng_devices):
+            predicted_action_mean, _ = model.action_parameters(
+                physical_current,
+                predicted_physical_intent,
+                batch["previous_action"][:, cfg.physical_start :].detach(),
+            )
+        physical_action_mean = physical_stats["mean"].detach()
+        physical_target_action = batch["action"][:, cfg.physical_start :].detach()
+        physical_action_scale = _action_scale(batch, batch["action"])[
+            ..., : physical_target_action.size(-2), :
+        ]
+        forward_decoded_action_abs_error = (
+            predicted_action_mean - physical_target_action
+        ).abs()
+        forward_action_consistency_abs_error = (
+            predicted_action_mean - physical_action_mean
+        ).abs()
+        physical_action_abs_error = (
+            physical_action_mean - physical_target_action
+        ).abs()
+
+        goal_action_mean = goal_stats["mean"].detach()
+        goal_target_action = batch["action"][:, cfg.goal_start :].detach()
+        goal_action_scale = _action_scale(batch, batch["action"])[
+            ..., : goal_target_action.size(-2), :
+        ]
+        goal_action_abs_error = (goal_action_mean - goal_target_action).abs()
+
+        forward_decoded_action_mae = _masked_mean(
+            forward_decoded_action_abs_error.mean(dim=-1), physical_mask
+        )
+        forward_action_consistency_mae = _masked_mean(
+            forward_action_consistency_abs_error.mean(dim=-1), physical_mask
+        )
+        forward_decoded_action_mae_env = _masked_mean(
+            (forward_decoded_action_abs_error * physical_action_scale).mean(dim=-1),
+            physical_mask,
+        )
+        forward_decoded_action_rmse_env = _masked_mean(
+            (
+                forward_decoded_action_abs_error.square()
+                * physical_action_scale.square()
+            ).mean(dim=-1),
+            physical_mask,
+        ).sqrt()
+        forward_action_consistency_mae_env = _masked_mean(
+            (forward_action_consistency_abs_error * physical_action_scale).mean(dim=-1),
+            physical_mask,
+        )
+        physical_action_mae_env = _masked_mean(
+            (physical_action_abs_error * physical_action_scale).mean(dim=-1),
+            physical_mask,
+        )
+        goal_action_mae_env = _masked_mean(
+            (goal_action_abs_error * goal_action_scale).mean(dim=-1), goal_mask
+        )
     return {
         "loss": total,
         "forward_loss": forward_loss,
         "forward_nmse": (forward_loss.detach().float() / target_variance.clamp_min(1e-8)),
         "forward_target_variance": target_variance,
+        "forward_copy_mse": forward_copy_mse,
+        "forward_vs_copy_ratio": (
+            forward_loss.detach().float() / forward_copy_mse.float().clamp_min(1e-8)
+        ),
+        "forward_state_cosine_similarity": forward_state_cosine_similarity,
+        "forward_decoded_action_mae": forward_decoded_action_mae,
+        "forward_action_consistency_mae": forward_action_consistency_mae,
+        "forward_decoded_action_mae_env": forward_decoded_action_mae_env,
+        "forward_decoded_action_rmse_env": forward_decoded_action_rmse_env,
+        "forward_action_consistency_mae_env": forward_action_consistency_mae_env,
+        "physical_action_mae_env": physical_action_mae_env,
+        "goal_action_mae_env": goal_action_mae_env,
         "sigreg_loss": sigreg_loss,
         "action_loss": action_loss,
         "weighted_forward_loss": weighted_forward.detach(),

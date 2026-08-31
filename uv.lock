@@ -890,6 +890,7 @@ dependencies = [
     { name = "rsl-rl-lib" },
     { name = "tensordict" },
     { name = "torch" },
+    { name = "wandb" },
 ]
 
 [package.optional-dependencies]
@@ -909,6 +910,7 @@ requires-dist = [
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8" },
     { name = "tensordict", specifier = ">=0.8" },
     { name = "torch", specifier = ">=2.7" },
+    { name = "wandb", specifier = ">=0.22" },
 ]
 provides-extras = ["dev"]
 

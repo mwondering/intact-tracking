@@ -2,6 +2,11 @@
 
 from .dataset import NormalizationStats, RolloutWindowDataset, split_world_ids
 from .online import OnlineNormalization, OnlineReplayBuffer
+from .residual_online import (
+    ResidualNormalizationStats,
+    ResidualOnlineNormalization,
+    ResidualOnlineReplayBuffer,
+)
 from .schema import RolloutDimensions
 from .writer import RolloutShardWriter
 
@@ -9,6 +14,9 @@ __all__ = [
     "NormalizationStats",
     "OnlineNormalization",
     "OnlineReplayBuffer",
+    "ResidualNormalizationStats",
+    "ResidualOnlineNormalization",
+    "ResidualOnlineReplayBuffer",
     "RolloutDimensions",
     "RolloutShardWriter",
     "RolloutWindowDataset",

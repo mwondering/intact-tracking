@@ -184,7 +184,9 @@ world。全局 `world_id = rank × num_envs + local_env_id`，不会冲突。
 
 默认 logger 不依赖 W&B。终端按 `log-interval` 打印一条 JSON，包含 `loss`、
 `forward_loss`、`sigreg_loss`、`action_loss`、`physical_nll`、`goal_nll`、两项 MAE、
-Forward NMSE、latent scale/collapse、四项加权 loss contribution、Gaussian log-std、
+Forward NMSE、相对 copy-state baseline 的误差比例、预测/目标 latent cosine similarity、
+预测 endpoint 与真实 endpoint 经同一 action actor 解码后的 action consistency error、
+原始环境 action 单位下的 MAE/RMSE、latent scale/collapse、四项加权 loss contribution、Gaussian log-std、
 gradient mean/max/p95/clip fraction、learning rate、env/optimizer step、replay size、reset 与
 motion 计数。每条记录还在 `window` 中保存最近 `metric-window` 轮的均值和标准差。
 终端和文件中的 loss 是所有 rank 的均值，transition/replay/reset 等计数是全局和；只有 rank 0
@@ -195,6 +197,30 @@ motion 计数。每条记录还在 `window` 中保存最近 `metric-window` 轮�
 - `update_XXXXXX.pt`、`last.pt`：INTACT、优化器、scheduler 与在线进度；
 - `history.json`：所有 update 的结构化记录；
 - `train.log`：正式脚本捕获的完整终端输出。
+
+## 五步 residual policy 训练
+
+新的 residual 入口保留 frozen SPV5-2 tracker 作为 skill prior，Residual Policy 根据
+`16-token world context + tracker deploy-time policy feature` 输出动作修正。连续五步真实
+observation 重新计算当前 policy action，Causal Forward Predictor 预测未来五步完整状态，
+tracking loss 只通过 action Jacobian 更新 Residual Policy；Forward/Backward loss 则更新
+Context Encoder 和对应 predictor。
+
+```bash
+./scripts/run_residual_training.sh \
+  /path/to/checkpoint.pt \
+  /path/to/motion_directory \
+  /path/to/runs/residual_v1 \
+  --num-envs 4096 \
+  --batch-size 512 \
+  --wandb-project intact-residual-tracking
+```
+
+W&B 默认开启，并记录训练 loss、predictor 分组误差、residual action、梯度、replay 状态以及
+SPTracking 同名的八项真实 rollout tracking error。Warmup 的零 residual rollout 作为 frozen
+tracker baseline，日志同时给出当前误差相对 baseline 的 ratio 和 improvement。无网络机器可
+使用 `--wandb-mode offline`，完全禁用则传 `--no-wandb`。完整张量契约、梯度路由和指标说明见
+[Residual training flow](docs/residual_training_flow.md)。
 
 ## 可选离线导出
 

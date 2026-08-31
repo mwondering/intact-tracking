@@ -152,6 +152,17 @@ physical/goal 两条 NLL 都只拟合这个 transition 起点的当前动作。�
 每个 update 记录原始值，并在 `window` 下记录最近 `--metric-window` 轮的均值与标准差：
 
 - `forward_nmse = forward_loss / forward_target_variance`：比裸 latent MSE 更可比较；
+- `forward_vs_copy_ratio = forward_loss / forward_copy_mse`：小于 1 才表示 Forward
+  优于直接用当前 latent 充当未来 latent；
+- `forward_state_cosine_similarity`：预测与真实 endpoint latent 的平均余弦相似度，越接近 1
+  越好；
+- `forward_action_consistency_mae_env`：预测 endpoint 与真实 endpoint 经同一个 physical
+  action actor 解码后，两者在原始环境 action 单位上的 MAE；这是最直接的 Forward
+  control-relevant error；
+- `forward_decoded_action_mae_env` / `forward_decoded_action_rmse_env`：预测 endpoint 解码出的
+  action 相对 rollout action 的端到端误差；
+- `physical_action_mae_env` / `goal_action_mae_env`：真实 physical endpoint / reference endpoint
+  分支相对 rollout action 的误差，均已反归一化到环境 action 单位；
 - `latent_std_mean/min/max` 与 `latent_collapsed_fraction`：检查 representation 缩放或塌缩；
 - `weighted_*`：直接显示四项 loss 对 total 的实际贡献；
 - `physical_log_std`、`goal_log_std`：区分 MAE 改变和 Gaussian 方差漂移；

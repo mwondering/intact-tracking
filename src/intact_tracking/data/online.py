@@ -666,6 +666,9 @@ class OnlineReplayBuffer:
             "forward_action": forward_actions,
             "action": actions,
             "previous_action": previous,
+            # Diagnostic metadata used only to express action errors in the
+            # environment's original policy-action units.
+            "action_scale": action_std,
             "context": context,
             "context_mask": torch.ones(
                 batch_size,

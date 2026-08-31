@@ -116,3 +116,44 @@ def test_training_launcher_preserves_single_device_mode(tmp_path: Path) -> None:
     device_index = arguments.index("--device")
     assert arguments[device_index + 1] == "cuda:3"
     assert "torch.distributed.run" not in arguments
+
+
+def test_residual_launcher_uses_residual_entrypoint_and_preserves_wandb_flags(
+    tmp_path: Path,
+) -> None:
+    checkpoint, motion = _launcher_inputs(tmp_path)
+    output = tmp_path / "residual-output"
+    captured_args = tmp_path / "residual-args"
+    captured_env = tmp_path / "residual-environment"
+    environment = {
+        **os.environ,
+        "PYTHON_BIN": str(_fake_python(tmp_path)),
+        "DEVICE": "cuda:4",
+        "CAPTURE_ARGS": str(captured_args),
+        "CAPTURE_ENV": str(captured_env),
+    }
+    environment.pop("GPUS", None)
+
+    subprocess.run(
+        [
+            str(REPOSITORY / "scripts/run_residual_training.sh"),
+            str(checkpoint),
+            str(motion),
+            str(output),
+            "--wandb-project",
+            "residual-test",
+            "--wandb-name",
+            "run-one",
+        ],
+        cwd=REPOSITORY,
+        env=environment,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    arguments = captured_args.read_text().splitlines()
+    assert arguments[:2] == ["-m", "intact_tracking.cli.residual_train"]
+    assert arguments[arguments.index("--device") + 1] == "cuda:4"
+    assert arguments[arguments.index("--wandb-project") + 1] == "residual-test"
+    assert arguments[arguments.index("--wandb-name") + 1] == "run-one"

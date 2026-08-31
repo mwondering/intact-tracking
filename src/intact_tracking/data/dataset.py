@@ -196,6 +196,12 @@ class RolloutWindowDataset(Dataset[dict[str, torch.Tensor]]):
         self.context_tokens = int(context_tokens)
         self.require_full_context = bool(require_full_context)
         self.normalization = normalization
+        self.action_scale = np.asarray(
+            normalization.action_std
+            if normalization is not None
+            else np.ones(self.dimensions.action, dtype=np.float32),
+            dtype=np.float32,
+        )
         available_worlds = set(int(value) for value in self.manifest["world_ids"])
         self.world_ids = (
             available_worlds if world_ids is None else set(int(value) for value in world_ids)
@@ -395,6 +401,8 @@ class RolloutWindowDataset(Dataset[dict[str, torch.Tensor]]):
             "forward_action": torch.from_numpy(np.stack(forward_actions).astype(np.float32)),
             "action": torch.from_numpy(np.stack(actions).astype(np.float32)),
             "previous_action": torch.from_numpy(np.stack(previous_actions).astype(np.float32)),
+            # Diagnostic metadata only; it is never consumed by the model or losses.
+            "action_scale": torch.from_numpy(self.action_scale),
             "context": torch.from_numpy(context),
             "context_mask": torch.from_numpy(context_mask),
             "transition_mask": torch.from_numpy(step_mask.copy()),

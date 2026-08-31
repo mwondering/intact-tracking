@@ -65,6 +65,51 @@ def test_paired_objective_is_finite_and_updates_shared_components() -> None:
     assert actor_modules == [model.intent_actor]
 
 
+def test_forward_diagnostics_are_observational_and_action_scaled() -> None:
+    config = _config()
+    model = TrackingINTACT(config)
+    batch = _batch(config)
+    torch.manual_seed(123)
+    unit_output = intact_objective(model, batch, sigreg=SIGReg(num_proj=16))
+
+    scaled_batch = dict(batch)
+    scaled_batch["action_scale"] = torch.full(
+        (batch["action"].size(0), config.action_dim), 3.0
+    )
+    torch.manual_seed(123)
+    scaled_output = intact_objective(model, scaled_batch, sigreg=SIGReg(num_proj=16))
+
+    diagnostic_names = (
+        "forward_copy_mse",
+        "forward_vs_copy_ratio",
+        "forward_state_cosine_similarity",
+        "forward_decoded_action_mae",
+        "forward_action_consistency_mae",
+        "forward_decoded_action_mae_env",
+        "forward_decoded_action_rmse_env",
+        "forward_action_consistency_mae_env",
+        "physical_action_mae_env",
+        "goal_action_mae_env",
+    )
+    assert all(torch.isfinite(unit_output[name]) for name in diagnostic_names)
+    assert all(not unit_output[name].requires_grad for name in diagnostic_names)
+    assert torch.allclose(unit_output["loss"], scaled_output["loss"])
+    assert torch.allclose(
+        scaled_output["forward_decoded_action_mae_env"],
+        3 * unit_output["forward_decoded_action_mae"],
+    )
+    assert torch.allclose(
+        scaled_output["forward_action_consistency_mae_env"],
+        3 * unit_output["forward_action_consistency_mae"],
+    )
+    assert torch.allclose(
+        scaled_output["physical_action_mae_env"], 3 * unit_output["physical_mae"]
+    )
+    assert torch.allclose(
+        scaled_output["goal_action_mae_env"], 3 * unit_output["goal_mae"]
+    )
+
+
 def test_goal_endpoint_is_detached_but_physical_successor_is_attached() -> None:
     embeddings = torch.randn(2, 6, 4, requires_grad=True)
     goal = torch.randn(2, 5, 4, requires_grad=True)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -15,6 +16,55 @@ from .mjlab_adapter import (
     _policy_observations,
     _snapshot,
 )
+
+TRACKING_ERROR_NAMES = (
+    "error_anchor_pos",
+    "error_anchor_rot",
+    "error_anchor_lin_vel",
+    "error_anchor_ang_vel",
+    "error_body_pos",
+    "error_body_rot",
+    "error_joint_pos",
+    "error_joint_vel",
+)
+
+
+def _quaternion_error(first: torch.Tensor, second: torch.Tensor) -> torch.Tensor:
+    first = torch.nn.functional.normalize(first, dim=-1, eps=1e-8)
+    second = torch.nn.functional.normalize(second, dim=-1, eps=1e-8)
+    dot = (first * second).sum(dim=-1).abs().clamp(max=1.0)
+    return 2.0 * torch.acos(dot)
+
+
+def _tracking_error_snapshot(env: Any, snapshot: dict[str, torch.Tensor]) -> torch.Tensor:
+    """Match SPTracking's instantaneous tracking-error names and units."""
+    command = env.command_manager.get_term("motion")
+    metrics = getattr(command, "metrics", {})
+    if all(isinstance(metrics.get(name), torch.Tensor) for name in TRACKING_ERROR_NAMES):
+        return torch.stack(tuple(metrics[name] for name in TRACKING_ERROR_NAMES), dim=-1)
+
+    robot = snapshot["robot_state"]
+    reference = snapshot["reference_state"]
+    root_pos = torch.linalg.vector_norm(reference[:, :3] - robot[:, :3], dim=-1)
+    root_rot = _quaternion_error(reference[:, 3:7], robot[:, 3:7])
+    root_lin_vel = torch.linalg.vector_norm(reference[:, 7:10] - robot[:, 7:10], dim=-1)
+    root_ang_vel = torch.linalg.vector_norm(reference[:, 10:13] - robot[:, 10:13], dim=-1)
+    joint_pos = torch.linalg.vector_norm(reference[:, 13:42] - robot[:, 13:42], dim=-1)
+    joint_vel = torch.linalg.vector_norm(reference[:, 42:71] - robot[:, 42:71], dim=-1)
+    zeros = torch.zeros_like(root_pos)
+    return torch.stack(
+        (
+            root_pos,
+            root_rot,
+            root_lin_vel,
+            root_ang_vel,
+            zeros,
+            zeros,
+            joint_pos,
+            joint_vel,
+        ),
+        dim=-1,
+    )
 
 
 @dataclass(frozen=True)
@@ -200,7 +250,16 @@ class FixedDRTrackerRollout:
             "reset_contract": (
                 "asynchronous per-slot auto-reset; startup events are never reapplied"
             ),
+            "tracking_error_names": list(TRACKING_ERROR_NAMES),
         }
+
+    @property
+    def policy_observation_dim(self) -> int:
+        return int(self._runtime.actor.policy_input_dim)
+
+    @property
+    def action_clip(self) -> float | None:
+        return self._clip_actions
 
     def _assert_fixed_dr(self, env_ids: torch.Tensor | None = None) -> None:
         unchanged: torch.Tensor | None = None
@@ -230,16 +289,40 @@ class FixedDRTrackerRollout:
             torch.cat((self._motion_ids_seen, motion_ids.detach().to(dtype=torch.long).flatten()))
         )
 
-    def step(self) -> dict[str, torch.Tensor]:
-        """Collect one transition from every vector slot."""
+    def step(
+        self,
+        residual_action_fn: Callable[[torch.Tensor, torch.Tensor], torch.Tensor] | None = None,
+    ) -> dict[str, torch.Tensor]:
+        """Collect one transition, optionally adding a learned residual action."""
         if self.closed:
             raise RuntimeError("Cannot step a closed rollout")
         before = _snapshot(self.env, self.observations)
         if self.collector_step == 0:
             self._record_motion_ids(before["motion_id"])
-        action = self.policy(self.observations)
-        if not isinstance(action, torch.Tensor):
-            raise TypeError(f"Frozen tracker must return a Tensor, got {type(action).__name__}")
+        actor = getattr(getattr(self, "_runtime", None), "actor", None)
+        with torch.inference_mode():
+            policy_observation = (
+                actor.get_latent(self.observations)
+                if actor is not None
+                else before["observation"]
+            )
+            tracker_action = self.policy(self.observations)
+        if not isinstance(tracker_action, torch.Tensor):
+            raise TypeError(
+                f"Frozen tracker must return a Tensor, got {type(tracker_action).__name__}"
+            )
+        residual_action = torch.zeros_like(tracker_action)
+        if residual_action_fn is not None:
+            with torch.inference_mode():
+                residual_action = residual_action_fn(policy_observation, tracker_action)
+            if not isinstance(residual_action, torch.Tensor):
+                raise TypeError("Residual action callback must return a Tensor")
+            if residual_action.shape != tracker_action.shape:
+                raise ValueError(
+                    "Residual action shape must match tracker action: "
+                    f"{tuple(residual_action.shape)} vs {tuple(tracker_action.shape)}"
+                )
+        action = tracker_action + residual_action
         if self._clip_actions is not None:
             action = action.clamp(-float(self._clip_actions), float(self._clip_actions))
 
@@ -256,6 +339,9 @@ class FixedDRTrackerRollout:
             "next_observation": after["observation"],
             "reference_observation": before["reference_observation"],
             "next_reference_observation": after["reference_observation"],
+            "policy_observation": policy_observation,
+            "tracker_action": tracker_action,
+            "residual_action": residual_action,
             "action": action,
             "reward": reward,
             "terminated": terminated,
@@ -269,6 +355,20 @@ class FixedDRTrackerRollout:
             "motion_id": before["motion_id"],
             "motion_step": before["motion_step"],
         }
+        raw_state_fields = (
+            "robot_state",
+            "reference_state",
+        )
+        if all(name in before and name in after for name in raw_state_fields):
+            batch.update(
+                {
+                    "robot_state": before["robot_state"],
+                    "next_robot_state": after["robot_state"],
+                    "reference_state": before["reference_state"],
+                    "next_reference_state": after["reference_state"],
+                    "tracking_error": _tracking_error_snapshot(self.env, after),
+                }
+            )
 
         self.collector_step += 1
         self.episode_steps += 1

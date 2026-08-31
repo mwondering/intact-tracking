@@ -1,0 +1,752 @@
+"""Train a context-conditioned residual policy through a learned five-step model."""
+
+from __future__ import annotations
+
+import argparse
+import importlib.metadata
+import json
+import os
+import random
+import time
+from collections import deque
+from dataclasses import asdict
+from pathlib import Path
+from typing import Any, Callable, TypeVar
+
+import numpy as np
+import torch
+from torch.nn.parallel import DistributedDataParallel
+
+from intact_tracking.data import (
+    ResidualNormalizationStats,
+    ResidualOnlineReplayBuffer,
+    RolloutDimensions,
+)
+from intact_tracking.distributed import DistributedContext
+from intact_tracking.residual_model import ResidualTrackingConfig, ResidualTrackingModel
+from intact_tracking.residual_objective import ResidualLossConfig, ResidualTrainingObjective
+from intact_tracking.rollout import FixedDRRolloutConfig, FixedDRTrackerRollout
+from intact_tracking.rollout.mjlab_adapter import _sha256
+from intact_tracking.rollout.online import TRACKING_ERROR_NAMES
+from intact_tracking.wandb_logger import WandbLogger
+
+T = TypeVar("T")
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--checkpoint-file", required=True)
+    motion = parser.add_mutually_exclusive_group(required=True)
+    motion.add_argument("--motion-path")
+    motion.add_argument("--motion-file")
+    parser.add_argument("--output-dir", required=True)
+    parser.add_argument("--task-id")
+    parser.add_argument("--num-envs", type=int, default=16)
+    parser.add_argument("--device")
+    parser.add_argument("--distributed-backend", choices=("nccl", "gloo"))
+    parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--stochastic-policy", action="store_true")
+
+    parser.add_argument("--warmup-steps", type=int, default=100)
+    parser.add_argument("--max-warmup-steps", type=int, default=10_000)
+    parser.add_argument("--updates", type=int, default=10_000)
+    parser.add_argument("--rollout-steps-per-update", type=int, default=5)
+    parser.add_argument("--gradient-steps-per-update", type=int, default=1)
+    parser.add_argument("--batch-size", type=int, default=64)
+    parser.add_argument("--replay-capacity", type=int, default=8192)
+    parser.add_argument("--sample-stride", type=int, default=1)
+    parser.add_argument("--log-interval", type=int, default=10)
+    parser.add_argument("--warmup-log-interval", type=int, default=10)
+    parser.add_argument("--metric-window", type=int, default=100)
+    parser.add_argument("--checkpoint-interval", type=int, default=1000)
+
+    parser.add_argument("--model-learning-rate", type=float, default=3.0e-4)
+    parser.add_argument("--policy-learning-rate", type=float, default=1.0e-4)
+    parser.add_argument("--weight-decay", type=float, default=1.0e-3)
+    parser.add_argument("--gradient-clip", type=float, default=1.0)
+    parser.add_argument("--context-dim", type=int, default=192)
+    parser.add_argument("--context-depth", type=int, default=2)
+    parser.add_argument("--context-heads", type=int, default=4)
+    parser.add_argument("--hidden-dim", type=int, default=512)
+    parser.add_argument("--forward-depth", type=int, default=2)
+    parser.add_argument("--backward-depth", type=int, default=3)
+    parser.add_argument("--policy-depth", type=int, default=3)
+    parser.add_argument("--residual-scale", type=float, default=0.25)
+
+    parser.add_argument("--forward-weight", type=float, default=1.0)
+    parser.add_argument("--backward-weight", type=float, default=0.25)
+    parser.add_argument("--tracking-weight", type=float, default=1.0)
+    parser.add_argument("--residual-l2-weight", type=float, default=1.0e-3)
+    parser.add_argument("--residual-smooth-weight", type=float, default=1.0e-3)
+    parser.add_argument("--root-position-weight", type=float, default=1.0)
+    parser.add_argument("--root-orientation-weight", type=float, default=1.0)
+    parser.add_argument("--root-linear-velocity-weight", type=float, default=0.1)
+    parser.add_argument("--root-angular-velocity-weight", type=float, default=0.1)
+    parser.add_argument("--joint-position-weight", type=float, default=1.0)
+    parser.add_argument("--joint-velocity-weight", type=float, default=0.1)
+
+    parser.add_argument(
+        "--wandb",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Upload key losses, tracking errors, gradients, and replay statistics.",
+    )
+    parser.add_argument("--wandb-project", default="intact-residual-tracking")
+    parser.add_argument("--wandb-entity")
+    parser.add_argument("--wandb-group")
+    parser.add_argument("--wandb-name")
+    parser.add_argument("--wandb-tag", action="append", default=[])
+    parser.add_argument("--wandb-mode", choices=("online", "offline"), default="online")
+    return parser
+
+
+def _validate_arguments(args: argparse.Namespace) -> None:
+    positive = (
+        "num_envs",
+        "warmup_steps",
+        "max_warmup_steps",
+        "updates",
+        "rollout_steps_per_update",
+        "gradient_steps_per_update",
+        "batch_size",
+        "replay_capacity",
+        "sample_stride",
+        "log_interval",
+        "warmup_log_interval",
+        "metric_window",
+        "context_dim",
+        "context_depth",
+        "context_heads",
+        "hidden_dim",
+        "forward_depth",
+        "backward_depth",
+        "policy_depth",
+    )
+    invalid = {name: getattr(args, name) for name in positive if getattr(args, name) < 1}
+    if invalid:
+        raise ValueError(f"Residual training arguments must be positive: {invalid}")
+    if args.checkpoint_interval < 0:
+        raise ValueError("checkpoint-interval must be non-negative")
+    if args.max_warmup_steps < args.warmup_steps:
+        raise ValueError("max-warmup-steps must be at least warmup-steps")
+    if args.replay_capacity < args.batch_size:
+        raise ValueError("replay-capacity must be at least batch-size")
+    for name in (
+        "model_learning_rate",
+        "policy_learning_rate",
+        "residual_scale",
+        "gradient_clip",
+    ):
+        if getattr(args, name) <= 0:
+            raise ValueError(f"{name.replace('_', '-')} must be positive")
+    for name in (
+        "weight_decay",
+        "forward_weight",
+        "backward_weight",
+        "tracking_weight",
+        "residual_l2_weight",
+        "residual_smooth_weight",
+        "root_position_weight",
+        "root_orientation_weight",
+        "root_linear_velocity_weight",
+        "root_angular_velocity_weight",
+        "joint_position_weight",
+        "joint_velocity_weight",
+    ):
+        if getattr(args, name) < 0:
+            raise ValueError(f"{name.replace('_', '-')} must be non-negative")
+
+
+def _seed_everything(seed: int) -> None:
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+
+def _write_json(path: Path, value: Any) -> None:
+    path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n")
+
+
+def _main_process_call(
+    distributed: DistributedContext,
+    action: Callable[[], T],
+) -> T:
+    payload: dict[str, Any] | None = None
+    if distributed.is_main:
+        try:
+            payload = {"ok": True, "value": action()}
+        except BaseException as error:
+            payload = {
+                "ok": False,
+                "error_type": type(error).__name__,
+                "error": str(error),
+            }
+    payload = distributed.broadcast_object(payload)
+    if payload is None or not payload["ok"]:
+        details = payload or {"error_type": "RuntimeError", "error": "missing result"}
+        raise RuntimeError(
+            f"Rank-zero operation failed ({details['error_type']}): {details['error']}"
+        )
+    return payload["value"]
+
+
+def _prepare_paths(args: argparse.Namespace) -> dict[str, str]:
+    output = Path(args.output_dir).expanduser().resolve()
+    output.mkdir(parents=True, exist_ok=True)
+    if (output / "last.pt").exists() or (output / "run_config.json").exists():
+        raise FileExistsError(f"Refusing to overwrite an existing run in {output}")
+    checkpoint = Path(args.checkpoint_file).expanduser().resolve()
+    if not checkpoint.is_file():
+        raise FileNotFoundError(checkpoint)
+    return {
+        "output_dir": str(output),
+        "checkpoint_path": str(checkpoint),
+        "tracker_sha256": _sha256(checkpoint),
+    }
+
+
+def _global_normalization(
+    distributed: DistributedContext,
+    replay: ResidualOnlineReplayBuffer,
+    global_world_ids: tuple[int, ...],
+) -> ResidualNormalizationStats:
+    packed = replay.normalizer.packed_statistics(distributed.device)
+    distributed.all_reduce_sum(packed)
+    return replay.normalizer.snapshot_from_packed(packed, global_world_ids)
+
+
+class _TrackingAccumulator:
+    def __init__(self, device: torch.device) -> None:
+        self.total = torch.zeros(len(TRACKING_ERROR_NAMES), dtype=torch.float64, device=device)
+        self.count = torch.zeros((), dtype=torch.float64, device=device)
+
+    def add(self, batch: dict[str, torch.Tensor]) -> None:
+        values = batch.get("tracking_error")
+        if values is None:
+            return
+        valid = ~batch["reset_boundary"]
+        if valid.any():
+            selected = values[valid].detach().double()
+            self.total.add_(selected.sum(dim=0))
+            self.count.add_(selected.size(0))
+
+    def global_mean(self, distributed: DistributedContext) -> dict[str, float]:
+        packed = torch.cat((self.total, self.count[None])).clone()
+        distributed.all_reduce_sum(packed)
+        count = packed[-1].clamp_min(1.0)
+        return {
+            name: float(value)
+            for name, value in zip(
+                TRACKING_ERROR_NAMES, (packed[:-1] / count).tolist(), strict=True
+            )
+        }
+
+    def reset(self) -> None:
+        self.total.zero_()
+        self.count.zero_()
+
+
+def _gradient_norm(parameters: list[torch.nn.Parameter]) -> float:
+    values = [parameter.grad.detach().float().norm(2) for parameter in parameters if parameter.grad is not None]
+    if not values:
+        return 0.0
+    return float(torch.stack(values).norm(2))
+
+
+def _mean_metric_dict(
+    distributed: DistributedContext,
+    metrics: list[dict[str, float]],
+) -> dict[str, float]:
+    local = {
+        name: sum(item[name] for item in metrics) / len(metrics)
+        for name in metrics[0]
+    }
+    return distributed.mean_scalars(local)
+
+
+def _tracking_comparison(
+    current: dict[str, float], baseline: dict[str, float]
+) -> dict[str, float]:
+    result: dict[str, float] = {}
+    for name in TRACKING_ERROR_NAMES:
+        denominator = max(baseline[name], 1.0e-8)
+        result[f"{name}_ratio_to_tracker"] = current[name] / denominator
+        result[f"{name}_relative_improvement"] = (
+            baseline[name] - current[name]
+        ) / denominator
+    return result
+
+
+def _wandb_payload(record: dict[str, Any]) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "update": record["update"],
+        "optimizer_steps": record["optimizer_steps"],
+        "optimization/learning_rate_model": record["learning_rate_model"],
+        "optimization/learning_rate_policy": record["learning_rate_policy"],
+        "optimization/gradient_norm": record["gradient_norm"],
+        "optimization/model_gradient_norm": record["model_gradient_norm"],
+        "optimization/policy_gradient_norm": record["policy_gradient_norm"],
+        "replay/size": record["replay_size"],
+        "replay/samples_generated": record["samples_generated"],
+        "replay/new_samples_generated": record["new_samples_generated"],
+        "replay/storage_bytes": record["replay_storage_bytes"],
+    }
+    payload.update({f"train/{name}": value for name, value in record["train"].items()})
+    payload.update(
+        {f"tracking/rollout_{name}": value for name, value in record["tracking"].items()}
+    )
+    payload.update(
+        {
+            f"tracking/tracker_baseline_{name}": value
+            for name, value in record["tracking_baseline"].items()
+        }
+    )
+    payload.update(
+        {f"tracking/{name}": value for name, value in record["tracking_comparison"].items()}
+    )
+    return payload
+
+
+def _save_checkpoint(
+    *,
+    distributed: DistributedContext,
+    output_dir: Path,
+    update: int,
+    optimizer_steps: int,
+    model: ResidualTrackingModel,
+    optimizer: torch.optim.Optimizer,
+    scheduler: torch.optim.lr_scheduler.LRScheduler,
+    model_config: ResidualTrackingConfig,
+    loss_config: ResidualLossConfig,
+    normalization: ResidualNormalizationStats,
+    baseline: dict[str, float],
+    history: list[dict[str, Any]],
+    rollout: FixedDRTrackerRollout,
+    tracker_sha256: str,
+    wandb_logger: WandbLogger,
+    numbered: bool,
+) -> None:
+    state = {
+        "architecture_version": model_config.architecture_version,
+        "update": update,
+        "optimizer_steps": optimizer_steps,
+        "model": model.state_dict(),
+        "optimizer": optimizer.state_dict(),
+        "scheduler": scheduler.state_dict(),
+        "model_config": asdict(model_config),
+        "loss_config": asdict(loss_config),
+        "normalization": asdict(normalization),
+        "tracking_baseline": baseline,
+        "tracker": {
+            "checkpoint_path": str(rollout.checkpoint_path),
+            "checkpoint_sha256": tracker_sha256,
+            "task_id": rollout.checkpoint_task_id,
+            "frozen": True,
+        },
+        "wandb": {"id": wandb_logger.id, "url": wandb_logger.url},
+    }
+
+    def save() -> None:
+        normalization.to_json(output_dir / "normalization.json")
+        _write_json(output_dir / "history.json", history)
+        if numbered:
+            target = output_dir / f"update_{update:06d}.pt"
+            temporary = target.with_suffix(".pt.tmp")
+            torch.save(state, temporary)
+            temporary.replace(target)
+        target = output_dir / "last.pt"
+        temporary = output_dir / "last.pt.tmp"
+        torch.save(state, temporary)
+        temporary.replace(target)
+
+    _main_process_call(distributed, save)
+
+
+def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
+    rank_seed = args.seed + distributed.rank
+    _seed_everything(rank_seed)
+    torch.set_float32_matmul_precision("high")
+    paths = _main_process_call(distributed, lambda: _prepare_paths(args))
+    output_dir = Path(paths["output_dir"])
+    checkpoint_path = Path(paths["checkpoint_path"])
+    tracker_sha256 = paths["tracker_sha256"]
+    device = distributed.device
+    world_id_offset = distributed.rank * args.num_envs
+    dimensions = RolloutDimensions()
+    global_world_ids = tuple(range(args.num_envs * distributed.world_size))
+
+    rollout = FixedDRTrackerRollout(
+        FixedDRRolloutConfig(
+            checkpoint_file=str(checkpoint_path),
+            motion_path=args.motion_path,
+            motion_file=args.motion_file,
+            task_id=args.task_id,
+            num_envs=args.num_envs,
+            device=str(device),
+            seed=rank_seed,
+            world_id_offset=world_id_offset,
+            stochastic_policy=args.stochastic_policy,
+        )
+    )
+    replay = ResidualOnlineReplayBuffer(
+        num_worlds=args.num_envs,
+        policy_observation_dim=rollout.policy_observation_dim,
+        dimensions=dimensions,
+        horizon=5,
+        context_chunk_steps=5,
+        sample_stride=args.sample_stride,
+        context_tokens=16,
+        capacity=args.replay_capacity,
+        seed=rank_seed,
+        world_id_offset=world_id_offset,
+        device=device,
+    )
+    model_config = ResidualTrackingConfig(
+        policy_observation_dim=rollout.policy_observation_dim,
+        proprio_dim=dimensions.proprio,
+        action_dim=dimensions.action,
+        state_dim=dimensions.robot_state,
+        horizon=5,
+        context_chunk_steps=5,
+        context_tokens=16,
+        context_dim=args.context_dim,
+        context_depth=args.context_depth,
+        context_heads=args.context_heads,
+        hidden_dim=args.hidden_dim,
+        forward_depth=args.forward_depth,
+        backward_depth=args.backward_depth,
+        policy_depth=args.policy_depth,
+        residual_scale=args.residual_scale,
+    )
+    loss_config = ResidualLossConfig(
+        forward_weight=args.forward_weight,
+        backward_weight=args.backward_weight,
+        tracking_weight=args.tracking_weight,
+        residual_l2_weight=args.residual_l2_weight,
+        residual_smooth_weight=args.residual_smooth_weight,
+        root_position_weight=args.root_position_weight,
+        root_orientation_weight=args.root_orientation_weight,
+        root_linear_velocity_weight=args.root_linear_velocity_weight,
+        root_angular_velocity_weight=args.root_angular_velocity_weight,
+        joint_position_weight=args.joint_position_weight,
+        joint_velocity_weight=args.joint_velocity_weight,
+        action_clip=rollout.action_clip,
+    )
+    model = ResidualTrackingModel(model_config).to(device)
+    objective = ResidualTrainingObjective(model, loss_config)
+    training_module: torch.nn.Module
+    if distributed.enabled:
+        ddp_options: dict[str, Any] = {"broadcast_buffers": False}
+        if device.type == "cuda":
+            ddp_options.update(device_ids=[device.index], output_device=device.index)
+        training_module = DistributedDataParallel(objective, **ddp_options)
+    else:
+        training_module = objective
+
+    model_parameters = [
+        *model.context_encoder.parameters(),
+        *model.forward_predictor.parameters(),
+        *model.backward_predictor.parameters(),
+    ]
+    policy_parameters = list(model.residual_policy.parameters())
+    optimizer = torch.optim.AdamW(
+        (
+            {"params": model_parameters, "lr": args.model_learning_rate, "name": "model"},
+            {"params": policy_parameters, "lr": args.policy_learning_rate, "name": "policy"},
+        ),
+        weight_decay=args.weight_decay,
+    )
+    optimizer_steps_target = args.updates * args.gradient_steps_per_update
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, T_max=optimizer_steps_target
+    )
+    run_config = {
+        "method": "context-conditioned residual tracking",
+        "architecture": {
+            "action": "clip(frozen_tracker_action + bounded_residual)",
+            "policy_update": "five fixed rollout observations -> current actions -> frozen-parameter Forward -> reference MSE",
+            "gradient_routes": {
+                "forward_loss": ["context_encoder", "forward_predictor"],
+                "backward_loss": ["context_encoder", "backward_predictor"],
+                "tracking_loss": ["residual_policy"],
+            },
+            "context": "16 x [proprio_before, five total commands, proprio_after]",
+            "forward": "causal GRU over five action prefixes",
+            "state": "root pose/velocity + joint position/velocity; previous action is separate",
+        },
+        "arguments": vars(args),
+        "model": asdict(model_config),
+        "loss": asdict(loss_config),
+        "rollout": rollout.metadata,
+        "tracker_checkpoint_sha256": tracker_sha256,
+        "mjlab_version": importlib.metadata.version("mjlab"),
+        "distributed": {
+            "enabled": distributed.enabled,
+            "world_size": distributed.world_size,
+            "rank_seed": "seed + rank",
+        },
+        "replay": {
+            "estimated_storage_bytes_per_rank": replay.estimated_storage_bytes,
+            "minimum_steps": replay.minimum_steps,
+            "horizon": 5,
+            "context_tokens": 16,
+            "context_chunk_steps": 5,
+        },
+    }
+    _main_process_call(distributed, lambda: _write_json(output_dir / "run_config.json", run_config))
+    wandb_logger: WandbLogger | None = None
+
+    def initialize_wandb_on_main() -> bool:
+        nonlocal wandb_logger
+        wandb_logger = WandbLogger(
+            enabled=args.wandb,
+            is_main=True,
+            project=args.wandb_project,
+            entity=args.wandb_entity,
+            group=args.wandb_group,
+            name=args.wandb_name,
+            tags=tuple(args.wandb_tag),
+            mode=args.wandb_mode,
+            output_dir=output_dir,
+            config=run_config,
+        )
+        return True
+
+    try:
+        _main_process_call(distributed, initialize_wandb_on_main)
+        if wandb_logger is None:
+            wandb_logger = WandbLogger(
+                enabled=False,
+                is_main=False,
+                project=args.wandb_project,
+                output_dir=output_dir,
+                config=run_config,
+            )
+    except BaseException:
+        rollout.close()
+        raise
+
+    history: list[dict[str, Any]] = []
+    rolling_loss: deque[dict[str, float]] = deque(maxlen=args.metric_window)
+    metrics_path = output_dir / "metrics.jsonl"
+    tracker_metrics = _TrackingAccumulator(device)
+    update_metrics = _TrackingAccumulator(device)
+    optimizer_steps = 0
+    normalization: ResidualNormalizationStats | None = None
+    completed = False
+    try:
+        warmup_started = time.monotonic()
+        while True:
+            ready = rollout.collector_step >= args.warmup_steps and len(replay) >= args.batch_size
+            if distributed.all_true(ready):
+                break
+            if rollout.collector_step >= args.max_warmup_steps:
+                raise RuntimeError(
+                    "Residual warmup exhausted before every rank had a full causal batch: "
+                    f"steps={rollout.collector_step}, replay={len(replay)}"
+                )
+            batch = rollout.step()
+            replay.add_step(batch)
+            tracker_metrics.add(batch)
+            if (
+                distributed.is_main
+                and (
+                    rollout.collector_step == 1
+                    or rollout.collector_step % args.warmup_log_interval == 0
+                )
+            ):
+                print(
+                    json.dumps(
+                        {
+                            "event": "residual_warmup",
+                            "env_steps": rollout.collector_step,
+                            "replay_size": len(replay),
+                            "samples_generated": replay.total_samples_generated,
+                            "elapsed_seconds": time.monotonic() - warmup_started,
+                        },
+                        sort_keys=True,
+                    ),
+                    flush=True,
+                )
+        baseline = tracker_metrics.global_mean(distributed)
+        update_metrics.total.copy_(tracker_metrics.total)
+        update_metrics.count.copy_(tracker_metrics.count)
+        tracker_metrics.reset()
+        normalization = _global_normalization(distributed, replay, global_world_ids)
+        previous_samples_generated = 0
+
+        for update in range(1, args.updates + 1):
+            if update > 1:
+                update_metrics.reset()
+                model.eval()
+                assert normalization is not None
+                rollout_normalization = normalization
+
+                def residual_action(
+                    policy_observation: torch.Tensor,
+                    _tracker_action: torch.Tensor,
+                    cached_normalization: ResidualNormalizationStats = rollout_normalization,
+                ) -> torch.Tensor:
+                    context, context_ready = replay.latest_context(cached_normalization)
+                    world = model.encode_context(context)
+                    delta = model.residual_action(world, policy_observation)
+                    return torch.where(context_ready[:, None], delta, torch.zeros_like(delta))
+
+                for _ in range(args.rollout_steps_per_update):
+                    batch = rollout.step(residual_action)
+                    replay.add_step(batch)
+                    update_metrics.add(batch)
+
+            normalization = _global_normalization(distributed, replay, global_world_ids)
+            training_module.train()
+            step_metrics: list[dict[str, float]] = []
+            gradient_norms: list[float] = []
+            model_gradient_norms: list[float] = []
+            policy_gradient_norms: list[float] = []
+            for _ in range(args.gradient_steps_per_update):
+                train_batch = replay.sample_batch(args.batch_size, normalization)
+                optimizer.zero_grad(set_to_none=True)
+                output = training_module(train_batch)
+                if not isinstance(output, dict) or not torch.isfinite(output["loss"]):
+                    raise RuntimeError(
+                        f"Non-finite residual objective at optimizer step {optimizer_steps + 1}"
+                    )
+                output["loss"].backward()
+                model_gradient_norms.append(_gradient_norm(model_parameters))
+                policy_gradient_norms.append(_gradient_norm(policy_parameters))
+                gradient_norm = torch.nn.utils.clip_grad_norm_(
+                    model.parameters(), args.gradient_clip
+                )
+                if not torch.isfinite(gradient_norm):
+                    raise RuntimeError("Residual training produced a non-finite gradient norm")
+                optimizer.step()
+                scheduler.step()
+                optimizer_steps += 1
+                gradient_norms.append(float(gradient_norm))
+                step_metrics.append(
+                    {
+                        name: float(value.detach())
+                        for name, value in output.items()
+                        if value.numel() == 1
+                    }
+                )
+
+            train = _mean_metric_dict(distributed, step_metrics)
+            current_tracking = update_metrics.global_mean(distributed)
+            tracking_comparison = _tracking_comparison(current_tracking, baseline)
+            counts = distributed.sum_integers(
+                {
+                    "transitions": rollout.transitions,
+                    "replay_size": len(replay),
+                    "replay_storage_bytes": replay.storage_bytes,
+                    "samples_generated": replay.total_samples_generated,
+                    "reset_events": rollout.reset_events,
+                    "environments_reset": rollout.environments_reset,
+                }
+            )
+            new_samples = counts["samples_generated"] - previous_samples_generated
+            previous_samples_generated = counts["samples_generated"]
+            gradient_summary = distributed.mean_scalars(
+                {
+                    "gradient_norm": sum(gradient_norms) / len(gradient_norms),
+                    "model_gradient_norm": sum(model_gradient_norms) / len(model_gradient_norms),
+                    "policy_gradient_norm": sum(policy_gradient_norms) / len(policy_gradient_norms),
+                }
+            )
+            record = {
+                "update": update,
+                "optimizer_steps": optimizer_steps,
+                **counts,
+                "new_samples_generated": new_samples,
+                "learning_rate_model": optimizer.param_groups[0]["lr"],
+                "learning_rate_policy": optimizer.param_groups[1]["lr"],
+                **gradient_summary,
+                "train": train,
+                "tracking": current_tracking,
+                "tracking_baseline": baseline,
+                "tracking_comparison": tracking_comparison,
+            }
+            if distributed.is_main:
+                rolling_loss.append(train)
+                record["window"] = {
+                    name: {
+                        "mean": float(np.mean([item[name] for item in rolling_loss])),
+                        "std": float(np.std([item[name] for item in rolling_loss])),
+                    }
+                    for name in train
+                }
+                history.append(record)
+                with metrics_path.open("a") as handle:
+                    handle.write(json.dumps(record, sort_keys=True) + "\n")
+                wandb_logger.log(_wandb_payload(record), step=update)
+                if update == 1 or update % args.log_interval == 0 or update == args.updates:
+                    print(json.dumps(record, sort_keys=True), flush=True)
+
+            if args.checkpoint_interval and update % args.checkpoint_interval == 0:
+                _save_checkpoint(
+                    distributed=distributed,
+                    output_dir=output_dir,
+                    update=update,
+                    optimizer_steps=optimizer_steps,
+                    model=model,
+                    optimizer=optimizer,
+                    scheduler=scheduler,
+                    model_config=model_config,
+                    loss_config=loss_config,
+                    normalization=normalization,
+                    baseline=baseline,
+                    history=history,
+                    rollout=rollout,
+                    tracker_sha256=tracker_sha256,
+                    wandb_logger=wandb_logger,
+                    numbered=True,
+                )
+
+        _save_checkpoint(
+            distributed=distributed,
+            output_dir=output_dir,
+            update=args.updates,
+            optimizer_steps=optimizer_steps,
+            model=model,
+            optimizer=optimizer,
+            scheduler=scheduler,
+            model_config=model_config,
+            loss_config=loss_config,
+            normalization=normalization,
+            baseline=baseline,
+            history=history,
+            rollout=rollout,
+            tracker_sha256=tracker_sha256,
+            wandb_logger=wandb_logger,
+            numbered=False,
+        )
+        distributed.barrier()
+        completed = True
+        return output_dir / "last.pt"
+    finally:
+        wandb_logger.finish(exit_code=0 if completed else 1)
+        rollout.close()
+
+
+def run(args: argparse.Namespace) -> Path:
+    _validate_arguments(args)
+    distributed = DistributedContext.initialize(
+        requested_device=args.device,
+        requested_backend=args.distributed_backend,
+    )
+    try:
+        return _run(args, distributed)
+    finally:
+        distributed.close()
+
+
+def main() -> None:
+    checkpoint = run(build_parser().parse_args())
+    if int(os.environ.get("RANK", "0")) == 0:
+        print(checkpoint)
+
+
+if __name__ == "__main__":
+    main()

@@ -76,3 +76,51 @@ def test_online_rollout_resets_only_completed_slots(monkeypatch) -> None:
     assert rollout.synchronous_resets == 0
     assert rollout.dr_invariance_checks == 1
     assert rollout.motions_seen_count == 3
+
+
+def test_online_rollout_adds_residual_after_frozen_tracker(monkeypatch) -> None:
+    class FakeEnv:
+        device = "cpu"
+
+        def __init__(self) -> None:
+            self.sim = SimpleNamespace(model=SimpleNamespace(body_mass=torch.ones(1, 1)))
+
+        def step(self, action: torch.Tensor):
+            torch.testing.assert_close(action, torch.full((1, 29), 0.75))
+            done = torch.zeros(1, dtype=torch.bool)
+            return "after", torch.ones(1), done, done, {}
+
+    monkeypatch.setattr(
+        online_module,
+        "_snapshot",
+        lambda _env, observations: {
+            **{name: value[:1] for name, value in _snapshot(0.0).items()},
+        },
+    )
+    monkeypatch.setattr(online_module, "_policy_observations", lambda raw, _num_envs: raw)
+
+    rollout = FixedDRTrackerRollout.__new__(FixedDRTrackerRollout)
+    rollout.config = SimpleNamespace(num_envs=1)
+    rollout.closed = False
+    rollout.env = FakeEnv()
+    rollout.observations = "before"
+    rollout.policy = lambda _observations: torch.full((1, 29), 0.5)
+    rollout._clip_actions = 1.0
+    rollout._fixed_dr_model_fields = {"body_mass": torch.ones(1, 1)}
+    rollout.dr_invariance_checks = 0
+    rollout.world_ids = torch.arange(1)
+    rollout.episode_ids = torch.zeros(1, dtype=torch.long)
+    rollout.episode_steps = torch.zeros(1, dtype=torch.long)
+    rollout.env_ids = torch.arange(1)
+    rollout.collector_step = 0
+    rollout.reset_events = 0
+    rollout.environments_reset = 0
+    rollout.synchronous_resets = 0
+    rollout._motion_ids_seen = torch.empty(0, dtype=torch.long)
+
+    batch = rollout.step(
+        lambda observation, tracker: torch.full_like(tracker, 0.25)
+    )
+    torch.testing.assert_close(batch["tracker_action"], torch.full((1, 29), 0.5))
+    torch.testing.assert_close(batch["residual_action"], torch.full((1, 29), 0.25))
+    torch.testing.assert_close(batch["action"], torch.full((1, 29), 0.75))

@@ -16,6 +16,7 @@ dependencies = [
   "rsl-rl-lib==5.4.0",
   "tensordict>=0.8",
   "torch>=2.7",
+  "wandb>=0.22",
 ]
 
 [project.optional-dependencies]
@@ -25,6 +26,7 @@ dev = ["pytest>=8.0", "ruff>=0.8"]
 intact-tracking-train = "intact_tracking.cli.online_train:main"
 intact-tracking-train-offline = "intact_tracking.cli.train:main"
 intact-tracking-collect = "intact_tracking.cli.collect:main"
+intact-tracking-residual-train = "intact_tracking.cli.residual_train:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
