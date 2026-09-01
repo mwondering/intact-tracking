@@ -72,6 +72,7 @@ def test_online_rollout_resets_only_completed_slots(monkeypatch) -> None:
     rollout._fixed_dr_model_fields = {"body_mass": torch.ones(3, 1)}
     rollout.dr_invariance_checks = 0
     rollout.world_ids = torch.arange(3)
+    rollout.is_nominal = torch.tensor([True, False, False])
     rollout.episode_ids = torch.zeros(3, dtype=torch.long)
     rollout.episode_steps = torch.full((3,), 4, dtype=torch.long)
     rollout.env_ids = torch.arange(3)
@@ -86,6 +87,7 @@ def test_online_rollout_resets_only_completed_slots(monkeypatch) -> None:
     assert batch["reset_boundary"].tolist() == [False, True, False]
     assert batch["episode_id"].tolist() == [0, 0, 0]
     assert batch["episode_step"].tolist() == [4, 4, 4]
+    assert batch["is_nominal"].tolist() == [True, False, False]
     assert rollout.episode_ids.tolist() == [0, 1, 0]
     assert rollout.episode_steps.tolist() == [5, 0, 5]
     assert rollout.observations == "after"
@@ -127,6 +129,7 @@ def test_online_rollout_adds_residual_after_frozen_tracker(monkeypatch) -> None:
     rollout._fixed_dr_model_fields = {"body_mass": torch.ones(1, 1)}
     rollout.dr_invariance_checks = 0
     rollout.world_ids = torch.arange(1)
+    rollout.is_nominal = torch.zeros(1, dtype=torch.bool)
     rollout.episode_ids = torch.zeros(1, dtype=torch.long)
     rollout.episode_steps = torch.zeros(1, dtype=torch.long)
     rollout.env_ids = torch.arange(1)

@@ -65,6 +65,7 @@ def _model_batch(config: ResidualTrackingConfig, batch_size: int = 4):
         "tracker_action": torch.randn(batch_size, config.horizon, config.action_dim),
         "policy_observation": torch.randn(batch_size, config.policy_observation_dim),
         "policy_world": torch.randn(batch_size, config.context_dim),
+        "is_nominal": torch.arange(batch_size).remainder(2).eq(0),
         "action_mean": torch.zeros(config.action_dim),
         "action_std": torch.ones(config.action_dim),
         "state_mean": torch.zeros(config.state_dim),
@@ -141,12 +142,20 @@ def test_nominal_pair_loss_updates_context_and_forward() -> None:
     batch = _model_batch(config)
     batch["nominal_state"] = batch["state"][:2, 1:].clone()
     batch["nominal_state"][..., 0] += 0.5
+    batch["nominal_context"] = torch.randn(
+        2, config.context_tokens, config.context_token_dim
+    )
+    batch["nominal_context_mask"] = torch.ones(
+        2, config.context_tokens, dtype=torch.bool
+    )
 
     output = objective(batch, phase="model")
     output["loss"].backward()
 
     assert output["nominal_pair_count"].item() == 2.0
     assert output["nominal_pair_loss"].item() > 0.0
+    assert output["nominal_source_pair_count"].item() == 1.0
+    assert output["dr_source_pair_count"].item() == 1.0
     assert _gradient_norm(model.context_encoder) > 0.0
     assert _gradient_norm(model.forward_predictor) > 0.0
     assert _gradient_norm(model.backward_predictor) == 0.0
@@ -376,6 +385,7 @@ def test_residual_replay_builds_strictly_causal_five_step_window() -> None:
             "next_reference_state": state + 11,
             "reset_boundary": torch.zeros(2, dtype=torch.bool),
             "world_id": torch.arange(2),
+            "is_nominal": torch.tensor([True, False]),
             "episode_id": torch.zeros(2, dtype=torch.long),
             "motion_id": torch.tensor([7, 9], dtype=torch.long),
             "motion_step": torch.full((2,), step + 100, dtype=torch.long),
@@ -396,12 +406,16 @@ def test_residual_replay_builds_strictly_causal_five_step_window() -> None:
 
     packed = replay.normalizer.packed_statistics()
     stats = replay.normalizer.snapshot_from_packed(packed, replay.world_ids)
-    sampled = replay.sample_batch(2, stats)
+    sampled = replay.sample_batch(2, stats, include_nominal_context=True)
     assert sampled["state"].shape == (2, 6, 71)
     assert sampled["policy_observation"].shape == (2, 8)
     assert sampled["policy_world"].shape == (2, 16)
     assert sampled["context"].shape == (2, 16, 2 * 6 + 5 * 3)
     assert set(sampled["motion_id"].tolist()) == {7, 9}
+    assert sampled["is_nominal"].sum().item() == 1
+    assert sampled["nominal_context"].shape == sampled["context"].shape
+    assert sampled["nominal_context_mask"].all()
+    assert sampled["nominal_context_world_id"].eq(0).all()
     assert torch.equal(sampled["motion_step"], torch.full((2,), 180, dtype=torch.long))
     assert torch.isfinite(sampled["context"]).all()
     assert replay.storage_bytes == replay.estimated_storage_bytes
@@ -448,6 +462,7 @@ def test_reset_state_can_start_query_but_boundary_cannot_enter_it() -> None:
                 "next_reference_state": torch.full((1, 71), following + 10.0),
                 "reset_boundary": torch.tensor([reset_boundary]),
                 "world_id": torch.zeros(1, dtype=torch.long),
+                "is_nominal": torch.ones(1, dtype=torch.bool),
                 "episode_id": torch.tensor([episode_id]),
                 "motion_id": torch.tensor([episode_id + 10]),
                 "motion_step": torch.tensor([episode_step + 100]),
@@ -493,6 +508,8 @@ def test_residual_cli_enables_wandb_and_five_step_collection_by_default() -> Non
     assert args.nominal_pair_batch_size == 64
     assert args.nominal_pair_weight == 1.0
     assert args.nominal_effect_weight == 1.0
+    assert args.nominal_consistency_weight == 1.0
+    assert args.nominal_rollout_fraction == 0.5
     assert args.residual_l2_weight == 0.2
     assert args.root_position_weight == 5.0
     assert args.root_orientation_weight == 2.0
@@ -511,6 +528,7 @@ def test_loss_weight_payload_lists_objective_and_shared_state_terms() -> None:
             "backward_loss": 2.0,
             "nominal_pair_loss": 1.0,
             "nominal_effect_within_pair": 1.0,
+            "nominal_consistency_within_pair": 1.0,
             "tracking_loss": 1.0,
             "residual_l2": 0.2,
             "residual_smooth": 1.0e-3,

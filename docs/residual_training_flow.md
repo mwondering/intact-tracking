@@ -56,6 +56,10 @@ proprio  = [joint_pos, joint_vel, projected_gravity, base_ang_vel,
 可以跨 episode，但 query 不跨 reset boundary。Residual rollout 后 token 中记录的是最终
 下发总动作，不是 frozen tracker 的基础动作。
 
+在线 vector slots 默认按 `--nominal-rollout-fraction 0.5` 精确分成两组：前一半恢复为 checkpoint
+编译默认物理，后一半保留各自的 startup DR。两组使用相同 tracker、motion/reset 和 replay
+逻辑，因此 nominal context 也是实际 action-response 历史，不是零向量或人工 padding。
+
 Reset 不会清空 Context。跨越仿真 teleport 的 boundary transition 被排除，同时只废弃对应
 vector slot 尚未执行的 trunk suffix；reset 完成后的状态立即生成一条新 trunk，并可作为下一条
 五步 query 的 `s_t`。Replay 额外核对 query 的 trunk slot 必须严格为 `0,1,2,3,4`，因此 optimizer
@@ -80,7 +84,10 @@ flowchart TB
     ST[true pose t+1:t+5] --> LF[Forward pose loss]
     RF --> LF
 
-    SN[same s_t restored in nominal physics] --> FN[Forward with zero nominal latent]
+    CN[real context from online nominal world] --> CE
+    CE --> WN[nominal world latent]
+    SN[same s_t restored in nominal physics] --> FN[Forward with nominal latent]
+    WN --> FN
     A --> FN
     FN --> LN[nominal pose + DR-minus-nominal effect loss]
     STN[nominal simulator pose t+1:t+5] --> LN
@@ -131,24 +138,26 @@ pose 上计算；如果只比较 reference delta，当前已经存在的位置�
 
 ### Nominal 反事实配对
 
-每个 model mini-batch 默认都建立等量配对样本。训练器把 DR replay 的 `s_t`、`a_t-1` 和五步
-实际总动作恢复到一个独立的无 DR simulator，并开环重放相同动作，得到 nominal target。该
+每个 model mini-batch 默认都建立等量配对样本。训练器把 nominal/DR replay 的 `s_t`、`a_t-1`
+和五步实际总动作统一恢复到一个独立的无 DR simulator，并开环重放相同动作，得到 nominal target。该
 simulator 只保留 checkpoint 的 scene、actuator 和控制周期；所有 DR event 与 task manager
 均在构造前移除。
 
 恢复顺序是清空 simulator/entity/action buffer、写入 root 与 joint 的 qpos/qvel、恢复 previous
 action/history、写入仿真并调用零时间 `sim.forward()`。不执行 physics warmup，因为 warmup 会
 改变配对起点。首次使用会自动重复完整的 restore + 五步 rollout，检查即时状态误差和轨迹
-可重复性；不满足 `--nominal-restore-atol` 会直接终止训练。nominal 构造时还会固定 action term
+可重复性；即时状态恢复超过容差会终止训练，五步重复轨迹中的少量接触离群只记录 warning，
+不会丢弃 batch 或终止训练。nominal 构造时还会固定 action term
 内部的 delay、smoothing alpha、torque-limit scale 与 boot delay，避免 action reset 自身重新
 采样。重复性 pose 指标只包含 root position/quaternion 与 joint position，不包含 velocity。
-失败时，每个 rank 会在输出目录写入 `nominal_repeat_failures_rank_<rank>.jsonl`，记录 p50/p95/
+warning 时，每个 rank 会在输出目录写入 `nominal_repeat_failures_rank_<rank>.jsonl`，记录 p50/p95/
 p99/max、最坏 horizon/state component，以及对应的 motion path、motion id 和 motion step。
 
-Forward 同时拟合 `F(z_dr,s,A)` 的 DR target 与 `F(0,s,A)` 的 nominal target，并显式拟合两者
-的 pose effect 差。这样 state/action 完全相同而 target 随物理参数变化，忽略 context 的模型
-无法把 pair loss 降低。重点指标是 `nominal_effect_nmse`（低于 1 才优于预测“无 DR 效应”）和
-`nominal_context_swap_ratio`（高于 1 表示正确 context-target 配对优于交换配对）。
+Replay 为每个 query 额外抽取一条真实 nominal-history context。Forward 同时拟合 source
+`F(z_source,s,A)` 与反事实 `F(z_nominal,s,A)`：DR source 监督真实 pose effect 差；nominal
+source 则约束两个不同 nominal history 对同一 state/action 给出一致预测。重点指标是
+`nominal_effect_nmse`（低于 1 才优于预测“无 DR 效应”）、`nominal_context_swap_ratio`（仅在
+DR source 上计算）和 `forward_dr_context_shuffle_ratio`（高于 1 表示模型开始区分不同 DR）。
 
 每轮先用普通 replay 更新 Context Encoder、Forward 和 Backward，再从最近一个 policy 版本产生的
 完整 trunk 样本更新一次 Residual Policy。Policy optimizer 完成后，所有尚未执行完的旧 trunk
@@ -200,6 +209,7 @@ W&B 默认开启，只在 rank 0 上传：
   /path/to/runs/residual \
   --num-envs 4096 \
   --batch-size 512 \
+  --nominal-rollout-fraction 0.5 \
   --nominal-pair-batch-size 512 \
   --updates 100000 \
   --wandb-project intact-residual-tracking \
@@ -209,4 +219,4 @@ W&B 默认开启，只在 rank 0 上传：
 多卡继续使用 `GPUS=0,1,...`。无网络环境可传 `--wandb-mode offline`；完全关闭使用
 `--no-wandb`。本地始终保留 `metrics.jsonl`、`history.json`、`normalization.json`、
 `run_config.json` 和 checkpoint。`--nominal-pair-batch-size` 默认等于 `--batch-size`；设为
-`0` 可关闭配对训练，显存或吞吐受限时可调小。
+`0` 可关闭配对训练，显存或吞吐受限时可调小。`--nominal-rollout-fraction` 默认 `0.5`。

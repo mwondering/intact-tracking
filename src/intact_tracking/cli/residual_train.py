@@ -58,6 +58,15 @@ def build_parser() -> argparse.ArgumentParser:
         default=True,
         help="Desynchronize timeout resets across vector environments without dropping data.",
     )
+    parser.add_argument(
+        "--nominal-rollout-fraction",
+        type=float,
+        default=0.5,
+        help=(
+            "Fraction of online vector slots restored to compiled nominal physics. "
+            "The default creates an exact half nominal / half fixed-DR rollout."
+        ),
+    )
 
     parser.add_argument("--warmup-steps", type=int, default=100)
     parser.add_argument("--max-warmup-steps", type=int, default=10_000)
@@ -76,7 +85,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=None,
         help=(
-            "DR samples per model batch replayed in a lightweight no-DR simulator; "
+            "Source samples per model batch replayed in a lightweight no-DR simulator; "
             "defaults to the full batch-size and 0 disables."
         ),
     )
@@ -84,7 +93,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--nominal-restore-atol",
         type=float,
         default=1.0e-5,
-        help="Maximum state/repeated-trajectory error allowed by nominal state restore.",
+        help=(
+            "Hard tolerance for immediate nominal state restore and warning threshold "
+            "for repeated five-step trajectories."
+        ),
     )
 
     parser.add_argument("--model-learning-rate", type=float, default=3.0e-4)
@@ -104,6 +116,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--backward-weight", type=float, default=2.0)
     parser.add_argument("--nominal-pair-weight", type=float, default=1.0)
     parser.add_argument("--nominal-effect-weight", type=float, default=1.0)
+    parser.add_argument("--nominal-consistency-weight", type=float, default=1.0)
     parser.add_argument("--tracking-weight", type=float, default=1.0)
     parser.add_argument("--residual-l2-weight", type=float, default=0.2)
     parser.add_argument("--residual-smooth-weight", type=float, default=1.0e-3)
@@ -165,6 +178,11 @@ def _validate_arguments(args: argparse.Namespace) -> None:
         raise ValueError("nominal-pair-batch-size cannot exceed batch-size")
     if args.nominal_restore_atol <= 0.0:
         raise ValueError("nominal-restore-atol must be positive")
+    if not 0.0 < args.nominal_rollout_fraction < 1.0:
+        raise ValueError("nominal-rollout-fraction must be strictly between zero and one")
+    nominal_worlds = args.num_envs * args.nominal_rollout_fraction
+    if abs(nominal_worlds - round(nominal_worlds)) > 1.0e-8:
+        raise ValueError("num-envs * nominal-rollout-fraction must be an integer")
     if args.rollout_steps_per_update != 5:
         raise ValueError("action-trunk residual training requires rollout-steps-per-update=5")
     if args.sample_stride != 1:
@@ -186,6 +204,7 @@ def _validate_arguments(args: argparse.Namespace) -> None:
         "backward_weight",
         "nominal_pair_weight",
         "nominal_effect_weight",
+        "nominal_consistency_weight",
         "tracking_weight",
         "residual_l2_weight",
         "residual_smooth_weight",
@@ -316,6 +335,7 @@ def _loss_weight_payload(config: ResidualLossConfig) -> dict[str, dict[str, floa
             "backward_loss": config.backward_weight,
             "nominal_pair_loss": config.nominal_pair_weight,
             "nominal_effect_within_pair": config.nominal_effect_weight,
+            "nominal_consistency_within_pair": config.nominal_consistency_weight,
             "tracking_loss": config.tracking_weight,
             "residual_l2": config.residual_l2_weight,
             "residual_smooth": config.residual_smooth_weight,
@@ -342,6 +362,7 @@ def _wandb_payload(record: dict[str, Any]) -> dict[str, Any]:
         "optimization/policy_gradient_norm": record["policy_gradient_norm"],
         "replay/size": record["replay_size"],
         "replay/samples_generated": record["samples_generated"],
+        "replay/nominal_samples_available": record.get("nominal_samples_available", 0),
         "replay/new_samples_generated": record["new_samples_generated"],
         "replay/storage_bytes": record["replay_storage_bytes"],
         "rollout/transitions": record["transitions"],
@@ -458,6 +479,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             world_id_offset=world_id_offset,
             stochastic_policy=args.stochastic_policy,
             randomize_initial_episode_phase=args.randomize_initial_episode_phase,
+            nominal_fraction=args.nominal_rollout_fraction,
         )
     )
     nominal_rollout: NominalPairRollout | None = None
@@ -519,6 +541,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         backward_weight=args.backward_weight,
         nominal_pair_weight=args.nominal_pair_weight,
         nominal_effect_weight=args.nominal_effect_weight,
+        nominal_consistency_weight=args.nominal_consistency_weight,
         tracking_weight=args.tracking_weight,
         residual_l2_weight=args.residual_l2_weight,
         residual_smooth_weight=args.residual_smooth_weight,
@@ -586,9 +609,11 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             "context": "16 x [proprio_before, five total commands, proprio_after]",
             "forward": "causal GRU over five action prefixes; predicts five non-chained pose deltas from the current state",
             "nominal_pair": (
-                "restore sampled DR state into no-DR physics; replay the same five final "
-                "actions; train zero-world nominal and encoded-world DR predictions plus "
-                "their real pose-effect difference"
+                "collect real interaction contexts from half nominal and half fixed-DR "
+                "online worlds; restore every sampled state into separate no-DR physics "
+                "and replay the same five actions; train source-context and independently "
+                "sampled nominal-context predictions, their DR effect, and nominal-context "
+                "consistency"
             ),
             "state": "Forward input and Backward state retain root pose/velocity + joint position/velocity; Forward output and Tracking loss use pose only",
         },
@@ -667,7 +692,14 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
     try:
         warmup_started = time.monotonic()
         while True:
-            ready = rollout.collector_step >= args.warmup_steps and len(replay) >= args.batch_size
+            nominal_ready = (
+                nominal_rollout is None or replay.nominal_sample_count >= 2
+            )
+            ready = (
+                rollout.collector_step >= args.warmup_steps
+                and len(replay) >= args.batch_size
+                and nominal_ready
+            )
             if distributed.all_true(ready):
                 break
             if rollout.collector_step >= args.max_warmup_steps:
@@ -694,6 +726,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                             "event": "residual_warmup",
                             "env_steps": rollout.collector_step,
                             "replay_size": len(replay),
+                            "nominal_replay_size": replay.nominal_sample_count,
                             "samples_generated": replay.total_samples_generated,
                             "elapsed_seconds": time.monotonic() - warmup_started,
                         },
@@ -748,7 +781,11 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             model_step_metrics: list[dict[str, float]] = []
             model_gradient_norms: list[float] = []
             for _ in range(args.gradient_steps_per_update):
-                train_batch = replay.sample_batch(args.batch_size, normalization)
+                train_batch = replay.sample_batch(
+                    args.batch_size,
+                    normalization,
+                    include_nominal_context=nominal_rollout is not None,
+                )
                 nominal_metrics: dict[str, float] = {}
                 if nominal_rollout is not None:
                     pair_count = nominal_rollout.num_envs
@@ -857,6 +894,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                     "replay_size": len(replay),
                     "replay_storage_bytes": replay.storage_bytes,
                     "samples_generated": replay.total_samples_generated,
+                    "nominal_samples_available": replay.nominal_sample_count,
                     "reset_events": rollout.reset_events,
                     "environments_reset": rollout.environments_reset,
                 }

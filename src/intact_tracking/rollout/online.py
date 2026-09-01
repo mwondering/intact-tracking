@@ -81,12 +81,21 @@ class FixedDRRolloutConfig:
     world_id_offset: int = 0
     stochastic_policy: bool = False
     randomize_initial_episode_phase: bool = True
+    nominal_fraction: float = 0.0
 
     def __post_init__(self) -> None:
         if self.num_envs < 1:
             raise ValueError("num_envs must be positive")
         if self.world_id_offset < 0:
             raise ValueError("world_id_offset must be non-negative")
+        if not 0.0 <= self.nominal_fraction < 1.0:
+            raise ValueError("nominal_fraction must be in [0, 1)")
+        nominal_count = self.num_envs * self.nominal_fraction
+        if abs(nominal_count - round(nominal_count)) > 1.0e-8:
+            raise ValueError(
+                "num_envs * nominal_fraction must be an integer, got "
+                f"{self.num_envs} * {self.nominal_fraction}"
+            )
         if bool(self.motion_path) == bool(self.motion_file):
             raise ValueError("Provide exactly one of motion_path or motion_file")
 
@@ -135,6 +144,111 @@ def _capture_randomized_model_fields(env: Any) -> dict[str, torch.Tensor]:
             if isinstance(snapshot, torch.Tensor):
                 snapshots[str(name)] = snapshot.detach()
     return snapshots
+
+
+def _restore_nominal_physics(env: Any, env_ids: torch.Tensor) -> dict[str, float]:
+    """Restore selected vector slots to the compiled model's nominal physics.
+
+    Startup DR expands model fields along the environment dimension.  Writing
+    the compiled defaults into only ``env_ids`` therefore creates nominal and
+    DR worlds inside the same simulator without changing their task/reset
+    behavior.  Encoder bias and action offsets live outside the model fields
+    and are restored separately.
+    """
+    if env_ids.ndim != 1 or env_ids.dtype != torch.long:
+        raise ValueError("nominal env_ids must be a 1-D long tensor")
+    if env_ids.numel() == 0:
+        return {
+            "model_field_max_abs_error": 0.0,
+            "encoder_bias_max_abs_error": 0.0,
+            "dr_model_field_max_abs_difference": 0.0,
+            "dr_encoder_bias_max_abs_difference": 0.0,
+        }
+
+    restored_fields: list[str] = []
+    for raw_name in env.event_manager.domain_randomization_fields:
+        name = str(raw_name)
+        actual = getattr(env.sim.model, name, None)
+        clone = getattr(actual, "clone", None)
+        if not callable(clone):
+            continue
+        expanded = clone()
+        if not isinstance(expanded, torch.Tensor):
+            continue
+        default = env.sim.get_default_field(name)
+        if not isinstance(default, torch.Tensor):
+            raise RuntimeError(f"Nominal default for model field {name!r} is not a Tensor")
+        if expanded.ndim < 1 or expanded.shape[0] != env.num_envs:
+            raise RuntimeError(
+                f"DR model field {name!r} is not expanded over {env.num_envs} worlds: "
+                f"{tuple(expanded.shape)}"
+            )
+        if expanded.shape[1:] != default.shape:
+            raise RuntimeError(
+                f"DR model field {name!r} has incompatible default shape: "
+                f"{tuple(expanded.shape)} vs {tuple(default.shape)}"
+            )
+        actual[env_ids] = default
+        restored_fields.append(name)
+
+    robot = env.scene["robot"]
+    encoder_bias = getattr(getattr(robot, "data", None), "encoder_bias", None)
+    encoder_error = torch.zeros((), device=env_ids.device)
+    if isinstance(encoder_bias, torch.Tensor):
+        encoder_bias[env_ids] = 0.0
+        if encoder_bias[env_ids].numel():
+            encoder_error = encoder_bias[env_ids].abs().max()
+
+    # Some checkpoints randomize a persistent joint command offset.  It is an
+    # action-term buffer rather than an MuJoCo model field.
+    try:
+        action_term = env.action_manager.get_term("joint_pos")
+    except (AttributeError, KeyError, ValueError):
+        action_term = None
+    joint_offset = getattr(action_term, "joint_offset", None)
+    if isinstance(joint_offset, torch.Tensor) and joint_offset.shape[0] == env.num_envs:
+        joint_offset[env_ids] = 0.0
+
+    clear_cache = getattr(env.sim.model, "clear_cache", None)
+    if callable(clear_cache):
+        clear_cache()
+    forward = getattr(env.sim, "forward", None)
+    if callable(forward):
+        forward()
+
+    if not restored_fields:
+        raise RuntimeError("No expanded DR model field was available for nominal restoration")
+    maximum_error = torch.zeros((), device=env_ids.device)
+    dr_maximum_difference = torch.zeros((), device=env_ids.device)
+    all_ids = torch.arange(env.num_envs, device=env_ids.device, dtype=torch.long)
+    dr_ids = all_ids[~torch.isin(all_ids, env_ids)]
+    for name in restored_fields:
+        default = env.sim.get_default_field(name)
+        expanded = getattr(env.sim.model, name).clone()
+        restored = expanded[env_ids]
+        if default.numel():
+            maximum_error = torch.maximum(
+                maximum_error, (restored - default).abs().max()
+            )
+            if dr_ids.numel():
+                dr_maximum_difference = torch.maximum(
+                    dr_maximum_difference, (expanded[dr_ids] - default).abs().max()
+                )
+    if bool(maximum_error > 0.0) or bool(encoder_error > 0.0):
+        raise RuntimeError(
+            "Nominal physics restoration did not exactly match compiled defaults: "
+            f"model={float(maximum_error):.6g}, encoder={float(encoder_error):.6g}"
+        )
+    return {
+        "model_field_max_abs_error": float(maximum_error),
+        "encoder_bias_max_abs_error": float(encoder_error),
+        "dr_model_field_max_abs_difference": float(dr_maximum_difference),
+        "dr_encoder_bias_max_abs_difference": (
+            float(encoder_bias[dr_ids].abs().max())
+            if isinstance(encoder_bias, torch.Tensor) and dr_ids.numel()
+            else 0.0
+        ),
+    }
 
 
 def _randomize_initial_episode_phases(env: Any, seed: int) -> dict[str, int]:
@@ -218,6 +332,19 @@ class FixedDRTrackerRollout:
                 str(Path(path).expanduser().resolve()) for path in motion_files
             )
             self.disabled_startup_reset_callbacks = _disable_startup_reset_callbacks(self.env)
+            self.nominal_count = int(round(config.num_envs * config.nominal_fraction))
+            self.nominal_env_ids = torch.arange(
+                self.nominal_count, device=self.env.device, dtype=torch.long
+            )
+            self.is_nominal = torch.zeros(
+                config.num_envs, device=self.env.device, dtype=torch.bool
+            )
+            self.is_nominal[self.nominal_env_ids] = True
+            self.nominal_restore_metrics: dict[str, float] | None = None
+            if self.nominal_count:
+                self.nominal_restore_metrics = _restore_nominal_physics(
+                    self.env, self.nominal_env_ids
+                )
             self._fixed_dr_model_fields = _capture_randomized_model_fields(self.env)
             if not self._fixed_dr_model_fields:
                 raise RuntimeError("Startup DR did not expose any randomized physics fields")
@@ -281,9 +408,15 @@ class FixedDRTrackerRollout:
             "removed_non_startup_events": self.removed_non_startup_events,
             "disabled_startup_reset_callbacks": self.disabled_startup_reset_callbacks,
             "fixed_dr_model_fields": sorted(self._fixed_dr_model_fields),
+            "nominal_fraction": self.config.nominal_fraction,
+            "nominal_world_count_per_rank": self.nominal_count,
+            "dr_world_count_per_rank": self.num_envs - self.nominal_count,
+            "nominal_world_local_ids": list(range(self.nominal_count)),
+            "nominal_restore_metrics": self.nominal_restore_metrics,
             "cleared_missing_motion_exclusions": self.cleared_motion_exclusions,
             "domain_randomization_contract": (
-                "startup DR fixed per vector slot before rollout and never resampled"
+                "selected slots restored to compiled nominal physics; remaining startup DR "
+                "fixed per vector slot; neither group is resampled"
             ),
             "motion_contract": "random motion resampling at initialization and reset",
             "motion_file_count_per_rank": len(self.motion_files),
@@ -393,6 +526,7 @@ class FixedDRTrackerRollout:
             "truncated": truncated,
             "reset_boundary": reset_boundary,
             "world_id": self.world_ids,
+            "is_nominal": self.is_nominal,
             "episode_id": self.episode_ids.clone(),
             "episode_step": self.episode_steps.clone(),
             "collector_step": collector_steps,

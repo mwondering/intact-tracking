@@ -158,6 +158,7 @@ class ResidualOnlineReplayBuffer:
         "next_reference_state",
         "reset_boundary",
         "world_id",
+        "is_nominal",
         "episode_id",
         "motion_id",
         "motion_step",
@@ -271,6 +272,12 @@ class ResidualOnlineReplayBuffer:
         return sum(value.numel() * value.element_size() for value in tensors)
 
     @property
+    def nominal_sample_count(self) -> int:
+        if not self._samples or self._size == 0:
+            return 0
+        return int(self._samples["is_nominal"][: self._size].sum().item())
+
+    @property
     def estimated_storage_bytes(self) -> int:
         dims = self.dimensions
         history_width = (
@@ -300,7 +307,7 @@ class ResidualOnlineReplayBuffer:
             + self.num_worlds
             + 4 * self.capacity
         )
-        boundary_flags = self._history_length * self.num_worlds
+        boundary_flags = self._history_length * self.num_worlds + self.capacity
         return 4 * floats + 8 * integers + boundary_flags
 
     def _allocate(self) -> None:
@@ -362,6 +369,7 @@ class ResidualOnlineReplayBuffer:
                 (self.capacity, self.context_tokens, dims.proprio), device=self.device
             ),
             "world_id": torch.empty(self.capacity, dtype=torch.long, device=self.device),
+            "is_nominal": torch.empty(self.capacity, dtype=torch.bool, device=self.device),
             "episode_id": torch.empty(self.capacity, dtype=torch.long, device=self.device),
             "motion_id": torch.empty(self.capacity, dtype=torch.long, device=self.device),
             "motion_step": torch.empty(self.capacity, dtype=torch.long, device=self.device),
@@ -386,6 +394,7 @@ class ResidualOnlineReplayBuffer:
             "motion_id": (self.num_worlds,),
             "motion_step": (self.num_worlds,),
             "residual_world": (self.num_worlds, self.context_latent_dim),
+            "is_nominal": (self.num_worlds,),
         }
         for name in self.REQUIRED_FIELDS:
             value = batch[name]
@@ -499,6 +508,7 @@ class ResidualOnlineReplayBuffer:
             "context_actions": self._context["actions"][context_envs, context_slots],
             "context_after": self._context["after"][context_envs, context_slots],
             "world_id": batch["world_id"][env_ids],
+            "is_nominal": batch["is_nominal"][env_ids],
             "episode_id": batch["episode_id"][env_ids],
             "motion_id": self._history["motion_id"][time_ids[0], env_ids],
             "motion_step": self._history["motion_step"][time_ids[0], env_ids],
@@ -632,6 +642,7 @@ class ResidualOnlineReplayBuffer:
             "state_mean": state_mean,
             "state_std": state_std,
             "world_id": selected["world_id"],
+            "is_nominal": selected["is_nominal"],
             "episode_id": selected["episode_id"],
             "motion_id": selected["motion_id"],
             "motion_step": selected["motion_step"],
@@ -641,6 +652,8 @@ class ResidualOnlineReplayBuffer:
         self,
         batch_size: int,
         normalization: ResidualNormalizationStats,
+        *,
+        include_nominal_context: bool = False,
     ) -> dict[str, torch.Tensor]:
         if batch_size < 1:
             raise ValueError("batch_size must be positive")
@@ -649,7 +662,41 @@ class ResidualOnlineReplayBuffer:
         indices = torch.randperm(self._size, generator=self._generator, device=self.device)[
             :batch_size
         ]
-        return self._sample_indices(indices, normalization)
+        batch = self._sample_indices(indices, normalization)
+        if include_nominal_context:
+            nominal_indices = self._sample_nominal_indices(indices)
+            nominal = self._sample_indices(nominal_indices, normalization)
+            batch["nominal_context"] = nominal["context"]
+            batch["nominal_context_mask"] = nominal["context_mask"]
+            batch["nominal_context_world_id"] = nominal["world_id"]
+        return batch
+
+    def _sample_nominal_indices(self, query_indices: torch.Tensor) -> torch.Tensor:
+        """Choose real nominal-history contexts, avoiding the query itself when possible."""
+        if not self._samples or self._size == 0:
+            raise RuntimeError("Residual replay has no samples")
+        candidates = self._samples["is_nominal"][: self._size].nonzero(
+            as_tuple=False
+        ).flatten()
+        if candidates.numel() == 0:
+            raise RuntimeError(
+                "Residual replay has no nominal interaction context; collect nominal worlds first"
+            )
+        positions = torch.randint(
+            candidates.numel(),
+            query_indices.shape,
+            generator=self._generator,
+            device=self.device,
+        )
+        selected = candidates[positions]
+        if candidates.numel() > 1:
+            same = selected == query_indices
+            selected = torch.where(
+                same,
+                candidates[(positions + 1).remainder(candidates.numel())],
+                selected,
+            )
+        return selected
 
     def sample_recent_batch(
         self,

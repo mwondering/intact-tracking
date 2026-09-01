@@ -210,8 +210,10 @@ delta，并重建未来绝对 pose。Forward 与 tracking 均只计算 root posi
 joint position，不预测或优化未来 velocity；Forward/Backward 与 policy 使用交替 optimizer，
 tracking loss 只通过冻结参数的 Forward action Jacobian 更新 Residual Policy。
 默认 pose 权重为 root position `5`、root orientation `2`、joint position `1`，Residual L2
-权重为 `0.2`。每个 model batch 还默认把 DR 起点完整恢复到独立的无 DR nominal simulator，
-重放同一五步动作，以 nominal target 和 DR-minus-nominal pose effect 强制 Forward 使用 context。
+权重为 `0.2`。在线 vector slots 默认一半使用编译时 nominal 物理、一半保留固定 startup DR，
+两组都正常运行 tracker 并生成真实 interaction context。每个 model batch 再把所有抽样起点恢复到
+独立的无 DR nominal simulator，重放同一五步动作，以 nominal target、DR-minus-nominal pose
+effect 和 nominal-context consistency 强制 Forward 使用 context；nominal 分支不再使用零 latent。
 恢复只做零时间 `sim.forward()`，不会用 physics warmup 改变配对起点；首次配对会自动检查恢复
 误差和五步可重复性。W&B 额外记录 pair effect/context-swap 指标、residual saturation fraction
 和五个 trunk slot 各自的 RMS。
@@ -223,12 +225,14 @@ tracking loss 只通过冻结参数的 Forward action Jacobian 更新 Residual P
   /path/to/runs/residual_v1 \
   --num-envs 4096 \
   --batch-size 512 \
+  --nominal-rollout-fraction 0.5 \
   --nominal-pair-batch-size 512 \
   --wandb-project intact-residual-tracking
 ```
 
-`--nominal-pair-batch-size` 默认跟随本卡 `--batch-size`，设为 `0` 可关闭，调小可减少额外仿真
-开销。多卡时每个 rank 在自己的 GPU 上持有一个 nominal simulator。
+`--nominal-rollout-fraction` 默认为 `0.5`，要求乘以每卡 `--num-envs` 后为整数。
+`--nominal-pair-batch-size` 默认跟随本卡 `--batch-size`，设为 `0` 可关闭反事实配对，调小可减少
+额外仿真开销。多卡时每个 rank 在自己的 GPU 上持有一个 nominal simulator。
 
 W&B 默认开启，并记录训练 loss、predictor 分组误差、residual action、梯度、replay 状态以及
 SPTracking 同名的八项真实 rollout tracking error。Warmup 的零 residual rollout 作为 frozen

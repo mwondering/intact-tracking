@@ -27,7 +27,7 @@ def _mlp(input_dim: int, hidden_dim: int, output_dim: int, depth: int) -> nn.Seq
 class ResidualTrackingConfig:
     """Shape and capacity contract for residual world-model training."""
 
-    architecture_version: str = "context_residual_tracking_nominal_pair_v4"
+    architecture_version: str = "context_residual_tracking_mixed_nominal_v5"
     policy_observation_dim: int = 1645
     proprio_dim: int = 122
     action_dim: int = 29
