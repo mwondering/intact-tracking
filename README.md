@@ -209,6 +209,12 @@ action trunk。仿真器每步只消费一个 residual 槽位，同时 frozen tr
 delta，并重建未来绝对 pose。Forward 与 tracking 均只计算 root position、root orientation 和
 joint position，不预测或优化未来 velocity；Forward/Backward 与 policy 使用交替 optimizer，
 tracking loss 只通过冻结参数的 Forward action Jacobian 更新 Residual Policy。
+默认 pose 权重为 root position `5`、root orientation `2`、joint position `1`，Residual L2
+权重为 `0.2`。每个 model batch 还默认把 DR 起点完整恢复到独立的无 DR nominal simulator，
+重放同一五步动作，以 nominal target 和 DR-minus-nominal pose effect 强制 Forward 使用 context。
+恢复只做零时间 `sim.forward()`，不会用 physics warmup 改变配对起点；首次配对会自动检查恢复
+误差和五步可重复性。W&B 额外记录 pair effect/context-swap 指标、residual saturation fraction
+和五个 trunk slot 各自的 RMS。
 
 ```bash
 ./scripts/run_residual_training.sh \
@@ -217,8 +223,12 @@ tracking loss 只通过冻结参数的 Forward action Jacobian 更新 Residual P
   /path/to/runs/residual_v1 \
   --num-envs 4096 \
   --batch-size 512 \
+  --nominal-pair-batch-size 512 \
   --wandb-project intact-residual-tracking
 ```
+
+`--nominal-pair-batch-size` 默认跟随本卡 `--batch-size`，设为 `0` 可关闭，调小可减少额外仿真
+开销。多卡时每个 rank 在自己的 GPU 上持有一个 nominal simulator。
 
 W&B 默认开启，并记录训练 loss、predictor 分组误差、residual action、梯度、replay 状态以及
 SPTracking 同名的八项真实 rollout tracking error。Warmup 的零 residual rollout 作为 frozen

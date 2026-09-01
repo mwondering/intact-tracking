@@ -14,11 +14,13 @@ from .residual_model import ResidualTrackingModel
 class ResidualLossConfig:
     forward_weight: float = 2.0
     backward_weight: float = 2.0
+    nominal_pair_weight: float = 1.0
+    nominal_effect_weight: float = 1.0
     tracking_weight: float = 1.0
-    residual_l2_weight: float = 1.0e-3
+    residual_l2_weight: float = 0.2
     residual_smooth_weight: float = 1.0e-3
-    root_position_weight: float = 1.0
-    root_orientation_weight: float = 1.0
+    root_position_weight: float = 5.0
+    root_orientation_weight: float = 2.0
     joint_position_weight: float = 1.0
     action_clip: float | None = None
 
@@ -160,6 +162,74 @@ def _pose_losses(
     return total, component
 
 
+def _quaternion_conjugate(value: torch.Tensor) -> torch.Tensor:
+    return torch.cat((value[..., :1], -value[..., 1:]), dim=-1)
+
+
+def _pose_effect_losses(
+    dr_pose_delta: torch.Tensor,
+    nominal_pose_delta: torch.Tensor,
+    current_state: torch.Tensor,
+    dr_target: torch.Tensor,
+    nominal_target: torch.Tensor,
+    state_mean: torch.Tensor,
+    state_std: torch.Tensor,
+    config: ResidualLossConfig,
+) -> tuple[torch.Tensor, torch.Tensor, dict[str, torch.Tensor]]:
+    """Match the real pose difference caused only by DR under equal state/actions."""
+
+    dr_pose = _reconstruct_pose(dr_pose_delta, current_state, state_mean, state_std)
+    nominal_pose = _reconstruct_pose(
+        nominal_pose_delta, current_state, state_mean, state_std
+    )
+    dr_target_quat = _physical_quaternion(dr_target, state_mean, state_std)
+    nominal_target_quat = _physical_quaternion(nominal_target, state_mean, state_std)
+
+    predicted_root_effect = dr_pose["root_position"] - nominal_pose["root_position"]
+    target_root_effect = (
+        dr_target[..., _STATE_POSE_SLICES["root_position"]]
+        - nominal_target[..., _STATE_POSE_SLICES["root_position"]]
+    )
+    predicted_joint_effect = dr_pose["joint_position"] - nominal_pose["joint_position"]
+    target_joint_effect = (
+        dr_target[..., _STATE_POSE_SLICES["joint_position"]]
+        - nominal_target[..., _STATE_POSE_SLICES["joint_position"]]
+    )
+    predicted_relative_quat = _quaternion_multiply(
+        dr_pose["root_orientation"],
+        _quaternion_conjugate(nominal_pose["root_orientation"]),
+    )
+    target_relative_quat = _quaternion_multiply(
+        dr_target_quat,
+        _quaternion_conjugate(nominal_target_quat),
+    )
+    orientation_dot = (
+        predicted_relative_quat * target_relative_quat
+    ).sum(dim=-1).clamp(-1.0, 1.0)
+    target_identity_dot = target_relative_quat[..., 0].clamp(-1.0, 1.0)
+    component = {
+        "root_position": (predicted_root_effect - target_root_effect).square().mean(),
+        "root_orientation": (1.0 - orientation_dot.square()).mean(),
+        "joint_position": (predicted_joint_effect - target_joint_effect).square().mean(),
+    }
+    zero_effect_component = {
+        "root_position": target_root_effect.square().mean(),
+        "root_orientation": (1.0 - target_identity_dot.square()).mean(),
+        "joint_position": target_joint_effect.square().mean(),
+    }
+    total = (
+        config.root_position_weight * component["root_position"]
+        + config.root_orientation_weight * component["root_orientation"]
+        + config.joint_position_weight * component["joint_position"]
+    )
+    zero_effect = (
+        config.root_position_weight * zero_effect_component["root_position"]
+        + config.root_orientation_weight * zero_effect_component["root_orientation"]
+        + config.joint_position_weight * zero_effect_component["joint_position"]
+    )
+    return total, zero_effect, component
+
+
 class ResidualTrainingObjective(nn.Module):
     """Alternating model/policy objectives with explicit gradient routing."""
 
@@ -233,6 +303,91 @@ class ResidualTrainingObjective(nn.Module):
         weighted_backward = cfg.backward_weight * backward_loss
         model_loss = weighted_forward + weighted_backward
 
+        nominal_pair_loss = forward_loss.new_zeros(())
+        nominal_forward_loss = forward_loss.new_zeros(())
+        nominal_effect_loss = forward_loss.new_zeros(())
+        nominal_effect_zero_loss = forward_loss.new_zeros(())
+        nominal_context_swap_ratio = forward_loss.new_ones(())
+        nominal_pair_count = 0
+        nominal_components: dict[str, torch.Tensor] = {}
+        effect_components: dict[str, torch.Tensor] = {}
+        if "nominal_state" in batch:
+            nominal_target = batch["nominal_state"]
+            if not torch.isfinite(nominal_target).all():
+                raise ValueError("nominal_state contains non-finite values")
+            if nominal_target.ndim != 3 or nominal_target.shape[1:] != state[:, 1:].shape[1:]:
+                raise ValueError(
+                    "nominal_state must be [pair_batch,5,71], got "
+                    f"{tuple(nominal_target.shape)}"
+                )
+            nominal_pair_count = int(nominal_target.size(0))
+            if nominal_pair_count < 1 or nominal_pair_count > state.size(0):
+                raise ValueError("nominal_state pair batch must fit inside the model batch")
+            pair_world = world[:nominal_pair_count]
+            pair_state = state[:nominal_pair_count, 0]
+            pair_previous_action = previous_action[:nominal_pair_count]
+            pair_action = action[:nominal_pair_count]
+            nominal_pose_delta = model.predict_future(
+                torch.zeros_like(pair_world),
+                pair_state,
+                pair_previous_action,
+                pair_action,
+            )
+            nominal_forward_loss, nominal_components = _pose_losses(
+                nominal_pose_delta,
+                pair_state,
+                nominal_target,
+                state_mean,
+                state_std,
+                cfg,
+            )
+            nominal_effect_loss, nominal_effect_zero_loss, effect_components = (
+                _pose_effect_losses(
+                    forward_pose_delta[:nominal_pair_count],
+                    nominal_pose_delta,
+                    pair_state,
+                    state[:nominal_pair_count, 1:],
+                    nominal_target,
+                    state_mean,
+                    state_std,
+                    cfg,
+                )
+            )
+            nominal_pair_loss = cfg.nominal_pair_weight * (
+                nominal_forward_loss + cfg.nominal_effect_weight * nominal_effect_loss
+            )
+            model_loss = model_loss + nominal_pair_loss
+            with torch.no_grad():
+                dr_pair_forward_loss, _ = _pose_losses(
+                    forward_pose_delta[:nominal_pair_count],
+                    pair_state,
+                    state[:nominal_pair_count, 1:],
+                    state_mean,
+                    state_std,
+                    cfg,
+                )
+                zero_world_on_dr_loss, _ = _pose_losses(
+                    nominal_pose_delta,
+                    pair_state,
+                    state[:nominal_pair_count, 1:],
+                    state_mean,
+                    state_std,
+                    cfg,
+                )
+                dr_world_on_nominal_loss, _ = _pose_losses(
+                    forward_pose_delta[:nominal_pair_count],
+                    pair_state,
+                    nominal_target,
+                    state_mean,
+                    state_std,
+                    cfg,
+                )
+                correct_assignment_loss = dr_pair_forward_loss + nominal_forward_loss.detach()
+                swapped_assignment_loss = zero_world_on_dr_loss + dr_world_on_nominal_loss
+                nominal_context_swap_ratio = (
+                    swapped_assignment_loss / correct_assignment_loss.clamp_min(1e-8)
+                )
+
         with torch.no_grad():
             if world.size(0) > 1:
                 shuffled_world = world.roll(1, dims=0)
@@ -276,6 +431,15 @@ class ResidualTrainingObjective(nn.Module):
             "backward_loss": backward_loss,
             "weighted_forward_loss": weighted_forward.detach(),
             "weighted_backward_loss": weighted_backward.detach(),
+            "nominal_pair_loss": nominal_pair_loss.detach(),
+            "nominal_forward_loss": nominal_forward_loss.detach(),
+            "nominal_effect_loss": nominal_effect_loss.detach(),
+            "nominal_effect_nmse": (
+                nominal_effect_loss.detach() / nominal_effect_zero_loss.clamp_min(1e-8)
+            ),
+            "nominal_true_effect_loss": nominal_effect_zero_loss.detach(),
+            "nominal_context_swap_ratio": nominal_context_swap_ratio.detach(),
+            "nominal_pair_count": forward_loss.new_tensor(float(nominal_pair_count)),
             "forward_no_change_loss": no_change_loss,
             "forward_nmse": forward_loss.detach() / no_change_loss.clamp_min(1e-8),
             "forward_context_shuffle_ratio": (
@@ -287,6 +451,10 @@ class ResidualTrainingObjective(nn.Module):
         }
         for name, value in forward_components.items():
             output[f"forward_{name}_loss"] = value.detach()
+        for name, value in nominal_components.items():
+            output[f"nominal_forward_{name}_loss"] = value.detach()
+        for name, value in effect_components.items():
+            output[f"nominal_effect_{name}_loss"] = value.detach()
         return output
 
     def _policy_forward(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
@@ -336,6 +504,9 @@ class ResidualTrainingObjective(nn.Module):
         with torch.no_grad():
             clipped = (candidate_unclipped - candidate).abs() > 1e-7
             recompute_error = candidate_normalized - batch["action"]
+            residual_detached = residual.detach()
+            saturation_threshold = 0.95 * model.config.residual_scale
+            residual_slot_rms = residual_detached.square().mean(dim=(0, 2)).sqrt()
 
         output = {
             "loss": policy_loss,
@@ -346,9 +517,12 @@ class ResidualTrainingObjective(nn.Module):
             "weighted_tracking_loss": weighted_tracking.detach(),
             "weighted_residual_l2": weighted_residual_l2.detach(),
             "weighted_residual_smooth": weighted_residual_smooth.detach(),
-            "residual_abs_mean": residual.detach().abs().mean(),
-            "residual_rms": residual.detach().square().mean().sqrt(),
-            "residual_abs_max": residual.detach().abs().max(),
+            "residual_abs_mean": residual_detached.abs().mean(),
+            "residual_rms": residual_detached.square().mean().sqrt(),
+            "residual_abs_max": residual_detached.abs().max(),
+            "residual_saturation_fraction": (residual_detached.abs() >= saturation_threshold)
+            .float()
+            .mean(),
             "candidate_action_clipped_fraction": clipped.float().mean(),
             "candidate_action_change_abs_mean": (candidate.detach() - batch["tracker_action"])
             .abs()
@@ -356,6 +530,8 @@ class ResidualTrainingObjective(nn.Module):
             "candidate_action_recompute_abs_mean": recompute_error.abs().mean(),
             "candidate_action_recompute_abs_max": recompute_error.abs().max(),
         }
+        for index, value in enumerate(residual_slot_rms):
+            output[f"residual_slot_{index}_rms"] = value
         for name, value in tracking_components.items():
             output[f"tracking_{name}_loss"] = value.detach()
         return output

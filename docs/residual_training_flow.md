@@ -80,6 +80,12 @@ flowchart TB
     ST[true pose t+1:t+5] --> LF[Forward pose loss]
     RF --> LF
 
+    SN[same s_t restored in nominal physics] --> FN[Forward with zero nominal latent]
+    A --> FN
+    FN --> LN[nominal pose + DR-minus-nominal effect loss]
+    STN[nominal simulator pose t+1:t+5] --> LN
+    LF --> LN
+
     W --> B[Backward Predictor]
     ST --> B
     B --> LB[Backward action MSE]
@@ -105,14 +111,16 @@ flowchart TB
 |---|---:|---:|---:|---:|
 | Forward | 更新 | 更新 | 不更新 | 不更新 |
 | Backward | 更新 | 不更新 | 更新 | 不更新 |
+| Nominal pair | 更新 | 更新 | 不更新 | 不更新 |
 | Tracking | 不更新 | 不更新参数、保留 action Jacobian | 不更新 | 更新 |
 
-Forward 与 Tracking 共用三个等权 pose component：root position、root orientation 和 joint
-position，权重均为 `1.0`。root linear/angular velocity 和 joint velocity 仍作为真实 rollout
-指标上传，但不参与这两个 loss。训练启动时会打印一条
+Forward 与 Tracking 共用三个 pose component，默认权重调整为 root position `5.0`、root
+orientation `2.0`、joint position `1.0`，使 Predictor 精度和 Policy 梯度都优先保护 root。
+root linear/angular velocity 和 joint velocity 仍作为真实 rollout 指标上传，但不参与这两个
+loss。训练启动时会打印一条
 `event=loss_weights` JSON；之后每条训练 record 也包含同一份 `loss_weights`，同时
 `run_config.json` 持久化该配置。总目标中的 Forward 和 Backward 权重均为 `2.0`，Tracking
-权重为 `1.0`。
+权重为 `1.0`。Residual L2 权重由 `0.001` 提高为 `0.2`；smooth 权重保持 `0.001`。
 
 Forward 使用 GRU 顺序处理五个 action，因此第 `k` 个预测只依赖前 `k` 个 action，不存在
 future-action leakage。Tracking 分支通过无参数梯度的 functional Forward 调用实现：Forward
@@ -120,6 +128,23 @@ future-action leakage。Tracking 分支通过无参数梯度的 functional Forwa
 pose 上计算；如果只比较 reference delta，当前已经存在的位置偏差将无法被 residual 纠正。
 `forward_nmse` 使用零 pose delta（保持当前 pose 不动）的 loss 作为分母，因此小于 `1.0`
 表示优于 no-change baseline。
+
+### Nominal 反事实配对
+
+每个 model mini-batch 默认都建立等量配对样本。训练器把 DR replay 的 `s_t`、`a_t-1` 和五步
+实际总动作恢复到一个独立的无 DR simulator，并开环重放相同动作，得到 nominal target。该
+simulator 只保留 checkpoint 的 scene、actuator 和控制周期；所有 DR event 与 task manager
+均在构造前移除。
+
+恢复顺序是清空 simulator/entity/action buffer、写入 root 与 joint 的 qpos/qvel、恢复 previous
+action/history、写入仿真并调用零时间 `sim.forward()`。不执行 physics warmup，因为 warmup 会
+改变配对起点。首次使用会自动重复完整的 restore + 五步 rollout，检查即时状态误差和轨迹
+可重复性；不满足 `--nominal-restore-atol` 会直接终止训练。
+
+Forward 同时拟合 `F(z_dr,s,A)` 的 DR target 与 `F(0,s,A)` 的 nominal target，并显式拟合两者
+的 pose effect 差。这样 state/action 完全相同而 target 随物理参数变化，忽略 context 的模型
+无法把 pair loss 降低。重点指标是 `nominal_effect_nmse`（低于 1 才优于预测“无 DR 效应”）和
+`nominal_context_swap_ratio`（高于 1 表示正确 context-target 配对优于交换配对）。
 
 每轮先用普通 replay 更新 Context Encoder、Forward 和 Backward，再从最近一个 policy 版本产生的
 完整 trunk 样本更新一次 Residual Policy。Policy optimizer 完成后，所有尚未执行完的旧 trunk
@@ -158,8 +183,9 @@ W&B 默认开启，只在 rank 0 上传：
 - `optimization/*`：总/model/policy gradient norm、两组 learning rate 和 policy optimizer step；
 - `replay/*`：容量、样本数、每轮新增样本和显存字节数；
 - `rollout/*`：transition、每轮 reset 数、reset fraction、生成/废弃 trunk 数；
-- residual action 的 mean/RMS/max、clipped fraction、相对 tracker 的动作改变量，以及重算动作与
-  实际动作的一致性误差。
+- residual action 的 mean/RMS/max、达到 residual scale 95% 的 saturation fraction、五个 trunk
+  slot 各自的 RMS、clipped fraction、相对 tracker 的动作改变量，以及重算动作与实际动作的一致性
+  误差。
 
 ## 启动
 
@@ -170,6 +196,7 @@ W&B 默认开启，只在 rank 0 上传：
   /path/to/runs/residual \
   --num-envs 4096 \
   --batch-size 512 \
+  --nominal-pair-batch-size 512 \
   --updates 100000 \
   --wandb-project intact-residual-tracking \
   --wandb-name residual-v1
@@ -177,4 +204,5 @@ W&B 默认开启，只在 rank 0 上传：
 
 多卡继续使用 `GPUS=0,1,...`。无网络环境可传 `--wandb-mode offline`；完全关闭使用
 `--no-wandb`。本地始终保留 `metrics.jsonl`、`history.json`、`normalization.json`、
-`run_config.json` 和 checkpoint。
+`run_config.json` 和 checkpoint。`--nominal-pair-batch-size` 默认等于 `--batch-size`；设为
+`0` 可关闭配对训练，显存或吞吐受限时可调小。

@@ -26,7 +26,12 @@ from intact_tracking.distributed import DistributedContext
 from intact_tracking.residual_control import ResidualTrunkController
 from intact_tracking.residual_model import ResidualTrackingConfig, ResidualTrackingModel
 from intact_tracking.residual_objective import ResidualLossConfig, ResidualTrainingObjective
-from intact_tracking.rollout import FixedDRRolloutConfig, FixedDRTrackerRollout
+from intact_tracking.rollout import (
+    FixedDRRolloutConfig,
+    FixedDRTrackerRollout,
+    NominalPairRollout,
+    NominalPairRolloutConfig,
+)
 from intact_tracking.rollout.mjlab_adapter import _sha256
 from intact_tracking.rollout.online import TRACKING_ERROR_NAMES
 from intact_tracking.wandb_logger import WandbLogger
@@ -66,6 +71,21 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--warmup-log-interval", type=int, default=10)
     parser.add_argument("--metric-window", type=int, default=100)
     parser.add_argument("--checkpoint-interval", type=int, default=1000)
+    parser.add_argument(
+        "--nominal-pair-batch-size",
+        type=int,
+        default=None,
+        help=(
+            "DR samples per model batch replayed in a lightweight no-DR simulator; "
+            "defaults to the full batch-size and 0 disables."
+        ),
+    )
+    parser.add_argument(
+        "--nominal-restore-atol",
+        type=float,
+        default=1.0e-5,
+        help="Maximum state/repeated-trajectory error allowed by nominal state restore.",
+    )
 
     parser.add_argument("--model-learning-rate", type=float, default=3.0e-4)
     parser.add_argument("--policy-learning-rate", type=float, default=1.0e-4)
@@ -82,11 +102,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     parser.add_argument("--forward-weight", type=float, default=2.0)
     parser.add_argument("--backward-weight", type=float, default=2.0)
+    parser.add_argument("--nominal-pair-weight", type=float, default=1.0)
+    parser.add_argument("--nominal-effect-weight", type=float, default=1.0)
     parser.add_argument("--tracking-weight", type=float, default=1.0)
-    parser.add_argument("--residual-l2-weight", type=float, default=1.0e-3)
+    parser.add_argument("--residual-l2-weight", type=float, default=0.2)
     parser.add_argument("--residual-smooth-weight", type=float, default=1.0e-3)
-    parser.add_argument("--root-position-weight", type=float, default=1.0)
-    parser.add_argument("--root-orientation-weight", type=float, default=1.0)
+    parser.add_argument("--root-position-weight", type=float, default=5.0)
+    parser.add_argument("--root-orientation-weight", type=float, default=2.0)
     parser.add_argument("--joint-position-weight", type=float, default=1.0)
 
     parser.add_argument(
@@ -105,6 +127,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _validate_arguments(args: argparse.Namespace) -> None:
+    if args.nominal_pair_batch_size is None:
+        args.nominal_pair_batch_size = args.batch_size
     positive = (
         "num_envs",
         "warmup_steps",
@@ -135,6 +159,12 @@ def _validate_arguments(args: argparse.Namespace) -> None:
         raise ValueError("max-warmup-steps must be at least warmup-steps")
     if args.replay_capacity < args.batch_size:
         raise ValueError("replay-capacity must be at least batch-size")
+    if args.nominal_pair_batch_size < 0:
+        raise ValueError("nominal-pair-batch-size must be non-negative")
+    if args.nominal_pair_batch_size > args.batch_size:
+        raise ValueError("nominal-pair-batch-size cannot exceed batch-size")
+    if args.nominal_restore_atol <= 0.0:
+        raise ValueError("nominal-restore-atol must be positive")
     if args.rollout_steps_per_update != 5:
         raise ValueError("action-trunk residual training requires rollout-steps-per-update=5")
     if args.sample_stride != 1:
@@ -154,6 +184,8 @@ def _validate_arguments(args: argparse.Namespace) -> None:
         "weight_decay",
         "forward_weight",
         "backward_weight",
+        "nominal_pair_weight",
+        "nominal_effect_weight",
         "tracking_weight",
         "residual_l2_weight",
         "residual_smooth_weight",
@@ -282,6 +314,8 @@ def _loss_weight_payload(config: ResidualLossConfig) -> dict[str, dict[str, floa
         "objective_terms": {
             "forward_loss": config.forward_weight,
             "backward_loss": config.backward_weight,
+            "nominal_pair_loss": config.nominal_pair_weight,
+            "nominal_effect_within_pair": config.nominal_effect_weight,
             "tracking_loss": config.tracking_weight,
             "residual_l2": config.residual_l2_weight,
             "residual_smooth": config.residual_smooth_weight,
@@ -426,6 +460,25 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             randomize_initial_episode_phase=args.randomize_initial_episode_phase,
         )
     )
+    nominal_rollout: NominalPairRollout | None = None
+    if args.nominal_pair_batch_size:
+        try:
+            nominal_rollout = NominalPairRollout(
+                NominalPairRolloutConfig(
+                    checkpoint_file=str(checkpoint_path),
+                    motion_path=args.motion_path,
+                    motion_file=args.motion_file,
+                    task_id=args.task_id,
+                    num_envs=args.nominal_pair_batch_size,
+                    device=str(device),
+                    seed=rank_seed + 100_000,
+                    horizon=5,
+                    restore_atol=args.nominal_restore_atol,
+                )
+            )
+        except BaseException:
+            rollout.close()
+            raise
     replay = ResidualOnlineReplayBuffer(
         num_worlds=args.num_envs,
         policy_observation_dim=rollout.policy_observation_dim,
@@ -460,6 +513,8 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
     loss_config = ResidualLossConfig(
         forward_weight=args.forward_weight,
         backward_weight=args.backward_weight,
+        nominal_pair_weight=args.nominal_pair_weight,
+        nominal_effect_weight=args.nominal_effect_weight,
         tracking_weight=args.tracking_weight,
         residual_l2_weight=args.residual_l2_weight,
         residual_smooth_weight=args.residual_smooth_weight,
@@ -515,6 +570,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             "gradient_routes": {
                 "forward_loss": ["context_encoder", "forward_predictor"],
                 "backward_loss": ["context_encoder", "backward_predictor"],
+                "nominal_pair_loss": ["context_encoder", "forward_predictor"],
                 "tracking_loss": ["residual_policy"],
             },
             "optimization_schedule": "model replay updates followed by one recent on-policy trunk update",
@@ -525,6 +581,11 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             },
             "context": "16 x [proprio_before, five total commands, proprio_after]",
             "forward": "causal GRU over five action prefixes; predicts five non-chained pose deltas from the current state",
+            "nominal_pair": (
+                "restore sampled DR state into no-DR physics; replay the same five final "
+                "actions; train zero-world nominal and encoded-world DR predictions plus "
+                "their real pose-effect difference"
+            ),
             "state": "Forward input and Backward state retain root pose/velocity + joint position/velocity; Forward output and Tracking loss use pose only",
         },
         "arguments": vars(args),
@@ -532,6 +593,9 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         "loss": asdict(loss_config),
         "loss_weights": loss_weights,
         "rollout": rollout.metadata,
+        "nominal_pair_rollout": (
+            nominal_rollout.metadata if nominal_rollout is not None else {"enabled": False}
+        ),
         "tracker_checkpoint_sha256": tracker_sha256,
         "mjlab_version": importlib.metadata.version("mjlab"),
         "distributed": {
@@ -583,6 +647,8 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             )
     except BaseException:
         rollout.close()
+        if nominal_rollout is not None:
+            nominal_rollout.close()
         raise
 
     history: list[dict[str, Any]] = []
@@ -679,6 +745,31 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             model_gradient_norms: list[float] = []
             for _ in range(args.gradient_steps_per_update):
                 train_batch = replay.sample_batch(args.batch_size, normalization)
+                nominal_metrics: dict[str, float] = {}
+                if nominal_rollout is not None:
+                    pair_count = nominal_rollout.num_envs
+                    state_mean = train_batch["state_mean"]
+                    state_std = train_batch["state_std"]
+                    action_mean = train_batch["action_mean"]
+                    action_std = train_batch["action_std"]
+                    physical_state = (
+                        train_batch["state"][:pair_count, 0] * state_std + state_mean
+                    )
+                    physical_previous_action = (
+                        train_batch["previous_action"][:pair_count] * action_std + action_mean
+                    )
+                    physical_actions = (
+                        train_batch["action"][:pair_count] * action_std + action_mean
+                    )
+                    with torch.inference_mode():
+                        nominal_state, nominal_metrics = nominal_rollout.rollout(
+                            physical_state,
+                            physical_previous_action,
+                            physical_actions,
+                        )
+                    train_batch["nominal_state"] = (
+                        nominal_state - state_mean
+                    ) / state_std
                 model_optimizer.zero_grad(set_to_none=True)
                 model_output = training_module(train_batch, phase="model")
                 if not isinstance(model_output, dict) or not torch.isfinite(model_output["loss"]):
@@ -701,6 +792,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                         for name, value in model_output.items()
                         if value.numel() == 1
                     }
+                    | nominal_metrics
                 )
 
             if not distributed.all_true(recent_policy_samples > 0):
@@ -865,6 +957,8 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         return output_dir / "last.pt"
     finally:
         wandb_logger.finish(exit_code=0 if completed else 1)
+        if nominal_rollout is not None:
+            nominal_rollout.close()
         rollout.close()
 
 

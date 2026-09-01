@@ -25,9 +25,11 @@ from intact_tracking.residual_model import ResidualTrackingConfig, ResidualTrack
 from intact_tracking.residual_objective import (
     ResidualLossConfig,
     ResidualTrainingObjective,
+    _pose_effect_losses,
     _pose_losses,
     _reconstruct_pose,
 )
+from intact_tracking.rollout.nominal import _make_nominal_dynamics_cfg
 from intact_tracking.wandb_logger import WandbLogger
 
 
@@ -119,6 +121,34 @@ def test_forward_and_backward_losses_update_context_and_predictors() -> None:
     assert _gradient_norm(model.residual_policy) == 0.0
 
 
+def test_nominal_pair_loss_updates_context_and_forward() -> None:
+    config = _config()
+    model = ResidualTrackingModel(config)
+    objective = ResidualTrainingObjective(
+        model,
+        ResidualLossConfig(
+            forward_weight=0.0,
+            backward_weight=0.0,
+            nominal_pair_weight=1.0,
+            nominal_effect_weight=1.0,
+            tracking_weight=0.0,
+        ),
+    )
+    batch = _model_batch(config)
+    batch["nominal_state"] = batch["state"][:2, 1:].clone()
+    batch["nominal_state"][..., 0] += 0.5
+
+    output = objective(batch, phase="model")
+    output["loss"].backward()
+
+    assert output["nominal_pair_count"].item() == 2.0
+    assert output["nominal_pair_loss"].item() > 0.0
+    assert _gradient_norm(model.context_encoder) > 0.0
+    assert _gradient_norm(model.forward_predictor) > 0.0
+    assert _gradient_norm(model.backward_predictor) == 0.0
+    assert _gradient_norm(model.residual_policy) == 0.0
+
+
 def test_forward_predictor_outputs_five_pose_deltas() -> None:
     config = _config()
     model = ResidualTrackingModel(config)
@@ -158,6 +188,19 @@ def test_policy_phase_reports_exact_recomputed_executed_trunk() -> None:
     output = objective(batch, phase="policy")
 
     torch.testing.assert_close(output["candidate_action_recompute_abs_max"], torch.zeros(()))
+    torch.testing.assert_close(output["residual_saturation_fraction"], torch.zeros(()))
+    for index in range(config.horizon):
+        torch.testing.assert_close(output[f"residual_slot_{index}_rms"], torch.zeros(()))
+
+    with torch.no_grad():
+        model.residual_policy.net[-1].bias.fill_(10.0)
+    saturated = objective(batch, phase="policy")
+    torch.testing.assert_close(saturated["residual_saturation_fraction"], torch.ones(()))
+    for index in range(config.horizon):
+        torch.testing.assert_close(
+            saturated[f"residual_slot_{index}_rms"],
+            torch.tensor(config.residual_scale),
+        )
 
 
 def test_tracker_latent_has_current_plus_four_future_reference_frames() -> None:
@@ -253,6 +296,34 @@ def test_root_rotation_delta_is_composed_with_current_orientation() -> None:
         atol=1.0e-6,
         rtol=1.0e-6,
     )
+
+
+def test_pose_effect_loss_is_zero_for_exact_dr_minus_nominal_prediction() -> None:
+    config = _config()
+    current = torch.zeros(1, config.state_dim)
+    current[:, 3] = 1.0
+    nominal_target = current[:, None].expand(-1, config.horizon, -1).clone()
+    dr_target = nominal_target.clone()
+    dr_target[..., 0] += 0.2
+    dr_target[..., 13] -= 0.1
+    nominal_delta = torch.zeros(1, config.horizon, config.pose_delta_dim)
+    dr_delta = nominal_delta.clone()
+    dr_delta[..., 0] = 0.2
+    dr_delta[..., 6] = -0.1
+
+    loss, zero_effect, _ = _pose_effect_losses(
+        dr_delta,
+        nominal_delta,
+        current,
+        dr_target,
+        nominal_target,
+        torch.zeros(config.state_dim),
+        torch.ones(config.state_dim),
+        ResidualLossConfig(),
+    )
+
+    torch.testing.assert_close(loss, torch.zeros_like(loss))
+    assert zero_effect.item() > 0.0
 
 
 def test_residual_replay_builds_strictly_causal_five_step_window() -> None:
@@ -392,8 +463,12 @@ def test_residual_cli_enables_wandb_and_five_step_collection_by_default() -> Non
     assert args.rollout_steps_per_update == 5
     assert args.forward_weight == 2.0
     assert args.backward_weight == 2.0
-    assert args.root_position_weight == 1.0
-    assert args.root_orientation_weight == 1.0
+    assert args.nominal_pair_batch_size == 64
+    assert args.nominal_pair_weight == 1.0
+    assert args.nominal_effect_weight == 1.0
+    assert args.residual_l2_weight == 0.2
+    assert args.root_position_weight == 5.0
+    assert args.root_orientation_weight == 2.0
     assert args.joint_position_weight == 1.0
     assert not hasattr(args, "joint_velocity_weight")
     assert args.randomize_initial_episode_phase
@@ -407,16 +482,45 @@ def test_loss_weight_payload_lists_objective_and_shared_state_terms() -> None:
         "objective_terms": {
             "forward_loss": 2.0,
             "backward_loss": 2.0,
+            "nominal_pair_loss": 1.0,
+            "nominal_effect_within_pair": 1.0,
             "tracking_loss": 1.0,
-            "residual_l2": 1.0e-3,
+            "residual_l2": 0.2,
             "residual_smooth": 1.0e-3,
         },
         "pose_terms_shared_by_forward_and_tracking": {
-            "root_position": 1.0,
-            "root_orientation": 1.0,
+            "root_position": 5.0,
+            "root_orientation": 2.0,
             "joint_position": 1.0,
         },
     }
+
+
+def test_nominal_dynamics_cfg_removes_dr_and_task_managers() -> None:
+    env_cfg = SimpleNamespace(
+        events={"dr": object()},
+        commands={"motion": object()},
+        observations={"policy": object()},
+        rewards={"tracking": object()},
+        terminations={"timeout": object()},
+        curriculum={"difficulty": object()},
+        metrics={"cache": object()},
+        recorders={"trace": object()},
+        auto_reset=True,
+    )
+
+    removed = _make_nominal_dynamics_cfg(env_cfg)
+
+    assert removed["events"] == ["dr"]
+    assert not env_cfg.events
+    assert not env_cfg.commands
+    assert not env_cfg.observations
+    assert not env_cfg.rewards
+    assert not env_cfg.terminations
+    assert not env_cfg.curriculum
+    assert not env_cfg.metrics
+    assert not env_cfg.recorders
+    assert not env_cfg.auto_reset
 
 
 def test_wandb_logger_is_rank_zero_only(monkeypatch, tmp_path) -> None:
