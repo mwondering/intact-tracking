@@ -42,6 +42,12 @@ proprio  = [joint_pos, joint_vel, projected_gravity, base_ang_vel,
 可以跨 episode，但 query 不跨 reset boundary。Residual rollout 后 token 中记录的是最终
 下发总动作，不是 frozen tracker 的基础动作。
 
+Reset 不会清空 Context，也不会关闭 residual。只有跨越仿真 teleport 的 boundary transition
+被排除；reset 完成后的状态可以立即作为下一条五步 query 的 `s_t`。各 vector slot 的初始
+episode timeout phase 默认独立随机化，使 post-reset 数据持续分散进入 replay，而不是每隔固定
+周期形成同步数据突变。需要复现实验性同步 timeout 时可传
+`--no-randomize-initial-episode-phase`。
+
 ## 网络与梯度路由
 
 ```mermaid
@@ -80,6 +86,12 @@ flowchart TB
 | Backward | 更新 | 不更新 | 更新 | 不更新 |
 | Tracking | 不更新 | 不更新参数、保留 action Jacobian | 不更新 | 更新 |
 
+Forward 与 Tracking 当前共用六个等权 state component：root position/orientation、root
+linear/angular velocity、joint position/velocity 的权重均为 `1.0`。训练启动时会打印一条
+`event=loss_weights` JSON；之后每条训练 record 也包含同一份 `loss_weights`，同时
+`run_config.json` 持久化该配置。总目标中的 Forward 和 Backward 权重均为 `2.0`，Tracking
+权重为 `1.0`。
+
 Forward 使用 GRU 顺序处理五个 action，因此第 `k` 个预测只依赖前 `k` 个 action，不存在
 future-action leakage。Tracking 分支通过无参数梯度的 functional Forward 调用实现：Forward
 参数被 detach，但 action 输入保留梯度。
@@ -103,6 +115,7 @@ W&B 默认开启，只在 rank 0 上传：
 - `tracking/*`：真实 rollout error、tracker baseline、ratio 和 improvement；
 - `optimization/*`：总/model/policy gradient norm 和两组 learning rate；
 - `replay/*`：容量、样本数、每轮新增样本和显存字节数；
+- `rollout/*`：transition、每轮 reset 数和 reset fraction；
 - residual action 的 mean/RMS/max、clipped fraction 和相对 tracker 的动作改变量。
 
 ## 启动
@@ -122,4 +135,3 @@ W&B 默认开启，只在 rank 0 上传：
 多卡继续使用 `GPUS=0,1,...`。无网络环境可传 `--wandb-mode offline`；完全关闭使用
 `--no-wandb`。本地始终保留 `metrics.jsonl`、`history.json`、`normalization.json`、
 `run_config.json` 和 checkpoint。
-

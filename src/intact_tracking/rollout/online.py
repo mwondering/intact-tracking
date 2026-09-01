@@ -80,6 +80,7 @@ class FixedDRRolloutConfig:
     seed: int = 0
     world_id_offset: int = 0
     stochastic_policy: bool = False
+    randomize_initial_episode_phase: bool = True
 
     def __post_init__(self) -> None:
         if self.num_envs < 1:
@@ -136,6 +137,29 @@ def _capture_randomized_model_fields(env: Any) -> dict[str, torch.Tensor]:
     return snapshots
 
 
+def _randomize_initial_episode_phases(env: Any, seed: int) -> dict[str, int]:
+    """Desynchronize timeout resets without changing robot or reference state."""
+    episode_length = getattr(env, "episode_length_buf", None)
+    maximum = int(getattr(env, "max_episode_length", 0))
+    if not isinstance(episode_length, torch.Tensor) or maximum < 1:
+        raise RuntimeError("Rollout environment does not expose a valid episode timeout buffer")
+    generator = torch.Generator(device=episode_length.device).manual_seed(int(seed))
+    phases = torch.randint(
+        low=0,
+        high=maximum,
+        size=episode_length.shape,
+        dtype=episode_length.dtype,
+        device=episode_length.device,
+        generator=generator,
+    )
+    episode_length.copy_(phases)
+    return {
+        "minimum": int(phases.min().item()),
+        "maximum": int(phases.max().item()),
+        "unique": int(torch.unique(phases).numel()),
+    }
+
+
 class FixedDRTrackerRollout:
     """Step MJLab with a frozen tracker and fixed per-environment physics DR.
 
@@ -190,6 +214,11 @@ class FixedDRTrackerRollout:
             self.dr_invariance_checks = 0
             self.wrapped = self._runtime.wrapped
             self.policy = self._runtime.policy
+            self.initial_episode_phase_summary: dict[str, int] | None = None
+            if config.randomize_initial_episode_phase:
+                self.initial_episode_phase_summary = _randomize_initial_episode_phases(
+                    self.env, config.seed
+                )
             self.observations = self.wrapped.get_observations()
             self.world_ids = torch.arange(
                 config.world_id_offset,
@@ -249,6 +278,11 @@ class FixedDRTrackerRollout:
             "motion_contract": "random motion resampling at initialization and reset",
             "reset_contract": (
                 "asynchronous per-slot auto-reset; startup events are never reapplied"
+            ),
+            "initial_episode_phase_randomized": self.config.randomize_initial_episode_phase,
+            "initial_episode_phase_summary": self.initial_episode_phase_summary,
+            "reset_window_contract": (
+                "the teleport boundary is excluded; the post-reset state may start a query"
             ),
             "tracking_error_names": list(TRACKING_ERROR_NAMES),
         }

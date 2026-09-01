@@ -46,6 +46,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--distributed-backend", choices=("nccl", "gloo"))
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--stochastic-policy", action="store_true")
+    parser.add_argument(
+        "--randomize-initial-episode-phase",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Desynchronize timeout resets across vector environments without dropping data.",
+    )
 
     parser.add_argument("--warmup-steps", type=int, default=100)
     parser.add_argument("--max-warmup-steps", type=int, default=10_000)
@@ -73,17 +79,17 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--policy-depth", type=int, default=3)
     parser.add_argument("--residual-scale", type=float, default=0.25)
 
-    parser.add_argument("--forward-weight", type=float, default=1.0)
-    parser.add_argument("--backward-weight", type=float, default=0.25)
+    parser.add_argument("--forward-weight", type=float, default=2.0)
+    parser.add_argument("--backward-weight", type=float, default=2.0)
     parser.add_argument("--tracking-weight", type=float, default=1.0)
     parser.add_argument("--residual-l2-weight", type=float, default=1.0e-3)
     parser.add_argument("--residual-smooth-weight", type=float, default=1.0e-3)
     parser.add_argument("--root-position-weight", type=float, default=1.0)
     parser.add_argument("--root-orientation-weight", type=float, default=1.0)
-    parser.add_argument("--root-linear-velocity-weight", type=float, default=0.1)
-    parser.add_argument("--root-angular-velocity-weight", type=float, default=0.1)
+    parser.add_argument("--root-linear-velocity-weight", type=float, default=1.0)
+    parser.add_argument("--root-angular-velocity-weight", type=float, default=1.0)
     parser.add_argument("--joint-position-weight", type=float, default=1.0)
-    parser.add_argument("--joint-velocity-weight", type=float, default=0.1)
+    parser.add_argument("--joint-velocity-weight", type=float, default=1.0)
 
     parser.add_argument(
         "--wandb",
@@ -279,6 +285,27 @@ def _tracking_comparison(
     return result
 
 
+def _loss_weight_payload(config: ResidualLossConfig) -> dict[str, dict[str, float]]:
+    """Expose every multiplicative loss weight in a self-describing log payload."""
+    return {
+        "objective_terms": {
+            "forward_loss": config.forward_weight,
+            "backward_loss": config.backward_weight,
+            "tracking_loss": config.tracking_weight,
+            "residual_l2": config.residual_l2_weight,
+            "residual_smooth": config.residual_smooth_weight,
+        },
+        "state_terms_shared_by_forward_and_tracking": {
+            "root_position": config.root_position_weight,
+            "root_orientation": config.root_orientation_weight,
+            "root_linear_velocity": config.root_linear_velocity_weight,
+            "root_angular_velocity": config.root_angular_velocity_weight,
+            "joint_position": config.joint_position_weight,
+            "joint_velocity": config.joint_velocity_weight,
+        },
+    }
+
+
 def _wandb_payload(record: dict[str, Any]) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "update": record["update"],
@@ -292,6 +319,11 @@ def _wandb_payload(record: dict[str, Any]) -> dict[str, Any]:
         "replay/samples_generated": record["samples_generated"],
         "replay/new_samples_generated": record["new_samples_generated"],
         "replay/storage_bytes": record["replay_storage_bytes"],
+        "rollout/transitions": record["transitions"],
+        "rollout/environments_reset": record["environments_reset"],
+        "rollout/environments_reset_delta": record["new_environments_reset"],
+        "rollout/reset_events_delta": record["new_reset_events"],
+        "rollout/reset_fraction": record["reset_fraction"],
     }
     payload.update({f"train/{name}": value for name, value in record["train"].items()})
     payload.update(
@@ -388,6 +420,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             seed=rank_seed,
             world_id_offset=world_id_offset,
             stochastic_policy=args.stochastic_policy,
+            randomize_initial_episode_phase=args.randomize_initial_episode_phase,
         )
     )
     replay = ResidualOnlineReplayBuffer(
@@ -434,6 +467,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         joint_velocity_weight=args.joint_velocity_weight,
         action_clip=rollout.action_clip,
     )
+    loss_weights = _loss_weight_payload(loss_config)
     model = ResidualTrackingModel(model_config).to(device)
     objective = ResidualTrainingObjective(model, loss_config)
     training_module: torch.nn.Module
@@ -479,6 +513,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         "arguments": vars(args),
         "model": asdict(model_config),
         "loss": asdict(loss_config),
+        "loss_weights": loss_weights,
         "rollout": rollout.metadata,
         "tracker_checkpoint_sha256": tracker_sha256,
         "mjlab_version": importlib.metadata.version("mjlab"),
@@ -496,6 +531,13 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         },
     }
     _main_process_call(distributed, lambda: _write_json(output_dir / "run_config.json", run_config))
+    if distributed.is_main:
+        print(
+            json.dumps(
+                {"event": "loss_weights", "loss_weights": loss_weights}, sort_keys=True
+            ),
+            flush=True,
+        )
     wandb_logger: WandbLogger | None = None
 
     def initialize_wandb_on_main() -> bool:
@@ -576,6 +618,9 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         tracker_metrics.reset()
         normalization = _global_normalization(distributed, replay, global_world_ids)
         previous_samples_generated = 0
+        previous_environments_reset = 0
+        previous_reset_events = 0
+        previous_transitions = 0
 
         for update in range(1, args.updates + 1):
             if update > 1:
@@ -648,6 +693,14 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             )
             new_samples = counts["samples_generated"] - previous_samples_generated
             previous_samples_generated = counts["samples_generated"]
+            new_environments_reset = (
+                counts["environments_reset"] - previous_environments_reset
+            )
+            previous_environments_reset = counts["environments_reset"]
+            new_reset_events = counts["reset_events"] - previous_reset_events
+            previous_reset_events = counts["reset_events"]
+            new_transitions = counts["transitions"] - previous_transitions
+            previous_transitions = counts["transitions"]
             gradient_summary = distributed.mean_scalars(
                 {
                     "gradient_norm": sum(gradient_norms) / len(gradient_norms),
@@ -660,8 +713,12 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                 "optimizer_steps": optimizer_steps,
                 **counts,
                 "new_samples_generated": new_samples,
+                "new_environments_reset": new_environments_reset,
+                "new_reset_events": new_reset_events,
+                "reset_fraction": new_environments_reset / max(new_transitions, 1),
                 "learning_rate_model": optimizer.param_groups[0]["lr"],
                 "learning_rate_policy": optimizer.param_groups[1]["lr"],
+                "loss_weights": loss_weights,
                 **gradient_summary,
                 "train": train,
                 "tracking": current_tracking,

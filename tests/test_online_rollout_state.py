@@ -19,6 +19,24 @@ def _snapshot(offset: float) -> dict[str, torch.Tensor]:
     }
 
 
+def test_initial_episode_phases_are_reproducibly_desynchronized() -> None:
+    first = SimpleNamespace(
+        episode_length_buf=torch.zeros(64, dtype=torch.long),
+        max_episode_length=500,
+    )
+    second = SimpleNamespace(
+        episode_length_buf=torch.zeros(64, dtype=torch.long),
+        max_episode_length=500,
+    )
+
+    summary = online_module._randomize_initial_episode_phases(first, seed=7)
+    online_module._randomize_initial_episode_phases(second, seed=7)
+
+    torch.testing.assert_close(first.episode_length_buf, second.episode_length_buf)
+    assert summary["unique"] > 1
+    assert 0 <= summary["minimum"] <= summary["maximum"] < 500
+
+
 def test_online_rollout_resets_only_completed_slots(monkeypatch) -> None:
     terminated = torch.tensor([False, True, False])
     truncated = torch.zeros(3, dtype=torch.bool)

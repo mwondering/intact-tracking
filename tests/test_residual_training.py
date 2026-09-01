@@ -4,7 +4,12 @@ from types import SimpleNamespace
 
 import torch
 
-from intact_tracking.cli.residual_train import _validate_arguments, _wandb_payload, build_parser
+from intact_tracking.cli.residual_train import (
+    _loss_weight_payload,
+    _validate_arguments,
+    _wandb_payload,
+    build_parser,
+)
 from intact_tracking.data import (
     ResidualOnlineReplayBuffer,
     RolloutDimensions,
@@ -165,6 +170,71 @@ def test_residual_replay_builds_strictly_causal_five_step_window() -> None:
     assert torch.isfinite(sampled["context"]).all()
 
 
+def test_reset_state_can_start_query_but_boundary_cannot_enter_it() -> None:
+    dimensions = RolloutDimensions(
+        proprio=6,
+        observation=4,
+        action=3,
+        robot_state=71,
+        reference_state=71,
+    )
+    replay = ResidualOnlineReplayBuffer(
+        num_worlds=1,
+        policy_observation_dim=8,
+        dimensions=dimensions,
+        capacity=8,
+        device="cpu",
+    )
+
+    def add(
+        value: float,
+        *,
+        episode_id: int,
+        episode_step: int,
+        next_value: float | None = None,
+        reset_boundary: bool = False,
+    ) -> None:
+        current = torch.full((1, 1), value)
+        following = value + 1.0 if next_value is None else next_value
+        state = current.expand(1, 71).clone()
+        replay.add_step(
+            {
+                "proprio": current.expand(1, 6).clone(),
+                "next_proprio": torch.full((1, 6), following),
+                "policy_observation": current.expand(1, 8).clone(),
+                "tracker_action": current.expand(1, 3).clone(),
+                "action": current.expand(1, 3).clone(),
+                "robot_state": state,
+                "next_robot_state": torch.full((1, 71), following),
+                "reference_state": state + 10.0,
+                "next_reference_state": torch.full((1, 71), following + 10.0),
+                "reset_boundary": torch.tensor([reset_boundary]),
+                "world_id": torch.zeros(1, dtype=torch.long),
+                "episode_id": torch.tensor([episode_id]),
+                "episode_step": torch.tensor([episode_step]),
+                "collector_step": torch.tensor([episode_step]),
+            }
+        )
+
+    for step in range(85):
+        add(float(step), episode_id=0, episode_step=step)
+    add(85.0, episode_id=0, episode_step=85, next_value=200.0, reset_boundary=True)
+    for step in range(5):
+        add(200.0 + step, episode_id=1, episode_step=step)
+
+    assert len(replay) == 2
+    torch.testing.assert_close(
+        replay._samples["state"][1, :, 0], torch.arange(200.0, 206.0)
+    )
+    torch.testing.assert_close(
+        replay._samples["action"][1, :, 0], torch.arange(200.0, 205.0)
+    )
+    assert replay._samples["previous_action"][1, 0].item() == 0.0
+    assert replay._samples["episode_id"][1].item() == 1
+    assert replay._context_counts is not None
+    assert replay._context_counts.item() == 18
+
+
 def test_residual_cli_enables_wandb_and_five_step_collection_by_default() -> None:
     args = build_parser().parse_args(
         [
@@ -178,8 +248,38 @@ def test_residual_cli_enables_wandb_and_five_step_collection_by_default() -> Non
     )
     _validate_arguments(args)
     assert args.rollout_steps_per_update == 5
+    assert args.forward_weight == 2.0
+    assert args.backward_weight == 2.0
+    assert args.root_position_weight == 1.0
+    assert args.root_orientation_weight == 1.0
+    assert args.root_linear_velocity_weight == 1.0
+    assert args.root_angular_velocity_weight == 1.0
+    assert args.joint_position_weight == 1.0
+    assert args.joint_velocity_weight == 1.0
+    assert args.randomize_initial_episode_phase
     assert args.wandb
     assert args.wandb_project == "intact-residual-tracking"
+
+
+def test_loss_weight_payload_lists_objective_and_shared_state_terms() -> None:
+    payload = _loss_weight_payload(ResidualLossConfig())
+    assert payload == {
+        "objective_terms": {
+            "forward_loss": 2.0,
+            "backward_loss": 2.0,
+            "tracking_loss": 1.0,
+            "residual_l2": 1.0e-3,
+            "residual_smooth": 1.0e-3,
+        },
+        "state_terms_shared_by_forward_and_tracking": {
+            "root_position": 1.0,
+            "root_orientation": 1.0,
+            "root_linear_velocity": 1.0,
+            "root_angular_velocity": 1.0,
+            "joint_position": 1.0,
+            "joint_velocity": 1.0,
+        },
+    }
 
 
 def test_wandb_logger_is_rank_zero_only(monkeypatch, tmp_path) -> None:
@@ -231,6 +331,11 @@ def test_wandb_payload_exposes_training_tracking_and_replay_curves() -> None:
             "samples_generated": 40,
             "new_samples_generated": 8,
             "replay_storage_bytes": 1024,
+            "transitions": 128,
+            "environments_reset": 12,
+            "new_environments_reset": 4,
+            "new_reset_events": 2,
+            "reset_fraction": 0.03125,
             "train": {"loss": 3.0, "residual_rms": 0.02},
             "tracking": {error_name: 0.8},
             "tracking_baseline": {error_name: 1.0},
@@ -246,3 +351,5 @@ def test_wandb_payload_exposes_training_tracking_and_replay_curves() -> None:
     assert payload[f"tracking/{error_name}_relative_improvement"] == 0.2
     assert payload["optimization/policy_gradient_norm"] == 0.25
     assert payload["replay/new_samples_generated"] == 8
+    assert payload["rollout/environments_reset_delta"] == 4
+    assert payload["rollout/reset_fraction"] == 0.03125

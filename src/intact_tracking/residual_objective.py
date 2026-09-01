@@ -12,17 +12,17 @@ from .residual_model import ResidualTrackingModel
 
 @dataclass(frozen=True)
 class ResidualLossConfig:
-    forward_weight: float = 1.0
-    backward_weight: float = 0.25
+    forward_weight: float = 2.0
+    backward_weight: float = 2.0
     tracking_weight: float = 1.0
     residual_l2_weight: float = 1.0e-3
     residual_smooth_weight: float = 1.0e-3
     root_position_weight: float = 1.0
     root_orientation_weight: float = 1.0
-    root_linear_velocity_weight: float = 0.1
-    root_angular_velocity_weight: float = 0.1
+    root_linear_velocity_weight: float = 1.0
+    root_angular_velocity_weight: float = 1.0
     joint_position_weight: float = 1.0
-    joint_velocity_weight: float = 0.1
+    joint_velocity_weight: float = 1.0
     action_clip: float | None = None
 
     def __post_init__(self) -> None:
@@ -245,4 +245,3 @@ class ResidualTrainingObjective(nn.Module):
         for name, value in tracking_components.items():
             output[f"tracking_{name}_loss"] = value.detach()
         return output
-

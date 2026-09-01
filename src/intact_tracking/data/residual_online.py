@@ -237,6 +237,7 @@ class ResidualOnlineReplayBuffer:
             self.context_tokens - 1, -1, -1, dtype=torch.long, device=self.device
         )
         self._history: dict[str, torch.Tensor] = {}
+        self._reset_history: torch.Tensor | None = None
         self._context: dict[str, torch.Tensor] = {}
         self._samples: dict[str, torch.Tensor] = {}
         self._context_counts: torch.Tensor | None = None
@@ -260,6 +261,8 @@ class ResidualOnlineReplayBuffer:
     @property
     def storage_bytes(self) -> int:
         tensors = [*self._history.values(), *self._context.values(), *self._samples.values()]
+        if self._reset_history is not None:
+            tensors.append(self._reset_history)
         if self._context_counts is not None:
             tensors.append(self._context_counts)
         return sum(value.numel() * value.element_size() for value in tensors)
@@ -286,7 +289,8 @@ class ResidualOnlineReplayBuffer:
             + self.capacity * sample_width
         )
         integers = self.num_worlds + 2 * self.capacity
-        return 4 * floats + 8 * integers
+        boundary_flags = self._history_length * self.num_worlds
+        return 4 * floats + 8 * integers + boundary_flags
 
     def _allocate(self) -> None:
         if self._history:
@@ -305,6 +309,7 @@ class ResidualOnlineReplayBuffer:
             "next_robot_state": torch.zeros((*hp, dims.robot_state), device=self.device),
             "next_reference_state": torch.zeros((*hp, dims.reference_state), device=self.device),
         }
+        self._reset_history = torch.zeros(hp, dtype=torch.bool, device=self.device)
         self._context = {
             "before": torch.zeros((*cp, dims.proprio), device=self.device),
             "actions": torch.zeros(
@@ -491,18 +496,28 @@ class ResidualOnlineReplayBuffer:
         for name in self._history:
             source = batch[name]
             self._history[name][position].copy_(source)
+        assert self._reset_history is not None
+        self._reset_history[position].copy_(batch["reset_boundary"])
         completed = batch["episode_step"] + 1
+        context_time_ids = (position - self._context_chunk_offsets).remainder(
+            self._history_length
+        )
+        context_crosses_reset = self._reset_history[context_time_ids].any(dim=0)
         context_valid = (
             (completed.remainder(self.context_chunk_steps) == 0)
             & (completed >= self.context_chunk_steps)
+            & ~context_crosses_reset
             & ~batch["reset_boundary"]
         )
         self._append_context(batch, position, context_valid)
         assert self._context_counts is not None
+        query_time_ids = (position - self._query_offsets).remainder(self._history_length)
+        query_crosses_reset = self._reset_history[query_time_ids].any(dim=0)
         sample_valid = (
             (completed.remainder(self.sample_stride) == 0)
             & (completed >= self.horizon)
             & (self._context_counts >= self._context_capacity)
+            & ~query_crosses_reset
             & ~batch["reset_boundary"]
         )
         generated = self._materialize(batch, position, completed, sample_valid)
@@ -600,4 +615,3 @@ class ResidualOnlineReplayBuffer:
             "world_id": selected["world_id"],
             "episode_id": selected["episode_id"],
         }
-

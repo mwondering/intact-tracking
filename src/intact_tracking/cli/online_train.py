@@ -56,6 +56,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--stochastic-policy", action="store_true")
+    parser.add_argument(
+        "--randomize-initial-episode-phase",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Desynchronize timeout resets across vector environments without dropping data.",
+    )
 
     parser.add_argument(
         "--warmup-steps",
@@ -572,6 +578,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         seed=rank_seed,
         world_id_offset=world_id_offset,
         stochastic_policy=args.stochastic_policy,
+        randomize_initial_episode_phase=args.randomize_initial_episode_phase,
     )
     replay = OnlineReplayBuffer(
         num_worlds=args.num_envs,

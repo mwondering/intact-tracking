@@ -48,6 +48,7 @@ class WandbLogger:
         self.run.define_metric("tracking/*", step_metric="update")
         self.run.define_metric("optimization/*", step_metric="update")
         self.run.define_metric("replay/*", step_metric="update")
+        self.run.define_metric("rollout/*", step_metric="update")
 
     @property
     def id(self) -> str | None:
@@ -65,4 +66,3 @@ class WandbLogger:
         if self.run is not None:
             self.run.finish(exit_code=exit_code)
             self.run = None
-

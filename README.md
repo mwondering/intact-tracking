@@ -105,6 +105,8 @@ rollout 时可用的 simulator/reference 完整状态：
 - motion command 在初始化和 episode reset 时随机采样 motion；机器人同步重置到 reference。
 - `auto_reset=True`。终止的 slot 独立 reset，其他 slot 的 causal history 不受影响；boundary
   transition 不进入训练 window，因此在线训练不依赖 terminal observation。
+- 各 slot 的初始 timeout phase 默认独立随机化；只排除 teleport boundary，reset 后状态仍可
+  作为新 query 的起点，同一 physics world 的 context 不清空。
 - tracker 权重严格加载后执行 `requires_grad_(False)` 和 `eval()`；优化器只持有 INTACT 参数。
 
 每个 rank 的 replay、rolling transition history、context ring 和 running sufficient
@@ -221,6 +223,10 @@ SPTracking 同名的八项真实 rollout tracking error。Warmup 的零 residual
 tracker baseline，日志同时给出当前误差相对 baseline 的 ratio 和 improvement。无网络机器可
 使用 `--wandb-mode offline`，完全禁用则传 `--no-wandb`。完整张量契约、梯度路由和指标说明见
 [Residual training flow](docs/residual_training_flow.md)。
+
+在线 rollout 默认随机打散每个 vector slot 的初始 episode timeout phase，但保留所有 reset 后
+的真实 transition：teleport boundary 本身不进入五步窗口，reset 后状态可以作为窗口起点，
+Context 不随 episode reset 清空。
 
 ## 可选离线导出
 
