@@ -27,7 +27,7 @@ def _mlp(input_dim: int, hidden_dim: int, output_dim: int, depth: int) -> nn.Seq
 class ResidualTrackingConfig:
     """Shape and capacity contract for residual world-model training."""
 
-    architecture_version: str = "context_residual_tracking_pose_delta_v2"
+    architecture_version: str = "context_residual_tracking_action_trunk_v3"
     policy_observation_dim: int = 1645
     proprio_dim: int = 122
     action_dim: int = 29
@@ -77,16 +77,18 @@ class ResidualTrackingConfig:
 
 
 class ResidualPolicy(nn.Module):
-    """Bounded correction on top of the frozen tracker's policy-coordinate action."""
+    """Emit one bounded five-action residual trunk from the current observation."""
 
     def __init__(self, config: ResidualTrackingConfig) -> None:
         super().__init__()
         self.policy_observation_dim = config.policy_observation_dim
+        self.action_dim = config.action_dim
+        self.horizon = config.horizon
         self.residual_scale = float(config.residual_scale)
         self.net = _mlp(
             config.context_dim + config.policy_observation_dim,
             config.hidden_dim,
-            config.action_dim,
+            config.horizon * config.action_dim,
             config.policy_depth,
         )
         # Start from the frozen tracker exactly. This also makes warm-start
@@ -100,11 +102,16 @@ class ResidualPolicy(nn.Module):
                 f"Residual policy observation width must be {self.policy_observation_dim}, "
                 f"got {observation.size(-1)}"
             )
-        while world.ndim < observation.ndim:
-            world = world.unsqueeze(1)
-        world = world.expand(*observation.shape[:-1], world.size(-1))
-        return self.net(torch.cat((world, observation.float()), dim=-1)).tanh().mul(
-            self.residual_scale
+        if world.shape[:-1] != observation.shape[:-1]:
+            raise ValueError(
+                "Residual policy world and observation batches must match: "
+                f"{tuple(world.shape)} vs {tuple(observation.shape)}"
+            )
+        trunk = self.net(torch.cat((world.float(), observation.float()), dim=-1))
+        return (
+            trunk.reshape(*observation.shape[:-1], self.horizon, self.action_dim)
+            .tanh()
+            .mul(self.residual_scale)
         )
 
 
@@ -146,7 +153,9 @@ class CausalForwardPredictor(nn.Module):
     ) -> torch.Tensor:
         expected = (*state.shape[:-1], self.horizon, self.action_dim)
         if tuple(actions.shape) != expected:
-            raise ValueError(f"Forward actions must have shape {expected}, got {tuple(actions.shape)}")
+            raise ValueError(
+                f"Forward actions must have shape {expected}, got {tuple(actions.shape)}"
+            )
         hidden = self.initial_encoder(
             torch.cat((world.float(), state.float(), previous_action.float()), dim=-1)
         )
@@ -212,8 +221,12 @@ class ResidualTrackingModel(nn.Module):
     ) -> torch.Tensor:
         return self.context_encoder(context, context_mask)
 
-    def residual_action(self, world: torch.Tensor, observation: torch.Tensor) -> torch.Tensor:
+    def residual_action_trunk(self, world: torch.Tensor, observation: torch.Tensor) -> torch.Tensor:
         return self.residual_policy(world, observation)
+
+    def residual_action(self, world: torch.Tensor, observation: torch.Tensor) -> torch.Tensor:
+        """Compatibility alias returning the complete five-action trunk."""
+        return self.residual_action_trunk(world, observation)
 
     def predict_future(
         self,

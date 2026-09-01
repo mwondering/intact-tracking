@@ -6,21 +6,29 @@ Intent-to-Action actor 的 checkpoint 格式。
 
 ## Rollout 与样本
 
-每个控制步执行：
+每条 trunk 开始时只执行一次 Residual Policy：
 
 ```text
-a_tracker,t = FrozenTracker(o_deploy,t)
-delta_a_t   = ResidualPolicy(w_t, o_deploy,t)
-a_t         = clip(a_tracker,t + delta_a_t)
+delta_A_t:t+4 = ResidualPolicy(w_t, o_deploy,t)  # [5, 29]
+```
+
+之后五个真实仿真控制步逐槽执行：
+
+```text
+a_tracker,t+k = FrozenTracker(o_deploy,t+k)      # 每步重算
+a_t+k         = clip(a_tracker,t+k + delta_A[k])
 ```
 
 其中 `o_deploy,t` 采用冻结 tracker 的归一化 policy feature，而不是只包含关节状态的 64 维
 JEPA observation。Residual 初始输出层为零，所以训练开始时系统严格复现 frozen tracker。
 
-每个 residual query 是连续五步：
+所以它是“open-loop residual trunk + closed-loop frozen tracker”，不是五次独立 residual
+policy 调用。每个 residual query 是连续五步：
 
 ```text
-policy observations: o_t ... o_t+4
+policy observation:  o_t
+residual trunk:       delta_a_t ... delta_a_t+4
+tracker actions:      a_tracker,t ... a_tracker,t+4
 commands:            a_t ... a_t+4
 physical states:     s_t ... s_t+5
 reference states:          r_t+1 ... r_t+5
@@ -48,8 +56,10 @@ proprio  = [joint_pos, joint_vel, projected_gravity, base_ang_vel,
 可以跨 episode，但 query 不跨 reset boundary。Residual rollout 后 token 中记录的是最终
 下发总动作，不是 frozen tracker 的基础动作。
 
-Reset 不会清空 Context，也不会关闭 residual。只有跨越仿真 teleport 的 boundary transition
-被排除；reset 完成后的状态可以立即作为下一条五步 query 的 `s_t`。各 vector slot 的初始
+Reset 不会清空 Context。跨越仿真 teleport 的 boundary transition 被排除，同时只废弃对应
+vector slot 尚未执行的 trunk suffix；reset 完成后的状态立即生成一条新 trunk，并可作为下一条
+五步 query 的 `s_t`。Replay 额外核对 query 的 trunk slot 必须严格为 `0,1,2,3,4`，因此 optimizer
+更新导致的全局 replan、异步 reset 或其他 trunk 边界都不可能混入同一训练样本。各 vector slot 的初始
 episode timeout phase 默认独立随机化，使 post-reset 数据持续分散进入 replay，而不是每隔固定
 周期形成同步数据突变。需要复现实验性同步 timeout 时可传
 `--no-randomize-initial-episode-phase`。
@@ -74,9 +84,10 @@ flowchart TB
     ST --> B
     B --> LB[Backward action MSE]
 
-    O[five fixed rollout observations] --> P[Residual Policy]
+    O[current deployable tracker feature] --> P[Residual Policy]
     W -. detached .-> P
-    P --> AC[tracker action + residual + clip]
+    P --> RT[five-action residual trunk]
+    RT --> AC[per-step tracker action + current trunk slot + clip]
     AC --> FF[Forward with detached parameters]
     S --> FF
     W -. detached .-> FF
@@ -88,7 +99,7 @@ flowchart TB
     LT -. gradient through actions .-> P
 ```
 
-一次联合反向传播中的参数更新严格为：
+模型与 policy 交替反向传播，参数更新严格为：
 
 | Loss | Context Encoder | Forward | Backward | Residual Policy |
 |---|---:|---:|---:|---:|
@@ -110,6 +121,23 @@ pose 上计算；如果只比较 reference delta，当前已经存在的位置�
 `forward_nmse` 使用零 pose delta（保持当前 pose 不动）的 loss 作为分母，因此小于 `1.0`
 表示优于 no-change baseline。
 
+每轮先用普通 replay 更新 Context Encoder、Forward 和 Backward，再从最近一个 policy 版本产生的
+完整 trunk 样本更新一次 Residual Policy。Policy optimizer 完成后，所有尚未执行完的旧 trunk
+都会失效；Replay 的 slot 序列检查会丢弃这些不完整片段。训练同时记录
+`candidate_action_recompute_abs_mean/max`：它比较当前 policy 重算出的五步动作与 rollout 中实际
+执行动作；该值显著偏离零意味着样本不再满足预期的 on-policy trunk 契约。
+
+### Residual policy 中的 reference 覆盖
+
+当前 SPV5-2 `get_latent()` 的 1645 维 deploy-time feature 内，`reference.standard` 使用的
+reference offsets 是 `0,1,2,3,4`。因此它包含当前 reference 加未来四帧，不是严格的五个未来帧
+`1,2,3,4,5`；current key-body reference 也只有 offset `0`。五步 tracking target 则是
+`r_t+1 ... r_t+5`，所以 trunk 最后一项的 `t+5` target 没有显式出现在 residual policy 输入中。
+原始 deployable reference encoder window 实际覆盖到 `+7`，但当前 residual 契约拿的是 tracker
+归一化后的 policy feature，没有把那部分 raw window 直接拼入 residual 输入。`+5...+7` 仍可能
+通过 reference encoder 和速度平滑间接影响 1645 维 feature，但 residual policy 无法从中直接读取
+完整的 `r_t+5` pose/state。
+
 ## Tracking error 与 W&B
 
 Rollout 按 SPTracking 的命名记录以下瞬时误差：
@@ -127,10 +155,11 @@ W&B 默认开启，只在 rank 0 上传：
 
 - `train/*`：总损失、Forward/Backward/Tracking 分量、三项 pose 分组误差、no-change baseline、context shuffle ratio；
 - `tracking/*`：真实 rollout error、tracker baseline、ratio 和 improvement；
-- `optimization/*`：总/model/policy gradient norm 和两组 learning rate；
+- `optimization/*`：总/model/policy gradient norm、两组 learning rate 和 policy optimizer step；
 - `replay/*`：容量、样本数、每轮新增样本和显存字节数；
-- `rollout/*`：transition、每轮 reset 数和 reset fraction；
-- residual action 的 mean/RMS/max、clipped fraction 和相对 tracker 的动作改变量。
+- `rollout/*`：transition、每轮 reset 数、reset fraction、生成/废弃 trunk 数；
+- residual action 的 mean/RMS/max、clipped fraction、相对 tracker 的动作改变量，以及重算动作与
+  实际动作的一致性误差。
 
 ## 启动
 

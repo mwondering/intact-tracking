@@ -14,6 +14,13 @@ from intact_tracking.data import (
     ResidualOnlineReplayBuffer,
     RolloutDimensions,
 )
+from intact_tracking.environment.mdp.spv5 import SPV5_REFERENCE_INPUT_STEPS
+from intact_tracking.environment.policy.spv5_models import (
+    SPV5_REFERENCE_POLICY_LENGTH,
+    SPV5_REFERENCE_POLICY_START,
+    SPV5_REFERENCE_SUPPORT_STEPS,
+)
+from intact_tracking.residual_control import ResidualTrunkController
 from intact_tracking.residual_model import ResidualTrackingConfig, ResidualTrackingModel
 from intact_tracking.residual_objective import (
     ResidualLossConfig,
@@ -43,20 +50,15 @@ def _config() -> ResidualTrackingConfig:
 
 def _model_batch(config: ResidualTrackingConfig, batch_size: int = 4):
     return {
-        "context": torch.randn(
-            batch_size, config.context_tokens, config.context_token_dim
-        ),
-        "context_mask": torch.ones(
-            batch_size, config.context_tokens, dtype=torch.bool
-        ),
+        "context": torch.randn(batch_size, config.context_tokens, config.context_token_dim),
+        "context_mask": torch.ones(batch_size, config.context_tokens, dtype=torch.bool),
         "state": torch.randn(batch_size, config.horizon + 1, config.state_dim),
         "reference_state": torch.randn(batch_size, config.horizon, config.state_dim),
         "action": torch.randn(batch_size, config.horizon, config.action_dim),
         "previous_action": torch.randn(batch_size, config.action_dim),
         "tracker_action": torch.randn(batch_size, config.horizon, config.action_dim),
-        "policy_observation": torch.randn(
-            batch_size, config.horizon, config.policy_observation_dim
-        ),
+        "policy_observation": torch.randn(batch_size, config.policy_observation_dim),
+        "policy_world": torch.randn(batch_size, config.context_dim),
         "action_mean": torch.zeros(config.action_dim),
         "action_std": torch.ones(config.action_dim),
         "state_mean": torch.zeros(config.state_dim),
@@ -65,13 +67,12 @@ def _model_batch(config: ResidualTrackingConfig, batch_size: int = 4):
 
 
 def _gradient_norm(module: torch.nn.Module) -> float:
-    return float(
-        sum(
-            parameter.grad.detach().square().sum()
-            for parameter in module.parameters()
-            if parameter.grad is not None
-        ).sqrt()
-    )
+    values = [
+        parameter.grad.detach().square().sum()
+        for parameter in module.parameters()
+        if parameter.grad is not None
+    ]
+    return 0.0 if not values else float(torch.stack(values).sum().sqrt())
 
 
 def test_tracking_loss_only_updates_residual_policy() -> None:
@@ -87,7 +88,7 @@ def test_tracking_loss_only_updates_residual_policy() -> None:
             residual_smooth_weight=0.0,
         ),
     )
-    output = objective(_model_batch(config))
+    output = objective(_model_batch(config), phase="policy")
     output["loss"].backward()
 
     assert _gradient_norm(model.residual_policy) > 0.0
@@ -109,7 +110,7 @@ def test_forward_and_backward_losses_update_context_and_predictors() -> None:
             residual_smooth_weight=0.0,
         ),
     )
-    output = objective(_model_batch(config))
+    output = objective(_model_batch(config), phase="model")
     output["loss"].backward()
 
     assert _gradient_norm(model.context_encoder) > 0.0
@@ -133,6 +134,73 @@ def test_forward_predictor_outputs_five_pose_deltas() -> None:
 
     assert prediction.shape == (4, config.horizon, config.pose_delta_dim)
     assert config.pose_delta_dim == 35
+
+
+def test_residual_policy_outputs_one_zero_initialized_five_action_trunk() -> None:
+    config = _config()
+    model = ResidualTrackingModel(config)
+    trunk = model.residual_action_trunk(
+        torch.randn(4, config.context_dim),
+        torch.randn(4, config.policy_observation_dim),
+    )
+
+    assert trunk.shape == (4, config.horizon, config.action_dim)
+    torch.testing.assert_close(trunk, torch.zeros_like(trunk))
+
+
+def test_policy_phase_reports_exact_recomputed_executed_trunk() -> None:
+    config = _config()
+    model = ResidualTrackingModel(config)
+    objective = ResidualTrainingObjective(model)
+    batch = _model_batch(config)
+    batch["action"] = batch["tracker_action"].clone()
+
+    output = objective(batch, phase="policy")
+
+    torch.testing.assert_close(output["candidate_action_recompute_abs_max"], torch.zeros(()))
+
+
+def test_tracker_latent_has_current_plus_four_future_reference_frames() -> None:
+    stop = SPV5_REFERENCE_POLICY_START + SPV5_REFERENCE_POLICY_LENGTH
+    latent_offsets = SPV5_REFERENCE_SUPPORT_STEPS[SPV5_REFERENCE_POLICY_START:stop]
+
+    assert latent_offsets == (0, 1, 2, 3, 4)
+    assert 5 not in latent_offsets
+    assert max(SPV5_REFERENCE_INPUT_STEPS) == 7
+
+
+def test_trunk_controller_consumes_one_slot_and_restarts_only_reset_world() -> None:
+    config = _config()
+    model = ResidualTrackingModel(config).eval()
+    target = torch.arange(1, config.horizon + 1, dtype=torch.float32) * 0.01
+    target = target[:, None].expand(config.horizon, config.action_dim)
+    with torch.no_grad():
+        model.residual_policy.net[-1].bias.copy_(
+            torch.atanh((target / config.residual_scale).flatten())
+        )
+    context = torch.randn(2, config.context_tokens, config.context_token_dim)
+    controller = ResidualTrunkController(
+        model,
+        num_worlds=2,
+        context_provider=lambda env_ids: (
+            context.index_select(0, env_ids),
+            torch.ones(env_ids.numel(), dtype=torch.bool),
+        ),
+        device="cpu",
+    )
+    observation = torch.randn(2, config.policy_observation_dim)
+    tracker = torch.zeros(2, config.action_dim)
+
+    with torch.inference_mode():
+        first = controller(observation, tracker)
+        controller.invalidate(torch.tensor([True, False]))
+        second = controller(observation, tracker)
+
+    torch.testing.assert_close(first, target[0].expand_as(first))
+    torch.testing.assert_close(second[0], target[0])
+    torch.testing.assert_close(second[1], target[1])
+    assert controller.last_step.tolist() == [0, 1]
+    assert controller.trunks_generated == 3
 
 
 def test_zero_pose_delta_reconstructs_current_pose_and_ignores_velocity() -> None:
@@ -198,6 +266,7 @@ def test_residual_replay_builds_strictly_causal_five_step_window() -> None:
     replay = ResidualOnlineReplayBuffer(
         num_worlds=2,
         policy_observation_dim=8,
+        context_latent_dim=16,
         dimensions=dimensions,
         capacity=32,
         device="cpu",
@@ -220,16 +289,14 @@ def test_residual_replay_builds_strictly_causal_five_step_window() -> None:
             "episode_id": torch.zeros(2, dtype=torch.long),
             "episode_step": torch.full((2,), step, dtype=torch.long),
             "collector_step": torch.full((2,), step, dtype=torch.long),
+            "residual_trunk_step": torch.full((2,), step % 5, dtype=torch.long),
+            "residual_world": scalar.expand(2, 16).clone(),
         }
         replay.add_step(batch)
 
     assert len(replay) == 2
-    torch.testing.assert_close(
-        replay._samples["policy_observation"][0, :, 0], torch.arange(80.0, 85.0)
-    )
-    torch.testing.assert_close(
-        replay._samples["state"][0, :, 0], torch.arange(80.0, 86.0)
-    )
+    torch.testing.assert_close(replay._samples["policy_observation"][:2, 0], torch.full((2,), 80.0))
+    torch.testing.assert_close(replay._samples["state"][0, :, 0], torch.arange(80.0, 86.0))
     assert replay._samples["previous_action"][0, 0].item() == 79.0
     # The sample context ends at step 79 and therefore never overlaps query 80:85.
     assert replay._samples["context_before"][0, 0, 0].item() == 0.0
@@ -239,9 +306,11 @@ def test_residual_replay_builds_strictly_causal_five_step_window() -> None:
     stats = replay.normalizer.snapshot_from_packed(packed, replay.world_ids)
     sampled = replay.sample_batch(2, stats)
     assert sampled["state"].shape == (2, 6, 71)
-    assert sampled["policy_observation"].shape == (2, 5, 8)
+    assert sampled["policy_observation"].shape == (2, 8)
+    assert sampled["policy_world"].shape == (2, 16)
     assert sampled["context"].shape == (2, 16, 2 * 6 + 5 * 3)
     assert torch.isfinite(sampled["context"]).all()
+    assert replay.storage_bytes == replay.estimated_storage_bytes
 
 
 def test_reset_state_can_start_query_but_boundary_cannot_enter_it() -> None:
@@ -255,6 +324,7 @@ def test_reset_state_can_start_query_but_boundary_cannot_enter_it() -> None:
     replay = ResidualOnlineReplayBuffer(
         num_worlds=1,
         policy_observation_dim=8,
+        context_latent_dim=16,
         dimensions=dimensions,
         capacity=8,
         device="cpu",
@@ -287,6 +357,8 @@ def test_reset_state_can_start_query_but_boundary_cannot_enter_it() -> None:
                 "episode_id": torch.tensor([episode_id]),
                 "episode_step": torch.tensor([episode_step]),
                 "collector_step": torch.tensor([episode_step]),
+                "residual_trunk_step": torch.tensor([episode_step % 5]),
+                "residual_world": current.expand(1, 16).clone(),
             }
         )
 
@@ -297,12 +369,8 @@ def test_reset_state_can_start_query_but_boundary_cannot_enter_it() -> None:
         add(200.0 + step, episode_id=1, episode_step=step)
 
     assert len(replay) == 2
-    torch.testing.assert_close(
-        replay._samples["state"][1, :, 0], torch.arange(200.0, 206.0)
-    )
-    torch.testing.assert_close(
-        replay._samples["action"][1, :, 0], torch.arange(200.0, 205.0)
-    )
+    torch.testing.assert_close(replay._samples["state"][1, :, 0], torch.arange(200.0, 206.0))
+    torch.testing.assert_close(replay._samples["action"][1, :, 0], torch.arange(200.0, 205.0))
     assert replay._samples["previous_action"][1, 0].item() == 0.0
     assert replay._samples["episode_id"][1].item() == 1
     assert replay._context_counts is not None

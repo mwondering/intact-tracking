@@ -23,6 +23,7 @@ from intact_tracking.data import (
     RolloutDimensions,
 )
 from intact_tracking.distributed import DistributedContext
+from intact_tracking.residual_control import ResidualTrunkController
 from intact_tracking.residual_model import ResidualTrackingConfig, ResidualTrackingModel
 from intact_tracking.residual_objective import ResidualLossConfig, ResidualTrainingObjective
 from intact_tracking.rollout import FixedDRRolloutConfig, FixedDRTrackerRollout
@@ -134,6 +135,13 @@ def _validate_arguments(args: argparse.Namespace) -> None:
         raise ValueError("max-warmup-steps must be at least warmup-steps")
     if args.replay_capacity < args.batch_size:
         raise ValueError("replay-capacity must be at least batch-size")
+    if args.rollout_steps_per_update != 5:
+        raise ValueError("action-trunk residual training requires rollout-steps-per-update=5")
+    if args.sample_stride != 1:
+        raise ValueError(
+            "action-trunk residual replay already emits non-overlapping windows and "
+            "requires sample-stride=1"
+        )
     for name in (
         "model_learning_rate",
         "policy_learning_rate",
@@ -249,33 +257,22 @@ class _TrackingAccumulator:
 
 
 def _gradient_norm(parameters: list[torch.nn.Parameter]) -> float:
-    values = [parameter.grad.detach().float().norm(2) for parameter in parameters if parameter.grad is not None]
+    values = [
+        parameter.grad.detach().float().norm(2)
+        for parameter in parameters
+        if parameter.grad is not None
+    ]
     if not values:
         return 0.0
     return float(torch.stack(values).norm(2))
 
 
-def _mean_metric_dict(
-    distributed: DistributedContext,
-    metrics: list[dict[str, float]],
-) -> dict[str, float]:
-    local = {
-        name: sum(item[name] for item in metrics) / len(metrics)
-        for name in metrics[0]
-    }
-    return distributed.mean_scalars(local)
-
-
-def _tracking_comparison(
-    current: dict[str, float], baseline: dict[str, float]
-) -> dict[str, float]:
+def _tracking_comparison(current: dict[str, float], baseline: dict[str, float]) -> dict[str, float]:
     result: dict[str, float] = {}
     for name in TRACKING_ERROR_NAMES:
         denominator = max(baseline[name], 1.0e-8)
         result[f"{name}_ratio_to_tracker"] = current[name] / denominator
-        result[f"{name}_relative_improvement"] = (
-            baseline[name] - current[name]
-        ) / denominator
+        result[f"{name}_relative_improvement"] = (baseline[name] - current[name]) / denominator
     return result
 
 
@@ -301,6 +298,9 @@ def _wandb_payload(record: dict[str, Any]) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "update": record["update"],
         "optimizer_steps": record["optimizer_steps"],
+        "optimization/policy_optimizer_steps": record.get(
+            "policy_optimizer_steps", record["optimizer_steps"]
+        ),
         "optimization/learning_rate_model": record["learning_rate_model"],
         "optimization/learning_rate_policy": record["learning_rate_policy"],
         "optimization/gradient_norm": record["gradient_norm"],
@@ -315,6 +315,8 @@ def _wandb_payload(record: dict[str, Any]) -> dict[str, Any]:
         "rollout/environments_reset_delta": record["new_environments_reset"],
         "rollout/reset_events_delta": record["new_reset_events"],
         "rollout/reset_fraction": record["reset_fraction"],
+        "rollout/residual_trunks_generated": record.get("residual_trunks_generated", 0),
+        "rollout/residual_trunks_invalidated": record.get("residual_trunks_invalidated", 0),
     }
     payload.update({f"train/{name}": value for name, value in record["train"].items()})
     payload.update(
@@ -338,9 +340,12 @@ def _save_checkpoint(
     output_dir: Path,
     update: int,
     optimizer_steps: int,
+    policy_optimizer_steps: int,
     model: ResidualTrackingModel,
-    optimizer: torch.optim.Optimizer,
-    scheduler: torch.optim.lr_scheduler.LRScheduler,
+    model_optimizer: torch.optim.Optimizer,
+    policy_optimizer: torch.optim.Optimizer,
+    model_scheduler: torch.optim.lr_scheduler.LRScheduler,
+    policy_scheduler: torch.optim.lr_scheduler.LRScheduler,
     model_config: ResidualTrackingConfig,
     loss_config: ResidualLossConfig,
     normalization: ResidualNormalizationStats,
@@ -355,9 +360,16 @@ def _save_checkpoint(
         "architecture_version": model_config.architecture_version,
         "update": update,
         "optimizer_steps": optimizer_steps,
+        "policy_optimizer_steps": policy_optimizer_steps,
         "model": model.state_dict(),
-        "optimizer": optimizer.state_dict(),
-        "scheduler": scheduler.state_dict(),
+        "optimizer": {
+            "model": model_optimizer.state_dict(),
+            "policy": policy_optimizer.state_dict(),
+        },
+        "scheduler": {
+            "model": model_scheduler.state_dict(),
+            "policy": policy_scheduler.state_dict(),
+        },
         "model_config": asdict(model_config),
         "loss_config": asdict(loss_config),
         "normalization": asdict(normalization),
@@ -417,6 +429,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
     replay = ResidualOnlineReplayBuffer(
         num_worlds=args.num_envs,
         policy_observation_dim=rollout.policy_observation_dim,
+        context_latent_dim=args.context_dim,
         dimensions=dimensions,
         horizon=5,
         context_chunk_steps=5,
@@ -460,7 +473,10 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
     objective = ResidualTrainingObjective(model, loss_config)
     training_module: torch.nn.Module
     if distributed.enabled:
-        ddp_options: dict[str, Any] = {"broadcast_buffers": False}
+        ddp_options: dict[str, Any] = {
+            "broadcast_buffers": False,
+            "find_unused_parameters": True,
+        }
         if device.type == "cuda":
             ddp_options.update(device_ids=[device.index], output_device=device.index)
         training_module = DistributedDataParallel(objective, **ddp_options)
@@ -473,26 +489,39 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         *model.backward_predictor.parameters(),
     ]
     policy_parameters = list(model.residual_policy.parameters())
-    optimizer = torch.optim.AdamW(
-        (
-            {"params": model_parameters, "lr": args.model_learning_rate, "name": "model"},
-            {"params": policy_parameters, "lr": args.policy_learning_rate, "name": "policy"},
-        ),
+    model_optimizer = torch.optim.AdamW(
+        model_parameters,
+        lr=args.model_learning_rate,
         weight_decay=args.weight_decay,
     )
-    optimizer_steps_target = args.updates * args.gradient_steps_per_update
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        optimizer, T_max=optimizer_steps_target
+    policy_optimizer = torch.optim.AdamW(
+        policy_parameters,
+        lr=args.policy_learning_rate,
+        weight_decay=args.weight_decay,
+    )
+    model_optimizer_steps_target = args.updates * args.gradient_steps_per_update
+    model_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        model_optimizer, T_max=model_optimizer_steps_target
+    )
+    policy_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        policy_optimizer, T_max=args.updates
     )
     run_config = {
         "method": "context-conditioned residual tracking",
         "architecture": {
-            "action": "clip(frozen_tracker_action + bounded_residual)",
-            "policy_update": "five fixed rollout observations -> current actions -> frozen-parameter Forward pose deltas -> reconstructed reference pose loss",
+            "action": "clip(per-step frozen tracker action + cached residual trunk slot)",
+            "policy_update": "one current tracker feature -> five residual actions -> frozen-parameter differentiable Forward -> five reconstructed reference pose losses",
+            "execution": "generate one five-action residual trunk; execute one slot per real simulator step; invalidate only reset worlds",
             "gradient_routes": {
                 "forward_loss": ["context_encoder", "forward_predictor"],
                 "backward_loss": ["context_encoder", "backward_predictor"],
                 "tracking_loss": ["residual_policy"],
+            },
+            "optimization_schedule": "model replay updates followed by one recent on-policy trunk update",
+            "policy_reference_offsets": {
+                "tracker_latent": [0, 1, 2, 3, 4],
+                "tracking_targets": [1, 2, 3, 4, 5],
+                "explicit_t_plus_5_in_tracker_latent": False,
             },
             "context": "16 x [proprio_before, five total commands, proprio_after]",
             "forward": "causal GRU over five action prefixes; predicts five non-chained pose deltas from the current state",
@@ -521,9 +550,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
     _main_process_call(distributed, lambda: _write_json(output_dir / "run_config.json", run_config))
     if distributed.is_main:
         print(
-            json.dumps(
-                {"event": "loss_weights", "loss_weights": loss_weights}, sort_keys=True
-            ),
+            json.dumps({"event": "loss_weights", "loss_weights": loss_weights}, sort_keys=True),
             flush=True,
         )
     wandb_logger: WandbLogger | None = None
@@ -564,6 +591,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
     tracker_metrics = _TrackingAccumulator(device)
     update_metrics = _TrackingAccumulator(device)
     optimizer_steps = 0
+    policy_optimizer_steps = 0
     normalization: ResidualNormalizationStats | None = None
     completed = False
     try:
@@ -578,14 +606,17 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                     f"steps={rollout.collector_step}, replay={len(replay)}"
                 )
             batch = rollout.step()
+            # The zero-initialized warmup controller is equivalent to a trunk
+            # beginning at every episode step divisible by five.
+            batch["residual_trunk_step"] = batch["episode_step"].remainder(5)
+            batch["residual_world"] = torch.zeros(
+                args.num_envs, model_config.context_dim, device=device
+            )
             replay.add_step(batch)
             tracker_metrics.add(batch)
-            if (
-                distributed.is_main
-                and (
-                    rollout.collector_step == 1
-                    or rollout.collector_step % args.warmup_log_interval == 0
-                )
+            if distributed.is_main and (
+                rollout.collector_step == 1
+                or rollout.collector_step % args.warmup_log_interval == 0
             ):
                 print(
                     json.dumps(
@@ -605,6 +636,20 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         update_metrics.count.copy_(tracker_metrics.count)
         tracker_metrics.reset()
         normalization = _global_normalization(distributed, replay, global_world_ids)
+        controller_normalization = normalization
+
+        def controller_context(
+            env_ids: torch.Tensor,
+        ) -> tuple[torch.Tensor, torch.Tensor]:
+            return replay.latest_context(controller_normalization, env_ids)
+
+        trunk_controller = ResidualTrunkController(
+            model,
+            num_worlds=args.num_envs,
+            context_provider=controller_context,
+            device=device,
+        )
+        recent_policy_samples = min(replay.total_samples_generated, replay.capacity)
         previous_samples_generated = 0
         previous_environments_reset = 0
         previous_reset_events = 0
@@ -615,58 +660,96 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                 update_metrics.reset()
                 model.eval()
                 assert normalization is not None
-                rollout_normalization = normalization
-
-                def residual_action(
-                    policy_observation: torch.Tensor,
-                    _tracker_action: torch.Tensor,
-                    cached_normalization: ResidualNormalizationStats = rollout_normalization,
-                ) -> torch.Tensor:
-                    context, context_ready = replay.latest_context(cached_normalization)
-                    world = model.encode_context(context)
-                    delta = model.residual_action(world, policy_observation)
-                    return torch.where(context_ready[:, None], delta, torch.zeros_like(delta))
+                controller_normalization = normalization
 
                 for _ in range(args.rollout_steps_per_update):
-                    batch = rollout.step(residual_action)
-                    replay.add_step(batch)
+                    batch = rollout.step(trunk_controller)
+                    batch["residual_trunk_step"] = trunk_controller.last_step.clone()
+                    batch["residual_world"] = trunk_controller.last_world.clone()
+                    recent_policy_samples += replay.add_step(batch)
                     update_metrics.add(batch)
+                    # The boundary action belongs to the old episode.  Only its
+                    # unconsumed suffix is discarded; the next call starts at
+                    # slot zero from the simulator's post-reset observation.
+                    trunk_controller.invalidate(batch["reset_boundary"])
 
             normalization = _global_normalization(distributed, replay, global_world_ids)
             training_module.train()
-            step_metrics: list[dict[str, float]] = []
-            gradient_norms: list[float] = []
+            model_step_metrics: list[dict[str, float]] = []
             model_gradient_norms: list[float] = []
-            policy_gradient_norms: list[float] = []
             for _ in range(args.gradient_steps_per_update):
                 train_batch = replay.sample_batch(args.batch_size, normalization)
-                optimizer.zero_grad(set_to_none=True)
-                output = training_module(train_batch)
-                if not isinstance(output, dict) or not torch.isfinite(output["loss"]):
+                model_optimizer.zero_grad(set_to_none=True)
+                model_output = training_module(train_batch, phase="model")
+                if not isinstance(model_output, dict) or not torch.isfinite(model_output["loss"]):
                     raise RuntimeError(
-                        f"Non-finite residual objective at optimizer step {optimizer_steps + 1}"
+                        f"Non-finite residual model objective at step {optimizer_steps + 1}"
                     )
-                output["loss"].backward()
+                model_output["loss"].backward()
                 model_gradient_norms.append(_gradient_norm(model_parameters))
-                policy_gradient_norms.append(_gradient_norm(policy_parameters))
-                gradient_norm = torch.nn.utils.clip_grad_norm_(
-                    model.parameters(), args.gradient_clip
+                model_gradient_norm = torch.nn.utils.clip_grad_norm_(
+                    model_parameters, args.gradient_clip
                 )
-                if not torch.isfinite(gradient_norm):
-                    raise RuntimeError("Residual training produced a non-finite gradient norm")
-                optimizer.step()
-                scheduler.step()
+                if not torch.isfinite(model_gradient_norm):
+                    raise RuntimeError("Residual model produced a non-finite gradient norm")
+                model_optimizer.step()
+                model_scheduler.step()
                 optimizer_steps += 1
-                gradient_norms.append(float(gradient_norm))
-                step_metrics.append(
+                model_step_metrics.append(
                     {
                         name: float(value.detach())
-                        for name, value in output.items()
+                        for name, value in model_output.items()
                         if value.numel() == 1
                     }
                 )
 
-            train = _mean_metric_dict(distributed, step_metrics)
+            if not distributed.all_true(recent_policy_samples > 0):
+                raise RuntimeError(
+                    "No complete current-policy residual trunk is available on every rank"
+                )
+            policy_batch = replay.sample_recent_batch(
+                args.batch_size,
+                normalization,
+                recent_count=recent_policy_samples,
+            )
+            policy_optimizer.zero_grad(set_to_none=True)
+            policy_output = training_module(policy_batch, phase="policy")
+            if not isinstance(policy_output, dict) or not torch.isfinite(policy_output["loss"]):
+                raise RuntimeError(
+                    f"Non-finite residual policy objective at step {policy_optimizer_steps + 1}"
+                )
+            policy_output["loss"].backward()
+            policy_gradient_norm = _gradient_norm(policy_parameters)
+            clipped_policy_gradient_norm = torch.nn.utils.clip_grad_norm_(
+                policy_parameters, args.gradient_clip
+            )
+            if not torch.isfinite(clipped_policy_gradient_norm):
+                raise RuntimeError("Residual policy produced a non-finite gradient norm")
+            policy_optimizer.step()
+            policy_scheduler.step()
+            policy_optimizer_steps += 1
+
+            local_model_train = {
+                name: sum(item[name] for item in model_step_metrics) / len(model_step_metrics)
+                for name in model_step_metrics[0]
+            }
+            local_policy_train = {
+                name: float(value.detach())
+                for name, value in policy_output.items()
+                if value.numel() == 1
+            }
+            train = distributed.mean_scalars(
+                {
+                    **{name: value for name, value in local_model_train.items() if name != "loss"},
+                    **{name: value for name, value in local_policy_train.items() if name != "loss"},
+                    "loss": local_model_train["loss"] + local_policy_train["loss"],
+                    "policy_update_applied": 1.0,
+                }
+            )
+            # No future transition may finish a trunk produced by the old
+            # policy parameters after this optimizer step.
+            trunk_controller.invalidate_all()
+            recent_policy_samples = 0
             current_tracking = update_metrics.global_mean(distributed)
             tracking_comparison = _tracking_comparison(current_tracking, baseline)
             counts = distributed.sum_integers(
@@ -681,9 +764,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             )
             new_samples = counts["samples_generated"] - previous_samples_generated
             previous_samples_generated = counts["samples_generated"]
-            new_environments_reset = (
-                counts["environments_reset"] - previous_environments_reset
-            )
+            new_environments_reset = counts["environments_reset"] - previous_environments_reset
             previous_environments_reset = counts["environments_reset"]
             new_reset_events = counts["reset_events"] - previous_reset_events
             previous_reset_events = counts["reset_events"]
@@ -691,21 +772,27 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             previous_transitions = counts["transitions"]
             gradient_summary = distributed.mean_scalars(
                 {
-                    "gradient_norm": sum(gradient_norms) / len(gradient_norms),
                     "model_gradient_norm": sum(model_gradient_norms) / len(model_gradient_norms),
-                    "policy_gradient_norm": sum(policy_gradient_norms) / len(policy_gradient_norms),
+                    "policy_gradient_norm": policy_gradient_norm,
                 }
             )
+            gradient_summary["gradient_norm"] = (
+                gradient_summary["model_gradient_norm"] ** 2
+                + gradient_summary["policy_gradient_norm"] ** 2
+            ) ** 0.5
             record = {
                 "update": update,
                 "optimizer_steps": optimizer_steps,
+                "policy_optimizer_steps": policy_optimizer_steps,
                 **counts,
                 "new_samples_generated": new_samples,
                 "new_environments_reset": new_environments_reset,
                 "new_reset_events": new_reset_events,
                 "reset_fraction": new_environments_reset / max(new_transitions, 1),
-                "learning_rate_model": optimizer.param_groups[0]["lr"],
-                "learning_rate_policy": optimizer.param_groups[1]["lr"],
+                "learning_rate_model": model_optimizer.param_groups[0]["lr"],
+                "learning_rate_policy": policy_optimizer.param_groups[0]["lr"],
+                "residual_trunks_generated": trunk_controller.trunks_generated,
+                "residual_trunks_invalidated": trunk_controller.trunks_invalidated,
                 "loss_weights": loss_weights,
                 **gradient_summary,
                 "train": train,
@@ -735,9 +822,12 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                     output_dir=output_dir,
                     update=update,
                     optimizer_steps=optimizer_steps,
+                    policy_optimizer_steps=policy_optimizer_steps,
                     model=model,
-                    optimizer=optimizer,
-                    scheduler=scheduler,
+                    model_optimizer=model_optimizer,
+                    policy_optimizer=policy_optimizer,
+                    model_scheduler=model_scheduler,
+                    policy_scheduler=policy_scheduler,
                     model_config=model_config,
                     loss_config=loss_config,
                     normalization=normalization,
@@ -754,9 +844,12 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             output_dir=output_dir,
             update=args.updates,
             optimizer_steps=optimizer_steps,
+            policy_optimizer_steps=policy_optimizer_steps,
             model=model,
-            optimizer=optimizer,
-            scheduler=scheduler,
+            model_optimizer=model_optimizer,
+            policy_optimizer=policy_optimizer,
+            model_scheduler=model_scheduler,
+            policy_scheduler=policy_scheduler,
             model_config=model_config,
             loss_config=loss_config,
             normalization=normalization,

@@ -141,14 +141,16 @@ def _pose_losses(
     dot = (reconstructed["root_orientation"] * target_quat).sum(dim=-1).clamp(-1.0, 1.0)
     component = {
         "root_position": (
-            reconstructed["root_position"]
-            - target[..., _STATE_POSE_SLICES["root_position"]]
-        ).square().mean(),
+            reconstructed["root_position"] - target[..., _STATE_POSE_SLICES["root_position"]]
+        )
+        .square()
+        .mean(),
         "root_orientation": (1.0 - dot.square()).mean(),
         "joint_position": (
-            reconstructed["joint_position"]
-            - target[..., _STATE_POSE_SLICES["joint_position"]]
-        ).square().mean(),
+            reconstructed["joint_position"] - target[..., _STATE_POSE_SLICES["joint_position"]]
+        )
+        .square()
+        .mean(),
     }
     total = (
         config.root_position_weight * component["root_position"]
@@ -159,7 +161,7 @@ def _pose_losses(
 
 
 class ResidualTrainingObjective(nn.Module):
-    """One DDP-safe objective implementing the agreed gradient routing."""
+    """Alternating model/policy objectives with explicit gradient routing."""
 
     def __init__(
         self,
@@ -170,7 +172,8 @@ class ResidualTrainingObjective(nn.Module):
         self.model = model
         self.loss_config = loss_config or ResidualLossConfig()
 
-    def forward(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+    @staticmethod
+    def _validate_batch(batch: dict[str, torch.Tensor]) -> None:
         required = {
             "context",
             "context_mask",
@@ -180,6 +183,7 @@ class ResidualTrainingObjective(nn.Module):
             "previous_action",
             "tracker_action",
             "policy_observation",
+            "policy_world",
             "action_mean",
             "action_std",
             "state_mean",
@@ -191,6 +195,7 @@ class ResidualTrainingObjective(nn.Module):
         if any(not torch.isfinite(batch[name]).all() for name in required):
             raise ValueError("Residual training batch contains non-finite values")
 
+    def _model_forward(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
         cfg = self.loss_config
         model = self.model
         world = model.encode_context(batch["context"], batch["context_mask"])
@@ -224,47 +229,9 @@ class ResidualTrainingObjective(nn.Module):
         )
         backward_loss = (backward_prediction - action).square().mean()
 
-        # Context and Forward parameters are constants on this branch. The
-        # functional Forward call retains the derivative with respect to the
-        # candidate actions, which is the signal used by the residual policy.
-        policy_world = world.detach()
-        residual = model.residual_action(policy_world, batch["policy_observation"])
-        candidate_unclipped = batch["tracker_action"] + residual
-        candidate = candidate_unclipped
-        if cfg.action_clip is not None:
-            candidate = candidate.clamp(-cfg.action_clip, cfg.action_clip)
-        action_mean = batch["action_mean"]
-        action_std = batch["action_std"]
-        candidate_normalized = (candidate - action_mean) / action_std
-        policy_pose_delta = model.predict_future_with_frozen_dynamics(
-            policy_world,
-            state[:, 0].detach(),
-            previous_action.detach(),
-            candidate_normalized,
-        )
-        tracking_loss, tracking_components = _pose_losses(
-            policy_pose_delta,
-            state[:, 0].detach(),
-            batch["reference_state"],
-            state_mean,
-            state_std,
-            cfg,
-        )
-        residual_l2 = residual.square().mean()
-        residual_smooth = (residual[:, 1:] - residual[:, :-1]).square().mean()
-
         weighted_forward = cfg.forward_weight * forward_loss
         weighted_backward = cfg.backward_weight * backward_loss
-        weighted_tracking = cfg.tracking_weight * tracking_loss
-        weighted_residual_l2 = cfg.residual_l2_weight * residual_l2
-        weighted_residual_smooth = cfg.residual_smooth_weight * residual_smooth
-        total = (
-            weighted_forward
-            + weighted_backward
-            + weighted_tracking
-            + weighted_residual_l2
-            + weighted_residual_smooth
-        )
+        model_loss = weighted_forward + weighted_backward
 
         with torch.no_grad():
             if world.size(0) > 1:
@@ -293,7 +260,6 @@ class ResidualTrainingObjective(nn.Module):
             else:
                 shuffled_forward_loss = forward_loss.detach()
                 shuffled_backward_loss = backward_loss.detach()
-            clipped = (candidate_unclipped - candidate).abs() > 1e-7
             no_change_loss, _ = _pose_losses(
                 torch.zeros_like(forward_pose_delta),
                 state[:, 0],
@@ -304,17 +270,12 @@ class ResidualTrainingObjective(nn.Module):
             )
 
         output = {
-            "loss": total,
+            "loss": model_loss,
+            "model_loss": model_loss.detach(),
             "forward_loss": forward_loss,
             "backward_loss": backward_loss,
-            "tracking_loss": tracking_loss,
-            "residual_l2": residual_l2,
-            "residual_smooth": residual_smooth,
             "weighted_forward_loss": weighted_forward.detach(),
             "weighted_backward_loss": weighted_backward.detach(),
-            "weighted_tracking_loss": weighted_tracking.detach(),
-            "weighted_residual_l2": weighted_residual_l2.detach(),
-            "weighted_residual_smooth": weighted_residual_smooth.detach(),
             "forward_no_change_loss": no_change_loss,
             "forward_nmse": forward_loss.detach() / no_change_loss.clamp_min(1e-8),
             "forward_context_shuffle_ratio": (
@@ -323,16 +284,99 @@ class ResidualTrainingObjective(nn.Module):
             "backward_context_shuffle_ratio": (
                 shuffled_backward_loss / backward_loss.detach().clamp_min(1e-8)
             ),
+        }
+        for name, value in forward_components.items():
+            output[f"forward_{name}_loss"] = value.detach()
+        return output
+
+    def _policy_forward(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+        cfg = self.loss_config
+        model = self.model
+        state = batch["state"]
+        previous_action = batch["previous_action"]
+        state_mean = batch["state_mean"]
+        state_std = batch["state_std"]
+
+        # Context and Forward parameters are constants on this branch. The
+        # functional Forward call retains the derivative with respect to the
+        # complete candidate trunk, which is the residual-policy signal.
+        policy_world = batch["policy_world"].detach()
+        with torch.no_grad():
+            dynamics_world = model.encode_context(batch["context"], batch["context_mask"]).detach()
+        residual = model.residual_action_trunk(policy_world, batch["policy_observation"])
+        candidate_unclipped = batch["tracker_action"] + residual
+        candidate = candidate_unclipped
+        if cfg.action_clip is not None:
+            candidate = candidate.clamp(-cfg.action_clip, cfg.action_clip)
+        action_mean = batch["action_mean"]
+        action_std = batch["action_std"]
+        candidate_normalized = (candidate - action_mean) / action_std
+        policy_pose_delta = model.predict_future_with_frozen_dynamics(
+            dynamics_world,
+            state[:, 0].detach(),
+            previous_action.detach(),
+            candidate_normalized,
+        )
+        tracking_loss, tracking_components = _pose_losses(
+            policy_pose_delta,
+            state[:, 0].detach(),
+            batch["reference_state"],
+            state_mean,
+            state_std,
+            cfg,
+        )
+        residual_l2 = residual.square().mean()
+        residual_smooth = (residual[:, 1:] - residual[:, :-1]).square().mean()
+
+        weighted_tracking = cfg.tracking_weight * tracking_loss
+        weighted_residual_l2 = cfg.residual_l2_weight * residual_l2
+        weighted_residual_smooth = cfg.residual_smooth_weight * residual_smooth
+        policy_loss = weighted_tracking + weighted_residual_l2 + weighted_residual_smooth
+
+        with torch.no_grad():
+            clipped = (candidate_unclipped - candidate).abs() > 1e-7
+            recompute_error = candidate_normalized - batch["action"]
+
+        output = {
+            "loss": policy_loss,
+            "policy_loss": policy_loss.detach(),
+            "tracking_loss": tracking_loss,
+            "residual_l2": residual_l2,
+            "residual_smooth": residual_smooth,
+            "weighted_tracking_loss": weighted_tracking.detach(),
+            "weighted_residual_l2": weighted_residual_l2.detach(),
+            "weighted_residual_smooth": weighted_residual_smooth.detach(),
             "residual_abs_mean": residual.detach().abs().mean(),
             "residual_rms": residual.detach().square().mean().sqrt(),
             "residual_abs_max": residual.detach().abs().max(),
             "candidate_action_clipped_fraction": clipped.float().mean(),
-            "candidate_action_change_abs_mean": (
-                candidate.detach() - batch["tracker_action"]
-            ).abs().mean(),
+            "candidate_action_change_abs_mean": (candidate.detach() - batch["tracker_action"])
+            .abs()
+            .mean(),
+            "candidate_action_recompute_abs_mean": recompute_error.abs().mean(),
+            "candidate_action_recompute_abs_max": recompute_error.abs().max(),
         }
-        for name, value in forward_components.items():
-            output[f"forward_{name}_loss"] = value.detach()
         for name, value in tracking_components.items():
             output[f"tracking_{name}_loss"] = value.detach()
         return output
+
+    def forward(
+        self,
+        batch: dict[str, torch.Tensor],
+        phase: str = "joint",
+    ) -> dict[str, torch.Tensor]:
+        self._validate_batch(batch)
+        if phase == "model":
+            return self._model_forward(batch)
+        if phase == "policy":
+            return self._policy_forward(batch)
+        if phase != "joint":
+            raise ValueError(f"Unknown residual objective phase: {phase!r}")
+        model_output = self._model_forward(batch)
+        policy_output = self._policy_forward(batch)
+        total = model_output["loss"] + policy_output["loss"]
+        return {
+            **{name: value for name, value in model_output.items() if name != "loss"},
+            **{name: value for name, value in policy_output.items() if name != "loss"},
+            "loss": total,
+        }
