@@ -505,6 +505,14 @@ class ResidualTrainingObjective(nn.Module):
             clipped = (candidate_unclipped - candidate).abs() > 1e-7
             recompute_error = candidate_normalized - batch["action"]
             residual_detached = residual.detach()
+            if policy_world.size(0) > 1:
+                shuffled_residual = model.residual_action_trunk(
+                    policy_world.roll(1, dims=0), batch["policy_observation"]
+                )
+                context_shuffle_change = shuffled_residual - residual_detached
+            else:
+                context_shuffle_change = torch.zeros_like(residual_detached)
+            context_shuffle_rms = context_shuffle_change.square().mean().sqrt()
             saturation_threshold = 0.95 * model.config.residual_scale
             residual_slot_rms = residual_detached.square().mean(dim=(0, 2)).sqrt()
 
@@ -523,6 +531,12 @@ class ResidualTrainingObjective(nn.Module):
             "residual_saturation_fraction": (residual_detached.abs() >= saturation_threshold)
             .float()
             .mean(),
+            "policy_context_shuffle_action_abs_mean": context_shuffle_change.abs().mean(),
+            "policy_context_shuffle_action_rms": context_shuffle_rms,
+            "policy_context_shuffle_relative_rms": (
+                context_shuffle_rms
+                / residual_detached.square().mean().sqrt().clamp_min(1.0e-8)
+            ),
             "candidate_action_clipped_fraction": clipped.float().mean(),
             "candidate_action_change_abs_mean": (candidate.detach() - batch["tracker_action"])
             .abs()

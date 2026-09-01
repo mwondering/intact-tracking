@@ -30,6 +30,7 @@ from intact_tracking.residual_objective import (
     _reconstruct_pose,
 )
 from intact_tracking.rollout.nominal import (
+    NominalPairRollout,
     _make_nominal_dynamics_cfg,
     _repeat_error_diagnostics,
 )
@@ -192,6 +193,7 @@ def test_policy_phase_reports_exact_recomputed_executed_trunk() -> None:
 
     torch.testing.assert_close(output["candidate_action_recompute_abs_max"], torch.zeros(()))
     torch.testing.assert_close(output["residual_saturation_fraction"], torch.zeros(()))
+    torch.testing.assert_close(output["policy_context_shuffle_action_rms"], torch.zeros(()))
     for index in range(config.horizon):
         torch.testing.assert_close(output[f"residual_slot_{index}_rms"], torch.zeros(()))
 
@@ -204,6 +206,20 @@ def test_policy_phase_reports_exact_recomputed_executed_trunk() -> None:
             saturated[f"residual_slot_{index}_rms"],
             torch.tensor(config.residual_scale),
         )
+
+
+def test_policy_context_shuffle_metric_detects_context_use() -> None:
+    config = _config()
+    model = ResidualTrackingModel(config)
+    objective = ResidualTrainingObjective(model)
+    batch = _model_batch(config)
+    with torch.no_grad():
+        model.residual_policy.net[-1].weight.normal_()
+
+    output = objective(batch, phase="policy")
+
+    assert float(output["policy_context_shuffle_action_rms"]) > 0.0
+    assert float(output["policy_context_shuffle_relative_rms"]) > 0.0
 
 
 def test_tracker_latent_has_current_plus_four_future_reference_frames() -> None:
@@ -577,6 +593,53 @@ def test_nominal_repeat_diagnostics_excludes_root_velocity_from_pose() -> None:
     }
     assert diagnostics["worst_full_state"]["state_component"] == "root_angular_velocity"
     assert diagnostics["worst_full_state"]["motion_path"] == "first.npz"
+
+
+def test_nominal_repeat_outlier_warns_without_aborting(tmp_path, capsys) -> None:
+    rollout = object.__new__(NominalPairRollout)
+    rollout.config = SimpleNamespace(
+        num_envs=2,
+        horizon=5,
+        restore_atol=1.0e-5,
+        failure_log_file=str(tmp_path / "repeat_warnings.jsonl"),
+    )
+    rollout.device = torch.device("cpu")
+    rollout.action_dim = 29
+    rollout.closed = False
+    rollout._validated = False
+    rollout._last_repeat_error = 0.0
+    rollout._last_repeat_pose_error = 0.0
+    rollout._last_repeat_full_state_p99_error = 0.0
+    rollout._last_repeat_pose_p99_error = 0.0
+    rollout._last_repeat_warning = 0.0
+    rollout.env = SimpleNamespace(
+        action_manager=SimpleNamespace(get_term=lambda _name: SimpleNamespace())
+    )
+
+    target = torch.zeros(2, 5, 71)
+    repeated = target.clone()
+    repeated[1, 4, 13] = 0.25
+    outputs = iter((target, repeated))
+    rollout._restore = lambda _state, _previous_action: 9.0e-7
+    rollout._step_actions = lambda _actions: next(outputs)
+
+    returned, metrics = rollout.rollout(
+        torch.zeros(2, 71),
+        torch.zeros(2, 29),
+        torch.zeros(2, 5, 29),
+        motion_ids=torch.tensor([0, 1]),
+        motion_steps=torch.tensor([20, 30]),
+        motion_files=("first.npz", "second.npz"),
+    )
+
+    assert returned is target
+    assert rollout._validated
+    assert metrics["nominal_restore_repeat_warning"] == 1.0
+    assert metrics["nominal_restore_repeat_pose_max_abs_error"] == 0.25
+    warning = (tmp_path / "repeat_warnings.jsonl").read_text(encoding="utf-8")
+    assert '"event": "nominal_repeat_validation_warning"' in warning
+    assert '"motion_path": "second.npz"' in warning
+    assert "nominal_repeat_validation_warning" in capsys.readouterr().out
 
 
 def test_wandb_logger_is_rank_zero_only(monkeypatch, tmp_path) -> None:
