@@ -19,10 +19,7 @@ class ResidualLossConfig:
     residual_smooth_weight: float = 1.0e-3
     root_position_weight: float = 1.0
     root_orientation_weight: float = 1.0
-    root_linear_velocity_weight: float = 1.0
-    root_angular_velocity_weight: float = 1.0
     joint_position_weight: float = 1.0
-    joint_velocity_weight: float = 1.0
     action_clip: float | None = None
 
     def __post_init__(self) -> None:
@@ -34,46 +31,129 @@ class ResidualLossConfig:
                 raise ValueError(f"{name} must be non-negative")
 
 
-_STATE_SLICES = {
+_STATE_POSE_SLICES = {
     "root_position": slice(0, 3),
     "root_orientation": slice(3, 7),
-    "root_linear_velocity": slice(7, 10),
-    "root_angular_velocity": slice(10, 13),
     "joint_position": slice(13, 42),
-    "joint_velocity": slice(42, 71),
+}
+_POSE_DELTA_SLICES = {
+    "root_position": slice(0, 3),
+    "root_rotation_vector": slice(3, 6),
+    "joint_position": slice(6, 35),
 }
 
 
-def _state_losses(
-    prediction: torch.Tensor,
+def _quaternion_multiply(left: torch.Tensor, right: torch.Tensor) -> torch.Tensor:
+    """Hamilton product for scalar-first (w, x, y, z) quaternions."""
+    lw, lx, ly, lz = left.unbind(dim=-1)
+    rw, rx, ry, rz = right.unbind(dim=-1)
+    return torch.stack(
+        (
+            lw * rw - lx * rx - ly * ry - lz * rz,
+            lw * rx + lx * rw + ly * rz - lz * ry,
+            lw * ry - lx * rz + ly * rw + lz * rx,
+            lw * rz + lx * ry - ly * rx + lz * rw,
+        ),
+        dim=-1,
+    )
+
+
+def _rotation_vector_to_quaternion(rotation_vector: torch.Tensor) -> torch.Tensor:
+    """Map an axis-angle rotation vector to a unit scalar-first quaternion."""
+    angle = rotation_vector.norm(dim=-1, keepdim=True)
+    half_angle = 0.5 * angle
+    regular_scale = torch.sin(half_angle) / angle.clamp_min(1.0e-8)
+    small_scale = 0.5 - angle.square() / 48.0
+    vector_scale = torch.where(angle > 1.0e-4, regular_scale, small_scale)
+    quaternion = torch.cat((torch.cos(half_angle), rotation_vector * vector_scale), dim=-1)
+    return torch.nn.functional.normalize(quaternion, dim=-1, eps=1.0e-8)
+
+
+def _physical_quaternion(
+    normalized_state: torch.Tensor,
+    state_mean: torch.Tensor,
+    state_std: torch.Tensor,
+) -> torch.Tensor:
+    section = _STATE_POSE_SLICES["root_orientation"]
+    value = normalized_state[..., section] * state_std[section] + state_mean[section]
+    return torch.nn.functional.normalize(value, dim=-1, eps=1.0e-8)
+
+
+def _reconstruct_pose(
+    pose_delta: torch.Tensor,
+    current_state: torch.Tensor,
+    state_mean: torch.Tensor,
+    state_std: torch.Tensor,
+) -> dict[str, torch.Tensor]:
+    """Compose five endpoint deltas with the same current state, without chaining."""
+    if pose_delta.size(-1) != 35 or current_state.size(-1) != 71:
+        raise ValueError(
+            "Pose delta/current state must end in 35/71 values, got "
+            f"{tuple(pose_delta.shape)} and {tuple(current_state.shape)}"
+        )
+    if pose_delta.ndim != current_state.ndim + 1:
+        raise ValueError(
+            "Pose deltas must add one horizon dimension to current state, got "
+            f"{tuple(pose_delta.shape)} and {tuple(current_state.shape)}"
+        )
+    current = current_state.unsqueeze(-2)
+    root_position = (
+        current[..., _STATE_POSE_SLICES["root_position"]]
+        + pose_delta[..., _POSE_DELTA_SLICES["root_position"]]
+    )
+    joint_position = (
+        current[..., _STATE_POSE_SLICES["joint_position"]]
+        + pose_delta[..., _POSE_DELTA_SLICES["joint_position"]]
+    )
+    current_orientation = _physical_quaternion(current, state_mean, state_std)
+    rotation_delta = _rotation_vector_to_quaternion(
+        pose_delta[..., _POSE_DELTA_SLICES["root_rotation_vector"]]
+    )
+    # The delta is expressed in the world frame, matching target * current^-1.
+    root_orientation = torch.nn.functional.normalize(
+        _quaternion_multiply(rotation_delta, current_orientation),
+        dim=-1,
+        eps=1.0e-8,
+    )
+    return {
+        "root_position": root_position,
+        "root_orientation": root_orientation,
+        "joint_position": joint_position,
+    }
+
+
+def _pose_losses(
+    pose_delta: torch.Tensor,
+    current_state: torch.Tensor,
     target: torch.Tensor,
     state_mean: torch.Tensor,
     state_std: torch.Tensor,
     config: ResidualLossConfig,
 ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
-    if prediction.shape != target.shape or prediction.size(-1) != 71:
+    expected = (*current_state.shape[:-1], pose_delta.size(-2), 71)
+    if tuple(target.shape) != expected:
         raise ValueError(
-            "State prediction and target must share [B,T,71], got "
-            f"{tuple(prediction.shape)} and {tuple(target.shape)}"
+            "Pose target must match the current-state batch and delta horizon: "
+            f"expected {expected}, got {tuple(target.shape)}"
         )
-    component: dict[str, torch.Tensor] = {}
-    for name, section in _STATE_SLICES.items():
-        if name == "root_orientation":
-            predicted_quat = prediction[..., section] * state_std[section] + state_mean[section]
-            target_quat = target[..., section] * state_std[section] + state_mean[section]
-            predicted_quat = torch.nn.functional.normalize(predicted_quat, dim=-1, eps=1e-8)
-            target_quat = torch.nn.functional.normalize(target_quat, dim=-1, eps=1e-8)
-            dot = (predicted_quat * target_quat).sum(dim=-1).clamp(-1.0, 1.0)
-            component[name] = (1.0 - dot.square()).mean()
-        else:
-            component[name] = (prediction[..., section] - target[..., section]).square().mean()
+    reconstructed = _reconstruct_pose(pose_delta, current_state, state_mean, state_std)
+    target_quat = _physical_quaternion(target, state_mean, state_std)
+    dot = (reconstructed["root_orientation"] * target_quat).sum(dim=-1).clamp(-1.0, 1.0)
+    component = {
+        "root_position": (
+            reconstructed["root_position"]
+            - target[..., _STATE_POSE_SLICES["root_position"]]
+        ).square().mean(),
+        "root_orientation": (1.0 - dot.square()).mean(),
+        "joint_position": (
+            reconstructed["joint_position"]
+            - target[..., _STATE_POSE_SLICES["joint_position"]]
+        ).square().mean(),
+    }
     total = (
         config.root_position_weight * component["root_position"]
         + config.root_orientation_weight * component["root_orientation"]
-        + config.root_linear_velocity_weight * component["root_linear_velocity"]
-        + config.root_angular_velocity_weight * component["root_angular_velocity"]
         + config.joint_position_weight * component["joint_position"]
-        + config.joint_velocity_weight * component["joint_velocity"]
     )
     return total, component
 
@@ -120,14 +200,15 @@ class ResidualTrainingObjective(nn.Module):
         state_mean = batch["state_mean"]
         state_std = batch["state_std"]
 
-        forward_prediction = model.predict_future(
+        forward_pose_delta = model.predict_future(
             world,
             state[:, 0],
             previous_action,
             action,
         )
-        forward_loss, forward_components = _state_losses(
-            forward_prediction,
+        forward_loss, forward_components = _pose_losses(
+            forward_pose_delta,
+            state[:, 0],
             state[:, 1:],
             state_mean,
             state_std,
@@ -155,14 +236,15 @@ class ResidualTrainingObjective(nn.Module):
         action_mean = batch["action_mean"]
         action_std = batch["action_std"]
         candidate_normalized = (candidate - action_mean) / action_std
-        policy_prediction = model.predict_future_with_frozen_dynamics(
+        policy_pose_delta = model.predict_future_with_frozen_dynamics(
             policy_world,
             state[:, 0].detach(),
             previous_action.detach(),
             candidate_normalized,
         )
-        tracking_loss, tracking_components = _state_losses(
-            policy_prediction,
+        tracking_loss, tracking_components = _pose_losses(
+            policy_pose_delta,
+            state[:, 0].detach(),
             batch["reference_state"],
             state_mean,
             state_std,
@@ -187,14 +269,15 @@ class ResidualTrainingObjective(nn.Module):
         with torch.no_grad():
             if world.size(0) > 1:
                 shuffled_world = world.roll(1, dims=0)
-                shuffled_forward = model.predict_future(
+                shuffled_forward_delta = model.predict_future(
                     shuffled_world,
                     state[:, 0],
                     previous_action,
                     action,
                 )
-                shuffled_forward_loss, _ = _state_losses(
-                    shuffled_forward,
+                shuffled_forward_loss, _ = _pose_losses(
+                    shuffled_forward_delta,
+                    state[:, 0],
                     state[:, 1:],
                     state_mean,
                     state_std,
@@ -211,7 +294,14 @@ class ResidualTrainingObjective(nn.Module):
                 shuffled_forward_loss = forward_loss.detach()
                 shuffled_backward_loss = backward_loss.detach()
             clipped = (candidate_unclipped - candidate).abs() > 1e-7
-            target_variance = state[:, 1:].float().var(unbiased=False)
+            no_change_loss, _ = _pose_losses(
+                torch.zeros_like(forward_pose_delta),
+                state[:, 0],
+                state[:, 1:],
+                state_mean,
+                state_std,
+                cfg,
+            )
 
         output = {
             "loss": total,
@@ -225,7 +315,8 @@ class ResidualTrainingObjective(nn.Module):
             "weighted_tracking_loss": weighted_tracking.detach(),
             "weighted_residual_l2": weighted_residual_l2.detach(),
             "weighted_residual_smooth": weighted_residual_smooth.detach(),
-            "forward_nmse": forward_loss.detach() / target_variance.clamp_min(1e-8),
+            "forward_no_change_loss": no_change_loss,
+            "forward_nmse": forward_loss.detach() / no_change_loss.clamp_min(1e-8),
             "forward_context_shuffle_ratio": (
                 shuffled_forward_loss / forward_loss.detach().clamp_min(1e-8)
             ),

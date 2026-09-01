@@ -204,9 +204,10 @@ motion 计数。每条记录还在 `window` 中保存最近 `metric-window` 轮�
 
 新的 residual 入口保留 frozen SPV5-2 tracker 作为 skill prior，Residual Policy 根据
 `16-token world context + tracker deploy-time policy feature` 输出动作修正。连续五步真实
-observation 重新计算当前 policy action，Causal Forward Predictor 预测未来五步完整状态，
-tracking loss 只通过 action Jacobian 更新 Residual Policy；Forward/Backward loss 则更新
-Context Encoder 和对应 predictor。
+observation 重新计算当前 policy action，Causal Forward Predictor 预测相对当前状态的五个
+非链式 pose delta，并重建未来绝对 pose。Forward 与 tracking 均只计算 root position、root
+orientation 和 joint position，不预测或优化未来 velocity；tracking loss 只通过 action
+Jacobian 更新 Residual Policy，Forward/Backward loss 则更新 Context Encoder 和对应 predictor。
 
 ```bash
 ./scripts/run_residual_training.sh \

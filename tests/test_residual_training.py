@@ -15,7 +15,12 @@ from intact_tracking.data import (
     RolloutDimensions,
 )
 from intact_tracking.residual_model import ResidualTrackingConfig, ResidualTrackingModel
-from intact_tracking.residual_objective import ResidualLossConfig, ResidualTrainingObjective
+from intact_tracking.residual_objective import (
+    ResidualLossConfig,
+    ResidualTrainingObjective,
+    _pose_losses,
+    _reconstruct_pose,
+)
 from intact_tracking.wandb_logger import WandbLogger
 
 
@@ -111,6 +116,75 @@ def test_forward_and_backward_losses_update_context_and_predictors() -> None:
     assert _gradient_norm(model.forward_predictor) > 0.0
     assert _gradient_norm(model.backward_predictor) > 0.0
     assert _gradient_norm(model.residual_policy) == 0.0
+
+
+def test_forward_predictor_outputs_five_pose_deltas() -> None:
+    config = _config()
+    model = ResidualTrackingModel(config)
+    batch = _model_batch(config)
+    world = model.encode_context(batch["context"], batch["context_mask"])
+
+    prediction = model.predict_future(
+        world,
+        batch["state"][:, 0],
+        batch["previous_action"],
+        batch["action"],
+    )
+
+    assert prediction.shape == (4, config.horizon, config.pose_delta_dim)
+    assert config.pose_delta_dim == 35
+
+
+def test_zero_pose_delta_reconstructs_current_pose_and_ignores_velocity() -> None:
+    config = _config()
+    batch_size = 2
+    current = torch.randn(batch_size, config.state_dim)
+    current[:, 3:7] = torch.tensor([1.0, 0.0, 0.0, 0.0])
+    target = current[:, None].expand(-1, config.horizon, -1).clone()
+    target[..., 7:13] = torch.randn_like(target[..., 7:13]) * 100.0
+    target[..., 42:71] = torch.randn_like(target[..., 42:71]) * 100.0
+    delta = torch.zeros(batch_size, config.horizon, config.pose_delta_dim)
+    state_mean = torch.zeros(config.state_dim)
+    state_std = torch.ones(config.state_dim)
+
+    reconstructed = _reconstruct_pose(delta, current, state_mean, state_std)
+    loss, components = _pose_losses(
+        delta,
+        current,
+        target,
+        state_mean,
+        state_std,
+        ResidualLossConfig(),
+    )
+
+    torch.testing.assert_close(reconstructed["root_position"], target[..., :3])
+    torch.testing.assert_close(reconstructed["root_orientation"], target[..., 3:7])
+    torch.testing.assert_close(reconstructed["joint_position"], target[..., 13:42])
+    torch.testing.assert_close(loss, torch.zeros_like(loss))
+    assert set(components) == {"root_position", "root_orientation", "joint_position"}
+
+
+def test_root_rotation_delta_is_composed_with_current_orientation() -> None:
+    config = _config()
+    current = torch.zeros(1, config.state_dim)
+    current[:, 3] = 1.0
+    delta = torch.zeros(1, config.horizon, config.pose_delta_dim)
+    delta[:, :, 5] = torch.pi / 2.0
+
+    reconstructed = _reconstruct_pose(
+        delta,
+        current,
+        torch.zeros(config.state_dim),
+        torch.ones(config.state_dim),
+    )
+
+    expected = torch.tensor([2.0**-0.5, 0.0, 0.0, 2.0**-0.5])
+    torch.testing.assert_close(
+        reconstructed["root_orientation"],
+        expected.expand(1, config.horizon, 4),
+        atol=1.0e-6,
+        rtol=1.0e-6,
+    )
 
 
 def test_residual_replay_builds_strictly_causal_five_step_window() -> None:
@@ -252,10 +326,8 @@ def test_residual_cli_enables_wandb_and_five_step_collection_by_default() -> Non
     assert args.backward_weight == 2.0
     assert args.root_position_weight == 1.0
     assert args.root_orientation_weight == 1.0
-    assert args.root_linear_velocity_weight == 1.0
-    assert args.root_angular_velocity_weight == 1.0
     assert args.joint_position_weight == 1.0
-    assert args.joint_velocity_weight == 1.0
+    assert not hasattr(args, "joint_velocity_weight")
     assert args.randomize_initial_episode_phase
     assert args.wandb
     assert args.wandb_project == "intact-residual-tracking"
@@ -271,13 +343,10 @@ def test_loss_weight_payload_lists_objective_and_shared_state_terms() -> None:
             "residual_l2": 1.0e-3,
             "residual_smooth": 1.0e-3,
         },
-        "state_terms_shared_by_forward_and_tracking": {
+        "pose_terms_shared_by_forward_and_tracking": {
             "root_position": 1.0,
             "root_orientation": 1.0,
-            "root_linear_velocity": 1.0,
-            "root_angular_velocity": 1.0,
             "joint_position": 1.0,
-            "joint_velocity": 1.0,
         },
     }
 

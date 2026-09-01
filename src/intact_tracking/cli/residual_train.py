@@ -86,10 +86,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--residual-smooth-weight", type=float, default=1.0e-3)
     parser.add_argument("--root-position-weight", type=float, default=1.0)
     parser.add_argument("--root-orientation-weight", type=float, default=1.0)
-    parser.add_argument("--root-linear-velocity-weight", type=float, default=1.0)
-    parser.add_argument("--root-angular-velocity-weight", type=float, default=1.0)
     parser.add_argument("--joint-position-weight", type=float, default=1.0)
-    parser.add_argument("--joint-velocity-weight", type=float, default=1.0)
 
     parser.add_argument(
         "--wandb",
@@ -154,10 +151,7 @@ def _validate_arguments(args: argparse.Namespace) -> None:
         "residual_smooth_weight",
         "root_position_weight",
         "root_orientation_weight",
-        "root_linear_velocity_weight",
-        "root_angular_velocity_weight",
         "joint_position_weight",
-        "joint_velocity_weight",
     ):
         if getattr(args, name) < 0:
             raise ValueError(f"{name.replace('_', '-')} must be non-negative")
@@ -295,13 +289,10 @@ def _loss_weight_payload(config: ResidualLossConfig) -> dict[str, dict[str, floa
             "residual_l2": config.residual_l2_weight,
             "residual_smooth": config.residual_smooth_weight,
         },
-        "state_terms_shared_by_forward_and_tracking": {
+        "pose_terms_shared_by_forward_and_tracking": {
             "root_position": config.root_position_weight,
             "root_orientation": config.root_orientation_weight,
-            "root_linear_velocity": config.root_linear_velocity_weight,
-            "root_angular_velocity": config.root_angular_velocity_weight,
             "joint_position": config.joint_position_weight,
-            "joint_velocity": config.joint_velocity_weight,
         },
     }
 
@@ -461,10 +452,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         residual_smooth_weight=args.residual_smooth_weight,
         root_position_weight=args.root_position_weight,
         root_orientation_weight=args.root_orientation_weight,
-        root_linear_velocity_weight=args.root_linear_velocity_weight,
-        root_angular_velocity_weight=args.root_angular_velocity_weight,
         joint_position_weight=args.joint_position_weight,
-        joint_velocity_weight=args.joint_velocity_weight,
         action_clip=rollout.action_clip,
     )
     loss_weights = _loss_weight_payload(loss_config)
@@ -500,15 +488,15 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         "method": "context-conditioned residual tracking",
         "architecture": {
             "action": "clip(frozen_tracker_action + bounded_residual)",
-            "policy_update": "five fixed rollout observations -> current actions -> frozen-parameter Forward -> reference MSE",
+            "policy_update": "five fixed rollout observations -> current actions -> frozen-parameter Forward pose deltas -> reconstructed reference pose loss",
             "gradient_routes": {
                 "forward_loss": ["context_encoder", "forward_predictor"],
                 "backward_loss": ["context_encoder", "backward_predictor"],
                 "tracking_loss": ["residual_policy"],
             },
             "context": "16 x [proprio_before, five total commands, proprio_after]",
-            "forward": "causal GRU over five action prefixes",
-            "state": "root pose/velocity + joint position/velocity; previous action is separate",
+            "forward": "causal GRU over five action prefixes; predicts five non-chained pose deltas from the current state",
+            "state": "Forward input and Backward state retain root pose/velocity + joint position/velocity; Forward output and Tracking loss use pose only",
         },
         "arguments": vars(args),
         "model": asdict(model_config),

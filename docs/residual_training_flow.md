@@ -1,7 +1,7 @@
 # Context-conditioned residual policy 训练流程
 
 该入口在冻结 SPV5-2 tracker 上叠加一个有界 residual policy，并通过 learned Forward
-Predictor 的五步状态预测梯度优化 residual。它与原有 Stage-I INTACT 入口并存，不复用旧
+Predictor 的五步 pose-delta 预测梯度优化 residual。它与原有 Stage-I INTACT 入口并存，不复用旧
 Intent-to-Action actor 的 checkpoint 格式。
 
 ## Rollout 与样本
@@ -29,6 +29,12 @@ reference states:          r_t+1 ... r_t+5
 物理状态为 71 维：root position/quaternion、root linear/angular velocity、29 维 joint
 position 和 29 维 joint velocity。`a_t-1` 作为独立历史条件输入，不写入 `s_t+1`，因此
 Backward Predictor 无法从 next-state 直接读取 action label。
+
+Forward 保留完整 71 维 `s_t` 作为输入，但输出只有 35 维 pose delta：3 维 root translation、
+3 维 root rotation vector 和 29 维 joint displacement。每个 `delta_q_t+k` 都直接相对同一个
+`s_t`，而不是相对上一个预测递归累加。平移和关节改变量使用对应 state standard deviation
+归一化；旋转向量使用弧度，并以左乘相对旋转重建 scalar-first `(w,x,y,z)` quaternion。
+未来 velocity 不属于 Forward 输出，也不进入 Forward/Tracking loss。
 
 Context 沿用仓库既有契约。每个 token 为：
 
@@ -58,9 +64,11 @@ flowchart TB
     S[true s_t + previous action] --> F[causal Forward Predictor]
     A[true five-step command trunk] --> F
     W --> F
-    F --> SF[predicted s_t+1:t+5]
-    ST[true s_t+1:t+5] --> LF[Forward state loss]
-    SF --> LF
+    F --> DF[predicted pose delta t+1:t+5 from s_t]
+    S --> RF[reconstruct absolute predicted pose]
+    DF --> RF
+    ST[true pose t+1:t+5] --> LF[Forward pose loss]
+    RF --> LF
 
     W --> B[Backward Predictor]
     ST --> B
@@ -72,9 +80,11 @@ flowchart TB
     AC --> FF[Forward with detached parameters]
     S --> FF
     W -. detached .-> FF
-    FF --> SP[predicted policy states]
-    R[reference s_t+1:t+5] --> LT[Tracking state loss]
-    SP --> LT
+    FF --> DP[predicted policy pose deltas]
+    S --> RP[reconstruct absolute policy pose]
+    DP --> RP
+    R[reference pose t+1:t+5] --> LT[Position-only Tracking loss]
+    RP --> LT
     LT -. gradient through actions .-> P
 ```
 
@@ -86,15 +96,19 @@ flowchart TB
 | Backward | 更新 | 不更新 | 更新 | 不更新 |
 | Tracking | 不更新 | 不更新参数、保留 action Jacobian | 不更新 | 更新 |
 
-Forward 与 Tracking 当前共用六个等权 state component：root position/orientation、root
-linear/angular velocity、joint position/velocity 的权重均为 `1.0`。训练启动时会打印一条
+Forward 与 Tracking 共用三个等权 pose component：root position、root orientation 和 joint
+position，权重均为 `1.0`。root linear/angular velocity 和 joint velocity 仍作为真实 rollout
+指标上传，但不参与这两个 loss。训练启动时会打印一条
 `event=loss_weights` JSON；之后每条训练 record 也包含同一份 `loss_weights`，同时
 `run_config.json` 持久化该配置。总目标中的 Forward 和 Backward 权重均为 `2.0`，Tracking
 权重为 `1.0`。
 
 Forward 使用 GRU 顺序处理五个 action，因此第 `k` 个预测只依赖前 `k` 个 action，不存在
 future-action leakage。Tracking 分支通过无参数梯度的 functional Forward 调用实现：Forward
-参数被 detach，但 action 输入保留梯度。
+参数被 detach，但 action 输入保留梯度。Tracking loss 在 `s_t` 与预测 delta 重建出的绝对
+pose 上计算；如果只比较 reference delta，当前已经存在的位置偏差将无法被 residual 纠正。
+`forward_nmse` 使用零 pose delta（保持当前 pose 不动）的 loss 作为分母，因此小于 `1.0`
+表示优于 no-change baseline。
 
 ## Tracking error 与 W&B
 
@@ -111,7 +125,7 @@ Reset boundary 不进入统计。
 
 W&B 默认开启，只在 rank 0 上传：
 
-- `train/*`：总损失、Forward/Backward/Tracking 分量、各状态分组误差、context shuffle ratio；
+- `train/*`：总损失、Forward/Backward/Tracking 分量、三项 pose 分组误差、no-change baseline、context shuffle ratio；
 - `tracking/*`：真实 rollout error、tracker baseline、ratio 和 improvement；
 - `optimization/*`：总/model/policy gradient norm 和两组 learning rate；
 - `replay/*`：容量、样本数、每轮新增样本和显存字节数；

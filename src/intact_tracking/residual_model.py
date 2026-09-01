@@ -27,11 +27,12 @@ def _mlp(input_dim: int, hidden_dim: int, output_dim: int, depth: int) -> nn.Seq
 class ResidualTrackingConfig:
     """Shape and capacity contract for residual world-model training."""
 
-    architecture_version: str = "context_residual_tracking_v1"
+    architecture_version: str = "context_residual_tracking_pose_delta_v2"
     policy_observation_dim: int = 1645
     proprio_dim: int = 122
     action_dim: int = 29
     state_dim: int = 71
+    pose_delta_dim: int = 35
     horizon: int = 5
     context_chunk_steps: int = 5
     context_tokens: int = 16
@@ -56,6 +57,11 @@ class ResidualTrackingConfig:
             raise ValueError(f"Residual model dimensions must be positive: {invalid}")
         if self.state_dim != 71:
             raise ValueError("Residual tracking state is fixed to the 71-D robot/reference state")
+        if self.pose_delta_dim != 35:
+            raise ValueError(
+                "Residual Forward output is fixed to 35-D pose deltas: "
+                "root translation, root rotation vector, and 29 joint displacements"
+            )
         if self.horizon != 5:
             raise ValueError("Residual policy optimization is fixed to five control steps")
         if self.context_tokens != 16:
@@ -103,11 +109,12 @@ class ResidualPolicy(nn.Module):
 
 
 class CausalForwardPredictor(nn.Module):
-    """Predict five future states while exposing only each action prefix."""
+    """Predict five future pose deltas while exposing only each action prefix."""
 
     def __init__(self, config: ResidualTrackingConfig) -> None:
         super().__init__()
         self.state_dim = config.state_dim
+        self.pose_delta_dim = config.pose_delta_dim
         self.action_dim = config.action_dim
         self.horizon = config.horizon
         self.initial_encoder = _mlp(
@@ -123,10 +130,10 @@ class CausalForwardPredictor(nn.Module):
             1,
         )
         self.transition = nn.GRUCell(config.hidden_dim, config.hidden_dim)
-        self.state_head = _mlp(
+        self.delta_head = _mlp(
             config.hidden_dim,
             config.hidden_dim,
-            config.state_dim,
+            config.pose_delta_dim,
             1,
         )
 
@@ -146,7 +153,7 @@ class CausalForwardPredictor(nn.Module):
         predictions = []
         for index in range(self.horizon):
             hidden = self.transition(self.action_encoder(actions[:, index].float()), hidden)
-            predictions.append(self.state_head(hidden))
+            predictions.append(self.delta_head(hidden))
         return torch.stack(predictions, dim=1)
 
 
@@ -237,4 +244,3 @@ class ResidualTrackingModel(nn.Module):
             frozen_state,
             (world, state, previous_action, actions),
         )
-
