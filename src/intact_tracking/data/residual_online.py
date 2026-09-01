@@ -159,6 +159,8 @@ class ResidualOnlineReplayBuffer:
         "reset_boundary",
         "world_id",
         "episode_id",
+        "motion_id",
+        "motion_step",
         "episode_step",
         "collector_step",
         "residual_trunk_step",
@@ -293,7 +295,11 @@ class ResidualOnlineReplayBuffer:
             + self._context_capacity * self.num_worlds * context_width
             + self.capacity * sample_width
         )
-        integers = self._history_length * self.num_worlds + self.num_worlds + 2 * self.capacity
+        integers = (
+            3 * self._history_length * self.num_worlds
+            + self.num_worlds
+            + 4 * self.capacity
+        )
         boundary_flags = self._history_length * self.num_worlds
         return 4 * floats + 8 * integers + boundary_flags
 
@@ -314,6 +320,8 @@ class ResidualOnlineReplayBuffer:
             "next_robot_state": torch.zeros((*hp, dims.robot_state), device=self.device),
             "next_reference_state": torch.zeros((*hp, dims.reference_state), device=self.device),
             "residual_trunk_step": torch.full(hp, -1, dtype=torch.long, device=self.device),
+            "motion_id": torch.full(hp, -1, dtype=torch.long, device=self.device),
+            "motion_step": torch.full(hp, -1, dtype=torch.long, device=self.device),
             "residual_world": torch.zeros((*hp, self.context_latent_dim), device=self.device),
         }
         self._reset_history = torch.zeros(hp, dtype=torch.bool, device=self.device)
@@ -355,6 +363,8 @@ class ResidualOnlineReplayBuffer:
             ),
             "world_id": torch.empty(self.capacity, dtype=torch.long, device=self.device),
             "episode_id": torch.empty(self.capacity, dtype=torch.long, device=self.device),
+            "motion_id": torch.empty(self.capacity, dtype=torch.long, device=self.device),
+            "motion_step": torch.empty(self.capacity, dtype=torch.long, device=self.device),
         }
 
     def _validate_batch(self, batch: dict[str, torch.Tensor]) -> None:
@@ -373,6 +383,8 @@ class ResidualOnlineReplayBuffer:
             "reference_state": (self.num_worlds, dims.reference_state),
             "next_reference_state": (self.num_worlds, dims.reference_state),
             "residual_trunk_step": (self.num_worlds,),
+            "motion_id": (self.num_worlds,),
+            "motion_step": (self.num_worlds,),
             "residual_world": (self.num_worlds, self.context_latent_dim),
         }
         for name in self.REQUIRED_FIELDS:
@@ -488,6 +500,8 @@ class ResidualOnlineReplayBuffer:
             "context_after": self._context["after"][context_envs, context_slots],
             "world_id": batch["world_id"][env_ids],
             "episode_id": batch["episode_id"][env_ids],
+            "motion_id": self._history["motion_id"][time_ids[0], env_ids],
+            "motion_step": self._history["motion_step"][time_ids[0], env_ids],
         }
         self._append_samples(samples, count)
         return count
@@ -619,6 +633,8 @@ class ResidualOnlineReplayBuffer:
             "state_std": state_std,
             "world_id": selected["world_id"],
             "episode_id": selected["episode_id"],
+            "motion_id": selected["motion_id"],
+            "motion_step": selected["motion_step"],
         }
 
     def sample_batch(

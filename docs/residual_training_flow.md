@@ -139,7 +139,11 @@ simulator 只保留 checkpoint 的 scene、actuator 和控制周期；所有 DR 
 恢复顺序是清空 simulator/entity/action buffer、写入 root 与 joint 的 qpos/qvel、恢复 previous
 action/history、写入仿真并调用零时间 `sim.forward()`。不执行 physics warmup，因为 warmup 会
 改变配对起点。首次使用会自动重复完整的 restore + 五步 rollout，检查即时状态误差和轨迹
-可重复性；不满足 `--nominal-restore-atol` 会直接终止训练。
+可重复性；不满足 `--nominal-restore-atol` 会直接终止训练。nominal 构造时还会固定 action term
+内部的 delay、smoothing alpha、torque-limit scale 与 boot delay，避免 action reset 自身重新
+采样。重复性 pose 指标只包含 root position/quaternion 与 joint position，不包含 velocity。
+失败时，每个 rank 会在输出目录写入 `nominal_repeat_failures_rank_<rank>.jsonl`，记录 p50/p95/
+p99/max、最坏 horizon/state component，以及对应的 motion path、motion id 和 motion step。
 
 Forward 同时拟合 `F(z_dr,s,A)` 的 DR target 与 `F(0,s,A)` 的 nominal target，并显式拟合两者
 的 pose effect 差。这样 state/action 完全相同而 target 随物理参数变化，忽略 context 的模型

@@ -29,7 +29,10 @@ from intact_tracking.residual_objective import (
     _pose_losses,
     _reconstruct_pose,
 )
-from intact_tracking.rollout.nominal import _make_nominal_dynamics_cfg
+from intact_tracking.rollout.nominal import (
+    _make_nominal_dynamics_cfg,
+    _repeat_error_diagnostics,
+)
 from intact_tracking.wandb_logger import WandbLogger
 
 
@@ -358,6 +361,8 @@ def test_residual_replay_builds_strictly_causal_five_step_window() -> None:
             "reset_boundary": torch.zeros(2, dtype=torch.bool),
             "world_id": torch.arange(2),
             "episode_id": torch.zeros(2, dtype=torch.long),
+            "motion_id": torch.tensor([7, 9], dtype=torch.long),
+            "motion_step": torch.full((2,), step + 100, dtype=torch.long),
             "episode_step": torch.full((2,), step, dtype=torch.long),
             "collector_step": torch.full((2,), step, dtype=torch.long),
             "residual_trunk_step": torch.full((2,), step % 5, dtype=torch.long),
@@ -380,6 +385,8 @@ def test_residual_replay_builds_strictly_causal_five_step_window() -> None:
     assert sampled["policy_observation"].shape == (2, 8)
     assert sampled["policy_world"].shape == (2, 16)
     assert sampled["context"].shape == (2, 16, 2 * 6 + 5 * 3)
+    assert set(sampled["motion_id"].tolist()) == {7, 9}
+    assert torch.equal(sampled["motion_step"], torch.full((2,), 180, dtype=torch.long))
     assert torch.isfinite(sampled["context"]).all()
     assert replay.storage_bytes == replay.estimated_storage_bytes
 
@@ -426,6 +433,8 @@ def test_reset_state_can_start_query_but_boundary_cannot_enter_it() -> None:
                 "reset_boundary": torch.tensor([reset_boundary]),
                 "world_id": torch.zeros(1, dtype=torch.long),
                 "episode_id": torch.tensor([episode_id]),
+                "motion_id": torch.tensor([episode_id + 10]),
+                "motion_step": torch.tensor([episode_step + 100]),
                 "episode_step": torch.tensor([episode_step]),
                 "collector_step": torch.tensor([episode_step]),
                 "residual_trunk_step": torch.tensor([episode_step % 5]),
@@ -444,6 +453,8 @@ def test_reset_state_can_start_query_but_boundary_cannot_enter_it() -> None:
     torch.testing.assert_close(replay._samples["action"][1, :, 0], torch.arange(200.0, 205.0))
     assert replay._samples["previous_action"][1, 0].item() == 0.0
     assert replay._samples["episode_id"][1].item() == 1
+    assert replay._samples["motion_id"][1].item() == 11
+    assert replay._samples["motion_step"][1].item() == 100
     assert replay._context_counts is not None
     assert replay._context_counts.item() == 18
 
@@ -497,7 +508,14 @@ def test_loss_weight_payload_lists_objective_and_shared_state_terms() -> None:
 
 
 def test_nominal_dynamics_cfg_removes_dr_and_task_managers() -> None:
+    action_cfg = SimpleNamespace(
+        max_delay=2,
+        alpha=(0.8, 1.0),
+        torque_limit_scale_range=(0.7, 1.0),
+        boot_delay_steps=3,
+    )
     env_cfg = SimpleNamespace(
+        actions={"joint_pos": action_cfg},
         events={"dr": object()},
         commands={"motion": object()},
         observations={"policy": object()},
@@ -521,6 +539,44 @@ def test_nominal_dynamics_cfg_removes_dr_and_task_managers() -> None:
     assert not env_cfg.metrics
     assert not env_cfg.recorders
     assert not env_cfg.auto_reset
+    assert action_cfg.max_delay == 0
+    assert action_cfg.alpha == (1.0, 1.0)
+    assert action_cfg.torque_limit_scale_range == (1.0, 1.0)
+    assert action_cfg.boot_delay_steps == 0
+    assert removed["action_randomization_overrides"]["joint_pos"]["max_delay"] == {
+        "from": 2,
+        "to": 0,
+    }
+
+
+def test_nominal_repeat_diagnostics_excludes_root_velocity_from_pose() -> None:
+    target = torch.zeros(2, 5, 71)
+    repeated = target.clone()
+    repeated[0, 2, 10] = 4.0
+    repeated[1, 4, 13] = 0.25
+
+    diagnostics = _repeat_error_diagnostics(
+        target,
+        repeated,
+        motion_ids=torch.tensor([0, 1]),
+        motion_steps=torch.tensor([20, 30]),
+        motion_files=("first.npz", "second.npz"),
+    )
+
+    assert diagnostics["pose"]["max"] == 0.25
+    assert diagnostics["full_state"]["max"] == 4.0
+    assert diagnostics["worst_pose"] == {
+        "pair_index": 1,
+        "horizon": 5,
+        "state_index": 13,
+        "state_component": "joint_position",
+        "abs_error": 0.25,
+        "motion_id": 1,
+        "motion_path": "second.npz",
+        "motion_step": 30,
+    }
+    assert diagnostics["worst_full_state"]["state_component"] == "root_angular_velocity"
+    assert diagnostics["worst_full_state"]["motion_path"] == "first.npz"
 
 
 def test_wandb_logger_is_rank_zero_only(monkeypatch, tmp_path) -> None:

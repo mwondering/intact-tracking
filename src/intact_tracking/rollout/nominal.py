@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import json
 from copy import deepcopy
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 import torch
 
@@ -27,6 +28,7 @@ class NominalPairRolloutConfig:
     seed: int = 0
     horizon: int = 5
     restore_atol: float = 1.0e-5
+    failure_log_file: str | None = None
 
     def __post_init__(self) -> None:
         if self.num_envs < 1:
@@ -49,6 +51,25 @@ def _make_nominal_dynamics_cfg(env_cfg: Any) -> dict[str, Any]:
     values and avoids allocating a second copy of the motion dataset.
     """
 
+    action_overrides: dict[str, dict[str, dict[str, Any]]] = {}
+    for term_name, term_cfg in env_cfg.actions.items():
+        overrides: dict[str, dict[str, Any]] = {}
+        deterministic_values = {
+            "max_delay": 0,
+            "alpha": (1.0, 1.0),
+            "torque_limit_scale_range": (1.0, 1.0),
+            "boot_delay_steps": 0,
+        }
+        for field_name, desired in deterministic_values.items():
+            if not hasattr(term_cfg, field_name):
+                continue
+            previous = getattr(term_cfg, field_name)
+            if previous != desired:
+                setattr(term_cfg, field_name, desired)
+                overrides[field_name] = {"from": previous, "to": desired}
+        if overrides:
+            action_overrides[str(term_name)] = overrides
+
     removed = {
         "events": sorted(str(name) for name in env_cfg.events),
         "commands": sorted(str(name) for name in env_cfg.commands),
@@ -58,6 +79,7 @@ def _make_nominal_dynamics_cfg(env_cfg: Any) -> dict[str, Any]:
         "curriculum": sorted(str(name) for name in env_cfg.curriculum),
         "metrics": sorted(str(name) for name in env_cfg.metrics),
         "recorders": sorted(str(name) for name in env_cfg.recorders),
+        "action_randomization_overrides": action_overrides,
     }
     env_cfg.events = {}
     env_cfg.commands = {}
@@ -69,6 +91,93 @@ def _make_nominal_dynamics_cfg(env_cfg: Any) -> dict[str, Any]:
     env_cfg.recorders = {}
     env_cfg.auto_reset = False
     return removed
+
+
+_STATE_COMPONENTS = (
+    ("root_position", 0, 3),
+    ("root_quaternion", 3, 7),
+    ("root_linear_velocity", 7, 10),
+    ("root_angular_velocity", 10, 13),
+    ("joint_position", 13, 42),
+    ("joint_velocity", 42, 71),
+)
+
+
+def _state_component(index: int) -> str:
+    for name, start, stop in _STATE_COMPONENTS:
+        if start <= index < stop:
+            return name
+    raise ValueError(f"Invalid 71-D state index {index}")
+
+
+def _repeat_error_diagnostics(
+    target: torch.Tensor,
+    repeated: torch.Tensor,
+    *,
+    motion_ids: torch.Tensor | None = None,
+    motion_steps: torch.Tensor | None = None,
+    motion_files: Sequence[str] | None = None,
+) -> dict[str, Any]:
+    """Locate repeat errors without mixing velocity into the pose metric."""
+
+    difference = (repeated - target).abs()
+    pose_indices = torch.cat(
+        (
+            torch.arange(0, 7, device=difference.device),
+            torch.arange(13, 42, device=difference.device),
+        )
+    )
+    pose_difference = difference.index_select(-1, pose_indices)
+
+    def distribution(value: torch.Tensor) -> dict[str, float]:
+        per_sample = value.flatten(start_dim=1).amax(dim=1).float()
+        quantiles = torch.quantile(
+            per_sample,
+            torch.tensor((0.5, 0.95, 0.99), device=value.device),
+        )
+        return {
+            "mean": float(per_sample.mean().item()),
+            "p50": float(quantiles[0].item()),
+            "p95": float(quantiles[1].item()),
+            "p99": float(quantiles[2].item()),
+            "max": float(per_sample.max().item()),
+        }
+
+    def worst(value: torch.Tensor, state_indices: torch.Tensor | None = None) -> dict[str, Any]:
+        flat_index = int(value.reshape(-1).argmax().item())
+        state_width = int(value.size(-1))
+        horizon = (flat_index // state_width) % int(value.size(1))
+        pair_index = flat_index // (int(value.size(1)) * state_width)
+        local_state_index = flat_index % state_width
+        state_index = (
+            int(state_indices[local_state_index].item())
+            if state_indices is not None
+            else local_state_index
+        )
+        result: dict[str, Any] = {
+            "pair_index": pair_index,
+            "horizon": horizon + 1,
+            "state_index": state_index,
+            "state_component": _state_component(state_index),
+            "abs_error": float(value.reshape(-1)[flat_index].item()),
+        }
+        if motion_ids is not None:
+            motion_id = int(motion_ids[pair_index].item())
+            result["motion_id"] = motion_id
+            if motion_files is not None and 0 <= motion_id < len(motion_files):
+                result["motion_path"] = str(motion_files[motion_id])
+            else:
+                result["motion_path"] = None
+        if motion_steps is not None:
+            result["motion_step"] = int(motion_steps[pair_index].item())
+        return result
+
+    return {
+        "pose": distribution(pose_difference),
+        "full_state": distribution(difference),
+        "worst_pose": worst(pose_difference, pose_indices),
+        "worst_full_state": worst(difference),
+    }
 
 
 class NominalPairRollout:
@@ -127,6 +236,7 @@ class NominalPairRollout:
                 ),
                 "warmup": "none; warmup would change the paired initial state",
                 "removed_managers": removed,
+                "action_term": type(self.env.action_manager.get_term("joint_pos")).__name__,
                 "cleared_missing_motion_exclusions": cleared,
             }
         except BaseException:
@@ -225,6 +335,10 @@ class NominalPairRollout:
         state: torch.Tensor,
         previous_action: torch.Tensor,
         actions: torch.Tensor,
+        *,
+        motion_ids: torch.Tensor | None = None,
+        motion_steps: torch.Tensor | None = None,
+        motion_files: Sequence[str] | None = None,
     ) -> tuple[torch.Tensor, dict[str, float]]:
         """Return nominal states for the same initial state and five actions.
 
@@ -236,24 +350,57 @@ class NominalPairRollout:
         if self.closed:
             raise RuntimeError("Cannot use a closed nominal pair rollout")
         self._validate_inputs(state, previous_action, actions)
+        for name, value in (("motion_ids", motion_ids), ("motion_steps", motion_steps)):
+            if value is None:
+                continue
+            if tuple(value.shape) != (self.num_envs,):
+                raise ValueError(
+                    f"Nominal {name} has {tuple(value.shape)}, expected {(self.num_envs,)}"
+                )
+            if value.device != self.device or value.dtype != torch.long:
+                raise ValueError(f"Nominal {name} must be long on {self.device}")
         restore_error = self._restore(state, previous_action)
         target = self._step_actions(actions)
         if not self._validated:
             self._restore(state, previous_action)
             repeated = self._step_actions(actions)
-            repeat_error = float((repeated - target).abs().max().item())
-            repeat_pose_error = float((repeated[..., :42] - target[..., :42]).abs().max().item())
+            diagnostics = _repeat_error_diagnostics(
+                target,
+                repeated,
+                motion_ids=motion_ids,
+                motion_steps=motion_steps,
+                motion_files=motion_files,
+            )
+            repeat_error = float(diagnostics["full_state"]["max"])
+            repeat_pose_error = float(diagnostics["pose"]["max"])
             self._last_repeat_error = repeat_error
             self._last_repeat_pose_error = repeat_pose_error
             if (
                 repeat_pose_error > self.config.restore_atol
                 or repeat_error > 10.0 * self.config.restore_atol
             ):
+                failure_record = {
+                    "event": "nominal_repeat_validation_failure",
+                    "restore_max_abs_error": restore_error,
+                    "pose_atol": self.config.restore_atol,
+                    "full_state_atol": 10.0 * self.config.restore_atol,
+                    "action_term": type(
+                        self.env.action_manager.get_term("joint_pos")
+                    ).__name__,
+                    **diagnostics,
+                }
+                if self.config.failure_log_file:
+                    failure_path = Path(self.config.failure_log_file)
+                    failure_path.parent.mkdir(parents=True, exist_ok=True)
+                    with failure_path.open("a", encoding="utf-8") as stream:
+                        stream.write(json.dumps(failure_record, sort_keys=True) + "\n")
                 raise RuntimeError(
                     "Nominal restore is not deterministic over five steps: "
                     f"pose_max_abs_error={repeat_pose_error:.6g}, "
                     f"full_state_max_abs_error={repeat_error:.6g}, "
-                    f"pose_atol={self.config.restore_atol:.6g}"
+                    f"pose_atol={self.config.restore_atol:.6g}, "
+                    "diagnostics="
+                    f"{json.dumps(failure_record, sort_keys=True)}"
                 )
             self._validated = True
         return target, {

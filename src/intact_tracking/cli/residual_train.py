@@ -474,6 +474,10 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                     seed=rank_seed + 100_000,
                     horizon=5,
                     restore_atol=args.nominal_restore_atol,
+                    failure_log_file=str(
+                        output_dir
+                        / f"nominal_repeat_failures_rank_{distributed.rank}.jsonl"
+                    ),
                 )
             )
         except BaseException:
@@ -766,6 +770,9 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                             physical_state,
                             physical_previous_action,
                             physical_actions,
+                            motion_ids=train_batch["motion_id"][:pair_count],
+                            motion_steps=train_batch["motion_step"][:pair_count],
+                            motion_files=rollout.motion_files,
                         )
                     train_batch["nominal_state"] = (
                         nominal_state - state_mean

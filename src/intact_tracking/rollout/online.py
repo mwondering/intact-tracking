@@ -207,6 +207,16 @@ class FixedDRTrackerRollout:
         self.closed = False
         try:
             self.env = self._runtime.env
+            motion_command = self.env.command_manager.get_term("motion")
+            motion_files = getattr(motion_command, "motion_files", None)
+            if motion_files is None:
+                motion_store = getattr(motion_command, "motion_store", None)
+                motion_files = getattr(motion_store, "motion_files", None)
+            if not motion_files:
+                raise RuntimeError("Motion command does not expose its motion-file mapping")
+            self.motion_files = tuple(
+                str(Path(path).expanduser().resolve()) for path in motion_files
+            )
             self.disabled_startup_reset_callbacks = _disable_startup_reset_callbacks(self.env)
             self._fixed_dr_model_fields = _capture_randomized_model_fields(self.env)
             if not self._fixed_dr_model_fields:
@@ -276,6 +286,7 @@ class FixedDRTrackerRollout:
                 "startup DR fixed per vector slot before rollout and never resampled"
             ),
             "motion_contract": "random motion resampling at initialization and reset",
+            "motion_file_count_per_rank": len(self.motion_files),
             "reset_contract": (
                 "asynchronous per-slot auto-reset; startup events are never reapplied"
             ),
