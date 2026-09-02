@@ -36,6 +36,7 @@ def _config() -> ResidualTrackingConfig:
         proprio_dim=6,
         action_dim=3,
         state_dim=71,
+        context_steps=4,
         context_dim=16,
         context_depth=1,
         context_heads=4,
@@ -45,9 +46,14 @@ def _config() -> ResidualTrackingConfig:
 
 
 def _model_batch(config: ResidualTrackingConfig, batch_size: int = 4):
+    context_boundary = torch.zeros(batch_size, config.context_steps + 1, dtype=torch.bool)
+    context_boundary[:, 0] = True
     return {
-        "context": torch.randn(batch_size, config.context_tokens, config.context_token_dim),
-        "context_mask": torch.ones(batch_size, config.context_tokens, dtype=torch.bool),
+        "context_state": torch.randn(batch_size, config.context_steps + 1, config.proprio_dim),
+        "context_action": torch.randn(batch_size, config.context_steps, config.action_dim),
+        "context_state_mask": torch.ones(batch_size, config.context_steps + 1, dtype=torch.bool),
+        "context_action_mask": torch.ones(batch_size, config.context_steps, dtype=torch.bool),
+        "context_boundary": context_boundary,
         "state": torch.randn(batch_size, config.horizon + 1, config.state_dim),
         "action": torch.randn(batch_size, config.horizon, config.action_dim),
         "previous_action": torch.randn(batch_size, config.action_dim),
@@ -104,12 +110,11 @@ def test_nominal_pair_loss_updates_context_and_forward() -> None:
     batch = _model_batch(config)
     batch["nominal_state"] = batch["state"][:2, 1:].clone()
     batch["nominal_state"][..., 0] += 0.5
-    batch["nominal_context"] = torch.randn(
-        2, config.context_tokens, config.context_token_dim
-    )
-    batch["nominal_context_mask"] = torch.ones(
-        2, config.context_tokens, dtype=torch.bool
-    )
+    batch["nominal_context_state"] = torch.randn(2, config.context_steps + 1, config.proprio_dim)
+    batch["nominal_context_action"] = torch.randn(2, config.context_steps, config.action_dim)
+    batch["nominal_context_state_mask"] = torch.ones(2, config.context_steps + 1, dtype=torch.bool)
+    batch["nominal_context_action_mask"] = torch.ones(2, config.context_steps, dtype=torch.bool)
+    batch["nominal_context_boundary"] = batch["context_boundary"][:2].clone()
 
     output = objective(batch, phase="model")
     output["loss"].backward()
@@ -126,7 +131,13 @@ def test_forward_predictor_outputs_five_pose_deltas() -> None:
     config = _config()
     model = ResidualTrackingModel(config)
     batch = _model_batch(config)
-    world = model.encode_context(batch["context"], batch["context_mask"])
+    world = model.encode_context(
+        batch["context_state"],
+        batch["context_action"],
+        batch["context_state_mask"],
+        batch["context_action_mask"],
+        batch["context_boundary"],
+    )
 
     prediction = model.predict_future(
         world,
@@ -137,6 +148,18 @@ def test_forward_predictor_outputs_five_pose_deltas() -> None:
 
     assert prediction.shape == (4, config.horizon, config.pose_delta_dim)
     assert config.pose_delta_dim == 35
+
+
+def test_default_temporal_context_doubles_history_and_uses_ten_million_transformer() -> None:
+    config = ResidualTrackingConfig()
+    model = ResidualTrackingModel(config)
+    current_parameters = sum(
+        parameter.numel() for parameter in model.context_encoder.transformer.parameters()
+    )
+
+    assert config.context_steps == 160
+    assert config.context_sequence_length == 322
+    assert current_parameters == pytest.approx(10_000_000, rel=0.01)
 
 
 def test_forward_objective_reports_domain_and_horizon_metrics() -> None:
@@ -251,7 +274,7 @@ def test_residual_replay_builds_strictly_causal_five_step_window() -> None:
         capacity=32,
         device="cpu",
     )
-    for step in range(85):
+    for step in range(replay.minimum_steps):
         scalar = torch.full((2, 1), float(step))
         state = scalar.expand(2, 71).clone()
         batch = {
@@ -273,24 +296,32 @@ def test_residual_replay_builds_strictly_causal_five_step_window() -> None:
         replay.add_step(batch)
 
     assert len(replay) == 2
-    torch.testing.assert_close(replay._samples["state"][0, :, 0], torch.arange(80.0, 86.0))
-    assert replay._samples["previous_action"][0, 0].item() == 79.0
-    # The sample context ends at step 79 and therefore never overlaps query 80:85.
-    assert replay._samples["context_before"][0, 0, 0].item() == 0.0
-    assert replay._samples["context_before"][0, -1, 0].item() == 75.0
+    torch.testing.assert_close(replay._samples["state"][0, :, 0], torch.arange(160.0, 166.0))
+    assert replay._samples["previous_action"][0, 0].item() == 159.0
+    # The sample context ends at step 159 and never overlaps query 160:165.
+    torch.testing.assert_close(replay._samples["context_before"][0, :, 0], torch.arange(160.0))
+    torch.testing.assert_close(replay._samples["context_action"][0, :, 0], torch.arange(160.0))
+    torch.testing.assert_close(replay._samples["context_after"][0, :, 0], torch.arange(1.0, 161.0))
 
     packed = replay.normalizer.packed_statistics()
     stats = replay.normalizer.snapshot_from_packed(packed, replay.world_ids)
     sampled = replay.sample_batch(2, stats, include_nominal_context=True)
     assert sampled["state"].shape == (2, 6, 71)
-    assert sampled["context"].shape == (2, 16, 2 * 6 + 5 * 3)
+    assert sampled["context_state"].shape == (2, 161, 6)
+    assert sampled["context_action"].shape == (2, 160, 3)
+    assert sampled["context_state_mask"].all()
+    assert sampled["context_action_mask"].all()
+    assert sampled["context_boundary"][:, 0].all()
     assert set(sampled["motion_id"].tolist()) == {7, 9}
     assert sampled["is_nominal"].sum().item() == 1
-    assert sampled["nominal_context"].shape == sampled["context"].shape
-    assert sampled["nominal_context_mask"].all()
+    assert sampled["nominal_context_state"].shape == sampled["context_state"].shape
+    assert sampled["nominal_context_action"].shape == sampled["context_action"].shape
+    assert sampled["nominal_context_state_mask"].all()
+    assert sampled["nominal_context_action_mask"].all()
     assert sampled["nominal_context_world_id"].eq(0).all()
-    assert torch.equal(sampled["motion_step"], torch.full((2,), 180, dtype=torch.long))
-    assert torch.isfinite(sampled["context"]).all()
+    assert torch.equal(sampled["motion_step"], torch.full((2,), 260, dtype=torch.long))
+    assert torch.isfinite(sampled["context_state"]).all()
+    assert torch.isfinite(sampled["context_action"]).all()
     assert replay.storage_bytes == replay.estimated_storage_bytes
 
 
@@ -339,21 +370,35 @@ def test_reset_state_can_start_query_but_boundary_cannot_enter_it() -> None:
             }
         )
 
-    for step in range(85):
+    for step in range(replay.minimum_steps):
         add(float(step), episode_id=0, episode_step=step)
-    add(85.0, episode_id=0, episode_step=85, next_value=200.0, reset_boundary=True)
-    for step in range(5):
+    add(
+        float(replay.minimum_steps),
+        episode_id=0,
+        episode_step=replay.minimum_steps,
+        next_value=200.0,
+        reset_boundary=True,
+    )
+    for step in range(10):
         add(200.0 + step, episode_id=1, episode_step=step)
 
-    assert len(replay) == 2
-    torch.testing.assert_close(replay._samples["state"][1, :, 0], torch.arange(200.0, 206.0))
-    torch.testing.assert_close(replay._samples["action"][1, :, 0], torch.arange(200.0, 205.0))
+    assert len(replay) == 3
+    torch.testing.assert_close(replay._samples["state"][2, :, 0], torch.arange(205.0, 211.0))
+    torch.testing.assert_close(replay._samples["action"][2, :, 0], torch.arange(205.0, 210.0))
     assert replay._samples["previous_action"][1, 0].item() == 0.0
     assert replay._samples["episode_id"][1].item() == 1
     assert replay._samples["motion_id"][1].item() == 11
     assert replay._samples["motion_step"][1].item() == 100
     assert replay._context_counts is not None
-    assert replay._context_counts.item() == 18
+    assert replay._context_counts.item() == 175
+    raw_episode_ids = replay._samples["context_episode_id"][2:3]
+    _, boundaries = replay._temporal_states_and_boundaries(
+        replay._samples["context_before"][2:3],
+        replay._samples["context_after"][2:3],
+        raw_episode_ids,
+    )
+    assert boundaries.sum().item() == 2
+    assert boundaries[0, 155].item()
 
 
 def test_forward_cli_enables_wandb_and_five_step_collection_by_default() -> None:
@@ -378,6 +423,10 @@ def test_forward_cli_enables_wandb_and_five_step_collection_by_default() -> None
     assert args.nominal_effect_weight == 1.0
     assert args.nominal_consistency_weight == 1.0
     assert args.nominal_rollout_fraction == 0.5
+    assert args.context_steps == 160
+    assert args.context_dim == 408
+    assert args.context_depth == 5
+    assert args.context_heads == 8
     assert args.root_position_weight == 5.0
     assert args.root_orientation_weight == 2.0
     assert args.joint_position_weight == 1.0

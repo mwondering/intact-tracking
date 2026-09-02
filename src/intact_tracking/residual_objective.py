@@ -172,9 +172,7 @@ def _pose_effect_losses(
     """Match the real pose difference caused only by DR under equal state/actions."""
 
     dr_pose = _reconstruct_pose(dr_pose_delta, current_state, state_mean, state_std)
-    nominal_pose = _reconstruct_pose(
-        nominal_pose_delta, current_state, state_mean, state_std
-    )
+    nominal_pose = _reconstruct_pose(nominal_pose_delta, current_state, state_mean, state_std)
     dr_target_quat = _physical_quaternion(dr_target, state_mean, state_std)
     nominal_target_quat = _physical_quaternion(nominal_target, state_mean, state_std)
 
@@ -196,9 +194,7 @@ def _pose_effect_losses(
         dr_target_quat,
         _quaternion_conjugate(nominal_target_quat),
     )
-    orientation_dot = (
-        predicted_relative_quat * target_relative_quat
-    ).sum(dim=-1).clamp(-1.0, 1.0)
+    orientation_dot = (predicted_relative_quat * target_relative_quat).sum(dim=-1).clamp(-1.0, 1.0)
     target_identity_dot = target_relative_quat[..., 0].clamp(-1.0, 1.0)
     component = {
         "root_position": (predicted_root_effect - target_root_effect).square().mean(),
@@ -235,8 +231,8 @@ def _pose_consistency_losses(
     first = _reconstruct_pose(first_pose_delta, current_state, state_mean, state_std)
     second = _reconstruct_pose(second_pose_delta, current_state, state_mean, state_std)
     orientation_dot = (
-        first["root_orientation"] * second["root_orientation"]
-    ).sum(dim=-1).clamp(-1.0, 1.0)
+        (first["root_orientation"] * second["root_orientation"]).sum(dim=-1).clamp(-1.0, 1.0)
+    )
     component = {
         "root_position": (first["root_position"] - second["root_position"]).square().mean(),
         "root_orientation": (1.0 - orientation_dot.square()).mean(),
@@ -265,8 +261,11 @@ class ResidualTrainingObjective(nn.Module):
     @staticmethod
     def _validate_batch(batch: dict[str, torch.Tensor]) -> None:
         required = {
-            "context",
-            "context_mask",
+            "context_state",
+            "context_action",
+            "context_state_mask",
+            "context_action_mask",
+            "context_boundary",
             "state",
             "action",
             "previous_action",
@@ -280,10 +279,36 @@ class ResidualTrainingObjective(nn.Module):
         if any(not torch.isfinite(batch[name]).all() for name in required):
             raise ValueError("Forward training batch contains non-finite values")
 
+    def _encode_context(
+        self,
+        batch: dict[str, torch.Tensor],
+        *,
+        prefix: str = "",
+        count: int | None = None,
+        zero_values: bool = False,
+    ) -> torch.Tensor:
+        names = {
+            name: f"{prefix}context_{name}"
+            for name in ("state", "action", "state_mask", "action_mask", "boundary")
+        }
+        values = {name: batch[key] for name, key in names.items()}
+        if count is not None:
+            values = {name: value[:count] for name, value in values.items()}
+        if zero_values:
+            values["state"] = torch.zeros_like(values["state"])
+            values["action"] = torch.zeros_like(values["action"])
+        return self.model.encode_context(
+            values["state"],
+            values["action"],
+            values["state_mask"],
+            values["action_mask"],
+            values["boundary"],
+        )
+
     def _model_forward(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
         cfg = self.loss_config
         model = self.model
-        world = model.encode_context(batch["context"], batch["context_mask"])
+        world = self._encode_context(batch)
         state = batch["state"]
         is_nominal = batch["is_nominal"]
         if is_nominal.dtype != torch.bool or is_nominal.shape != (state.size(0),):
@@ -328,22 +353,23 @@ class ResidualTrainingObjective(nn.Module):
         consistency_components: dict[str, torch.Tensor] = {}
         if "nominal_state" in batch:
             required_nominal = {
-                "nominal_context",
-                "nominal_context_mask",
+                "nominal_context_state",
+                "nominal_context_action",
+                "nominal_context_state_mask",
+                "nominal_context_action_mask",
+                "nominal_context_boundary",
             }
             missing_nominal = sorted(required_nominal.difference(batch))
             if missing_nominal:
                 raise KeyError(
-                    "Nominal pair training requires real nominal histories: "
-                    f"{missing_nominal}"
+                    f"Nominal pair training requires real nominal histories: {missing_nominal}"
                 )
             nominal_target = batch["nominal_state"]
             if not torch.isfinite(nominal_target).all():
                 raise ValueError("nominal_state contains non-finite values")
             if nominal_target.ndim != 3 or nominal_target.shape[1:] != state[:, 1:].shape[1:]:
                 raise ValueError(
-                    "nominal_state must be [pair_batch,5,71], got "
-                    f"{tuple(nominal_target.shape)}"
+                    f"nominal_state must be [pair_batch,5,71], got {tuple(nominal_target.shape)}"
                 )
             nominal_pair_count = int(nominal_target.size(0))
             if nominal_pair_count < 1 or nominal_pair_count > state.size(0):
@@ -352,19 +378,17 @@ class ResidualTrainingObjective(nn.Module):
             pair_state = state[:nominal_pair_count, 0]
             pair_previous_action = previous_action[:nominal_pair_count]
             pair_action = action[:nominal_pair_count]
-            nominal_context = batch["nominal_context"][:nominal_pair_count]
-            nominal_context_mask = batch["nominal_context_mask"][:nominal_pair_count]
-            if nominal_context.shape != batch["context"][:nominal_pair_count].shape:
-                raise ValueError(
-                    "nominal_context must match paired source context shape, got "
-                    f"{tuple(nominal_context.shape)} vs "
-                    f"{tuple(batch['context'][:nominal_pair_count].shape)}"
-                )
-            if nominal_context_mask.shape != batch["context_mask"][:nominal_pair_count].shape:
-                raise ValueError("nominal_context_mask must match paired source context mask")
-            if not torch.isfinite(nominal_context).all():
-                raise ValueError("nominal_context contains non-finite values")
-            nominal_world = model.encode_context(nominal_context, nominal_context_mask)
+            for suffix in ("state", "action", "state_mask", "action_mask", "boundary"):
+                nominal_value = batch[f"nominal_context_{suffix}"][:nominal_pair_count]
+                source_value = batch[f"context_{suffix}"][:nominal_pair_count]
+                if nominal_value.shape != source_value.shape:
+                    raise ValueError(
+                        f"nominal_context_{suffix} must match source shape, got "
+                        f"{tuple(nominal_value.shape)} vs {tuple(source_value.shape)}"
+                    )
+                if not torch.isfinite(nominal_value).all():
+                    raise ValueError(f"nominal_context_{suffix} contains non-finite values")
+            nominal_world = self._encode_context(batch, prefix="nominal_", count=nominal_pair_count)
             nominal_pose_delta = model.predict_future(
                 nominal_world,
                 pair_state,
@@ -397,15 +421,13 @@ class ResidualTrainingObjective(nn.Module):
                     )
                 )
             if nominal_source_pair_count:
-                nominal_consistency_loss, consistency_components = (
-                    _pose_consistency_losses(
-                        forward_pose_delta[:nominal_pair_count][source_is_nominal],
-                        nominal_pose_delta[source_is_nominal],
-                        pair_state[source_is_nominal],
-                        state_mean,
-                        state_std,
-                        cfg,
-                    )
+                nominal_consistency_loss, consistency_components = _pose_consistency_losses(
+                    forward_pose_delta[:nominal_pair_count][source_is_nominal],
+                    nominal_pose_delta[source_is_nominal],
+                    pair_state[source_is_nominal],
+                    state_mean,
+                    state_std,
+                    cfg,
                 )
             nominal_pair_loss = cfg.nominal_pair_weight * (
                 nominal_forward_loss
@@ -451,12 +473,8 @@ class ResidualTrainingObjective(nn.Module):
                         state_std,
                         cfg,
                     )
-                    correct_assignment_loss = (
-                        dr_pair_forward_loss + nominal_forward_dr_loss
-                    )
-                    swapped_assignment_loss = (
-                        nominal_world_on_dr_loss + dr_world_on_nominal_loss
-                    )
+                    correct_assignment_loss = dr_pair_forward_loss + nominal_forward_dr_loss
+                    swapped_assignment_loss = nominal_world_on_dr_loss + dr_world_on_nominal_loss
                     nominal_context_swap_ratio = (
                         swapped_assignment_loss / correct_assignment_loss.clamp_min(1e-8)
                     )
@@ -470,9 +488,7 @@ class ResidualTrainingObjective(nn.Module):
             forward_same_domain_context_shuffle_ratio = forward_loss.new_ones(())
             forward_dr_context_shuffle_ratio = forward_loss.new_ones(())
             forward_nominal_context_shuffle_ratio = forward_loss.new_ones(())
-            zero_context_world = model.encode_context(
-                torch.zeros_like(batch["context"]), batch["context_mask"]
-            )
+            zero_context_world = self._encode_context(batch, zero_values=True)
             zero_context_delta = model.predict_future(
                 zero_context_world,
                 state[:, 0],
@@ -596,9 +612,9 @@ class ResidualTrainingObjective(nn.Module):
                         state_std,
                         cfg,
                     )
-                    source_group_metrics[
-                        f"forward_{group_name}_zero_context_ratio"
-                    ] = group_zero_context_loss / group_loss.clamp_min(1e-8)
+                    source_group_metrics[f"forward_{group_name}_zero_context_ratio"] = (
+                        group_zero_context_loss / group_loss.clamp_min(1e-8)
+                    )
 
             horizon_metrics: dict[str, torch.Tensor] = {}
             for index in range(forward_pose_delta.size(1)):
@@ -644,9 +660,7 @@ class ResidualTrainingObjective(nn.Module):
                 nominal_to_nominal_context_latent_rms.detach()
             ),
             "nominal_pair_count": forward_loss.new_tensor(float(nominal_pair_count)),
-            "nominal_source_pair_count": forward_loss.new_tensor(
-                float(nominal_source_pair_count)
-            ),
+            "nominal_source_pair_count": forward_loss.new_tensor(float(nominal_source_pair_count)),
             "dr_source_pair_count": forward_loss.new_tensor(float(dr_source_pair_count)),
             "forward_no_change_loss": no_change_loss,
             "forward_nmse": forward_loss.detach() / no_change_loss.clamp_min(1e-8),
@@ -660,9 +674,7 @@ class ResidualTrainingObjective(nn.Module):
                 forward_same_domain_context_shuffle_ratio
             ),
             "forward_dr_context_shuffle_ratio": forward_dr_context_shuffle_ratio,
-            "forward_nominal_context_shuffle_ratio": (
-                forward_nominal_context_shuffle_ratio
-            ),
+            "forward_nominal_context_shuffle_ratio": (forward_nominal_context_shuffle_ratio),
             **source_group_metrics,
             **horizon_metrics,
         }

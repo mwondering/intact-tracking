@@ -1,4 +1,4 @@
-"""Device-resident causal replay for five-step Forward-model training."""
+"""Device-resident replay with temporal state/action context sequences."""
 
 from __future__ import annotations
 
@@ -142,7 +142,7 @@ class ResidualOnlineNormalization:
 
 
 class ResidualOnlineReplayBuffer:
-    """Causal five-step dynamics windows plus same-world interaction context."""
+    """Five-step query windows plus 160-step same-world interaction histories."""
 
     REQUIRED_FIELDS = (
         "proprio",
@@ -167,9 +167,8 @@ class ResidualOnlineReplayBuffer:
         num_worlds: int,
         dimensions: RolloutDimensions | None = None,
         horizon: int = 5,
-        context_chunk_steps: int = 5,
+        context_steps: int = 160,
         sample_stride: int = 1,
-        context_tokens: int = 16,
         capacity: int = 8192,
         seed: int = 0,
         world_id_offset: int = 0,
@@ -178,7 +177,7 @@ class ResidualOnlineReplayBuffer:
         positive = {
             "num_worlds": num_worlds,
             "horizon": horizon,
-            "context_chunk_steps": context_chunk_steps,
+            "context_steps": context_steps,
             "sample_stride": sample_stride,
             "capacity": capacity,
         }
@@ -187,47 +186,34 @@ class ResidualOnlineReplayBuffer:
             raise ValueError(f"Residual replay arguments must be positive: {invalid}")
         if horizon != 5:
             raise ValueError("Residual replay horizon is fixed to five steps")
-        if context_tokens != 16:
-            raise ValueError("Residual replay context is fixed to 16 tokens")
-        if horizon % context_chunk_steps:
-            raise ValueError("horizon must be divisible by context_chunk_steps")
         if world_id_offset < 0:
             raise ValueError("world_id_offset must be non-negative")
 
         self.num_worlds = int(num_worlds)
         self.dimensions = dimensions or RolloutDimensions()
         self.horizon = int(horizon)
-        self.context_chunk_steps = int(context_chunk_steps)
+        self.context_steps = int(context_steps)
         self.sample_stride = int(sample_stride)
-        self.context_tokens = int(context_tokens)
         self.capacity = int(capacity)
         self.world_id_offset = int(world_id_offset)
         self.device = torch.device(device or "cpu")
-        self._query_context_chunks = self.horizon // self.context_chunk_steps
-        self._context_capacity = self.context_tokens + self._query_context_chunks
-        self.minimum_steps = self.context_tokens * self.context_chunk_steps + self.horizon
+        self._context_capacity = self.context_steps + self.horizon
+        self.minimum_steps = self.context_steps + self.horizon
         self._history_length = self.horizon + 1
         self._world_ids = tuple(range(self.world_id_offset, self.world_id_offset + self.num_worlds))
         self._generator = torch.Generator(device=self.device).manual_seed(seed)
-        self._context_chunk_offsets = torch.arange(
-            self.context_chunk_steps - 1,
-            -1,
-            -1,
-            dtype=torch.long,
-            device=self.device,
-        )
         self._query_offsets = torch.arange(
             self.horizon - 1, -1, -1, dtype=torch.long, device=self.device
         )
         self._sample_context_offsets = torch.arange(
             self._context_capacity - 1,
-            self._query_context_chunks - 1,
+            self.horizon - 1,
             -1,
             dtype=torch.long,
             device=self.device,
         )
         self._latest_context_offsets = torch.arange(
-            self.context_tokens - 1, -1, -1, dtype=torch.long, device=self.device
+            self.context_steps - 1, -1, -1, dtype=torch.long, device=self.device
         )
         self._history: dict[str, torch.Tensor] = {}
         self._reset_history: torch.Tensor | None = None
@@ -267,16 +253,12 @@ class ResidualOnlineReplayBuffer:
     @property
     def estimated_storage_bytes(self) -> int:
         dims = self.dimensions
-        history_width = (
-            dims.proprio
-            + dims.action
-            + 2 * dims.robot_state
-        )
-        context_width = 2 * dims.proprio + self.context_chunk_steps * dims.action
+        history_width = dims.proprio + dims.action + 2 * dims.robot_state
+        context_width = 2 * dims.proprio + dims.action
         sample_width = (
             (self.horizon + 1) * dims.action
             + (self.horizon + 1) * dims.robot_state
-            + self.context_tokens * context_width
+            + self.context_steps * context_width
         )
         floats = (
             self._history_length * self.num_worlds * history_width
@@ -285,8 +267,9 @@ class ResidualOnlineReplayBuffer:
         )
         integers = (
             3 * self._history_length * self.num_worlds
+            + self._context_capacity * self.num_worlds
             + self.num_worlds
-            + 4 * self.capacity
+            + (4 + self.context_steps) * self.capacity
         )
         boundary_flags = self._history_length * self.num_worlds + self.capacity
         return 4 * floats + 8 * integers + boundary_flags
@@ -309,10 +292,9 @@ class ResidualOnlineReplayBuffer:
         self._reset_history = torch.zeros(hp, dtype=torch.bool, device=self.device)
         self._context = {
             "before": torch.zeros((*cp, dims.proprio), device=self.device),
-            "actions": torch.zeros(
-                (*cp, self.context_chunk_steps, dims.action), device=self.device
-            ),
+            "action": torch.zeros((*cp, dims.action), device=self.device),
             "after": torch.zeros((*cp, dims.proprio), device=self.device),
+            "episode_id": torch.full(cp, -1, dtype=torch.long, device=self.device),
         }
         self._context_counts = torch.zeros(self.num_worlds, dtype=torch.long, device=self.device)
         self._samples = {
@@ -322,14 +304,16 @@ class ResidualOnlineReplayBuffer:
                 (self.capacity, self.horizon + 1, dims.robot_state), device=self.device
             ),
             "context_before": torch.empty(
-                (self.capacity, self.context_tokens, dims.proprio), device=self.device
+                (self.capacity, self.context_steps, dims.proprio), device=self.device
             ),
-            "context_actions": torch.empty(
-                (self.capacity, self.context_tokens, self.context_chunk_steps, dims.action),
-                device=self.device,
+            "context_action": torch.empty(
+                (self.capacity, self.context_steps, dims.action), device=self.device
             ),
             "context_after": torch.empty(
-                (self.capacity, self.context_tokens, dims.proprio), device=self.device
+                (self.capacity, self.context_steps, dims.proprio), device=self.device
+            ),
+            "context_episode_id": torch.empty(
+                (self.capacity, self.context_steps), dtype=torch.long, device=self.device
             ),
             "world_id": torch.empty(self.capacity, dtype=torch.long, device=self.device),
             "is_nominal": torch.empty(self.capacity, dtype=torch.bool, device=self.device),
@@ -385,19 +369,17 @@ class ResidualOnlineReplayBuffer:
     def _append_context(
         self,
         batch: dict[str, torch.Tensor],
-        history_position: int,
         valid: torch.Tensor,
     ) -> None:
         assert self._context_counts is not None
         env_ids = valid.nonzero(as_tuple=False).flatten()
         if env_ids.numel() == 0:
             return
-        time_ids = (history_position - self._context_chunk_offsets).remainder(self._history_length)
         slots = self._context_counts[env_ids].remainder(self._context_capacity)
-        self._context["before"][env_ids, slots] = self._history["proprio"][time_ids[0], env_ids]
-        actions = self._history["action"][time_ids[:, None], env_ids[None, :]].permute(1, 0, 2)
-        self._context["actions"][env_ids, slots] = actions
+        self._context["before"][env_ids, slots] = batch["proprio"][env_ids]
+        self._context["action"][env_ids, slots] = batch["action"][env_ids]
         self._context["after"][env_ids, slots] = batch["next_proprio"][env_ids]
+        self._context["episode_id"][env_ids, slots] = batch["episode_id"][env_ids]
         self._context_counts[env_ids] += 1
 
     def _append_samples(self, samples: dict[str, torch.Tensor], count: int) -> None:
@@ -454,8 +436,9 @@ class ResidualOnlineReplayBuffer:
             "previous_action": previous,
             "state": states,
             "context_before": self._context["before"][context_envs, context_slots],
-            "context_actions": self._context["actions"][context_envs, context_slots],
+            "context_action": self._context["action"][context_envs, context_slots],
             "context_after": self._context["after"][context_envs, context_slots],
+            "context_episode_id": self._context["episode_id"][context_envs, context_slots],
             "world_id": batch["world_id"][env_ids],
             "is_nominal": batch["is_nominal"][env_ids],
             "episode_id": batch["episode_id"][env_ids],
@@ -476,15 +459,7 @@ class ResidualOnlineReplayBuffer:
         assert self._reset_history is not None
         self._reset_history[position].copy_(batch["reset_boundary"])
         completed = batch["episode_step"] + 1
-        context_time_ids = (position - self._context_chunk_offsets).remainder(self._history_length)
-        context_crosses_reset = self._reset_history[context_time_ids].any(dim=0)
-        context_valid = (
-            (completed.remainder(self.context_chunk_steps) == 0)
-            & (completed >= self.context_chunk_steps)
-            & ~context_crosses_reset
-            & ~batch["reset_boundary"]
-        )
-        self._append_context(batch, position, context_valid)
+        self._append_context(batch, ~batch["reset_boundary"])
         assert self._context_counts is not None
         query_time_ids = (position - self._query_offsets).remainder(self._history_length)
         query_crosses_reset = self._reset_history[query_time_ids].any(dim=0)
@@ -526,8 +501,8 @@ class ResidualOnlineReplayBuffer:
         self,
         normalization: ResidualNormalizationStats,
         env_ids: torch.Tensor | None = None,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Return normalized context before the next action and a ready mask."""
+    ) -> tuple[dict[str, torch.Tensor], torch.Tensor]:
+        """Return normalized temporal context before the next action and a ready mask."""
         self._allocate()
         assert self._context_counts is not None
         if env_ids is None:
@@ -539,22 +514,44 @@ class ResidualOnlineReplayBuffer:
         ).remainder(self._context_capacity)
         envs = env_ids[:, None].expand_as(slots)
         before = self._context["before"][envs, slots]
-        actions = self._context["actions"][envs, slots]
+        actions = self._context["action"][envs, slots]
         after = self._context["after"][envs, slots]
+        episode_ids = self._context["episode_id"][envs, slots]
         prop_mean, prop_std, action_mean, action_std, _, _ = self._normalization_tensors(
             normalization, self.device
         )
-        context = torch.cat(
-            (
-                (before - prop_mean) / prop_std,
-                ((actions - action_mean) / action_std).flatten(start_dim=2),
-                (after - prop_mean) / prop_std,
-            ),
-            dim=-1,
+        states, boundaries = self._temporal_states_and_boundaries(
+            (before - prop_mean) / prop_std,
+            (after - prop_mean) / prop_std,
+            episode_ids,
         )
-        ready = self._context_counts[env_ids] >= self.context_tokens
-        context = torch.where(ready[:, None, None], context, torch.zeros_like(context))
-        return context, ready
+        actions = (actions - action_mean) / action_std
+        ready = self._context_counts[env_ids] >= self.context_steps
+        state_mask = ready[:, None].expand(-1, self.context_steps + 1)
+        action_mask = ready[:, None].expand(-1, self.context_steps)
+        states = torch.where(state_mask[..., None], states, torch.zeros_like(states))
+        actions = torch.where(action_mask[..., None], actions, torch.zeros_like(actions))
+        return {
+            "context_state": states,
+            "context_action": actions,
+            "context_state_mask": state_mask,
+            "context_action_mask": action_mask,
+            "context_boundary": boundaries & state_mask,
+        }, ready
+
+    @staticmethod
+    def _temporal_states_and_boundaries(
+        before: torch.Tensor,
+        after: torch.Tensor,
+        episode_ids: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Build ``S0...S_T`` and mark discontinuities between retained episodes."""
+
+        states = torch.cat((before, after[:, -1:]), dim=1)
+        boundaries = torch.zeros(states.shape[:2], dtype=torch.bool, device=states.device)
+        boundaries[:, 0] = True
+        boundaries[:, 1:-1] = episode_ids[:, 1:] != episode_ids[:, :-1]
+        return states, boundaries
 
     def _sample_indices(
         self,
@@ -566,19 +563,28 @@ class ResidualOnlineReplayBuffer:
         prop_mean, prop_std, action_mean, action_std, state_mean, state_std = (
             self._normalization_tensors(normalization, self.device)
         )
-        context = torch.cat(
-            (
-                (selected["context_before"] - prop_mean) / prop_std,
-                ((selected["context_actions"] - action_mean) / action_std).flatten(start_dim=2),
-                (selected["context_after"] - prop_mean) / prop_std,
-            ),
-            dim=-1,
+        context_state, context_boundary = self._temporal_states_and_boundaries(
+            (selected["context_before"] - prop_mean) / prop_std,
+            (selected["context_after"] - prop_mean) / prop_std,
+            selected["context_episode_id"],
         )
+        context_action = (selected["context_action"] - action_mean) / action_std
         return {
-            "context": context,
-            "context_mask": torch.ones(
-                batch_size, self.context_tokens, dtype=torch.bool, device=self.device
+            "context_state": context_state,
+            "context_action": context_action,
+            "context_state_mask": torch.ones(
+                batch_size,
+                self.context_steps + 1,
+                dtype=torch.bool,
+                device=self.device,
             ),
+            "context_action_mask": torch.ones(
+                batch_size,
+                self.context_steps,
+                dtype=torch.bool,
+                device=self.device,
+            ),
+            "context_boundary": context_boundary,
             "action": (selected["action"] - action_mean) / action_std,
             "previous_action": (selected["previous_action"] - action_mean) / action_std,
             "state": (selected["state"] - state_mean) / state_std,
@@ -611,8 +617,14 @@ class ResidualOnlineReplayBuffer:
         if include_nominal_context:
             nominal_indices = self._sample_nominal_indices(indices)
             nominal = self._sample_indices(nominal_indices, normalization)
-            batch["nominal_context"] = nominal["context"]
-            batch["nominal_context_mask"] = nominal["context_mask"]
+            for name in (
+                "context_state",
+                "context_action",
+                "context_state_mask",
+                "context_action_mask",
+                "context_boundary",
+            ):
+                batch[f"nominal_{name}"] = nominal[name]
             batch["nominal_context_world_id"] = nominal["world_id"]
         return batch
 
@@ -620,9 +632,7 @@ class ResidualOnlineReplayBuffer:
         """Choose real nominal-history contexts, avoiding the query itself when possible."""
         if not self._samples or self._size == 0:
             raise RuntimeError("Residual replay has no samples")
-        candidates = self._samples["is_nominal"][: self._size].nonzero(
-            as_tuple=False
-        ).flatten()
+        candidates = self._samples["is_nominal"][: self._size].nonzero(as_tuple=False).flatten()
         if candidates.numel() == 0:
             raise RuntimeError(
                 "Residual replay has no nominal interaction context; collect nominal worlds first"

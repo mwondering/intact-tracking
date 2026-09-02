@@ -5,27 +5,35 @@
 ## 活动计算图
 
 ```text
-16-token history context -> Context Encoder -> world latent z
-                                                    |
-current 71-D state + previous action + five actions v
-                                      Forward Predictor
-                                             |
-                           five non-chained pose deltas
-                                             |
-                          true simulator states t+1...t+5
-                                             |
-                                      Forward pose loss
+160-step history -> S0,A0,...,S160,[ENV] -> Temporal Context Encoder -> world latent z
+                                                                          |
+                   current 71-D state + previous action + five actions    v
+                                                            Forward Predictor
+                                                                   |
+                                                 five non-chained pose deltas
+                                                                   |
+                                                true simulator states t+1...t+5
+                                                                   |
+                                                            Forward pose loss
 ```
 
 仿真动作始终由冻结的 tracker 产生，训练期间不存在 residual action，也不存在 policy optimizer。因此 Forward 更新不会改变数据采集策略。
 
-每个 context token 仍为：
+Context 不再把五步 transition 压入一个宽 token。每个历史控制步保留一个 state 和一个
+action，按真实时间交错排列：
 
 ```text
-[proprio_before, five executed tracker actions, proprio_after]
+S0, A0, S1, A1, ..., S160, [ENV]
 ```
 
-每条 query 使用同一物理 world 中、严格早于 query 的 16 个 token。Reset boundary 不进入五步 query；reset 后的真实状态可以作为新 query 起点，context 不因 motion reset 清空。
+State 与 action 使用独立投影和 token-type embedding；末尾 `[ENV]` token 在 causal attention
+下汇总整段历史，替代平均池化。默认 160 个历史 transition，是旧版 80 步窗口的两倍；完整
+Transformer 序列长度为 322。默认 Transformer 为 408 维、5 层、8 头，主干约 10.014M
+参数；State/Action 投影和 `[ENV]` 聚合层位于主干之外。
+
+每条 query 使用同一物理 world 中、严格早于 query 的历史。Reset boundary 不进入五步 query；
+reset 后的真实状态可以作为新 query 起点，context 不因 motion reset 清空。跨 episode 的第一个
+state 带有 boundary embedding，防止把 reset 跳变解释成 action response。
 
 ## 当前 Forward 目标
 
@@ -77,7 +85,7 @@ current 71-D state + previous action + five actions v
 - `forward_source_nominal_loss/nmse`：在线 nominal world 的真实预测能力；
 - `forward_source_dr_loss/nmse`：在线 DR world 的真实预测能力；
 - `forward_horizon_1...5_loss/nmse`：逐预测步误差，尤其先看 horizon 1；
-- `forward_nominal/dr_zero_context_ratio`：把 context token 置零后的损失比；
+- `forward_nominal/dr_zero_context_ratio`：把 context state/action 置零后的损失比；
 - `forward_nominal_context_shuffle_ratio`：nominal history 互换后的损失比；
 - `forward_dr_context_shuffle_ratio`：不同 DR history 互换后的损失比；
 - `nominal_effect_nmse`：DR effect 预测相对“预测无 DR effect”的 NMSE；

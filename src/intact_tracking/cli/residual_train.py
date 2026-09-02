@@ -100,9 +100,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--model-learning-rate", type=float, default=3.0e-4)
     parser.add_argument("--weight-decay", type=float, default=1.0e-3)
     parser.add_argument("--gradient-clip", type=float, default=1.0)
-    parser.add_argument("--context-dim", type=int, default=192)
-    parser.add_argument("--context-depth", type=int, default=2)
-    parser.add_argument("--context-heads", type=int, default=4)
+    parser.add_argument("--context-steps", type=int, default=160)
+    parser.add_argument("--context-dim", type=int, default=408)
+    parser.add_argument("--context-depth", type=int, default=5)
+    parser.add_argument("--context-heads", type=int, default=8)
     parser.add_argument("--hidden-dim", type=int, default=512)
     parser.add_argument("--forward-depth", type=int, default=2)
 
@@ -147,6 +148,7 @@ def _validate_arguments(args: argparse.Namespace) -> None:
         "log_interval",
         "warmup_log_interval",
         "metric_window",
+        "context_steps",
         "context_dim",
         "context_depth",
         "context_heads",
@@ -407,8 +409,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                     horizon=5,
                     restore_atol=args.nominal_restore_atol,
                     failure_log_file=str(
-                        output_dir
-                        / f"nominal_repeat_failures_rank_{distributed.rank}.jsonl"
+                        output_dir / f"nominal_repeat_failures_rank_{distributed.rank}.jsonl"
                     ),
                 )
             )
@@ -419,9 +420,8 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         num_worlds=args.num_envs,
         dimensions=dimensions,
         horizon=5,
-        context_chunk_steps=5,
+        context_steps=args.context_steps,
         sample_stride=args.sample_stride,
-        context_tokens=16,
         capacity=args.replay_capacity,
         seed=rank_seed,
         world_id_offset=world_id_offset,
@@ -432,8 +432,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         action_dim=dimensions.action,
         state_dim=dimensions.robot_state,
         horizon=5,
-        context_chunk_steps=5,
-        context_tokens=16,
+        context_steps=args.context_steps,
         context_dim=args.context_dim,
         context_depth=args.context_depth,
         context_heads=args.context_heads,
@@ -452,6 +451,18 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
     loss_weights = _loss_weight_payload(loss_config)
     model = ResidualTrackingModel(model_config).to(device)
     objective = ResidualTrainingObjective(model, loss_config)
+    parameter_counts = {
+        "context_encoder": sum(
+            parameter.numel() for parameter in model.context_encoder.parameters()
+        ),
+        "context_transformer": sum(
+            parameter.numel() for parameter in model.context_encoder.transformer.parameters()
+        ),
+        "forward_predictor": sum(
+            parameter.numel() for parameter in model.forward_predictor.parameters()
+        ),
+        "total": sum(parameter.numel() for parameter in model.parameters()),
+    }
     training_module: torch.nn.Module
     if distributed.enabled:
         ddp_options: dict[str, Any] = {
@@ -488,7 +499,10 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             },
             "excluded_branches": ["backward_predictor", "residual_policy", "tracking_loss"],
             "optimization_schedule": "one Forward-only replay optimizer",
-            "context": "16 x [proprio_before, five total commands, proprio_after]",
+            "context": (
+                f"{args.context_steps} causal transitions serialized as "
+                "S0,A0,...,S_T,[ENV]; state/action use separate token projections"
+            ),
             "forward": "causal GRU over five action prefixes; predicts five non-chained pose deltas from the current state",
             "nominal_pair": (
                 "collect real interaction contexts from half nominal and half fixed-DR "
@@ -501,6 +515,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         },
         "arguments": vars(args),
         "model": asdict(model_config),
+        "parameter_counts": parameter_counts,
         "loss": asdict(loss_config),
         "loss_weights": loss_weights,
         "rollout": rollout.metadata,
@@ -518,8 +533,8 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             "estimated_storage_bytes_per_rank": replay.estimated_storage_bytes,
             "minimum_steps": replay.minimum_steps,
             "horizon": 5,
-            "context_tokens": 16,
-            "context_chunk_steps": 5,
+            "context_steps": args.context_steps,
+            "context_sequence_length": model_config.context_sequence_length,
         },
     }
     _main_process_call(distributed, lambda: _write_json(output_dir / "run_config.json", run_config))
@@ -571,9 +586,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
     try:
         warmup_started = time.monotonic()
         while True:
-            nominal_ready = (
-                nominal_rollout is None or replay.nominal_sample_count >= 2
-            )
+            nominal_ready = nominal_rollout is None or replay.nominal_sample_count >= 2
             ready = (
                 rollout.collector_step >= args.warmup_steps
                 and len(replay) >= args.batch_size
@@ -640,15 +653,11 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                     state_std = train_batch["state_std"]
                     action_mean = train_batch["action_mean"]
                     action_std = train_batch["action_std"]
-                    physical_state = (
-                        train_batch["state"][:pair_count, 0] * state_std + state_mean
-                    )
+                    physical_state = train_batch["state"][:pair_count, 0] * state_std + state_mean
                     physical_previous_action = (
                         train_batch["previous_action"][:pair_count] * action_std + action_mean
                     )
-                    physical_actions = (
-                        train_batch["action"][:pair_count] * action_std + action_mean
-                    )
+                    physical_actions = train_batch["action"][:pair_count] * action_std + action_mean
                     with torch.inference_mode():
                         nominal_state, nominal_metrics = nominal_rollout.rollout(
                             physical_state,
@@ -658,9 +667,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                             motion_steps=train_batch["motion_step"][:pair_count],
                             motion_files=rollout.motion_files,
                         )
-                    train_batch["nominal_state"] = (
-                        nominal_state - state_mean
-                    ) / state_std
+                    train_batch["nominal_state"] = (nominal_state - state_mean) / state_std
                 model_optimizer.zero_grad(set_to_none=True)
                 model_output = training_module(train_batch, phase="model")
                 if not isinstance(model_output, dict) or not torch.isfinite(model_output["loss"]):
