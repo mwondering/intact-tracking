@@ -1,5 +1,7 @@
 """INTACT for context-conditioned humanoid tracking."""
 
+from .forward_predictor import ForwardDynamicsMLP, ForwardPredictorConfig
+from .forward_predictor_objective import ForwardPredictorLossConfig, ForwardPredictorObjective
 from .model import TrackingINTACT, TrackingINTACTConfig
 from .objective import INTACTLossConfig, intact_objective
 from .residual_model import (
@@ -12,6 +14,10 @@ from .residual_objective import ResidualLossConfig
 
 __all__ = [
     "INTACTLossConfig",
+    "ForwardDynamicsMLP",
+    "ForwardPredictorConfig",
+    "ForwardPredictorLossConfig",
+    "ForwardPredictorObjective",
     "ResidualLossConfig",
     "ResidualTrackingConfig",
     "ResidualTrackingModel",

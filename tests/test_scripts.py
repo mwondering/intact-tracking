@@ -233,3 +233,84 @@ def test_deprecated_residual_launcher_forwards_to_nominal_forward(tmp_path: Path
     assert "run_residual_training.sh is deprecated" in result.stderr
     assert arguments[arguments.index("--nominal-rollout-fraction") + 1] == "1.0"
     assert arguments[arguments.index("--nominal-pair-batch-size") + 1] == "0"
+
+
+def test_forward_predictor_launcher_builds_locked_recursive_mlp_command(
+    tmp_path: Path,
+) -> None:
+    checkpoint, motion = _launcher_inputs(tmp_path)
+    output = tmp_path / "predictor-output"
+    captured_args = tmp_path / "predictor-args"
+    captured_env = tmp_path / "predictor-environment"
+    environment = {
+        **os.environ,
+        "PYTHON_BIN": str(_fake_python(tmp_path)),
+        "GPUS": "1,3",
+        "CAPTURE_ARGS": str(captured_args),
+        "CAPTURE_ENV": str(captured_env),
+    }
+
+    subprocess.run(
+        [
+            str(REPOSITORY / "scripts/run_forward_predictor_training.sh"),
+            str(checkpoint),
+            str(motion),
+            str(output),
+            "--updates",
+            "2",
+            "--wandb-name",
+            "predictor-test",
+        ],
+        cwd=REPOSITORY,
+        env=environment,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    arguments = captured_args.read_text().splitlines()
+    assert captured_env.read_text().strip() == "1,3"
+    assert arguments[:7] == [
+        "-m",
+        "torch.distributed.run",
+        "--standalone",
+        "--nproc-per-node",
+        "2",
+        "-m",
+        "intact_tracking.cli.forward_predictor_train",
+    ]
+    assert _last_option_value(arguments, "--num-envs") == "2048"
+    assert _last_option_value(arguments, "--batch-size") == "768"
+    assert _last_option_value(arguments, "--gradient-steps-per-update") == "4"
+    assert _last_option_value(arguments, "--rollout-steps-per-update") == "5"
+    assert _last_option_value(arguments, "--hidden-dim") == "800"
+    assert _last_option_value(arguments, "--residual-blocks") == "8"
+
+
+def test_forward_predictor_launcher_rejects_architecture_override(tmp_path: Path) -> None:
+    checkpoint, motion = _launcher_inputs(tmp_path)
+    environment = {
+        **os.environ,
+        "PYTHON_BIN": str(_fake_python(tmp_path)),
+        "CAPTURE_ARGS": str(tmp_path / "args"),
+        "CAPTURE_ENV": str(tmp_path / "environment"),
+    }
+
+    result = subprocess.run(
+        [
+            str(REPOSITORY / "scripts/run_forward_predictor_training.sh"),
+            str(checkpoint),
+            str(motion),
+            str(tmp_path / "output"),
+            "--hidden-dim",
+            "64",
+        ],
+        cwd=REPOSITORY,
+        env=environment,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert "fixed by the Forward Predictor launcher" in result.stderr

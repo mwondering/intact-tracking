@@ -45,6 +45,7 @@ class WandbLogger:
         self.run.define_metric("update")
         self.run.define_metric("optimizer_steps")
         self.run.define_metric("train/*", step_metric="update")
+        self.run.define_metric("fixed_probe/*", step_metric="update")
         self.run.define_metric("tracking/*", step_metric="update")
         self.run.define_metric("optimization/*", step_metric="update")
         self.run.define_metric("replay/*", step_metric="update")

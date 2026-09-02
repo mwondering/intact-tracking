@@ -2,6 +2,11 @@
 
 from .dataset import NormalizationStats, RolloutWindowDataset, split_world_ids
 from .online import OnlineNormalization, OnlineReplayBuffer
+from .predictor_online import (
+    ForwardPredictorNormalization,
+    ForwardPredictorNormalizationStats,
+    ForwardPredictorReplayBuffer,
+)
 from .residual_online import (
     ResidualNormalizationStats,
     ResidualOnlineNormalization,
@@ -12,6 +17,9 @@ from .writer import RolloutShardWriter
 
 __all__ = [
     "NormalizationStats",
+    "ForwardPredictorNormalization",
+    "ForwardPredictorNormalizationStats",
+    "ForwardPredictorReplayBuffer",
     "OnlineNormalization",
     "OnlineReplayBuffer",
     "ResidualNormalizationStats",

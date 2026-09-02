@@ -200,14 +200,34 @@ motion 计数。每条记录还在 `window` 中保存最近 `metric-window` 轮�
 - `history.json`：所有 update 的结构化记录；
 - `train.log`：正式脚本捕获的完整终端输出。
 
-## Context-conditioned Forward-only 训练
+## Nominal recursive Forward Predictor 训练
 
-当前入口已经移除 Backward Predictor、Residual Policy 与 Tracking loss，只训练一个统一的
+当前主实验先隔离 Predictor 能力：不构造 Context Encoder 或 Transformer，只训练一个约
+10.4M 参数的残差 MLP。它根据当前 71 维完整状态与当前 29 维 tracker action 预测 70 维
+full-state delta，并把自己的预测状态递归回灌五次。位置、姿态、线速度、角速度、关节位置和
+关节速度均在五个 horizon 上参与 loss。
+
+```bash
+GPUS=0,1 ./scripts/run_forward_predictor_training.sh \
+  /path/to/checkpoint.pt \
+  /path/to/motion_directory \
+  /path/to/runs/forward_predictor \
+  --wandb-name forward-predictor-nominal
+```
+
+脚本固定 nominal physics、宽度 800、8 个 residual block 和五步递推；默认每卡 2048 个环境、
+batch 768，每轮采集 5 步并执行 4 次梯度更新。state/action/delta normalization 在 warmup 后
+冻结。首次运行应先增加 `--fixed-batch-overfit`，确认同一批数据可以被拟合到接近零误差。
+完整契约见 [Nominal Forward Predictor flow](docs/forward_predictor_training.md)。
+
+## 旧版 Context-conditioned Forward-only 训练
+
+旧实验入口已经移除 Backward Predictor、Residual Policy 与 Tracking loss，只训练一个统一的
 history-to-future causal Transformer。冻结的 SPV5-2 tracker 是唯一控制器，因此训练不会改变
 在线采样策略。模型联合读取历史 interaction、当前 71 维状态、previous action 和连续五步
 tracker action，预测五个非链式 pose delta。
 
-当前训练阶段只运行 nominal Forward 基线，单独确认模型本身的预测能力：
+该入口保留用于与统一 Transformer 基线比较：
 
 ```bash
 GPUS=0,1 ./scripts/run_forward_nominal_training.sh \
