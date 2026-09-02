@@ -144,7 +144,7 @@ printf '%s\n' \
   "Training contract: nominal flat-history Forward Predictor v2" \
   "  model: flat 5-frame history + current state/action -> 70-D delta, ~20.14M" \
   "  rollout: one shared residual MLP recursively applied for 5 steps" \
-  "  loss: teacher-forced one-step Huber + scheduled recursive five-step Huber" \
+  "  loss: teacher-forced one-step Huber + fixed-weight recursive five-step Huber" \
   "  replay: motion-balanced, 262144 samples per rank by default" \
   "  normalization: frozen after warmup" \
   "  context/transformer/policy/backward: disabled" \

@@ -25,6 +25,8 @@ from .forward_predictor import (
     physical_state_delta,
 )
 
+DEFAULT_RECURSIVE_WEIGHT = 0.5
+
 
 @dataclass(frozen=True)
 class ForwardPredictorLossConfig:
@@ -187,7 +189,7 @@ class ForwardPredictorObjective(nn.Module):
     def forward(
         self,
         batch: dict[str, torch.Tensor],
-        recursive_weight: float = 0.0,
+        recursive_weight: float = DEFAULT_RECURSIVE_WEIGHT,
     ) -> dict[str, torch.Tensor]:
         self._validate_batch(batch)
         if recursive_weight < 0.0:

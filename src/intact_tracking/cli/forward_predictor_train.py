@@ -25,6 +25,7 @@ from intact_tracking.data import (
 from intact_tracking.distributed import DistributedContext
 from intact_tracking.forward_predictor import ForwardDynamicsMLP, ForwardPredictorConfig
 from intact_tracking.forward_predictor_objective import (
+    DEFAULT_RECURSIVE_WEIGHT,
     ForwardPredictorLossConfig,
     ForwardPredictorObjective,
 )
@@ -84,9 +85,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--hidden-dim", type=int, default=1100)
     parser.add_argument("--residual-blocks", type=int, default=8)
     parser.add_argument("--huber-delta", type=float, default=1.0)
-    parser.add_argument("--recursive-warmup-optimizer-steps", type=int, default=5_000)
-    parser.add_argument("--recursive-ramp-optimizer-steps", type=int, default=15_000)
-    parser.add_argument("--recursive-max-weight", type=float, default=0.5)
+    parser.add_argument(
+        "--recursive-weight",
+        type=float,
+        default=DEFAULT_RECURSIVE_WEIGHT,
+        help="Constant five-step recursive-loss weight used from the first optimizer step.",
+    )
 
     parser.add_argument("--root-position-weight", type=float, default=1.0)
     parser.add_argument("--root-orientation-weight", type=float, default=1.0)
@@ -138,10 +142,6 @@ def _validate_arguments(args: argparse.Namespace) -> None:
         raise ValueError("replay-capacity must fit both training and fixed-probe batches")
     if args.rollout_steps_per_update != 5:
         raise ValueError("Forward Predictor collection requires rollout-steps-per-update=5")
-    if args.recursive_warmup_optimizer_steps < 0:
-        raise ValueError("recursive-warmup-optimizer-steps must be non-negative")
-    if args.recursive_ramp_optimizer_steps < 1:
-        raise ValueError("recursive-ramp-optimizer-steps must be positive")
     if args.history_steps != 5:
         raise ValueError("Forward Predictor history-steps is fixed to five")
     for name in ("model_learning_rate", "gradient_clip", "huber_delta"):
@@ -155,7 +155,7 @@ def _validate_arguments(args: argparse.Namespace) -> None:
         "root_angular_velocity_weight",
         "joint_position_weight",
         "joint_velocity_weight",
-        "recursive_max_weight",
+        "recursive_weight",
     ):
         if getattr(args, name) < 0.0:
             raise ValueError(f"{name.replace('_', '-')} must be non-negative")
@@ -231,19 +231,6 @@ def _gradient_norm(parameters: list[torch.nn.Parameter]) -> float:
 
 def _loss_weight_payload(config: ForwardPredictorLossConfig) -> dict[str, float]:
     return {name: float(value) for name, value in asdict(config).items()}
-
-
-def _recursive_loss_weight(
-    optimizer_steps: int,
-    *,
-    warmup_steps: int,
-    ramp_steps: int,
-    maximum: float,
-) -> float:
-    if optimizer_steps <= warmup_steps:
-        return 0.0
-    progress = min((optimizer_steps - warmup_steps) / float(ramp_steps), 1.0)
-    return float(maximum) * progress
 
 
 def _wandb_payload(record: dict[str, Any]) -> dict[str, Any]:
@@ -432,11 +419,9 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             "history_steps": args.history_steps,
             "sampling": args.replay_sampling,
         },
-        "curriculum": {
+        "objective_weights": {
             "teacher_forced_weight": 1.0,
-            "recursive_warmup_optimizer_steps": args.recursive_warmup_optimizer_steps,
-            "recursive_ramp_optimizer_steps": args.recursive_ramp_optimizer_steps,
-            "recursive_max_weight": args.recursive_max_weight,
+            "recursive_weight": args.recursive_weight,
         },
     }
     _main_process_call(distributed, lambda: _write_json(output_dir / "run_config.json", run_config))
@@ -563,16 +548,10 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                     if fixed_train_batch is not None
                     else replay.sample_batch(args.batch_size, normalization)
                 )
-                recursive_weight = _recursive_loss_weight(
-                    optimizer_steps,
-                    warmup_steps=args.recursive_warmup_optimizer_steps,
-                    ramp_steps=args.recursive_ramp_optimizer_steps,
-                    maximum=args.recursive_max_weight,
-                )
                 optimizer.zero_grad(set_to_none=True)
                 model_output = training_module(
                     train_batch,
-                    recursive_weight=recursive_weight,
+                    recursive_weight=args.recursive_weight,
                 )
                 if not isinstance(model_output, dict) or not torch.isfinite(model_output["loss"]):
                     raise RuntimeError(
@@ -603,17 +582,11 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             train = distributed.mean_scalars(local_train)
             model.eval()
             with torch.inference_mode():
-                probe_recursive_weight = _recursive_loss_weight(
-                    optimizer_steps,
-                    warmup_steps=args.recursive_warmup_optimizer_steps,
-                    ramp_steps=args.recursive_ramp_optimizer_steps,
-                    maximum=args.recursive_max_weight,
-                )
                 local_probe = {
                     name: float(value.detach())
                     for name, value in objective(
                         fixed_probe_batch,
-                        recursive_weight=probe_recursive_weight,
+                        recursive_weight=args.recursive_weight,
                     ).items()
                     if value.numel() == 1
                 }

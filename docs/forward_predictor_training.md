@@ -33,7 +33,7 @@ quaternion delta。五步 loss 同时监督 pose 和 velocity；后续 tracking 
 pose。五步状态误差统一换算成 70 维物理 state-delta error，并按 warmup 得到的 one-step
 delta standard deviation 逐维缩放，避免绝对 root 轨迹范围掩盖局部预测误差。
 
-## 两阶段损失
+## 固定权重的双分支损失
 
 每个 batch 同时构造两条共享参数的计算图：
 
@@ -41,12 +41,12 @@ delta standard deviation 逐维缩放，避免绝对 root 轨迹范围掩盖局�
 teacher-forced：每一步使用真实 x_t 预测 x_t+1
 recursive：     从真实 x_0 出发，把预测状态递推五步
 
-L = L_teacher + lambda_recursive * L_recursive
+L = L_teacher + 0.5 * L_recursive
 ```
 
-两项均使用 normalized state-delta Huber loss。前 5000 个 optimizer step 仅优化 teacher
-分支；随后用 15000 步把 recursive weight 从 0 线性增加到 0.5，并始终保留 teacher loss，
-避免长程误差破坏一步动力学。
+两项均使用 normalized state-delta Huber loss，并从第一个 optimizer step 起共同优化。teacher
+权重固定为 1.0，recursive 权重默认固定为 0.5；可以通过 `--recursive-weight` 显式修改，
+训练过程不再使用 warmup 或线性爬坡课程。
 
 ## 数据与归一化
 
@@ -86,7 +86,7 @@ GPUS=0,1 ./scripts/run_forward_predictor_training.sh \
 
 - `train/rollout_loss`、`train/rollout_nmse`：五步完整状态误差及相对 no-change baseline；
 - `train/teacher_loss`、`train/teacher_nmse`：使用真实输入状态的一步动力学质量；
-- `train/recursive_weight`：当前 curriculum 的五步递推权重；
+- `train/recursive_weight`：固定的五步递推权重，默认 0.5；
 - `train/horizon_1...5_loss/nmse`：误差是否随递推累积；
 - `train/root_position_error_m`、`root_orientation_error_rad`：root 物理误差；
 - `train/*_p95_*`、`train/*_p99_*`：长尾误差是否主导训练；

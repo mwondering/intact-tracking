@@ -217,9 +217,9 @@ GPUS=0,1 ./scripts/run_forward_predictor_training.sh \
 
 脚本固定 nominal physics、宽度 1100、8 个 residual block 和五步递推；默认每卡 2048 个
 环境、batch 2048、motion-balanced replay 262144。训练先优化 teacher-forced 一步 Huber
-loss，再逐渐加入权重最高 0.5 的五步递推 Huber loss。state/action/delta normalization 在
-warmup 后冻结。首次运行应先增加 `--fixed-batch-overfit`，确认同一批数据可以被拟合到接近
-零误差。
+loss 和固定权重 0.5 的五步递推 Huber loss，两项从第一个 optimizer step 起共同优化。
+state/action/delta normalization 在 warmup 后冻结。首次运行应先增加
+`--fixed-batch-overfit`，确认同一批数据可以被拟合到接近零误差。
 完整契约见 [Nominal Forward Predictor flow](docs/forward_predictor_training.md)。
 
 ## 旧版 Context-conditioned Forward-only 训练

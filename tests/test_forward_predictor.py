@@ -3,7 +3,6 @@ from __future__ import annotations
 import torch
 
 from intact_tracking.cli.forward_predictor_train import (
-    _recursive_loss_weight,
     _validate_arguments,
     build_parser,
 )
@@ -151,6 +150,7 @@ def test_five_step_objective_is_zero_for_exact_recursive_trajectory() -> None:
     output = objective(batch)
 
     assert output["loss"].item() < 1.0e-10
+    assert output["recursive_weight"].item() == 0.5
     assert output["rollout_nmse"].item() < 1.0e-8
     for step in range(1, 6):
         assert output[f"horizon_{step}_loss"].item() < 1.0e-10
@@ -370,15 +370,4 @@ def test_forward_predictor_cli_defaults_to_recursive_nominal_training() -> None:
     assert args.hidden_dim == 1100
     assert args.residual_blocks == 8
     assert args.rollout_steps_per_update == 5
-    assert args.recursive_warmup_optimizer_steps == 5_000
-    assert args.recursive_ramp_optimizer_steps == 15_000
-    assert args.recursive_max_weight == 0.5
-
-
-def test_recursive_loss_weight_warms_up_then_ramps_to_half() -> None:
-    arguments = {"warmup_steps": 5_000, "ramp_steps": 15_000, "maximum": 0.5}
-
-    assert _recursive_loss_weight(5_000, **arguments) == 0.0
-    assert _recursive_loss_weight(12_500, **arguments) == 0.25
-    assert _recursive_loss_weight(20_000, **arguments) == 0.5
-    assert _recursive_loss_weight(100_000, **arguments) == 0.5
+    assert args.recursive_weight == 0.5
