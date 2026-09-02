@@ -1,4 +1,4 @@
-"""Context-conditioned residual control models for five-step tracking updates."""
+"""Context-conditioned Forward model for five-step dynamics prediction."""
 
 from __future__ import annotations
 
@@ -6,7 +6,6 @@ from dataclasses import asdict, dataclass
 
 import torch
 from torch import nn
-from torch.func import functional_call
 
 from .model import InteractionContextEncoder
 
@@ -25,10 +24,9 @@ def _mlp(input_dim: int, hidden_dim: int, output_dim: int, depth: int) -> nn.Seq
 
 @dataclass(frozen=True)
 class ResidualTrackingConfig:
-    """Shape and capacity contract for residual world-model training."""
+    """Shape and capacity contract for Forward-only world-model training."""
 
-    architecture_version: str = "context_residual_tracking_mixed_nominal_v5"
-    policy_observation_dim: int = 1645
+    architecture_version: str = "context_forward_pose_model_v6"
     proprio_dim: int = 122
     action_dim: int = 29
     state_dim: int = 71
@@ -41,10 +39,7 @@ class ResidualTrackingConfig:
     context_heads: int = 4
     hidden_dim: int = 512
     forward_depth: int = 2
-    backward_depth: int = 3
-    policy_depth: int = 3
     dropout: float = 0.0
-    residual_scale: float = 0.25
 
     def __post_init__(self) -> None:
         positive = {
@@ -68,51 +63,10 @@ class ResidualTrackingConfig:
             raise ValueError("Residual context is fixed to 16 interaction tokens")
         if self.context_dim % self.context_heads:
             raise ValueError("context_dim must be divisible by context_heads")
-        if self.residual_scale <= 0:
-            raise ValueError("residual_scale must be positive")
 
     @property
     def context_token_dim(self) -> int:
         return 2 * self.proprio_dim + self.context_chunk_steps * self.action_dim
-
-
-class ResidualPolicy(nn.Module):
-    """Emit one bounded five-action residual trunk from the current observation."""
-
-    def __init__(self, config: ResidualTrackingConfig) -> None:
-        super().__init__()
-        self.policy_observation_dim = config.policy_observation_dim
-        self.action_dim = config.action_dim
-        self.horizon = config.horizon
-        self.residual_scale = float(config.residual_scale)
-        self.net = _mlp(
-            config.context_dim + config.policy_observation_dim,
-            config.hidden_dim,
-            config.horizon * config.action_dim,
-            config.policy_depth,
-        )
-        # Start from the frozen tracker exactly. This also makes warm-start
-        # rollouts stable before the learned dynamics gradients are useful.
-        nn.init.zeros_(self.net[-1].weight)
-        nn.init.zeros_(self.net[-1].bias)
-
-    def forward(self, world: torch.Tensor, observation: torch.Tensor) -> torch.Tensor:
-        if observation.size(-1) != self.policy_observation_dim:
-            raise ValueError(
-                f"Residual policy observation width must be {self.policy_observation_dim}, "
-                f"got {observation.size(-1)}"
-            )
-        if world.shape[:-1] != observation.shape[:-1]:
-            raise ValueError(
-                "Residual policy world and observation batches must match: "
-                f"{tuple(world.shape)} vs {tuple(observation.shape)}"
-            )
-        trunk = self.net(torch.cat((world.float(), observation.float()), dim=-1))
-        return (
-            trunk.reshape(*observation.shape[:-1], self.horizon, self.action_dim)
-            .tanh()
-            .mul(self.residual_scale)
-        )
 
 
 class CausalForwardPredictor(nn.Module):
@@ -166,40 +120,8 @@ class CausalForwardPredictor(nn.Module):
         return torch.stack(predictions, dim=1)
 
 
-class BackwardPredictor(nn.Module):
-    """Infer the command between adjacent true states under the inferred world."""
-
-    def __init__(self, config: ResidualTrackingConfig) -> None:
-        super().__init__()
-        self.state_dim = config.state_dim
-        self.action_dim = config.action_dim
-        self.net = _mlp(
-            config.context_dim + 2 * config.state_dim + config.action_dim,
-            config.hidden_dim,
-            config.action_dim,
-            config.backward_depth,
-        )
-
-    def forward(
-        self,
-        world: torch.Tensor,
-        state: torch.Tensor,
-        next_state: torch.Tensor,
-        previous_action: torch.Tensor,
-    ) -> torch.Tensor:
-        while world.ndim < state.ndim:
-            world = world.unsqueeze(1)
-        world = world.expand(*state.shape[:-1], world.size(-1))
-        return self.net(
-            torch.cat(
-                (world.float(), state.float(), next_state.float(), previous_action.float()),
-                dim=-1,
-            )
-        )
-
-
 class ResidualTrackingModel(nn.Module):
-    """Context encoder, dynamics pair, and residual policy with explicit routes."""
+    """The active world model: Context Encoder followed by Forward Predictor."""
 
     def __init__(self, config: ResidualTrackingConfig) -> None:
         super().__init__()
@@ -213,20 +135,11 @@ class ResidualTrackingModel(nn.Module):
             dropout=config.dropout,
         )
         self.forward_predictor = CausalForwardPredictor(config)
-        self.backward_predictor = BackwardPredictor(config)
-        self.residual_policy = ResidualPolicy(config)
 
     def encode_context(
         self, context: torch.Tensor, context_mask: torch.Tensor | None = None
     ) -> torch.Tensor:
         return self.context_encoder(context, context_mask)
-
-    def residual_action_trunk(self, world: torch.Tensor, observation: torch.Tensor) -> torch.Tensor:
-        return self.residual_policy(world, observation)
-
-    def residual_action(self, world: torch.Tensor, observation: torch.Tensor) -> torch.Tensor:
-        """Compatibility alias returning the complete five-action trunk."""
-        return self.residual_action_trunk(world, observation)
 
     def predict_future(
         self,
@@ -236,24 +149,3 @@ class ResidualTrackingModel(nn.Module):
         actions: torch.Tensor,
     ) -> torch.Tensor:
         return self.forward_predictor(world, state, previous_action, actions)
-
-    def predict_future_with_frozen_dynamics(
-        self,
-        world: torch.Tensor,
-        state: torch.Tensor,
-        previous_action: torch.Tensor,
-        actions: torch.Tensor,
-    ) -> torch.Tensor:
-        """Keep input gradients while preventing tracking loss from updating Forward."""
-        frozen_state = {
-            name: value.detach()
-            for name, value in (
-                *self.forward_predictor.named_parameters(),
-                *self.forward_predictor.named_buffers(),
-            )
-        }
-        return functional_call(
-            self.forward_predictor,
-            frozen_state,
-            (world, state, previous_action, actions),
-        )

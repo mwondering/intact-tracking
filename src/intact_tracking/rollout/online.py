@@ -88,8 +88,8 @@ class FixedDRRolloutConfig:
             raise ValueError("num_envs must be positive")
         if self.world_id_offset < 0:
             raise ValueError("world_id_offset must be non-negative")
-        if not 0.0 <= self.nominal_fraction < 1.0:
-            raise ValueError("nominal_fraction must be in [0, 1)")
+        if not 0.0 <= self.nominal_fraction <= 1.0:
+            raise ValueError("nominal_fraction must be in [0, 1]")
         nominal_count = self.num_envs * self.nominal_fraction
         if abs(nominal_count - round(nominal_count)) > 1.0e-8:
             raise ValueError(

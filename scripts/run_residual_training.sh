@@ -6,7 +6,7 @@ usage() {
   printf '%s\n' \
     "Usage: $0 CHECKPOINT MOTION_SOURCE OUTPUT_DIR [RESIDUAL_OPTIONS...]" \
     "" \
-    "Train the context-conditioned five-step residual policy online." \
+    "Train the context-conditioned Forward model from frozen-tracker rollouts." \
     "W&B logging is enabled by default; pass --no-wandb for local-only runs." \
     "MOTION_SOURCE may be one .npz file or a motion directory." \
     "" \
@@ -104,7 +104,7 @@ if (( NPROC == 1 )); then
 fi
 command+=("$@")
 
-printf 'Launching residual training (%d rank(s)):' "${NPROC}"
+printf 'Launching Forward-only training (%d rank(s)):' "${NPROC}"
 printf ' %q' "${command[@]}"
 printf '\n'
 
@@ -112,8 +112,7 @@ cd "${INTACT_ROOT}"
 "${command[@]}" 2>&1 | tee "${OUTPUT_DIR}/train.log"
 
 if [[ ! -s "${OUTPUT_DIR}/last.pt" ]]; then
-  echo "Residual training returned without a non-empty last.pt" >&2
+  echo "Forward training returned without a non-empty last.pt" >&2
   exit 1
 fi
-echo "Residual training completed: ${OUTPUT_DIR}/last.pt"
-
+echo "Forward training completed: ${OUTPUT_DIR}/last.pt"

@@ -1,4 +1,4 @@
-"""Device-resident causal replay for five-step residual-policy training."""
+"""Device-resident causal replay for five-step Forward-model training."""
 
 from __future__ import annotations
 
@@ -78,8 +78,6 @@ class ResidualOnlineNormalization:
                 (
                     batch["robot_state"],
                     batch["next_robot_state"],
-                    batch["reference_state"],
-                    batch["next_reference_state"],
                 ),
                 dim=0,
             )
@@ -144,18 +142,14 @@ class ResidualOnlineNormalization:
 
 
 class ResidualOnlineReplayBuffer:
-    """Causal 5-step windows plus same-world 16-token interaction context."""
+    """Causal five-step dynamics windows plus same-world interaction context."""
 
     REQUIRED_FIELDS = (
         "proprio",
         "next_proprio",
-        "policy_observation",
-        "tracker_action",
         "action",
         "robot_state",
         "next_robot_state",
-        "reference_state",
-        "next_reference_state",
         "reset_boundary",
         "world_id",
         "is_nominal",
@@ -165,15 +159,12 @@ class ResidualOnlineReplayBuffer:
         "episode_step",
         "collector_step",
         "residual_trunk_step",
-        "residual_world",
     )
 
     def __init__(
         self,
         *,
         num_worlds: int,
-        policy_observation_dim: int,
-        context_latent_dim: int = 192,
         dimensions: RolloutDimensions | None = None,
         horizon: int = 5,
         context_chunk_steps: int = 5,
@@ -186,8 +177,6 @@ class ResidualOnlineReplayBuffer:
     ) -> None:
         positive = {
             "num_worlds": num_worlds,
-            "policy_observation_dim": policy_observation_dim,
-            "context_latent_dim": context_latent_dim,
             "horizon": horizon,
             "context_chunk_steps": context_chunk_steps,
             "sample_stride": sample_stride,
@@ -206,8 +195,6 @@ class ResidualOnlineReplayBuffer:
             raise ValueError("world_id_offset must be non-negative")
 
         self.num_worlds = int(num_worlds)
-        self.policy_observation_dim = int(policy_observation_dim)
-        self.context_latent_dim = int(context_latent_dim)
         self.dimensions = dimensions or RolloutDimensions()
         self.horizon = int(horizon)
         self.context_chunk_steps = int(context_chunk_steps)
@@ -282,19 +269,13 @@ class ResidualOnlineReplayBuffer:
         dims = self.dimensions
         history_width = (
             dims.proprio
-            + self.policy_observation_dim
-            + self.context_latent_dim
-            + 2 * dims.action
+            + dims.action
             + 2 * dims.robot_state
-            + dims.reference_state
         )
         context_width = 2 * dims.proprio + self.context_chunk_steps * dims.action
         sample_width = (
-            self.policy_observation_dim
-            + self.context_latent_dim
-            + (2 * self.horizon + 1) * dims.action
+            (self.horizon + 1) * dims.action
             + (self.horizon + 1) * dims.robot_state
-            + self.horizon * dims.reference_state
             + self.context_tokens * context_width
         )
         floats = (
@@ -318,18 +299,12 @@ class ResidualOnlineReplayBuffer:
         cp = (self.num_worlds, self._context_capacity)
         self._history = {
             "proprio": torch.zeros((*hp, dims.proprio), device=self.device),
-            "policy_observation": torch.zeros(
-                (*hp, self.policy_observation_dim), device=self.device
-            ),
-            "tracker_action": torch.zeros((*hp, dims.action), device=self.device),
             "action": torch.zeros((*hp, dims.action), device=self.device),
             "robot_state": torch.zeros((*hp, dims.robot_state), device=self.device),
             "next_robot_state": torch.zeros((*hp, dims.robot_state), device=self.device),
-            "next_reference_state": torch.zeros((*hp, dims.reference_state), device=self.device),
             "residual_trunk_step": torch.full(hp, -1, dtype=torch.long, device=self.device),
             "motion_id": torch.full(hp, -1, dtype=torch.long, device=self.device),
             "motion_step": torch.full(hp, -1, dtype=torch.long, device=self.device),
-            "residual_world": torch.zeros((*hp, self.context_latent_dim), device=self.device),
         }
         self._reset_history = torch.zeros(hp, dtype=torch.bool, device=self.device)
         self._context = {
@@ -341,22 +316,10 @@ class ResidualOnlineReplayBuffer:
         }
         self._context_counts = torch.zeros(self.num_worlds, dtype=torch.long, device=self.device)
         self._samples = {
-            "policy_observation": torch.empty(
-                (self.capacity, self.policy_observation_dim), device=self.device
-            ),
-            "policy_world": torch.empty(
-                (self.capacity, self.context_latent_dim), device=self.device
-            ),
-            "tracker_action": torch.empty(
-                (self.capacity, self.horizon, dims.action), device=self.device
-            ),
             "action": torch.empty((self.capacity, self.horizon, dims.action), device=self.device),
             "previous_action": torch.empty((self.capacity, dims.action), device=self.device),
             "state": torch.empty(
                 (self.capacity, self.horizon + 1, dims.robot_state), device=self.device
-            ),
-            "reference_state": torch.empty(
-                (self.capacity, self.horizon, dims.reference_state), device=self.device
             ),
             "context_before": torch.empty(
                 (self.capacity, self.context_tokens, dims.proprio), device=self.device
@@ -383,17 +346,12 @@ class ResidualOnlineReplayBuffer:
         expected = {
             "proprio": (self.num_worlds, dims.proprio),
             "next_proprio": (self.num_worlds, dims.proprio),
-            "policy_observation": (self.num_worlds, self.policy_observation_dim),
-            "tracker_action": (self.num_worlds, dims.action),
             "action": (self.num_worlds, dims.action),
             "robot_state": (self.num_worlds, dims.robot_state),
             "next_robot_state": (self.num_worlds, dims.robot_state),
-            "reference_state": (self.num_worlds, dims.reference_state),
-            "next_reference_state": (self.num_worlds, dims.reference_state),
             "residual_trunk_step": (self.num_worlds,),
             "motion_id": (self.num_worlds,),
             "motion_step": (self.num_worlds,),
-            "residual_world": (self.num_worlds, self.context_latent_dim),
             "is_nominal": (self.num_worlds,),
         }
         for name in self.REQUIRED_FIELDS:
@@ -475,12 +433,8 @@ class ResidualOnlineReplayBuffer:
         query = {
             name: self._history[name][time_ids[:, None], env_ids[None, :]].permute(1, 0, 2)
             for name in (
-                "policy_observation",
-                "residual_world",
-                "tracker_action",
                 "action",
                 "robot_state",
-                "next_reference_state",
             )
         }
         previous_time = (history_position - self.horizon) % self._history_length
@@ -496,14 +450,9 @@ class ResidualOnlineReplayBuffer:
         ).remainder(self._context_capacity)
         context_envs = env_ids[:, None].expand_as(context_slots)
         samples = {
-            # A trunk is generated from only the observation at its first step.
-            "policy_observation": query["policy_observation"][:, 0],
-            "policy_world": query["residual_world"][:, 0],
-            "tracker_action": query["tracker_action"],
             "action": query["action"],
             "previous_action": previous,
             "state": states,
-            "reference_state": query["next_reference_state"],
             "context_before": self._context["before"][context_envs, context_slots],
             "context_actions": self._context["actions"][context_envs, context_slots],
             "context_after": self._context["after"][context_envs, context_slots],
@@ -630,13 +579,9 @@ class ResidualOnlineReplayBuffer:
             "context_mask": torch.ones(
                 batch_size, self.context_tokens, dtype=torch.bool, device=self.device
             ),
-            "policy_observation": selected["policy_observation"],
-            "policy_world": selected["policy_world"],
-            "tracker_action": selected["tracker_action"],
             "action": (selected["action"] - action_mean) / action_std,
             "previous_action": (selected["previous_action"] - action_mean) / action_std,
             "state": (selected["state"] - state_mean) / state_std,
-            "reference_state": (selected["reference_state"] - state_mean) / state_std,
             "action_mean": action_mean,
             "action_std": action_std,
             "state_mean": state_mean,
@@ -697,30 +642,3 @@ class ResidualOnlineReplayBuffer:
                 selected,
             )
         return selected
-
-    def sample_recent_batch(
-        self,
-        batch_size: int,
-        normalization: ResidualNormalizationStats,
-        *,
-        recent_count: int,
-    ) -> dict[str, torch.Tensor]:
-        """Sample from the newest policy-version samples, with replacement if needed."""
-        if batch_size < 1:
-            raise ValueError("batch_size must be positive")
-        available = min(int(recent_count), self._size, self.capacity)
-        if available < 1:
-            raise RuntimeError("Residual replay has no recent complete action trunk")
-        if available >= batch_size:
-            offsets = torch.randperm(available, generator=self._generator, device=self.device)[
-                :batch_size
-            ]
-        else:
-            offsets = torch.randint(
-                available,
-                (batch_size,),
-                generator=self._generator,
-                device=self.device,
-            )
-        indices = (self._sample_write - 1 - offsets).remainder(self.capacity)
-        return self._sample_indices(indices, normalization)

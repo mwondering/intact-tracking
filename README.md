@@ -200,45 +200,30 @@ motion 计数。每条记录还在 `window` 中保存最近 `metric-window` 轮�
 - `history.json`：所有 update 的结构化记录；
 - `train.log`：正式脚本捕获的完整终端输出。
 
-## 五步 residual policy 训练
+## Context-conditioned Forward-only 训练
 
-新的 residual 入口保留 frozen SPV5-2 tracker 作为 skill prior，Residual Policy 根据
-`16-token world context + 当前 tracker deploy-time policy feature` 一次输出五步 residual
-action trunk。仿真器每步只消费一个 residual 槽位，同时 frozen tracker 仍根据该步真实观测
-重新计算基础动作。Causal Forward Predictor 使用实际执行的五步总动作预测五个非链式 pose
-delta，并重建未来绝对 pose。Forward 与 tracking 均只计算 root position、root orientation 和
-joint position，不预测或优化未来 velocity；Forward/Backward 与 policy 使用交替 optimizer，
-tracking loss 只通过冻结参数的 Forward action Jacobian 更新 Residual Policy。
-默认 pose 权重为 root position `5`、root orientation `2`、joint position `1`，Residual L2
-权重为 `0.2`。在线 vector slots 默认一半使用编译时 nominal 物理、一半保留固定 startup DR，
-两组都正常运行 tracker 并生成真实 interaction context。每个 model batch 再把所有抽样起点恢复到
-独立的无 DR nominal simulator，重放同一五步动作，以 nominal target、DR-minus-nominal pose
-effect 和 nominal-context consistency 强制 Forward 使用 context；nominal 分支不再使用零 latent。
-恢复只做零时间 `sim.forward()`，不会用 physics warmup 改变配对起点；首次配对会自动检查恢复
-误差和五步可重复性。W&B 额外记录 pair effect/context-swap 指标、residual saturation fraction
-和五个 trunk slot 各自的 RMS。
+当前入口已经移除 Backward Predictor、Residual Policy 与 Tracking loss，只训练
+`Context Encoder + Forward Predictor`。冻结的 SPV5-2 tracker 是唯一控制器，因此训练不会改变
+在线采样策略。Forward 读取历史 interaction context、当前 71 维状态、previous action 和连续五步
+tracker action，预测五个非链式 pose delta。
+
+建议先运行全 nominal 基线，单独确认模型本身的预测能力：
 
 ```bash
 ./scripts/run_residual_training.sh \
   /path/to/checkpoint.pt \
   /path/to/motion_directory \
-  /path/to/runs/residual_v1 \
+  /path/to/runs/forward_nominal \
   --num-envs 4096 \
   --batch-size 512 \
-  --nominal-rollout-fraction 0.5 \
-  --nominal-pair-batch-size 512 \
-  --wandb-project intact-residual-tracking
+  --nominal-rollout-fraction 1.0 \
+  --nominal-pair-batch-size 0 \
+  --wandb-project intact-forward-world-model
 ```
 
-`--nominal-rollout-fraction` 默认为 `0.5`，要求乘以每卡 `--num-envs` 后为整数。
-`--nominal-pair-batch-size` 默认跟随本卡 `--batch-size`，设为 `0` 可关闭反事实配对，调小可减少
-额外仿真开销。多卡时每个 rank 在自己的 GPU 上持有一个 nominal simulator。
-
-W&B 默认开启，并记录训练 loss、predictor 分组误差、residual action、梯度、replay 状态以及
-SPTracking 同名的八项真实 rollout tracking error。Warmup 的零 residual rollout 作为 frozen
-tracker baseline，日志同时给出当前误差相对 baseline 的 ratio 和 improvement。无网络机器可
-使用 `--wandb-mode offline`，完全禁用则传 `--no-wandb`。完整张量契约、梯度路由和指标说明见
-[Residual training flow](docs/residual_training_flow.md)。
+混合 DR 实验仍使用 `--nominal-rollout-fraction 0.5 --nominal-pair-batch-size 512`。W&B 重点记录
+nominal/DR 分组 NMSE、第 1～5 步逐 horizon NMSE 和 context shuffle ratio。完整契约和启动方式见
+[Forward-only training flow](docs/residual_training_flow.md)。
 
 在线 rollout 默认随机打散每个 vector slot 的初始 episode timeout phase，但保留所有 reset 后
 的真实 transition：teleport boundary 本身不进入五步窗口，reset 后状态可以作为窗口起点，
