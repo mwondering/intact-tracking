@@ -6,19 +6,20 @@ usage() {
   printf '%s\n' \
     "Usage: $0 CHECKPOINT MOTION_SOURCE OUTPUT_DIR [PREDICTOR_OPTIONS...]" \
     "" \
-    "Train the nominal recursive full-state Forward Predictor." \
+    "Train the nominal causal-Transformer full-state Forward Predictor." \
     "" \
     "Fixed contract:" \
     "  physics          100% nominal" \
     "  controller       frozen tracker" \
-    "  model            residual MLP, width 1100, 8 blocks (~20.14M)" \
-    "  input            flattened 5-frame state/action history + current state/action" \
+    "  model            causal Transformer, width 512, 6 layers, 8 heads (~19.01M)" \
+    "  input            10 historical state/action tokens + 1 current token" \
     "  output           70-D full-state delta" \
     "  rollout          shared one-step model recursively applied 5 times" \
-    "  disabled         Context Encoder, Transformer, Residual Policy, Backward" \
+    "  disabled         Context Encoder, Residual Policy, Backward, gradient clipping" \
     "" \
     "Production defaults (override with PREDICTOR_OPTIONS):" \
-    "  --num-envs 2048 --batch-size 2048 --replay-capacity 262144" \
+    "  --num-envs 2048 --batch-size 4096 --micro-batch-size 256" \
+    "  --replay-capacity 262144" \
     "  --gradient-steps-per-update 4 --updates 100000" \
     "" \
     "Use --fixed-batch-overfit for the mandatory model-capacity diagnostic." \
@@ -49,7 +50,14 @@ MOTION_SOURCE="$2"
 OUTPUT_DIR="$3"
 shift 3
 
-managed_options=(--history-steps --hidden-dim --residual-blocks --rollout-steps-per-update)
+managed_options=(
+  --history-steps
+  --transformer-dim
+  --transformer-depth
+  --transformer-heads
+  --dropout
+  --rollout-steps-per-update
+)
 for argument in "$@"; do
   for managed in "${managed_options[@]}"; do
     if [[ "${argument}" == "${managed}" || "${argument}" == "${managed}="* ]]; then
@@ -122,7 +130,8 @@ command+=(
   "${motion_argument[@]}"
   --output-dir "${OUTPUT_DIR}"
   --num-envs 2048
-  --batch-size 2048
+  --batch-size 4096
+  --micro-batch-size 256
   --replay-capacity 262144
   --replay-sampling motion_balanced
   --gradient-steps-per-update 4
@@ -135,19 +144,22 @@ fi
 command+=("$@")
 command+=(
   --rollout-steps-per-update 5
-  --history-steps 5
-  --hidden-dim 1100
-  --residual-blocks 8
+  --history-steps 10
+  --transformer-dim 512
+  --transformer-depth 6
+  --transformer-heads 8
+  --dropout 0
 )
 
 printf '%s\n' \
-  "Training contract: nominal flat-history Forward Predictor v2" \
-  "  model: flat 5-frame history + current state/action -> 70-D delta, ~20.14M" \
-  "  rollout: one shared residual MLP recursively applied for 5 steps" \
+  "Training contract: nominal causal-Transformer Forward Predictor v3" \
+  "  model: 10 historical pair tokens + current pair token -> 70-D delta, ~19.01M" \
+  "  rollout: one shared causal Transformer recursively applied for 5 steps" \
   "  loss: teacher-forced one-step Huber + fixed-weight recursive five-step Huber" \
   "  replay: motion-balanced, 262144 samples per rank by default" \
+  "  optimizer: effective batch 4096, micro-batch 256, no gradient clipping" \
   "  normalization: frozen after warmup" \
-  "  context/transformer/policy/backward: disabled" \
+  "  context/policy/backward: disabled" \
   "  distributed ranks: ${NPROC}"
 printf 'Launching:'
 printf ' %q' "${command[@]}"

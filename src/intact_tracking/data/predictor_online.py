@@ -143,7 +143,7 @@ class ForwardPredictorNormalization:
 
 
 class ForwardPredictorReplayBuffer:
-    """Store strictly causal, reset-free five-step state/action windows."""
+    """Store five-step targets with ten strictly causal state-action history frames."""
 
     REQUIRED_FIELDS = (
         "action",
@@ -163,7 +163,7 @@ class ForwardPredictorReplayBuffer:
         num_worlds: int,
         dimensions: RolloutDimensions | None = None,
         horizon: int = 5,
-        history_steps: int = 5,
+        history_steps: int = 10,
         capacity: int = 16384,
         sampling_mode: str = "motion_balanced",
         seed: int = 0,
@@ -172,8 +172,8 @@ class ForwardPredictorReplayBuffer:
     ) -> None:
         if num_worlds < 1 or capacity < 1:
             raise ValueError("num_worlds and capacity must be positive")
-        if horizon != 5 or history_steps != 5:
-            raise ValueError("Forward Predictor replay horizon/history are fixed to five")
+        if horizon != 5 or history_steps != 10:
+            raise ValueError("Forward Predictor replay uses horizon=5 and history_steps=10")
         if sampling_mode not in {"uniform", "motion_balanced"}:
             raise ValueError("sampling_mode must be 'uniform' or 'motion_balanced'")
         if world_id_offset < 0:

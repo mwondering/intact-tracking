@@ -21,7 +21,7 @@ from .forward_predictor import (
     ROOT_LINEAR_VELOCITY,
     ROOT_ORIENTATION,
     ROOT_POSITION,
-    ForwardDynamicsMLP,
+    ForwardDynamicsTransformer,
     physical_state_delta,
 )
 
@@ -159,7 +159,7 @@ class ForwardPredictorObjective(nn.Module):
 
     def __init__(
         self,
-        model: ForwardDynamicsMLP,
+        model: ForwardDynamicsTransformer,
         loss_config: ForwardPredictorLossConfig | None = None,
     ) -> None:
         super().__init__()

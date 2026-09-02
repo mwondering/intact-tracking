@@ -235,7 +235,7 @@ def test_deprecated_residual_launcher_forwards_to_nominal_forward(tmp_path: Path
     assert arguments[arguments.index("--nominal-pair-batch-size") + 1] == "0"
 
 
-def test_forward_predictor_launcher_builds_locked_recursive_mlp_command(
+def test_forward_predictor_launcher_builds_locked_causal_transformer_command(
     tmp_path: Path,
 ) -> None:
     checkpoint, motion = _launcher_inputs(tmp_path)
@@ -280,14 +280,17 @@ def test_forward_predictor_launcher_builds_locked_recursive_mlp_command(
         "intact_tracking.cli.forward_predictor_train",
     ]
     assert _last_option_value(arguments, "--num-envs") == "2048"
-    assert _last_option_value(arguments, "--batch-size") == "2048"
+    assert _last_option_value(arguments, "--batch-size") == "4096"
+    assert _last_option_value(arguments, "--micro-batch-size") == "256"
     assert _last_option_value(arguments, "--replay-capacity") == "262144"
     assert _last_option_value(arguments, "--replay-sampling") == "motion_balanced"
     assert _last_option_value(arguments, "--gradient-steps-per-update") == "4"
     assert _last_option_value(arguments, "--rollout-steps-per-update") == "5"
-    assert _last_option_value(arguments, "--history-steps") == "5"
-    assert _last_option_value(arguments, "--hidden-dim") == "1100"
-    assert _last_option_value(arguments, "--residual-blocks") == "8"
+    assert _last_option_value(arguments, "--history-steps") == "10"
+    assert _last_option_value(arguments, "--transformer-dim") == "512"
+    assert _last_option_value(arguments, "--transformer-depth") == "6"
+    assert _last_option_value(arguments, "--transformer-heads") == "8"
+    assert _last_option_value(arguments, "--dropout") == "0"
 
 
 def test_forward_predictor_launcher_rejects_architecture_override(tmp_path: Path) -> None:
@@ -305,7 +308,7 @@ def test_forward_predictor_launcher_rejects_architecture_override(tmp_path: Path
             str(checkpoint),
             str(motion),
             str(tmp_path / "output"),
-            "--hidden-dim",
+            "--transformer-dim",
             "64",
         ],
         cwd=REPOSITORY,

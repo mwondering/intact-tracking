@@ -128,16 +128,18 @@ def apply_physical_state_delta(state: torch.Tensor, delta: torch.Tensor) -> torc
 
 @dataclass(frozen=True)
 class ForwardPredictorConfig:
-    """Capacity and shape contract for the nominal one-step transition model."""
+    """Capacity and shape contract for the causal one-step transition model."""
 
-    architecture_version: str = "nominal_recursive_flat_history_mlp_v2"
+    architecture_version: str = "nominal_recursive_causal_transformer_v3"
     state_dim: int = 71
     action_dim: int = 29
     delta_dim: int = 70
     horizon: int = 5
-    history_steps: int = 5
-    hidden_dim: int = 1100
-    residual_blocks: int = 8
+    history_steps: int = 10
+    transformer_dim: int = 512
+    transformer_depth: int = 6
+    transformer_heads: int = 8
+    dropout: float = 0.0
 
     def __post_init__(self) -> None:
         positive = {
@@ -152,46 +154,62 @@ class ForwardPredictorConfig:
             raise ValueError("Forward Predictor is fixed to 71-D state, 29-D action, 70-D delta")
         if self.horizon != 5:
             raise ValueError("Forward Predictor rollout is fixed to five steps")
-        if self.history_steps != 5:
-            raise ValueError("Forward Predictor history is fixed to five completed interactions")
+        if self.history_steps != 10:
+            raise ValueError("Forward Predictor history is fixed to ten completed interactions")
+        if self.transformer_dim % self.transformer_heads:
+            raise ValueError("transformer_dim must be divisible by transformer_heads")
+        if not 0.0 <= self.dropout < 1.0:
+            raise ValueError("dropout must be in [0, 1)")
+
+    @property
+    def sequence_length(self) -> int:
+        """Ten historical state-action tokens followed by the current token."""
+
+        return self.history_steps + 1
 
 
-class ResidualMLPBlock(nn.Module):
-    def __init__(self, width: int) -> None:
-        super().__init__()
-        self.norm = nn.LayerNorm(width)
-        self.layers = nn.Sequential(
-            nn.Linear(width, width),
-            nn.SiLU(),
-            nn.Linear(width, width),
-        )
-
-    def forward(self, value: torch.Tensor) -> torch.Tensor:
-        return value + self.layers(self.norm(value))
-
-
-class ForwardDynamicsMLP(nn.Module):
-    """One residual MLP over five flattened history frames and the current pair."""
+class ForwardDynamicsTransformer(nn.Module):
+    """Causal Transformer over ten historical and one current state-action token."""
 
     def __init__(self, config: ForwardPredictorConfig | None = None) -> None:
         super().__init__()
         self.config = config or ForwardPredictorConfig()
-        width = self.config.hidden_dim
-        history_width = self.config.history_steps * (
-            self.config.state_dim + self.config.action_dim + 1
+        width = self.config.transformer_dim
+        self.state_projection = nn.Linear(self.config.state_dim, width)
+        self.action_projection = nn.Linear(self.config.action_dim, width)
+        self.validity_embedding = nn.Embedding(2, width)
+        self.position = nn.Parameter(
+            torch.empty(1, self.config.sequence_length, width)
         )
-        self.input_projection = nn.Sequential(
-            nn.Linear(
-                history_width + self.config.state_dim + self.config.action_dim,
-                width,
-            ),
-            nn.SiLU(),
+        nn.init.trunc_normal_(self.position, std=0.02)
+        layer = nn.TransformerEncoderLayer(
+            d_model=width,
+            nhead=self.config.transformer_heads,
+            dim_feedforward=4 * width,
+            dropout=self.config.dropout,
+            activation="gelu",
+            batch_first=True,
+            norm_first=True,
         )
-        self.blocks = nn.ModuleList(
-            ResidualMLPBlock(width) for _ in range(self.config.residual_blocks)
+        self.transformer = nn.TransformerEncoder(
+            layer,
+            num_layers=self.config.transformer_depth,
+            enable_nested_tensor=False,
         )
         self.output_norm = nn.LayerNorm(width)
         self.delta_head = nn.Linear(width, self.config.delta_dim)
+        self.register_buffer(
+            "causal_mask",
+            torch.triu(
+                torch.ones(
+                    self.config.sequence_length,
+                    self.config.sequence_length,
+                    dtype=torch.bool,
+                ),
+                diagonal=1,
+            ),
+            persistent=False,
+        )
 
     def forward(
         self,
@@ -228,24 +246,21 @@ class ForwardDynamicsMLP(nn.Module):
         }
         if invalid:
             raise ValueError(f"Invalid Forward Predictor history shapes: {invalid}")
-        mask = history_valid.float().unsqueeze(-1)
-        flattened_history = torch.cat(
-            (
-                history_state.float() * mask,
-                history_action.float() * mask,
-                mask,
-            ),
-            dim=-1,
-        ).flatten(start_dim=1)
-        hidden = self.input_projection(
-            torch.cat(
-                (flattened_history, normalized_state.float(), normalized_action.float()),
-                dim=-1,
-            )
+        valid = history_valid.to(device=history_state.device, dtype=torch.bool)
+        valid_scale = valid.unsqueeze(-1).to(dtype=torch.float32)
+        history_tokens = (
+            self.state_projection(history_state.float() * valid_scale)
+            + self.action_projection(history_action.float() * valid_scale)
         )
-        for block in self.blocks:
-            hidden = block(hidden)
-        return self.delta_head(self.output_norm(hidden))
+        history_tokens = history_tokens * valid_scale + self.validity_embedding(valid.long())
+        current_token = (
+            self.state_projection(normalized_state.float())
+            + self.action_projection(normalized_action.float())
+            + self.validity_embedding.weight[1]
+        ).unsqueeze(1)
+        tokens = torch.cat((history_tokens, current_token), dim=1) + self.position
+        encoded = self.transformer(tokens, mask=self.causal_mask)
+        return self.delta_head(self.output_norm(encoded[:, -1]))
 
     @staticmethod
     def _roll_history(

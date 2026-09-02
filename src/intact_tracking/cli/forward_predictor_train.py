@@ -9,6 +9,7 @@ import os
 import random
 import time
 from collections import deque
+from contextlib import nullcontext
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Callable, TypeVar
@@ -23,7 +24,10 @@ from intact_tracking.data import (
     RolloutDimensions,
 )
 from intact_tracking.distributed import DistributedContext
-from intact_tracking.forward_predictor import ForwardDynamicsMLP, ForwardPredictorConfig
+from intact_tracking.forward_predictor import (
+    ForwardDynamicsTransformer,
+    ForwardPredictorConfig,
+)
 from intact_tracking.forward_predictor_objective import (
     DEFAULT_RECURSIVE_WEIGHT,
     ForwardPredictorLossConfig,
@@ -60,7 +64,18 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--updates", type=int, default=10_000)
     parser.add_argument("--rollout-steps-per-update", type=int, default=5)
     parser.add_argument("--gradient-steps-per-update", type=int, default=4)
-    parser.add_argument("--batch-size", type=int, default=2_048)
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=4_096,
+        help="Effective per-rank batch accumulated before each optimizer step.",
+    )
+    parser.add_argument(
+        "--micro-batch-size",
+        type=int,
+        default=256,
+        help="Maximum per-rank batch processed by one forward/backward pass.",
+    )
     parser.add_argument("--replay-capacity", type=int, default=262_144)
     parser.add_argument(
         "--replay-sampling",
@@ -80,10 +95,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     parser.add_argument("--model-learning-rate", type=float, default=3.0e-4)
     parser.add_argument("--weight-decay", type=float, default=1.0e-3)
-    parser.add_argument("--gradient-clip", type=float, default=1.0)
-    parser.add_argument("--history-steps", type=int, default=5)
-    parser.add_argument("--hidden-dim", type=int, default=1100)
-    parser.add_argument("--residual-blocks", type=int, default=8)
+    parser.add_argument("--history-steps", type=int, default=10)
+    parser.add_argument("--transformer-dim", type=int, default=512)
+    parser.add_argument("--transformer-depth", type=int, default=6)
+    parser.add_argument("--transformer-heads", type=int, default=8)
+    parser.add_argument("--dropout", type=float, default=0.0)
     parser.add_argument("--huber-delta", type=float, default=1.0)
     parser.add_argument(
         "--recursive-weight",
@@ -122,14 +138,16 @@ def _validate_arguments(args: argparse.Namespace) -> None:
         "rollout_steps_per_update",
         "gradient_steps_per_update",
         "batch_size",
+        "micro_batch_size",
         "replay_capacity",
         "fixed_probe_batch_size",
         "log_interval",
         "warmup_log_interval",
         "metric_window",
         "history_steps",
-        "hidden_dim",
-        "residual_blocks",
+        "transformer_dim",
+        "transformer_depth",
+        "transformer_heads",
     )
     invalid = {name: getattr(args, name) for name in positive if getattr(args, name) < 1}
     if invalid:
@@ -140,13 +158,17 @@ def _validate_arguments(args: argparse.Namespace) -> None:
         raise ValueError("max-warmup-steps must be at least warmup-steps")
     if args.replay_capacity < max(args.batch_size, args.fixed_probe_batch_size):
         raise ValueError("replay-capacity must fit both training and fixed-probe batches")
+    if args.micro_batch_size > args.batch_size:
+        raise ValueError("micro-batch-size must not exceed effective batch-size")
     if args.rollout_steps_per_update != 5:
         raise ValueError("Forward Predictor collection requires rollout-steps-per-update=5")
-    if args.history_steps != 5:
-        raise ValueError("Forward Predictor history-steps is fixed to five")
-    for name in ("model_learning_rate", "gradient_clip", "huber_delta"):
+    if args.history_steps != 10:
+        raise ValueError("Forward Predictor history-steps is fixed to ten")
+    for name in ("model_learning_rate", "huber_delta"):
         if getattr(args, name) <= 0.0:
             raise ValueError(f"{name.replace('_', '-')} must be positive")
+    if not 0.0 <= args.dropout < 1.0:
+        raise ValueError("dropout must be in [0, 1)")
     for name in (
         "weight_decay",
         "root_position_weight",
@@ -229,6 +251,33 @@ def _gradient_norm(parameters: list[torch.nn.Parameter]) -> float:
     return float(torch.stack(values).norm(2))
 
 
+_BATCH_FIELDS = frozenset(
+    {
+        "state",
+        "action",
+        "history_state",
+        "history_action",
+        "history_valid",
+        "world_id",
+        "motion_id",
+        "motion_step",
+    }
+)
+
+
+def _slice_predictor_batch(
+    batch: dict[str, torch.Tensor],
+    start: int,
+    stop: int,
+) -> dict[str, torch.Tensor]:
+    """Slice sample fields while sharing the rank-global normalization tensors."""
+
+    return {
+        name: value[start:stop] if name in _BATCH_FIELDS else value
+        for name, value in batch.items()
+    }
+
+
 def _loss_weight_payload(config: ForwardPredictorLossConfig) -> dict[str, float]:
     return {name: float(value) for name, value in asdict(config).items()}
 
@@ -260,7 +309,7 @@ def _save_checkpoint(
     output_dir: Path,
     update: int,
     optimizer_steps: int,
-    model: ForwardDynamicsMLP,
+    model: ForwardDynamicsTransformer,
     optimizer: torch.optim.Optimizer,
     scheduler: torch.optim.lr_scheduler.LRScheduler,
     model_config: ForwardPredictorConfig,
@@ -349,8 +398,10 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         state_dim=dimensions.robot_state,
         action_dim=dimensions.action,
         history_steps=args.history_steps,
-        hidden_dim=args.hidden_dim,
-        residual_blocks=args.residual_blocks,
+        transformer_dim=args.transformer_dim,
+        transformer_depth=args.transformer_depth,
+        transformer_heads=args.transformer_heads,
+        dropout=args.dropout,
     )
     loss_config = ForwardPredictorLossConfig(
         root_position_weight=args.root_position_weight,
@@ -361,7 +412,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         joint_velocity_weight=args.joint_velocity_weight,
         huber_delta=args.huber_delta,
     )
-    model = ForwardDynamicsMLP(model_config).to(device)
+    model = ForwardDynamicsTransformer(model_config).to(device)
     objective = ForwardPredictorObjective(model, loss_config)
     training_module: torch.nn.Module
     if distributed.enabled:
@@ -388,17 +439,20 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
     )
     parameter_count = sum(parameter.numel() for parameter in model.parameters())
     run_config = {
-        "method": "nominal flat-history Forward Predictor v2",
+        "method": "nominal causal-transformer Forward Predictor v3",
         "architecture": {
             "controller": "frozen tracker",
             "physics": "100% compiled nominal dynamics; DR slots restored to defaults",
             "input": (
-                "five flattened causal (71-D state, 29-D action, valid) history frames, "
-                "current 71-D state, and current 29-D action"
+                "ten historical (71-D state, 29-D action, valid) tokens followed by "
+                "one current (71-D state, 29-D action) token"
             ),
-            "transition": "shared residual MLP predicts normalized 70-D full-state delta",
+            "transition": (
+                "shared causal Transformer predicts normalized 70-D full-state delta "
+                "from the final token"
+            ),
             "rollout": "predicted state is recursively fed back for all five actions",
-            "excluded": ["context_encoder", "transformer", "residual_policy", "backward"],
+            "excluded": ["context_encoder", "residual_policy", "backward"],
             "normalization": "state/action/delta statistics frozen immediately after warmup",
         },
         "arguments": vars(args),
@@ -412,6 +466,13 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             "enabled": distributed.enabled,
             "world_size": distributed.world_size,
             "rank_seed": "seed + rank",
+            "effective_batch_size_global": args.batch_size * distributed.world_size,
+        },
+        "optimization": {
+            "effective_batch_size_per_rank": args.batch_size,
+            "micro_batch_size_per_rank": args.micro_batch_size,
+            "gradient_accumulation": True,
+            "gradient_clipping": False,
         },
         "replay": {
             "estimated_storage_bytes_per_rank": replay.estimated_storage_bytes,
@@ -549,27 +610,43 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                     else replay.sample_batch(args.batch_size, normalization)
                 )
                 optimizer.zero_grad(set_to_none=True)
-                model_output = training_module(
-                    train_batch,
-                    recursive_weight=args.recursive_weight,
-                )
-                if not isinstance(model_output, dict) or not torch.isfinite(model_output["loss"]):
-                    raise RuntimeError(
-                        f"Non-finite Forward Predictor objective at step {optimizer_steps + 1}"
+                metrics: dict[str, float] = {}
+                micro_starts = range(0, args.batch_size, args.micro_batch_size)
+                for start in micro_starts:
+                    stop = min(start + args.micro_batch_size, args.batch_size)
+                    micro_batch = _slice_predictor_batch(train_batch, start, stop)
+                    fraction = (stop - start) / args.batch_size
+                    final_micro_batch = stop == args.batch_size
+                    sync_context = (
+                        training_module.no_sync()
+                        if isinstance(training_module, DistributedDataParallel)
+                        and not final_micro_batch
+                        else nullcontext()
                     )
-                model_output["loss"].backward()
-                gradient_norms.append(_gradient_norm(parameters))
-                clipped_norm = torch.nn.utils.clip_grad_norm_(parameters, args.gradient_clip)
-                if not torch.isfinite(clipped_norm):
+                    with sync_context:
+                        model_output = training_module(
+                            micro_batch,
+                            recursive_weight=args.recursive_weight,
+                        )
+                        if not isinstance(model_output, dict) or not torch.isfinite(
+                            model_output["loss"]
+                        ):
+                            raise RuntimeError(
+                                "Non-finite Forward Predictor objective at step "
+                                f"{optimizer_steps + 1}"
+                            )
+                        (model_output["loss"] * fraction).backward()
+                    for name, value in model_output.items():
+                        if value.numel() == 1:
+                            metrics[name] = metrics.get(name, 0.0) + float(value.detach()) * fraction
+
+                gradient_norm = _gradient_norm(parameters)
+                if not np.isfinite(gradient_norm):
                     raise RuntimeError("Forward Predictor produced a non-finite gradient norm")
+                gradient_norms.append(gradient_norm)
                 optimizer.step()
                 scheduler.step()
                 optimizer_steps += 1
-                metrics = {
-                    name: float(value.detach())
-                    for name, value in model_output.items()
-                    if value.numel() == 1
-                }
                 metrics["sample_motion_count"] = float(
                     torch.unique(train_batch["motion_id"]).numel()
                 )

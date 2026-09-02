@@ -200,12 +200,12 @@ motion 计数。每条记录还在 `window` 中保存最近 `metric-window` 轮�
 - `history.json`：所有 update 的结构化记录；
 - `train.log`：正式脚本捕获的完整终端输出。
 
-## Nominal flat-history Forward Predictor v2 训练
+## Nominal causal-Transformer Forward Predictor v3 训练
 
-当前主实验先隔离 Predictor 能力：不构造 Context Encoder 或 Transformer，只训练一个约
-20.14M 参数的残差 MLP。输入是直接展平的 5 帧历史 state/action、valid mask、当前 71 维
-完整状态和当前 29 维 tracker action；输出 70 维 full-state delta，并把预测状态递归回灌
-五次。模型没有独立的历史 encoder。
+当前主实验先隔离 Predictor 能力：不构造 Context Encoder、Residual Policy 或 Backward
+Predictor，只训练一个约 19.01M 参数的 causal Transformer。每个时刻的 71 维完整状态、29 维
+tracker action 和 valid 标记融合成一个 token；模型读取 10 个历史 token 和 1 个当前 token，
+从最后一个 token 预测 70 维 full-state delta，并把预测状态递归回灌五次。
 
 ```bash
 GPUS=0,1 ./scripts/run_forward_predictor_training.sh \
@@ -215,10 +215,12 @@ GPUS=0,1 ./scripts/run_forward_predictor_training.sh \
   --wandb-name forward-predictor-nominal
 ```
 
-脚本固定 nominal physics、宽度 1100、8 个 residual block 和五步递推；默认每卡 2048 个
-环境、batch 2048、motion-balanced replay 262144。训练先优化 teacher-forced 一步 Huber
-loss 和固定权重 0.5 的五步递推 Huber loss，两项从第一个 optimizer step 起共同优化。
-state/action/delta normalization 在 warmup 后冻结。首次运行应先增加
+脚本固定 nominal physics、Transformer 宽度 512、6 层、8 头、10 帧历史和五步递推；默认
+每卡 2048 个环境、有效 batch 4096、micro-batch 256、motion-balanced replay 262144。
+micro-batch 的梯度按样本数累积后只执行一次 optimizer step，不进行梯度裁剪，但仍记录原始
+gradient norm。训练优化 teacher-forced 一步 Huber loss 和固定权重 0.5 的五步递推 Huber
+loss，两项从第一个 optimizer step 起共同优化。state/action/delta normalization 在 warmup 后
+冻结。首次运行应先增加
 `--fixed-batch-overfit`，确认同一批数据可以被拟合到接近零误差。
 完整契约见 [Nominal Forward Predictor flow](docs/forward_predictor_training.md)。
 
