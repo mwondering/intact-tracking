@@ -202,27 +202,26 @@ motion 计数。每条记录还在 `window` 中保存最近 `metric-window` 轮�
 
 ## Context-conditioned Forward-only 训练
 
-当前入口已经移除 Backward Predictor、Residual Policy 与 Tracking loss，只训练
-`Context Encoder + Forward Predictor`。冻结的 SPV5-2 tracker 是唯一控制器，因此训练不会改变
-在线采样策略。Forward 读取历史 interaction context、当前 71 维状态、previous action 和连续五步
+当前入口已经移除 Backward Predictor、Residual Policy 与 Tracking loss，只训练一个统一的
+history-to-future causal Transformer。冻结的 SPV5-2 tracker 是唯一控制器，因此训练不会改变
+在线采样策略。模型联合读取历史 interaction、当前 71 维状态、previous action 和连续五步
 tracker action，预测五个非链式 pose delta。
 
-建议先运行全 nominal 基线，单独确认模型本身的预测能力：
+当前训练阶段只运行 nominal Forward 基线，单独确认模型本身的预测能力：
 
 ```bash
-./scripts/run_residual_training.sh \
+GPUS=0,1 ./scripts/run_forward_nominal_training.sh \
   /path/to/checkpoint.pt \
   /path/to/motion_directory \
   /path/to/runs/forward_nominal \
-  --num-envs 4096 \
-  --batch-size 512 \
-  --nominal-rollout-fraction 1.0 \
-  --nominal-pair-batch-size 0 \
-  --wandb-project intact-forward-world-model
+  --wandb-name forward-nominal-v7-10m
 ```
 
-混合 DR 实验仍使用 `--nominal-rollout-fraction 0.5 --nominal-pair-batch-size 512`。W&B 重点记录
-nominal/DR 分组 NMSE、第 1～5 步逐 horizon NMSE 和 context shuffle ratio。完整契约和启动方式见
+该脚本固定 100% nominal rollout、关闭 nominal pair 和全部 pair/effect loss，并明确锁定一个
+统一的 history-to-future causal Transformer。其输入为 160-step 历史、当前完整状态、previous
+action 和五步未来 action，共 327 个 token；模型为 400 维、6 层、8 头，约 11.8M 参数。
+默认每张 80 GiB GPU 使用 4096 个环境和 batch 768；W&B 重点记录 nominal NMSE、第 1～5 步
+逐 horizon NMSE 和 context shuffle ratio。完整契约见
 [Forward-only training flow](docs/residual_training_flow.md)。
 
 在线 rollout 默认随机打散每个 vector slot 的初始 episode timeout phase，但保留所有 reset 后

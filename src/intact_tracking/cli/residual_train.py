@@ -23,7 +23,7 @@ from intact_tracking.data import (
     RolloutDimensions,
 )
 from intact_tracking.distributed import DistributedContext
-from intact_tracking.residual_model import ResidualTrackingConfig, ResidualTrackingModel
+from intact_tracking.residual_model import UnifiedForwardConfig, UnifiedForwardTransformer
 from intact_tracking.residual_objective import ResidualLossConfig, ResidualTrainingObjective
 from intact_tracking.rollout import (
     FixedDRRolloutConfig,
@@ -101,11 +101,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--weight-decay", type=float, default=1.0e-3)
     parser.add_argument("--gradient-clip", type=float, default=1.0)
     parser.add_argument("--context-steps", type=int, default=160)
-    parser.add_argument("--context-dim", type=int, default=408)
-    parser.add_argument("--context-depth", type=int, default=5)
-    parser.add_argument("--context-heads", type=int, default=8)
-    parser.add_argument("--hidden-dim", type=int, default=512)
-    parser.add_argument("--forward-depth", type=int, default=2)
+    parser.add_argument("--transformer-dim", type=int, default=400)
+    parser.add_argument("--transformer-depth", type=int, default=6)
+    parser.add_argument("--transformer-heads", type=int, default=8)
 
     parser.add_argument("--forward-weight", type=float, default=2.0)
     parser.add_argument("--nominal-pair-weight", type=float, default=1.0)
@@ -149,15 +147,15 @@ def _validate_arguments(args: argparse.Namespace) -> None:
         "warmup_log_interval",
         "metric_window",
         "context_steps",
-        "context_dim",
-        "context_depth",
-        "context_heads",
-        "hidden_dim",
-        "forward_depth",
+        "transformer_dim",
+        "transformer_depth",
+        "transformer_heads",
     )
     invalid = {name: getattr(args, name) for name in positive if getattr(args, name) < 1}
     if invalid:
         raise ValueError(f"Residual training arguments must be positive: {invalid}")
+    if args.transformer_dim % args.transformer_heads:
+        raise ValueError("transformer-dim must be divisible by transformer-heads")
     if args.checkpoint_interval < 0:
         raise ValueError("checkpoint-interval must be non-negative")
     if args.max_warmup_steps < args.warmup_steps:
@@ -319,10 +317,10 @@ def _save_checkpoint(
     output_dir: Path,
     update: int,
     optimizer_steps: int,
-    model: ResidualTrackingModel,
+    model: UnifiedForwardTransformer,
     model_optimizer: torch.optim.Optimizer,
     model_scheduler: torch.optim.lr_scheduler.LRScheduler,
-    model_config: ResidualTrackingConfig,
+    model_config: UnifiedForwardConfig,
     loss_config: ResidualLossConfig,
     normalization: ResidualNormalizationStats,
     history: list[dict[str, Any]],
@@ -427,17 +425,15 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         world_id_offset=world_id_offset,
         device=device,
     )
-    model_config = ResidualTrackingConfig(
+    model_config = UnifiedForwardConfig(
         proprio_dim=dimensions.proprio,
         action_dim=dimensions.action,
         state_dim=dimensions.robot_state,
         horizon=5,
         context_steps=args.context_steps,
-        context_dim=args.context_dim,
-        context_depth=args.context_depth,
-        context_heads=args.context_heads,
-        hidden_dim=args.hidden_dim,
-        forward_depth=args.forward_depth,
+        transformer_dim=args.transformer_dim,
+        transformer_depth=args.transformer_depth,
+        transformer_heads=args.transformer_heads,
     )
     loss_config = ResidualLossConfig(
         forward_weight=args.forward_weight,
@@ -449,17 +445,11 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         joint_position_weight=args.joint_position_weight,
     )
     loss_weights = _loss_weight_payload(loss_config)
-    model = ResidualTrackingModel(model_config).to(device)
+    model = UnifiedForwardTransformer(model_config).to(device)
     objective = ResidualTrainingObjective(model, loss_config)
     parameter_counts = {
-        "context_encoder": sum(
-            parameter.numel() for parameter in model.context_encoder.parameters()
-        ),
-        "context_transformer": sum(
-            parameter.numel() for parameter in model.context_encoder.transformer.parameters()
-        ),
-        "forward_predictor": sum(
-            parameter.numel() for parameter in model.forward_predictor.parameters()
+        "unified_transformer": sum(
+            parameter.numel() for parameter in model.transformer.parameters()
         ),
         "total": sum(parameter.numel() for parameter in model.parameters()),
     }
@@ -475,10 +465,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
     else:
         training_module = objective
 
-    model_parameters = [
-        *model.context_encoder.parameters(),
-        *model.forward_predictor.parameters(),
-    ]
+    model_parameters = list(model.parameters())
     model_optimizer = torch.optim.AdamW(
         model_parameters,
         lr=args.model_learning_rate,
@@ -494,16 +481,16 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             "action": "frozen tracker action only; no residual action is generated",
             "execution": "frozen tracker interacts with nominal/DR simulators for five real steps",
             "gradient_routes": {
-                "forward_loss": ["context_encoder", "forward_predictor"],
-                "nominal_pair_loss": ["context_encoder", "forward_predictor"],
+                "forward_loss": ["unified_forward_transformer"],
+                "nominal_pair_loss": ["unified_forward_transformer"],
             },
             "excluded_branches": ["backward_predictor", "residual_policy", "tracking_loss"],
             "optimization_schedule": "one Forward-only replay optimizer",
-            "context": (
-                f"{args.context_steps} causal transitions serialized as "
-                "S0,A0,...,S_T,[ENV]; state/action use separate token projections"
+            "forward": (
+                f"one causal Transformer over S0,A0,...,S{args.context_steps},"
+                "CURRENT,a1,...,a5; each query-action token predicts one non-chained "
+                "pose delta using the full history and only its future-action prefix"
             ),
-            "forward": "causal GRU over five action prefixes; predicts five non-chained pose deltas from the current state",
             "nominal_pair": (
                 "collect real interaction contexts from half nominal and half fixed-DR "
                 "online worlds; restore every sampled state into separate no-DR physics "
@@ -534,7 +521,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             "minimum_steps": replay.minimum_steps,
             "horizon": 5,
             "context_steps": args.context_steps,
-            "context_sequence_length": model_config.context_sequence_length,
+            "transformer_sequence_length": model_config.sequence_length,
         },
     }
     _main_process_call(distributed, lambda: _write_json(output_dir / "run_config.json", run_config))

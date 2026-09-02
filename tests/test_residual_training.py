@@ -15,7 +15,7 @@ from intact_tracking.data import (
     ResidualOnlineReplayBuffer,
     RolloutDimensions,
 )
-from intact_tracking.residual_model import ResidualTrackingConfig, ResidualTrackingModel
+from intact_tracking.residual_model import UnifiedForwardConfig, UnifiedForwardTransformer
 from intact_tracking.residual_objective import (
     ResidualLossConfig,
     ResidualTrainingObjective,
@@ -31,21 +31,19 @@ from intact_tracking.rollout.nominal import (
 from intact_tracking.wandb_logger import WandbLogger
 
 
-def _config() -> ResidualTrackingConfig:
-    return ResidualTrackingConfig(
+def _config() -> UnifiedForwardConfig:
+    return UnifiedForwardConfig(
         proprio_dim=6,
         action_dim=3,
         state_dim=71,
         context_steps=4,
-        context_dim=16,
-        context_depth=1,
-        context_heads=4,
-        hidden_dim=32,
-        forward_depth=1,
+        transformer_dim=16,
+        transformer_depth=1,
+        transformer_heads=4,
     )
 
 
-def _model_batch(config: ResidualTrackingConfig, batch_size: int = 4):
+def _model_batch(config: UnifiedForwardConfig, batch_size: int = 4):
     context_boundary = torch.zeros(batch_size, config.context_steps + 1, dtype=torch.bool)
     context_boundary[:, 0] = True
     return {
@@ -72,9 +70,9 @@ def _gradient_norm(module: torch.nn.Module) -> float:
     return 0.0 if not values else float(torch.stack(values).sum().sqrt())
 
 
-def test_forward_loss_only_updates_context_and_forward_predictor() -> None:
+def test_forward_loss_updates_the_unified_transformer() -> None:
     config = _config()
-    model = ResidualTrackingModel(config)
+    model = UnifiedForwardTransformer(config)
     objective = ResidualTrainingObjective(
         model,
         ResidualLossConfig(forward_weight=1.0),
@@ -82,23 +80,24 @@ def test_forward_loss_only_updates_context_and_forward_predictor() -> None:
     output = objective(_model_batch(config), phase="model")
     output["loss"].backward()
 
-    assert _gradient_norm(model.context_encoder) > 0.0
-    assert _gradient_norm(model.forward_predictor) > 0.0
+    assert _gradient_norm(model) > 0.0
+    assert not hasattr(model, "context_encoder")
+    assert not hasattr(model, "forward_predictor")
     assert not hasattr(model, "backward_predictor")
     assert not hasattr(model, "residual_policy")
 
 
 def test_forward_objective_rejects_removed_policy_phase() -> None:
     config = _config()
-    objective = ResidualTrainingObjective(ResidualTrackingModel(config))
+    objective = ResidualTrainingObjective(UnifiedForwardTransformer(config))
 
     with pytest.raises(ValueError, match="Forward-only"):
         objective(_model_batch(config), phase="policy")
 
 
-def test_nominal_pair_loss_updates_context_and_forward() -> None:
+def test_nominal_pair_loss_updates_the_unified_transformer() -> None:
     config = _config()
-    model = ResidualTrackingModel(config)
+    model = UnifiedForwardTransformer(config)
     objective = ResidualTrainingObjective(
         model,
         ResidualLossConfig(
@@ -123,24 +122,19 @@ def test_nominal_pair_loss_updates_context_and_forward() -> None:
     assert output["nominal_pair_loss"].item() > 0.0
     assert output["nominal_source_pair_count"].item() == 1.0
     assert output["dr_source_pair_count"].item() == 1.0
-    assert _gradient_norm(model.context_encoder) > 0.0
-    assert _gradient_norm(model.forward_predictor) > 0.0
+    assert _gradient_norm(model) > 0.0
 
 
 def test_forward_predictor_outputs_five_pose_deltas() -> None:
     config = _config()
-    model = ResidualTrackingModel(config)
+    model = UnifiedForwardTransformer(config)
     batch = _model_batch(config)
-    world = model.encode_context(
+    prediction = model.predict_future(
         batch["context_state"],
         batch["context_action"],
         batch["context_state_mask"],
         batch["context_action_mask"],
         batch["context_boundary"],
-    )
-
-    prediction = model.predict_future(
-        world,
         batch["state"][:, 0],
         batch["previous_action"],
         batch["action"],
@@ -150,21 +144,53 @@ def test_forward_predictor_outputs_five_pose_deltas() -> None:
     assert config.pose_delta_dim == 35
 
 
-def test_default_temporal_context_doubles_history_and_uses_ten_million_transformer() -> None:
-    config = ResidualTrackingConfig()
-    model = ResidualTrackingModel(config)
-    current_parameters = sum(
-        parameter.numel() for parameter in model.context_encoder.transformer.parameters()
-    )
+def test_default_model_uses_one_twelve_million_parameter_transformer() -> None:
+    config = UnifiedForwardConfig()
+    model = UnifiedForwardTransformer(config)
+    transformer_parameters = sum(parameter.numel() for parameter in model.transformer.parameters())
+    model_parameters = sum(parameter.numel() for parameter in model.parameters())
 
     assert config.context_steps == 160
-    assert config.context_sequence_length == 322
-    assert current_parameters == pytest.approx(10_000_000, rel=0.01)
+    assert config.sequence_length == 327
+    assert transformer_parameters == pytest.approx(11_550_000, rel=0.01)
+    assert model_parameters == pytest.approx(11_800_000, rel=0.02)
+
+
+def test_forward_transformer_cannot_see_future_actions() -> None:
+    config = _config()
+    model = UnifiedForwardTransformer(config).eval()
+    batch = _model_batch(config)
+    changed_actions = batch["action"].clone()
+    changed_actions[:, -1] += 100.0
+
+    original = model.predict_future(
+        batch["context_state"],
+        batch["context_action"],
+        batch["context_state_mask"],
+        batch["context_action_mask"],
+        batch["context_boundary"],
+        batch["state"][:, 0],
+        batch["previous_action"],
+        batch["action"],
+    )
+    changed = model.predict_future(
+        batch["context_state"],
+        batch["context_action"],
+        batch["context_state_mask"],
+        batch["context_action_mask"],
+        batch["context_boundary"],
+        batch["state"][:, 0],
+        batch["previous_action"],
+        changed_actions,
+    )
+
+    torch.testing.assert_close(original[:, :-1], changed[:, :-1])
+    assert not torch.allclose(original[:, -1], changed[:, -1])
 
 
 def test_forward_objective_reports_domain_and_horizon_metrics() -> None:
     config = _config()
-    model = ResidualTrackingModel(config)
+    model = UnifiedForwardTransformer(config)
     objective = ResidualTrainingObjective(model)
     output = objective(_model_batch(config))
 
@@ -424,9 +450,9 @@ def test_forward_cli_enables_wandb_and_five_step_collection_by_default() -> None
     assert args.nominal_consistency_weight == 1.0
     assert args.nominal_rollout_fraction == 0.5
     assert args.context_steps == 160
-    assert args.context_dim == 408
-    assert args.context_depth == 5
-    assert args.context_heads == 8
+    assert args.transformer_dim == 400
+    assert args.transformer_depth == 6
+    assert args.transformer_heads == 8
     assert args.root_position_weight == 5.0
     assert args.root_orientation_weight == 2.0
     assert args.joint_position_weight == 1.0

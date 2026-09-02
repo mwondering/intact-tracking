@@ -39,6 +39,11 @@ def _launcher_inputs(tmp_path: Path) -> tuple[Path, Path]:
     return checkpoint, motion
 
 
+def _last_option_value(arguments: list[str], option: str) -> str:
+    index = len(arguments) - 1 - arguments[::-1].index(option)
+    return arguments[index + 1]
+
+
 def test_training_launcher_builds_multigpu_torchrun_command(tmp_path: Path) -> None:
     checkpoint, motion = _launcher_inputs(tmp_path)
     output = tmp_path / "output"
@@ -118,7 +123,7 @@ def test_training_launcher_preserves_single_device_mode(tmp_path: Path) -> None:
     assert "torch.distributed.run" not in arguments
 
 
-def test_residual_launcher_uses_residual_entrypoint_and_preserves_wandb_flags(
+def test_forward_nominal_launcher_locks_training_contract_and_preserves_wandb_flags(
     tmp_path: Path,
 ) -> None:
     checkpoint, motion = _launcher_inputs(tmp_path)
@@ -136,7 +141,7 @@ def test_residual_launcher_uses_residual_entrypoint_and_preserves_wandb_flags(
 
     subprocess.run(
         [
-            str(REPOSITORY / "scripts/run_residual_training.sh"),
+            str(REPOSITORY / "scripts/run_forward_nominal_training.sh"),
             str(checkpoint),
             str(motion),
             str(output),
@@ -155,5 +160,76 @@ def test_residual_launcher_uses_residual_entrypoint_and_preserves_wandb_flags(
     arguments = captured_args.read_text().splitlines()
     assert arguments[:2] == ["-m", "intact_tracking.cli.residual_train"]
     assert arguments[arguments.index("--device") + 1] == "cuda:4"
-    assert arguments[arguments.index("--wandb-project") + 1] == "residual-test"
-    assert arguments[arguments.index("--wandb-name") + 1] == "run-one"
+    assert _last_option_value(arguments, "--wandb-project") == "residual-test"
+    assert _last_option_value(arguments, "--wandb-name") == "run-one"
+    assert arguments[arguments.index("--num-envs") + 1] == "4096"
+    assert arguments[arguments.index("--batch-size") + 1] == "768"
+    assert arguments[arguments.index("--nominal-rollout-fraction") + 1] == "1.0"
+    assert arguments[arguments.index("--nominal-pair-batch-size") + 1] == "0"
+    assert arguments[arguments.index("--nominal-pair-weight") + 1] == "0.0"
+    assert arguments[arguments.index("--context-steps") + 1] == "160"
+    assert arguments[arguments.index("--transformer-dim") + 1] == "400"
+    assert arguments[arguments.index("--transformer-depth") + 1] == "6"
+    assert arguments[arguments.index("--transformer-heads") + 1] == "8"
+
+
+def test_forward_nominal_launcher_rejects_managed_contract_options(tmp_path: Path) -> None:
+    checkpoint, motion = _launcher_inputs(tmp_path)
+    environment = {
+        **os.environ,
+        "PYTHON_BIN": str(_fake_python(tmp_path)),
+        "CAPTURE_ARGS": str(tmp_path / "args"),
+        "CAPTURE_ENV": str(tmp_path / "environment"),
+    }
+
+    result = subprocess.run(
+        [
+            str(REPOSITORY / "scripts/run_forward_nominal_training.sh"),
+            str(checkpoint),
+            str(motion),
+            str(tmp_path / "output"),
+            "--nominal-rollout-fraction",
+            "0.5",
+        ],
+        cwd=REPOSITORY,
+        env=environment,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert "fixed by the nominal Forward launcher" in result.stderr
+
+
+def test_deprecated_residual_launcher_forwards_to_nominal_forward(tmp_path: Path) -> None:
+    checkpoint, motion = _launcher_inputs(tmp_path)
+    output = tmp_path / "forwarded-output"
+    captured_args = tmp_path / "forwarded-args"
+    environment = {
+        **os.environ,
+        "PYTHON_BIN": str(_fake_python(tmp_path)),
+        "CAPTURE_ARGS": str(captured_args),
+        "CAPTURE_ENV": str(tmp_path / "environment"),
+    }
+
+    result = subprocess.run(
+        [
+            str(REPOSITORY / "scripts/run_residual_training.sh"),
+            str(checkpoint),
+            str(motion),
+            str(output),
+            "--updates",
+            "1",
+        ],
+        cwd=REPOSITORY,
+        env=environment,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    arguments = captured_args.read_text().splitlines()
+    assert "run_residual_training.sh is deprecated" in result.stderr
+    assert arguments[arguments.index("--nominal-rollout-fraction") + 1] == "1.0"
+    assert arguments[arguments.index("--nominal-pair-batch-size") + 1] == "0"

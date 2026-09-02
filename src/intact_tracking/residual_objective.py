@@ -7,7 +7,7 @@ from dataclasses import dataclass
 import torch
 from torch import nn
 
-from .residual_model import ResidualTrackingModel
+from .residual_model import UnifiedForwardTransformer
 
 
 @dataclass(frozen=True)
@@ -251,7 +251,7 @@ class ResidualTrainingObjective(nn.Module):
 
     def __init__(
         self,
-        model: ResidualTrackingModel,
+        model: UnifiedForwardTransformer,
         loss_config: ResidualLossConfig | None = None,
     ) -> None:
         super().__init__()
@@ -279,13 +279,17 @@ class ResidualTrainingObjective(nn.Module):
         if any(not torch.isfinite(batch[name]).all() for name in required):
             raise ValueError("Forward training batch contains non-finite values")
 
-    def _encode_context(
+    def _predict_with_history(
         self,
         batch: dict[str, torch.Tensor],
         *,
+        current_state: torch.Tensor,
+        previous_action: torch.Tensor,
+        future_actions: torch.Tensor,
         prefix: str = "",
         count: int | None = None,
         zero_values: bool = False,
+        history_indices: torch.Tensor | None = None,
     ) -> torch.Tensor:
         names = {
             name: f"{prefix}context_{name}"
@@ -294,21 +298,24 @@ class ResidualTrainingObjective(nn.Module):
         values = {name: batch[key] for name, key in names.items()}
         if count is not None:
             values = {name: value[:count] for name, value in values.items()}
+        if history_indices is not None:
+            values = {name: value[history_indices] for name, value in values.items()}
         if zero_values:
             values["state"] = torch.zeros_like(values["state"])
             values["action"] = torch.zeros_like(values["action"])
-        return self.model.encode_context(
+        return self.model.predict_future(
             values["state"],
             values["action"],
             values["state_mask"],
             values["action_mask"],
             values["boundary"],
+            current_state,
+            previous_action,
+            future_actions,
         )
 
     def _model_forward(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
         cfg = self.loss_config
-        model = self.model
-        world = self._encode_context(batch)
         state = batch["state"]
         is_nominal = batch["is_nominal"]
         if is_nominal.dtype != torch.bool or is_nominal.shape != (state.size(0),):
@@ -318,11 +325,11 @@ class ResidualTrainingObjective(nn.Module):
         state_mean = batch["state_mean"]
         state_std = batch["state_std"]
 
-        forward_pose_delta = model.predict_future(
-            world,
-            state[:, 0],
-            previous_action,
-            action,
+        forward_pose_delta = self._predict_with_history(
+            batch,
+            current_state=state[:, 0],
+            previous_action=previous_action,
+            future_actions=action,
         )
         forward_loss, forward_components = _pose_losses(
             forward_pose_delta,
@@ -345,9 +352,6 @@ class ResidualTrainingObjective(nn.Module):
         nominal_pair_count = 0
         nominal_source_pair_count = 0
         dr_source_pair_count = 0
-        nominal_context_latent_rms = forward_loss.new_zeros(())
-        dr_to_nominal_context_latent_rms = forward_loss.new_zeros(())
-        nominal_to_nominal_context_latent_rms = forward_loss.new_zeros(())
         nominal_components: dict[str, torch.Tensor] = {}
         effect_components: dict[str, torch.Tensor] = {}
         consistency_components: dict[str, torch.Tensor] = {}
@@ -374,7 +378,6 @@ class ResidualTrainingObjective(nn.Module):
             nominal_pair_count = int(nominal_target.size(0))
             if nominal_pair_count < 1 or nominal_pair_count > state.size(0):
                 raise ValueError("nominal_state pair batch must fit inside the model batch")
-            pair_world = world[:nominal_pair_count]
             pair_state = state[:nominal_pair_count, 0]
             pair_previous_action = previous_action[:nominal_pair_count]
             pair_action = action[:nominal_pair_count]
@@ -388,12 +391,13 @@ class ResidualTrainingObjective(nn.Module):
                     )
                 if not torch.isfinite(nominal_value).all():
                     raise ValueError(f"nominal_context_{suffix} contains non-finite values")
-            nominal_world = self._encode_context(batch, prefix="nominal_", count=nominal_pair_count)
-            nominal_pose_delta = model.predict_future(
-                nominal_world,
-                pair_state,
-                pair_previous_action,
-                pair_action,
+            nominal_pose_delta = self._predict_with_history(
+                batch,
+                prefix="nominal_",
+                count=nominal_pair_count,
+                current_state=pair_state,
+                previous_action=pair_previous_action,
+                future_actions=pair_action,
             )
             nominal_forward_loss, nominal_components = _pose_losses(
                 nominal_pose_delta,
@@ -436,11 +440,7 @@ class ResidualTrainingObjective(nn.Module):
             )
             model_loss = model_loss + nominal_pair_loss
             with torch.no_grad():
-                context_delta = pair_world - nominal_world
-                nominal_context_latent_rms = context_delta.square().mean().sqrt()
                 if dr_source_pair_count:
-                    dr_context_delta = context_delta[source_is_dr]
-                    dr_to_nominal_context_latent_rms = dr_context_delta.square().mean().sqrt()
                     dr_pair_forward_loss, _ = _pose_losses(
                         forward_pose_delta[:nominal_pair_count][source_is_dr],
                         pair_state[source_is_dr],
@@ -478,22 +478,17 @@ class ResidualTrainingObjective(nn.Module):
                     nominal_context_swap_ratio = (
                         swapped_assignment_loss / correct_assignment_loss.clamp_min(1e-8)
                     )
-                if nominal_source_pair_count:
-                    nominal_context_delta = context_delta[source_is_nominal]
-                    nominal_to_nominal_context_latent_rms = (
-                        nominal_context_delta.square().mean().sqrt()
-                    )
 
         with torch.no_grad():
             forward_same_domain_context_shuffle_ratio = forward_loss.new_ones(())
             forward_dr_context_shuffle_ratio = forward_loss.new_ones(())
             forward_nominal_context_shuffle_ratio = forward_loss.new_ones(())
-            zero_context_world = self._encode_context(batch, zero_values=True)
-            zero_context_delta = model.predict_future(
-                zero_context_world,
-                state[:, 0],
-                previous_action,
-                action,
+            zero_context_delta = self._predict_with_history(
+                batch,
+                current_state=state[:, 0],
+                previous_action=previous_action,
+                future_actions=action,
+                zero_values=True,
             )
             zero_context_loss, _ = _pose_losses(
                 zero_context_delta,
@@ -503,13 +498,14 @@ class ResidualTrainingObjective(nn.Module):
                 state_std,
                 cfg,
             )
-            if world.size(0) > 1:
-                shuffled_world = world.roll(1, dims=0)
-                shuffled_forward_delta = model.predict_future(
-                    shuffled_world,
-                    state[:, 0],
-                    previous_action,
-                    action,
+            if state.size(0) > 1:
+                shuffled_indices = torch.arange(state.size(0), device=state.device).roll(1)
+                shuffled_forward_delta = self._predict_with_history(
+                    batch,
+                    current_state=state[:, 0],
+                    previous_action=previous_action,
+                    future_actions=action,
+                    history_indices=shuffled_indices,
                 )
                 shuffled_forward_loss, _ = _pose_losses(
                     shuffled_forward_delta,
@@ -519,16 +515,17 @@ class ResidualTrainingObjective(nn.Module):
                     state_std,
                     cfg,
                 )
-                same_domain_world = world.clone()
+                same_domain_indices = torch.arange(state.size(0), device=state.device)
                 for group_mask in (is_nominal, ~is_nominal):
                     group_ids = group_mask.nonzero(as_tuple=False).flatten()
                     if group_ids.numel() > 1:
-                        same_domain_world[group_ids] = world[group_ids.roll(1)]
-                same_domain_delta = model.predict_future(
-                    same_domain_world,
-                    state[:, 0],
-                    previous_action,
-                    action,
+                        same_domain_indices[group_ids] = group_ids.roll(1)
+                same_domain_delta = self._predict_with_history(
+                    batch,
+                    current_state=state[:, 0],
+                    previous_action=previous_action,
+                    future_actions=action,
+                    history_indices=same_domain_indices,
                 )
                 same_domain_loss, _ = _pose_losses(
                     same_domain_delta,
@@ -654,11 +651,6 @@ class ResidualTrainingObjective(nn.Module):
             ),
             "nominal_true_effect_loss": nominal_effect_zero_loss.detach(),
             "nominal_context_swap_ratio": nominal_context_swap_ratio.detach(),
-            "nominal_context_latent_rms": nominal_context_latent_rms.detach(),
-            "dr_to_nominal_context_latent_rms": dr_to_nominal_context_latent_rms.detach(),
-            "nominal_to_nominal_context_latent_rms": (
-                nominal_to_nominal_context_latent_rms.detach()
-            ),
             "nominal_pair_count": forward_loss.new_tensor(float(nominal_pair_count)),
             "nominal_source_pair_count": forward_loss.new_tensor(float(nominal_source_pair_count)),
             "dr_source_pair_count": forward_loss.new_tensor(float(dr_source_pair_count)),
