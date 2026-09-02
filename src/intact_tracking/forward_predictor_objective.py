@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 import torch
 from torch import nn
+from torch.nn import functional as F
 
 from .forward_predictor import (
     DELTA_JOINT_POSITION,
@@ -33,11 +34,18 @@ class ForwardPredictorLossConfig:
     root_angular_velocity_weight: float = 1.0
     joint_position_weight: float = 1.0
     joint_velocity_weight: float = 1.0
+    huber_delta: float = 1.0
 
     def __post_init__(self) -> None:
-        invalid = {name: value for name, value in vars(self).items() if value < 0.0}
+        invalid = {
+            name: value
+            for name, value in vars(self).items()
+            if name != "huber_delta" and value < 0.0
+        }
         if invalid:
             raise ValueError(f"Forward Predictor loss weights must be non-negative: {invalid}")
+        if self.huber_delta <= 0.0:
+            raise ValueError("Forward Predictor huber_delta must be positive")
 
 
 def _physical_state(
@@ -46,14 +54,13 @@ def _physical_state(
     return normalized * std + mean
 
 
-def _state_losses(
+def _normalized_state_error(
     prediction: torch.Tensor,
     target: torch.Tensor,
     state_mean: torch.Tensor,
     state_std: torch.Tensor,
     delta_std: torch.Tensor,
-    config: ForwardPredictorLossConfig,
-) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
+) -> torch.Tensor:
     if prediction.shape != target.shape or prediction.size(-1) != 71:
         raise ValueError(
             "Prediction and target must have equal [...,71] shapes, got "
@@ -61,14 +68,32 @@ def _state_losses(
         )
     prediction_physical = _physical_state(prediction, state_mean, state_std)
     target_physical = _physical_state(target, state_mean, state_std)
-    normalized_error = physical_state_delta(target_physical, prediction_physical) / delta_std
+    return physical_state_delta(target_physical, prediction_physical) / delta_std
+
+
+def _state_losses(
+    normalized_error: torch.Tensor,
+    config: ForwardPredictorLossConfig,
+    *,
+    huber: bool,
+) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
+    def reduce(value: torch.Tensor) -> torch.Tensor:
+        if huber:
+            return F.huber_loss(
+                value,
+                torch.zeros_like(value),
+                reduction="mean",
+                delta=config.huber_delta,
+            )
+        return value.square().mean()
+
     component = {
-        "root_position": normalized_error[..., DELTA_ROOT_POSITION].square().mean(),
-        "root_orientation": normalized_error[..., DELTA_ROOT_ROTATION_VECTOR].square().mean(),
-        "root_linear_velocity": normalized_error[..., DELTA_ROOT_LINEAR_VELOCITY].square().mean(),
-        "root_angular_velocity": normalized_error[..., DELTA_ROOT_ANGULAR_VELOCITY].square().mean(),
-        "joint_position": normalized_error[..., DELTA_JOINT_POSITION].square().mean(),
-        "joint_velocity": normalized_error[..., DELTA_JOINT_VELOCITY].square().mean(),
+        "root_position": reduce(normalized_error[..., DELTA_ROOT_POSITION]),
+        "root_orientation": reduce(normalized_error[..., DELTA_ROOT_ROTATION_VECTOR]),
+        "root_linear_velocity": reduce(normalized_error[..., DELTA_ROOT_LINEAR_VELOCITY]),
+        "root_angular_velocity": reduce(normalized_error[..., DELTA_ROOT_ANGULAR_VELOCITY]),
+        "joint_position": reduce(normalized_error[..., DELTA_JOINT_POSITION]),
+        "joint_velocity": reduce(normalized_error[..., DELTA_JOINT_VELOCITY]),
     }
     total = (
         config.root_position_weight * component["root_position"]
@@ -96,27 +121,34 @@ def _physical_errors(
         target[..., ROOT_ORIENTATION], dim=-1, eps=1.0e-8
     )
     orientation_dot = (prediction_quaternion * target_quaternion).sum(dim=-1).abs().clamp(max=1.0)
+    root_position_error = torch.linalg.vector_norm(
+        prediction[..., ROOT_POSITION] - target[..., ROOT_POSITION], dim=-1
+    )
+    root_orientation_error = 2.0 * torch.acos(orientation_dot)
+    root_linear_velocity_error = torch.linalg.vector_norm(
+        prediction[..., ROOT_LINEAR_VELOCITY] - target[..., ROOT_LINEAR_VELOCITY],
+        dim=-1,
+    )
+    root_angular_velocity_error = torch.linalg.vector_norm(
+        prediction[..., ROOT_ANGULAR_VELOCITY] - target[..., ROOT_ANGULAR_VELOCITY],
+        dim=-1,
+    )
+    joint_position_error = (prediction[..., JOINT_POSITION] - target[..., JOINT_POSITION]).abs()
+    joint_velocity_error = (prediction[..., JOINT_VELOCITY] - target[..., JOINT_VELOCITY]).abs()
+
     return {
-        "root_position_error_m": torch.linalg.vector_norm(
-            prediction[..., ROOT_POSITION] - target[..., ROOT_POSITION], dim=-1
-        ).mean(),
-        "root_orientation_error_rad": (2.0 * torch.acos(orientation_dot)).mean(),
-        "root_linear_velocity_error_mps": torch.linalg.vector_norm(
-            prediction[..., ROOT_LINEAR_VELOCITY] - target[..., ROOT_LINEAR_VELOCITY],
-            dim=-1,
-        ).mean(),
-        "root_angular_velocity_error_radps": torch.linalg.vector_norm(
-            prediction[..., ROOT_ANGULAR_VELOCITY] - target[..., ROOT_ANGULAR_VELOCITY],
-            dim=-1,
-        ).mean(),
-        "joint_position_error_rad": (prediction[..., JOINT_POSITION] - target[..., JOINT_POSITION])
-        .abs()
-        .mean(),
-        "joint_velocity_error_radps": (
-            prediction[..., JOINT_VELOCITY] - target[..., JOINT_VELOCITY]
-        )
-        .abs()
-        .mean(),
+        "root_position_error_m": root_position_error.mean(),
+        "root_position_error_p95_m": torch.quantile(root_position_error.float(), 0.95),
+        "root_position_error_p99_m": torch.quantile(root_position_error.float(), 0.99),
+        "root_orientation_error_rad": root_orientation_error.mean(),
+        "root_orientation_error_p95_rad": torch.quantile(root_orientation_error.float(), 0.95),
+        "root_orientation_error_p99_rad": torch.quantile(root_orientation_error.float(), 0.99),
+        "root_linear_velocity_error_mps": root_linear_velocity_error.mean(),
+        "root_angular_velocity_error_radps": root_angular_velocity_error.mean(),
+        "joint_position_error_rad": joint_position_error.mean(),
+        "joint_position_error_p95_rad": torch.quantile(joint_position_error.float(), 0.95),
+        "joint_position_error_p99_rad": torch.quantile(joint_position_error.float(), 0.99),
+        "joint_velocity_error_radps": joint_velocity_error.mean(),
     }
 
 
@@ -137,6 +169,9 @@ class ForwardPredictorObjective(nn.Module):
         required = {
             "state",
             "action",
+            "history_state",
+            "history_action",
+            "history_valid",
             "state_mean",
             "state_std",
             "delta_mean",
@@ -145,11 +180,18 @@ class ForwardPredictorObjective(nn.Module):
         missing = sorted(required.difference(batch))
         if missing:
             raise KeyError(f"Forward Predictor batch is missing fields: {missing}")
-        if any(not torch.isfinite(batch[name]).all() for name in required):
+        finite_names = required.difference({"history_valid"})
+        if any(not torch.isfinite(batch[name]).all() for name in finite_names):
             raise ValueError("Forward Predictor batch contains non-finite values")
 
-    def forward(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+    def forward(
+        self,
+        batch: dict[str, torch.Tensor],
+        recursive_weight: float = 0.0,
+    ) -> dict[str, torch.Tensor]:
         self._validate_batch(batch)
+        if recursive_weight < 0.0:
+            raise ValueError("recursive_weight must be non-negative")
         state = batch["state"]
         action = batch["action"]
         if state.ndim != 3 or state.shape[1:] != (6, 71):
@@ -157,71 +199,144 @@ class ForwardPredictorObjective(nn.Module):
         if action.shape != (state.size(0), 5, 29):
             raise ValueError(f"Action batch must be [batch,5,29], got {tuple(action.shape)}")
 
-        prediction, normalized_delta = self.model.rollout(
-            state[:, 0],
+        history_arguments = {
+            "history_state": batch["history_state"],
+            "history_action": batch["history_action"],
+            "history_valid": batch["history_valid"],
+        }
+        normalization_arguments = {
+            "state_mean": batch["state_mean"],
+            "state_std": batch["state_std"],
+            "delta_mean": batch["delta_mean"],
+            "delta_std": batch["delta_std"],
+        }
+        teacher_prediction, teacher_delta = self.model.teacher_forced(
+            state,
             action,
-            batch["state_mean"],
-            batch["state_std"],
-            batch["delta_mean"],
-            batch["delta_std"],
+            **history_arguments,
+            **normalization_arguments,
         )
+        if self.training and recursive_weight == 0.0:
+            with torch.no_grad():
+                recursive_prediction, recursive_delta = self.model.rollout(
+                    state[:, 0],
+                    action,
+                    **history_arguments,
+                    **normalization_arguments,
+                )
+        else:
+            recursive_prediction, recursive_delta = self.model.rollout(
+                state[:, 0],
+                action,
+                **history_arguments,
+                **normalization_arguments,
+            )
         target = state[:, 1:]
-        rollout_loss, components = _state_losses(
-            prediction,
+        teacher_error = _normalized_state_error(
+            teacher_prediction,
             target,
             batch["state_mean"],
             batch["state_std"],
             batch["delta_std"],
-            self.loss_config,
         )
+        recursive_error = _normalized_state_error(
+            recursive_prediction,
+            target,
+            batch["state_mean"],
+            batch["state_std"],
+            batch["delta_std"],
+        )
+        teacher_loss, teacher_components = _state_losses(
+            teacher_error,
+            self.loss_config,
+            huber=True,
+        )
+        recursive_loss, recursive_components = _state_losses(
+            recursive_error,
+            self.loss_config,
+            huber=True,
+        )
+        total_loss = teacher_loss + float(recursive_weight) * recursive_loss
 
         with torch.no_grad():
             unchanged = state[:, :1].expand_as(target)
-            no_change_loss, _ = _state_losses(
+            unchanged_error = _normalized_state_error(
                 unchanged,
                 target,
                 batch["state_mean"],
                 batch["state_std"],
                 batch["delta_std"],
+            )
+            teacher_mse, _ = _state_losses(
+                teacher_error,
                 self.loss_config,
+                huber=False,
+            )
+            recursive_mse, _ = _state_losses(
+                recursive_error,
+                self.loss_config,
+                huber=False,
+            )
+            no_change_mse, _ = _state_losses(
+                unchanged_error,
+                self.loss_config,
+                huber=False,
             )
             horizon_metrics: dict[str, torch.Tensor] = {}
             for index in range(5):
                 horizon_loss, _ = _state_losses(
-                    prediction[:, index : index + 1],
-                    target[:, index : index + 1],
-                    batch["state_mean"],
-                    batch["state_std"],
-                    batch["delta_std"],
+                    recursive_error[:, index : index + 1],
                     self.loss_config,
+                    huber=True,
+                )
+                horizon_mse, _ = _state_losses(
+                    recursive_error[:, index : index + 1],
+                    self.loss_config,
+                    huber=False,
                 )
                 horizon_baseline, _ = _state_losses(
-                    unchanged[:, index : index + 1],
-                    target[:, index : index + 1],
-                    batch["state_mean"],
-                    batch["state_std"],
-                    batch["delta_std"],
+                    unchanged_error[:, index : index + 1],
                     self.loss_config,
+                    huber=False,
                 )
                 step = index + 1
                 horizon_metrics[f"horizon_{step}_loss"] = horizon_loss
-                horizon_metrics[f"horizon_{step}_nmse"] = horizon_loss / horizon_baseline.clamp_min(
+                horizon_metrics[f"horizon_{step}_mse"] = horizon_mse
+                horizon_metrics[f"horizon_{step}_nmse"] = horizon_mse / horizon_baseline.clamp_min(
                     1.0e-8
                 )
             physical_metrics = _physical_errors(
-                prediction,
+                recursive_prediction,
+                target,
+                batch["state_mean"],
+                batch["state_std"],
+            )
+            teacher_physical_metrics = _physical_errors(
+                teacher_prediction,
                 target,
                 batch["state_mean"],
                 batch["state_std"],
             )
 
         return {
-            "loss": rollout_loss,
-            "rollout_loss": rollout_loss.detach(),
-            "rollout_no_change_loss": no_change_loss,
-            "rollout_nmse": rollout_loss.detach() / no_change_loss.clamp_min(1.0e-8),
-            "predicted_normalized_delta_rms": normalized_delta.detach().square().mean().sqrt(),
-            **{f"{name}_loss": value.detach() for name, value in components.items()},
+            "loss": total_loss,
+            "teacher_loss": teacher_loss.detach(),
+            "recursive_loss": recursive_loss.detach(),
+            "recursive_weight": teacher_loss.new_tensor(float(recursive_weight)),
+            "teacher_mse": teacher_mse,
+            "teacher_nmse": teacher_mse / no_change_mse.clamp_min(1.0e-8),
+            "rollout_loss": recursive_loss.detach(),
+            "rollout_mse": recursive_mse,
+            "rollout_no_change_loss": no_change_mse,
+            "rollout_nmse": recursive_mse / no_change_mse.clamp_min(1.0e-8),
+            "teacher_normalized_delta_rms": teacher_delta.detach().square().mean().sqrt(),
+            "predicted_normalized_delta_rms": recursive_delta.detach().square().mean().sqrt(),
+            "history_valid_fraction": batch["history_valid"].float().mean(),
+            **{
+                f"teacher_{name}_loss": value.detach() for name, value in teacher_components.items()
+            },
+            **{f"{name}_loss": value.detach() for name, value in recursive_components.items()},
             **horizon_metrics,
             **physical_metrics,
+            **{f"teacher_{name}": value for name, value in teacher_physical_metrics.items()},
         }

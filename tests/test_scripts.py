@@ -280,10 +280,13 @@ def test_forward_predictor_launcher_builds_locked_recursive_mlp_command(
         "intact_tracking.cli.forward_predictor_train",
     ]
     assert _last_option_value(arguments, "--num-envs") == "2048"
-    assert _last_option_value(arguments, "--batch-size") == "768"
+    assert _last_option_value(arguments, "--batch-size") == "2048"
+    assert _last_option_value(arguments, "--replay-capacity") == "262144"
+    assert _last_option_value(arguments, "--replay-sampling") == "motion_balanced"
     assert _last_option_value(arguments, "--gradient-steps-per-update") == "4"
     assert _last_option_value(arguments, "--rollout-steps-per-update") == "5"
-    assert _last_option_value(arguments, "--hidden-dim") == "800"
+    assert _last_option_value(arguments, "--history-steps") == "5"
+    assert _last_option_value(arguments, "--hidden-dim") == "1100"
     assert _last_option_value(arguments, "--residual-blocks") == "8"
 
 

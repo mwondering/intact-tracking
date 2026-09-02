@@ -130,12 +130,13 @@ def apply_physical_state_delta(state: torch.Tensor, delta: torch.Tensor) -> torc
 class ForwardPredictorConfig:
     """Capacity and shape contract for the nominal one-step transition model."""
 
-    architecture_version: str = "nominal_recursive_full_state_delta_mlp_v1"
+    architecture_version: str = "nominal_recursive_flat_history_mlp_v2"
     state_dim: int = 71
     action_dim: int = 29
     delta_dim: int = 70
     horizon: int = 5
-    hidden_dim: int = 800
+    history_steps: int = 5
+    hidden_dim: int = 1100
     residual_blocks: int = 8
 
     def __post_init__(self) -> None:
@@ -151,6 +152,8 @@ class ForwardPredictorConfig:
             raise ValueError("Forward Predictor is fixed to 71-D state, 29-D action, 70-D delta")
         if self.horizon != 5:
             raise ValueError("Forward Predictor rollout is fixed to five steps")
+        if self.history_steps != 5:
+            raise ValueError("Forward Predictor history is fixed to five completed interactions")
 
 
 class ResidualMLPBlock(nn.Module):
@@ -168,14 +171,20 @@ class ResidualMLPBlock(nn.Module):
 
 
 class ForwardDynamicsMLP(nn.Module):
-    """Shared one-step predictor recursively applied to a five-action sequence."""
+    """One residual MLP over five flattened history frames and the current pair."""
 
     def __init__(self, config: ForwardPredictorConfig | None = None) -> None:
         super().__init__()
         self.config = config or ForwardPredictorConfig()
         width = self.config.hidden_dim
+        history_width = self.config.history_steps * (
+            self.config.state_dim + self.config.action_dim + 1
+        )
         self.input_projection = nn.Sequential(
-            nn.Linear(self.config.state_dim + self.config.action_dim, width),
+            nn.Linear(
+                history_width + self.config.state_dim + self.config.action_dim,
+                width,
+            ),
             nn.SiLU(),
         )
         self.blocks = nn.ModuleList(
@@ -185,28 +194,149 @@ class ForwardDynamicsMLP(nn.Module):
         self.delta_head = nn.Linear(width, self.config.delta_dim)
 
     def forward(
-        self, normalized_state: torch.Tensor, normalized_action: torch.Tensor
+        self,
+        normalized_state: torch.Tensor,
+        normalized_action: torch.Tensor,
+        history_state: torch.Tensor,
+        history_action: torch.Tensor,
+        history_valid: torch.Tensor,
     ) -> torch.Tensor:
-        if normalized_state.size(-1) != self.config.state_dim:
+        if tuple(normalized_state.shape) != (normalized_state.size(0), self.config.state_dim):
             raise ValueError(
-                f"State must end in {self.config.state_dim}, got {tuple(normalized_state.shape)}"
+                f"State must be [batch,{self.config.state_dim}], got {tuple(normalized_state.shape)}"
             )
-        expected_action = (*normalized_state.shape[:-1], self.config.action_dim)
+        batch_size = normalized_state.size(0)
+        expected_action = (batch_size, self.config.action_dim)
         if tuple(normalized_action.shape) != expected_action:
             raise ValueError(
                 f"Action must have shape {expected_action}, got {tuple(normalized_action.shape)}"
             )
+        expected_history = {
+            "state": (batch_size, self.config.history_steps, self.config.state_dim),
+            "action": (batch_size, self.config.history_steps, self.config.action_dim),
+            "valid": (batch_size, self.config.history_steps),
+        }
+        actual_history = {
+            "state": tuple(history_state.shape),
+            "action": tuple(history_action.shape),
+            "valid": tuple(history_valid.shape),
+        }
+        invalid = {
+            name: (actual_history[name], shape)
+            for name, shape in expected_history.items()
+            if actual_history[name] != shape
+        }
+        if invalid:
+            raise ValueError(f"Invalid Forward Predictor history shapes: {invalid}")
+        mask = history_valid.float().unsqueeze(-1)
+        flattened_history = torch.cat(
+            (
+                history_state.float() * mask,
+                history_action.float() * mask,
+                mask,
+            ),
+            dim=-1,
+        ).flatten(start_dim=1)
         hidden = self.input_projection(
-            torch.cat((normalized_state.float(), normalized_action.float()), dim=-1)
+            torch.cat(
+                (flattened_history, normalized_state.float(), normalized_action.float()),
+                dim=-1,
+            )
         )
         for block in self.blocks:
             hidden = block(hidden)
         return self.delta_head(self.output_norm(hidden))
 
+    @staticmethod
+    def _roll_history(
+        history_state: torch.Tensor,
+        history_action: torch.Tensor,
+        history_valid: torch.Tensor,
+        state: torch.Tensor,
+        action: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        return (
+            torch.cat((history_state[:, 1:], state[:, None]), dim=1),
+            torch.cat((history_action[:, 1:], action[:, None]), dim=1),
+            torch.cat(
+                (
+                    history_valid[:, 1:],
+                    torch.ones_like(history_valid[:, :1], dtype=torch.bool),
+                ),
+                dim=1,
+            ),
+        )
+
+    @staticmethod
+    def _apply_normalized_delta(
+        normalized_state: torch.Tensor,
+        normalized_delta: torch.Tensor,
+        state_mean: torch.Tensor,
+        state_std: torch.Tensor,
+        delta_mean: torch.Tensor,
+        delta_std: torch.Tensor,
+    ) -> torch.Tensor:
+        physical_state = normalized_state * state_std + state_mean
+        physical_delta = normalized_delta * delta_std + delta_mean
+        next_physical_state = apply_physical_state_delta(physical_state, physical_delta)
+        return (next_physical_state - state_mean) / state_std
+
+    def _validate_rollout_inputs(
+        self,
+        initial_normalized_state: torch.Tensor,
+        normalized_actions: torch.Tensor,
+        history_state: torch.Tensor,
+        history_action: torch.Tensor,
+        history_valid: torch.Tensor,
+        state_mean: torch.Tensor,
+        state_std: torch.Tensor,
+        delta_mean: torch.Tensor,
+        delta_std: torch.Tensor,
+    ) -> None:
+        batch_size = initial_normalized_state.size(0)
+        expected = {
+            "initial_state": (batch_size, self.config.state_dim),
+            "actions": (batch_size, self.config.horizon, self.config.action_dim),
+            "history_state": (
+                batch_size,
+                self.config.history_steps,
+                self.config.state_dim,
+            ),
+            "history_action": (
+                batch_size,
+                self.config.history_steps,
+                self.config.action_dim,
+            ),
+            "history_valid": (batch_size, self.config.history_steps),
+            "state_mean": (self.config.state_dim,),
+            "state_std": (self.config.state_dim,),
+            "delta_mean": (self.config.delta_dim,),
+            "delta_std": (self.config.delta_dim,),
+        }
+        actual = {
+            "initial_state": tuple(initial_normalized_state.shape),
+            "actions": tuple(normalized_actions.shape),
+            "history_state": tuple(history_state.shape),
+            "history_action": tuple(history_action.shape),
+            "history_valid": tuple(history_valid.shape),
+            "state_mean": tuple(state_mean.shape),
+            "state_std": tuple(state_std.shape),
+            "delta_mean": tuple(delta_mean.shape),
+            "delta_std": tuple(delta_std.shape),
+        }
+        invalid = {
+            name: (actual[name], shape) for name, shape in expected.items() if actual[name] != shape
+        }
+        if invalid:
+            raise ValueError(f"Invalid Forward Predictor rollout shapes: {invalid}")
+
     def rollout(
         self,
         initial_normalized_state: torch.Tensor,
         normalized_actions: torch.Tensor,
+        history_state: torch.Tensor,
+        history_action: torch.Tensor,
+        history_valid: torch.Tensor,
         state_mean: torch.Tensor,
         state_std: torch.Tensor,
         delta_mean: torch.Tensor,
@@ -214,36 +344,108 @@ class ForwardDynamicsMLP(nn.Module):
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Recursively predict five normalized states using the model's own prior outputs."""
 
-        batch_size = initial_normalized_state.size(0)
-        expected_actions = (batch_size, self.config.horizon, self.config.action_dim)
-        if tuple(initial_normalized_state.shape) != (batch_size, self.config.state_dim):
-            raise ValueError("Initial state must be [batch,71]")
-        if tuple(normalized_actions.shape) != expected_actions:
-            raise ValueError(
-                f"Actions must have shape {expected_actions}, got {tuple(normalized_actions.shape)}"
-            )
-        expected_state_stats = (self.config.state_dim,)
-        expected_delta_stats = (self.config.delta_dim,)
-        if (
-            tuple(state_mean.shape) != expected_state_stats
-            or tuple(state_std.shape) != expected_state_stats
-        ):
-            raise ValueError("State normalization statistics must be 71-D")
-        if (
-            tuple(delta_mean.shape) != expected_delta_stats
-            or tuple(delta_std.shape) != expected_delta_stats
-        ):
-            raise ValueError("Delta normalization statistics must be 70-D")
+        self._validate_rollout_inputs(
+            initial_normalized_state,
+            normalized_actions,
+            history_state,
+            history_action,
+            history_valid,
+            state_mean,
+            state_std,
+            delta_mean,
+            delta_std,
+        )
 
         normalized_state = initial_normalized_state.float()
         predicted_states: list[torch.Tensor] = []
         predicted_deltas: list[torch.Tensor] = []
         for index in range(self.config.horizon):
-            normalized_delta = self(normalized_state, normalized_actions[:, index])
-            physical_state = normalized_state * state_std + state_mean
-            physical_delta = normalized_delta * delta_std + delta_mean
-            next_physical_state = apply_physical_state_delta(physical_state, physical_delta)
-            normalized_state = (next_physical_state - state_mean) / state_std
-            predicted_states.append(normalized_state)
+            action = normalized_actions[:, index]
+            normalized_delta = self(
+                normalized_state,
+                action,
+                history_state,
+                history_action,
+                history_valid,
+            )
             predicted_deltas.append(normalized_delta)
+            previous_state = normalized_state
+            normalized_state = self._apply_normalized_delta(
+                previous_state,
+                normalized_delta,
+                state_mean,
+                state_std,
+                delta_mean,
+                delta_std,
+            )
+            predicted_states.append(normalized_state)
+            history_state, history_action, history_valid = self._roll_history(
+                history_state,
+                history_action,
+                history_valid,
+                previous_state,
+                action,
+            )
+        return torch.stack(predicted_states, dim=1), torch.stack(predicted_deltas, dim=1)
+
+    def teacher_forced(
+        self,
+        normalized_states: torch.Tensor,
+        normalized_actions: torch.Tensor,
+        history_state: torch.Tensor,
+        history_action: torch.Tensor,
+        history_valid: torch.Tensor,
+        state_mean: torch.Tensor,
+        state_std: torch.Tensor,
+        delta_mean: torch.Tensor,
+        delta_std: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Predict five independent one-step targets while advancing true history."""
+
+        if tuple(normalized_states.shape[1:]) != (self.config.horizon + 1, self.config.state_dim):
+            raise ValueError(
+                f"Teacher-forced states must be [batch,6,71], got {tuple(normalized_states.shape)}"
+            )
+        self._validate_rollout_inputs(
+            normalized_states[:, 0],
+            normalized_actions,
+            history_state,
+            history_action,
+            history_valid,
+            state_mean,
+            state_std,
+            delta_mean,
+            delta_std,
+        )
+
+        predicted_states: list[torch.Tensor] = []
+        predicted_deltas: list[torch.Tensor] = []
+        for index in range(self.config.horizon):
+            current_state = normalized_states[:, index]
+            action = normalized_actions[:, index]
+            normalized_delta = self(
+                current_state,
+                action,
+                history_state,
+                history_action,
+                history_valid,
+            )
+            predicted_states.append(
+                self._apply_normalized_delta(
+                    current_state,
+                    normalized_delta,
+                    state_mean,
+                    state_std,
+                    delta_mean,
+                    delta_std,
+                )
+            )
+            predicted_deltas.append(normalized_delta)
+            history_state, history_action, history_valid = self._roll_history(
+                history_state,
+                history_action,
+                history_valid,
+                current_state,
+                action,
+            )
         return torch.stack(predicted_states, dim=1), torch.stack(predicted_deltas, dim=1)

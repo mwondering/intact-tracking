@@ -11,14 +11,14 @@ usage() {
     "Fixed contract:" \
     "  physics          100% nominal" \
     "  controller       frozen tracker" \
-    "  model            residual MLP, width 800, 8 blocks (~10.4M)" \
-    "  input            current 71-D full state + current 29-D action" \
+    "  model            residual MLP, width 1100, 8 blocks (~20.14M)" \
+    "  input            flattened 5-frame state/action history + current state/action" \
     "  output           70-D full-state delta" \
     "  rollout          shared one-step model recursively applied 5 times" \
     "  disabled         Context Encoder, Transformer, Residual Policy, Backward" \
     "" \
     "Production defaults (override with PREDICTOR_OPTIONS):" \
-    "  --num-envs 2048 --batch-size 768 --replay-capacity 16384" \
+    "  --num-envs 2048 --batch-size 2048 --replay-capacity 262144" \
     "  --gradient-steps-per-update 4 --updates 100000" \
     "" \
     "Use --fixed-batch-overfit for the mandatory model-capacity diagnostic." \
@@ -49,7 +49,7 @@ MOTION_SOURCE="$2"
 OUTPUT_DIR="$3"
 shift 3
 
-managed_options=(--hidden-dim --residual-blocks --rollout-steps-per-update)
+managed_options=(--history-steps --hidden-dim --residual-blocks --rollout-steps-per-update)
 for argument in "$@"; do
   for managed in "${managed_options[@]}"; do
     if [[ "${argument}" == "${managed}" || "${argument}" == "${managed}="* ]]; then
@@ -122,8 +122,9 @@ command+=(
   "${motion_argument[@]}"
   --output-dir "${OUTPUT_DIR}"
   --num-envs 2048
-  --batch-size 768
-  --replay-capacity 16384
+  --batch-size 2048
+  --replay-capacity 262144
+  --replay-sampling motion_balanced
   --gradient-steps-per-update 4
   --updates 100000
   --wandb-project intact-forward-predictor
@@ -134,14 +135,17 @@ fi
 command+=("$@")
 command+=(
   --rollout-steps-per-update 5
-  --hidden-dim 800
+  --history-steps 5
+  --hidden-dim 1100
   --residual-blocks 8
 )
 
 printf '%s\n' \
-  "Training contract: nominal recursive Forward Predictor" \
-  "  model: 71-D state + 29-D action -> 70-D delta, ~10.4M parameters" \
+  "Training contract: nominal flat-history Forward Predictor v2" \
+  "  model: flat 5-frame history + current state/action -> 70-D delta, ~20.14M" \
   "  rollout: one shared residual MLP recursively applied for 5 steps" \
+  "  loss: teacher-forced one-step Huber + scheduled recursive five-step Huber" \
+  "  replay: motion-balanced, 262144 samples per rank by default" \
   "  normalization: frozen after warmup" \
   "  context/transformer/policy/backward: disabled" \
   "  distributed ranks: ${NPROC}"

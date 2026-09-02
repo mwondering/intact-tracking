@@ -151,6 +151,7 @@ class ForwardPredictorReplayBuffer:
         "next_robot_state",
         "reset_boundary",
         "world_id",
+        "episode_id",
         "episode_step",
         "motion_id",
         "motion_step",
@@ -162,26 +163,39 @@ class ForwardPredictorReplayBuffer:
         num_worlds: int,
         dimensions: RolloutDimensions | None = None,
         horizon: int = 5,
+        history_steps: int = 5,
         capacity: int = 16384,
+        sampling_mode: str = "motion_balanced",
         seed: int = 0,
         world_id_offset: int = 0,
         device: torch.device | str | None = None,
     ) -> None:
         if num_worlds < 1 or capacity < 1:
             raise ValueError("num_worlds and capacity must be positive")
-        if horizon != 5:
-            raise ValueError("Forward Predictor replay horizon is fixed to five")
+        if horizon != 5 or history_steps != 5:
+            raise ValueError("Forward Predictor replay horizon/history are fixed to five")
+        if sampling_mode not in {"uniform", "motion_balanced"}:
+            raise ValueError("sampling_mode must be 'uniform' or 'motion_balanced'")
         if world_id_offset < 0:
             raise ValueError("world_id_offset must be non-negative")
         self.num_worlds = int(num_worlds)
         self.dimensions = dimensions or RolloutDimensions()
         self.horizon = int(horizon)
+        self.history_steps = int(history_steps)
+        self.ring_steps = self.horizon + self.history_steps
         self.capacity = int(capacity)
+        self.sampling_mode = sampling_mode
         self.world_id_offset = int(world_id_offset)
         self.device = torch.device(device or "cpu")
         self._world_ids = tuple(range(world_id_offset, world_id_offset + num_worlds))
         self._generator = torch.Generator(device=self.device).manual_seed(seed)
-        self._query_offsets = torch.arange(4, -1, -1, device=self.device)
+        self._target_offsets = torch.arange(self.horizon - 1, -1, -1, device=self.device)
+        self._history_offsets = torch.arange(
+            self.ring_steps - 1,
+            self.horizon - 1,
+            -1,
+            device=self.device,
+        )
         self._history: dict[str, torch.Tensor] = {}
         self._samples: dict[str, torch.Tensor] = {}
         self._reset_history: torch.Tensor | None = None
@@ -189,6 +203,7 @@ class ForwardPredictorReplayBuffer:
         self._sample_write = 0
         self._size = 0
         self._world_ids_validated = False
+        self._sampling_weights: torch.Tensor | None = None
         self.total_samples_generated = 0
         self.total_transitions = 0
         self.normalizer = ForwardPredictorNormalization(
@@ -213,13 +228,15 @@ class ForwardPredictorReplayBuffer:
     @property
     def estimated_storage_bytes(self) -> int:
         dims = self.dimensions
-        history_floats = self.horizon * self.num_worlds * (dims.robot_state + dims.action)
+        history_floats = self.ring_steps * self.num_worlds * (dims.robot_state + dims.action)
         sample_floats = self.capacity * (
-            (self.horizon + 1) * dims.robot_state + self.horizon * dims.action
+            (self.horizon + 1) * dims.robot_state
+            + self.horizon * dims.action
+            + self.history_steps * (dims.robot_state + dims.action)
         )
-        history_integers = 3 * self.horizon * self.num_worlds
+        history_integers = 4 * self.ring_steps * self.num_worlds
         sample_integers = 3 * self.capacity
-        flags = self.horizon * self.num_worlds
+        flags = self.ring_steps * self.num_worlds + self.capacity * self.history_steps
         return (
             4 * (history_floats + sample_floats) + 8 * (history_integers + sample_integers) + flags
         )
@@ -228,20 +245,30 @@ class ForwardPredictorReplayBuffer:
         if self._history:
             return
         dims = self.dimensions
-        history_prefix = (self.horizon, self.num_worlds)
+        history_prefix = (self.ring_steps, self.num_worlds)
         self._history = {
-            "state": torch.empty((*history_prefix, dims.robot_state), device=self.device),
-            "action": torch.empty((*history_prefix, dims.action), device=self.device),
-            "episode_step": torch.empty(history_prefix, dtype=torch.long, device=self.device),
-            "motion_id": torch.empty(history_prefix, dtype=torch.long, device=self.device),
-            "motion_step": torch.empty(history_prefix, dtype=torch.long, device=self.device),
+            "state": torch.zeros((*history_prefix, dims.robot_state), device=self.device),
+            "action": torch.zeros((*history_prefix, dims.action), device=self.device),
+            "episode_id": torch.full(history_prefix, -1, dtype=torch.long, device=self.device),
+            "episode_step": torch.full(history_prefix, -1, dtype=torch.long, device=self.device),
+            "motion_id": torch.full(history_prefix, -1, dtype=torch.long, device=self.device),
+            "motion_step": torch.full(history_prefix, -1, dtype=torch.long, device=self.device),
         }
-        self._reset_history = torch.empty(history_prefix, dtype=torch.bool, device=self.device)
+        self._reset_history = torch.ones(history_prefix, dtype=torch.bool, device=self.device)
         self._samples = {
             "state": torch.empty(
                 (self.capacity, self.horizon + 1, dims.robot_state), device=self.device
             ),
             "action": torch.empty((self.capacity, self.horizon, dims.action), device=self.device),
+            "history_state": torch.empty(
+                (self.capacity, self.history_steps, dims.robot_state), device=self.device
+            ),
+            "history_action": torch.empty(
+                (self.capacity, self.history_steps, dims.action), device=self.device
+            ),
+            "history_valid": torch.empty(
+                (self.capacity, self.history_steps), dtype=torch.bool, device=self.device
+            ),
             "world_id": torch.empty(self.capacity, dtype=torch.long, device=self.device),
             "motion_id": torch.empty(self.capacity, dtype=torch.long, device=self.device),
             "motion_step": torch.empty(self.capacity, dtype=torch.long, device=self.device),
@@ -258,6 +285,7 @@ class ForwardPredictorReplayBuffer:
             "next_robot_state": (self.num_worlds, dims.robot_state),
             "reset_boundary": (self.num_worlds,),
             "world_id": (self.num_worlds,),
+            "episode_id": (self.num_worlds,),
             "episode_step": (self.num_worlds,),
             "motion_id": (self.num_worlds,),
             "motion_step": (self.num_worlds,),
@@ -299,6 +327,7 @@ class ForwardPredictorReplayBuffer:
             self._samples[name].index_copy_(0, positions, value)
         self._sample_write = (self._sample_write + retained) % self.capacity
         self._size = min(self.capacity, self._size + retained)
+        self._sampling_weights = None
         self.total_samples_generated += count
 
     def add_step(self, batch: dict[str, torch.Tensor]) -> int:
@@ -311,18 +340,24 @@ class ForwardPredictorReplayBuffer:
         position = self._history_write
         self._history["state"][position].copy_(batch["robot_state"])
         self._history["action"][position].copy_(batch["action"])
+        self._history["episode_id"][position].copy_(batch["episode_id"])
         self._history["episode_step"][position].copy_(batch["episode_step"])
         self._history["motion_id"][position].copy_(batch["motion_id"])
         self._history["motion_step"][position].copy_(batch["motion_step"])
         self._reset_history[position].copy_(batch["reset_boundary"])
 
-        time_ids = (position - self._query_offsets).remainder(self.horizon)
-        episode_steps = self._history["episode_step"][time_ids]
+        target_ids = (position - self._target_offsets).remainder(self.ring_steps)
+        history_ids = (position - self._history_offsets).remainder(self.ring_steps)
+        target_steps = self._history["episode_step"][target_ids]
+        target_episode_ids = self._history["episode_id"][target_ids]
+        target_start = target_steps[0]
         complete_window = (
-            episode_steps.remainder(self.horizon)
-            == torch.arange(self.horizon, device=self.device)[:, None]
+            target_steps
+            == target_start[None] + torch.arange(self.horizon, device=self.device)[:, None]
         ).all(dim=0)
-        crosses_reset = self._reset_history[time_ids].any(dim=0)
+        complete_window &= target_start.remainder(self.horizon) == 0
+        complete_window &= (target_episode_ids == batch["episode_id"][None]).all(dim=0)
+        crosses_reset = self._reset_history[target_ids].any(dim=0)
         valid = (
             (batch["episode_step"] + 1 >= self.horizon)
             & complete_window
@@ -332,24 +367,47 @@ class ForwardPredictorReplayBuffer:
         env_ids = valid.nonzero(as_tuple=False).flatten()
         count = int(env_ids.numel())
         if count:
-            state_history = self._history["state"][time_ids[:, None], env_ids[None, :]].permute(
+            target_state = self._history["state"][target_ids[:, None], env_ids[None, :]].permute(
                 1, 0, 2
             )
-            action_history = self._history["action"][time_ids[:, None], env_ids[None, :]].permute(
+            target_action = self._history["action"][target_ids[:, None], env_ids[None, :]].permute(
                 1, 0, 2
+            )
+            history_state = self._history["state"][history_ids[:, None], env_ids[None, :]].permute(
+                1, 0, 2
+            )
+            history_action = self._history["action"][
+                history_ids[:, None], env_ids[None, :]
+            ].permute(1, 0, 2)
+            prior_steps = self._history["episode_step"][
+                history_ids[:, None], env_ids[None, :]
+            ].permute(1, 0)
+            prior_episode_ids = self._history["episode_id"][
+                history_ids[:, None], env_ids[None, :]
+            ].permute(1, 0)
+            expected_prior_steps = (
+                target_start[env_ids, None]
+                - self.history_steps
+                + torch.arange(self.history_steps, device=self.device)[None]
+            )
+            history_valid = (
+                (expected_prior_steps >= 0)
+                & (prior_steps == expected_prior_steps)
+                & (prior_episode_ids == batch["episode_id"][env_ids, None])
             )
             samples = {
-                "state": torch.cat(
-                    (state_history, batch["next_robot_state"][env_ids, None]), dim=1
-                ),
-                "action": action_history,
+                "state": torch.cat((target_state, batch["next_robot_state"][env_ids, None]), dim=1),
+                "action": target_action,
+                "history_state": history_state,
+                "history_action": history_action,
+                "history_valid": history_valid,
                 "world_id": batch["world_id"][env_ids],
-                "motion_id": self._history["motion_id"][time_ids[0], env_ids],
-                "motion_step": self._history["motion_step"][time_ids[0], env_ids],
+                "motion_id": self._history["motion_id"][target_ids[0], env_ids],
+                "motion_step": self._history["motion_step"][target_ids[0], env_ids],
             }
             self._append_samples(samples, count)
 
-        self._history_write = (position + 1) % self.horizon
+        self._history_write = (position + 1) % self.ring_steps
         self.total_transitions += self.num_worlds
         return count
 
@@ -379,9 +437,25 @@ class ForwardPredictorReplayBuffer:
             raise RuntimeError(
                 f"Forward Predictor replay has {self._size} samples, batch_size={batch_size}"
             )
-        indices = torch.randperm(self._size, generator=self._generator, device=self.device)[
-            :batch_size
-        ]
+        if self.sampling_mode == "uniform":
+            indices = torch.randperm(self._size, generator=self._generator, device=self.device)[
+                :batch_size
+            ]
+        else:
+            if self._sampling_weights is None or self._sampling_weights.numel() != self._size:
+                motion_ids = self._samples["motion_id"][: self._size]
+                _, inverse, counts = torch.unique(
+                    motion_ids,
+                    return_inverse=True,
+                    return_counts=True,
+                )
+                self._sampling_weights = counts[inverse].float().reciprocal()
+            indices = torch.multinomial(
+                self._sampling_weights,
+                batch_size,
+                replacement=False,
+                generator=self._generator,
+            )
         selected = {name: value.index_select(0, indices) for name, value in self._samples.items()}
         state_mean, state_std, action_mean, action_std, delta_mean, delta_std = (
             self._normalization_tensors(normalization, self.device)
@@ -389,6 +463,9 @@ class ForwardPredictorReplayBuffer:
         return {
             "state": (selected["state"] - state_mean) / state_std,
             "action": (selected["action"] - action_mean) / action_std,
+            "history_state": (selected["history_state"] - state_mean) / state_std,
+            "history_action": (selected["history_action"] - action_mean) / action_std,
+            "history_valid": selected["history_valid"],
             "state_mean": state_mean,
             "state_std": state_std,
             "action_mean": action_mean,

@@ -59,8 +59,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--updates", type=int, default=10_000)
     parser.add_argument("--rollout-steps-per-update", type=int, default=5)
     parser.add_argument("--gradient-steps-per-update", type=int, default=4)
-    parser.add_argument("--batch-size", type=int, default=768)
-    parser.add_argument("--replay-capacity", type=int, default=16_384)
+    parser.add_argument("--batch-size", type=int, default=2_048)
+    parser.add_argument("--replay-capacity", type=int, default=262_144)
+    parser.add_argument(
+        "--replay-sampling",
+        choices=("motion_balanced", "uniform"),
+        default="motion_balanced",
+    )
     parser.add_argument("--fixed-probe-batch-size", type=int, default=512)
     parser.add_argument(
         "--fixed-batch-overfit",
@@ -75,8 +80,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--model-learning-rate", type=float, default=3.0e-4)
     parser.add_argument("--weight-decay", type=float, default=1.0e-3)
     parser.add_argument("--gradient-clip", type=float, default=1.0)
-    parser.add_argument("--hidden-dim", type=int, default=800)
+    parser.add_argument("--history-steps", type=int, default=5)
+    parser.add_argument("--hidden-dim", type=int, default=1100)
     parser.add_argument("--residual-blocks", type=int, default=8)
+    parser.add_argument("--huber-delta", type=float, default=1.0)
+    parser.add_argument("--recursive-warmup-optimizer-steps", type=int, default=5_000)
+    parser.add_argument("--recursive-ramp-optimizer-steps", type=int, default=15_000)
+    parser.add_argument("--recursive-max-weight", type=float, default=0.5)
 
     parser.add_argument("--root-position-weight", type=float, default=1.0)
     parser.add_argument("--root-orientation-weight", type=float, default=1.0)
@@ -113,6 +123,7 @@ def _validate_arguments(args: argparse.Namespace) -> None:
         "log_interval",
         "warmup_log_interval",
         "metric_window",
+        "history_steps",
         "hidden_dim",
         "residual_blocks",
     )
@@ -127,7 +138,13 @@ def _validate_arguments(args: argparse.Namespace) -> None:
         raise ValueError("replay-capacity must fit both training and fixed-probe batches")
     if args.rollout_steps_per_update != 5:
         raise ValueError("Forward Predictor collection requires rollout-steps-per-update=5")
-    for name in ("model_learning_rate", "gradient_clip"):
+    if args.recursive_warmup_optimizer_steps < 0:
+        raise ValueError("recursive-warmup-optimizer-steps must be non-negative")
+    if args.recursive_ramp_optimizer_steps < 1:
+        raise ValueError("recursive-ramp-optimizer-steps must be positive")
+    if args.history_steps != 5:
+        raise ValueError("Forward Predictor history-steps is fixed to five")
+    for name in ("model_learning_rate", "gradient_clip", "huber_delta"):
         if getattr(args, name) <= 0.0:
             raise ValueError(f"{name.replace('_', '-')} must be positive")
     for name in (
@@ -138,6 +155,7 @@ def _validate_arguments(args: argparse.Namespace) -> None:
         "root_angular_velocity_weight",
         "joint_position_weight",
         "joint_velocity_weight",
+        "recursive_max_weight",
     ):
         if getattr(args, name) < 0.0:
             raise ValueError(f"{name.replace('_', '-')} must be non-negative")
@@ -213,6 +231,19 @@ def _gradient_norm(parameters: list[torch.nn.Parameter]) -> float:
 
 def _loss_weight_payload(config: ForwardPredictorLossConfig) -> dict[str, float]:
     return {name: float(value) for name, value in asdict(config).items()}
+
+
+def _recursive_loss_weight(
+    optimizer_steps: int,
+    *,
+    warmup_steps: int,
+    ramp_steps: int,
+    maximum: float,
+) -> float:
+    if optimizer_steps <= warmup_steps:
+        return 0.0
+    progress = min((optimizer_steps - warmup_steps) / float(ramp_steps), 1.0)
+    return float(maximum) * progress
 
 
 def _wandb_payload(record: dict[str, Any]) -> dict[str, Any]:
@@ -321,6 +352,8 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         num_worlds=args.num_envs,
         dimensions=dimensions,
         capacity=args.replay_capacity,
+        history_steps=args.history_steps,
+        sampling_mode=args.replay_sampling,
         seed=rank_seed,
         world_id_offset=world_id_offset,
         device=device,
@@ -328,6 +361,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
     model_config = ForwardPredictorConfig(
         state_dim=dimensions.robot_state,
         action_dim=dimensions.action,
+        history_steps=args.history_steps,
         hidden_dim=args.hidden_dim,
         residual_blocks=args.residual_blocks,
     )
@@ -338,6 +372,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         root_angular_velocity_weight=args.root_angular_velocity_weight,
         joint_position_weight=args.joint_position_weight,
         joint_velocity_weight=args.joint_velocity_weight,
+        huber_delta=args.huber_delta,
     )
     model = ForwardDynamicsMLP(model_config).to(device)
     objective = ForwardPredictorObjective(model, loss_config)
@@ -366,11 +401,14 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
     )
     parameter_count = sum(parameter.numel() for parameter in model.parameters())
     run_config = {
-        "method": "nominal recursive Forward Predictor",
+        "method": "nominal flat-history Forward Predictor v2",
         "architecture": {
             "controller": "frozen tracker",
             "physics": "100% compiled nominal dynamics; DR slots restored to defaults",
-            "input": "normalized current 71-D full state and current 29-D tracker action",
+            "input": (
+                "five flattened causal (71-D state, 29-D action, valid) history frames, "
+                "current 71-D state, and current 29-D action"
+            ),
             "transition": "shared residual MLP predicts normalized 70-D full-state delta",
             "rollout": "predicted state is recursively fed back for all five actions",
             "excluded": ["context_encoder", "transformer", "residual_policy", "backward"],
@@ -391,6 +429,14 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         "replay": {
             "estimated_storage_bytes_per_rank": replay.estimated_storage_bytes,
             "horizon": 5,
+            "history_steps": args.history_steps,
+            "sampling": args.replay_sampling,
+        },
+        "curriculum": {
+            "teacher_forced_weight": 1.0,
+            "recursive_warmup_optimizer_steps": args.recursive_warmup_optimizer_steps,
+            "recursive_ramp_optimizer_steps": args.recursive_ramp_optimizer_steps,
+            "recursive_max_weight": args.recursive_max_weight,
         },
     }
     _main_process_call(distributed, lambda: _write_json(output_dir / "run_config.json", run_config))
@@ -517,8 +563,17 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                     if fixed_train_batch is not None
                     else replay.sample_batch(args.batch_size, normalization)
                 )
+                recursive_weight = _recursive_loss_weight(
+                    optimizer_steps,
+                    warmup_steps=args.recursive_warmup_optimizer_steps,
+                    ramp_steps=args.recursive_ramp_optimizer_steps,
+                    maximum=args.recursive_max_weight,
+                )
                 optimizer.zero_grad(set_to_none=True)
-                model_output = training_module(train_batch)
+                model_output = training_module(
+                    train_batch,
+                    recursive_weight=recursive_weight,
+                )
                 if not isinstance(model_output, dict) or not torch.isfinite(model_output["loss"]):
                     raise RuntimeError(
                         f"Non-finite Forward Predictor objective at step {optimizer_steps + 1}"
@@ -531,13 +586,15 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                 optimizer.step()
                 scheduler.step()
                 optimizer_steps += 1
-                step_metrics.append(
-                    {
-                        name: float(value.detach())
-                        for name, value in model_output.items()
-                        if value.numel() == 1
-                    }
+                metrics = {
+                    name: float(value.detach())
+                    for name, value in model_output.items()
+                    if value.numel() == 1
+                }
+                metrics["sample_motion_count"] = float(
+                    torch.unique(train_batch["motion_id"]).numel()
                 )
+                step_metrics.append(metrics)
 
             local_train = {
                 name: sum(item[name] for item in step_metrics) / len(step_metrics)
@@ -546,11 +603,23 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             train = distributed.mean_scalars(local_train)
             model.eval()
             with torch.inference_mode():
+                probe_recursive_weight = _recursive_loss_weight(
+                    optimizer_steps,
+                    warmup_steps=args.recursive_warmup_optimizer_steps,
+                    ramp_steps=args.recursive_ramp_optimizer_steps,
+                    maximum=args.recursive_max_weight,
+                )
                 local_probe = {
                     name: float(value.detach())
-                    for name, value in objective(fixed_probe_batch).items()
+                    for name, value in objective(
+                        fixed_probe_batch,
+                        recursive_weight=probe_recursive_weight,
+                    ).items()
                     if value.numel() == 1
                 }
+                local_probe["sample_motion_count"] = float(
+                    torch.unique(fixed_probe_batch["motion_id"]).numel()
+                )
             fixed_probe = distributed.mean_scalars(local_probe)
             counts = distributed.sum_integers(
                 {
