@@ -542,6 +542,7 @@ def _tile_fixed_dynamics_prototypes(env: Any, dynamics_classes: int) -> dict[str
         torch.cuda.synchronize(device)
     source_ids = torch.arange(env.num_envs, device=env.device) % dynamics_classes
     tiled_fields: list[str] = []
+    empty_fields: list[str] = []
     tiled_model_values: list[tuple[str, Any, torch.Tensor]] = []
     for raw_name in env.event_manager.domain_randomization_fields:
         name = str(raw_name)
@@ -553,6 +554,12 @@ def _tile_fixed_dynamics_prototypes(env: Any, dynamics_classes: int) -> dict[str
         if not isinstance(expanded, torch.Tensor) or expanded.ndim < 1:
             continue
         if expanded.shape[0] != env.num_envs:
+            continue
+        # MJLab registers generic recomputation caches such as tendon_length0
+        # even for robots with zero tendons. Their valid [num_envs, 0] arrays
+        # contain no dynamics values to replicate or reduce during auditing.
+        if expanded.numel() == 0:
+            empty_fields.append(name)
             continue
         prototypes = expanded[:dynamics_classes].clone()
         tiled = prototypes.index_select(0, source_ids)
@@ -585,7 +592,10 @@ def _tile_fixed_dynamics_prototypes(env: Any, dynamics_classes: int) -> dict[str
             gravity_tiled = True
 
     if not tiled_fields and not gravity_tiled:
-        raise RuntimeError("No per-world startup dynamics field could be tiled")
+        raise RuntimeError(
+            "No non-empty per-world startup dynamics field could be tiled; "
+            f"empty_fields={sorted(empty_fields)}"
+        )
     if device.type == "cuda":
         # All source tensors above were prepared on the current torch stream;
         # make them visible before TorchArray schedules writes on Warp's stream.
@@ -620,6 +630,7 @@ def _tile_fixed_dynamics_prototypes(env: Any, dynamics_classes: int) -> dict[str
         "dynamics_classes": dynamics_classes,
         "motion_groups_per_rank": env.num_envs // dynamics_classes,
         "tiled_model_fields": sorted(tiled_fields),
+        "empty_model_fields": sorted(empty_fields),
         "gravity_tiled": gravity_tiled,
         "max_abs_replication_error": float(maximum_error),
     }

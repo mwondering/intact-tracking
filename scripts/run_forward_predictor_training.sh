@@ -10,6 +10,7 @@ usage() {
     "" \
     "Fixed contract:" \
     "  physics          128 fixed startup-DR prototypes; never resampled" \
+    "  disturbance      checkpoint step/interval random pushes are not reproduced" \
     "  controller       frozen tracker" \
     "  model            causal Transformer + lightweight dynamics Context Encoder" \
     "  context input    100 completed robot-state/applied-target transitions (2 s); no foot/contact" \
@@ -175,6 +176,7 @@ printf '%s\n' \
   "Training contract: grouped-dynamics Context Forward Predictor v10" \
   "  model: Context Encoder sees robot state/action only; privileged features stay in predictor" \
   "  rollout: predicted robot/foot/contact state recurs 5 steps; no articulated FK in model" \
+  "  disturbance: checkpoint step/interval random pushes are removed" \
   "  loss: dynamics + matched hard-negative contrastive (0.01); no theta decoder" \
   "  context: 100 proprioceptive frames; reset-padded contexts predict but do not contrast" \
   "  pairs: same-class positives; 128-class synchronized motion/phase cohorts as hard negatives" \

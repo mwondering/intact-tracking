@@ -99,6 +99,7 @@ rollout 时可用的 simulator/reference 完整状态：
 
 - 仅保留 checkpoint 中 `mode=startup` 的 DR event；它们在首条 rollout 前确定每个 slot 的
   DR 参数。
+- 不复现 checkpoint 中 `step/interval` 模式的随机推力；它们与其他非 startup event 一并移除。
 - 整个训练进程不再调用 startup DR，因此 reset 和 motion 切换都不会改变该 slot 的物理参数。
 - MJLab class-based event 的 reset callback 在初始化 reset 后被禁用，避免其绕过 event mode
   在后续 episode reset 中重采样参数。

@@ -34,13 +34,13 @@ def test_online_rollout_removes_every_non_startup_event() -> None:
         events={
             "mass": startup,
             "reset_noise": SimpleNamespace(mode="reset"),
-            "push": SimpleNamespace(mode="interval"),
-            "force_lifetime": SimpleNamespace(mode="step"),
+            "periodic": SimpleNamespace(mode="interval"),
+            "push_robot": SimpleNamespace(mode="step"),
         }
     )
     kept, removed = _keep_startup_events(config)
     assert kept == ["mass"]
-    assert removed == ["force_lifetime", "push", "reset_noise"]
+    assert removed == ["periodic", "push_robot", "reset_noise"]
     assert config.events == {"mass": startup}
 
 
@@ -288,6 +288,7 @@ def test_online_rollout_tiles_fixed_dynamics_prototypes_without_resampling() -> 
         "dynamics_classes": 4,
         "motion_groups_per_rank": 2,
         "tiled_model_fields": ["body_mass", "joint_damping"],
+        "empty_model_fields": [],
         "gravity_tiled": True,
         "max_abs_replication_error": 0.0,
     }
@@ -296,17 +297,19 @@ def test_online_rollout_tiles_fixed_dynamics_prototypes_without_resampling() -> 
 def test_online_rollout_tiles_mjlab_tensor_proxy_without_changing_samples() -> None:
     sampled_mass = torch.arange(8, dtype=torch.float32)[:, None]
     body_mass = _TensorProxy(sampled_mass.clone())
+    empty_tendon = _TensorProxy(torch.empty((8, 0), dtype=torch.float32))
     calls = {"clear_cache": 0, "forward": 0}
     env = SimpleNamespace(
         num_envs=8,
         device="cpu",
         event_manager=SimpleNamespace(
-            domain_randomization_fields=("body_mass",),
+            domain_randomization_fields=("body_mass", "tendon_length0"),
             active_terms={"startup": []},
         ),
         sim=SimpleNamespace(
             model=SimpleNamespace(
                 body_mass=body_mass,
+                tendon_length0=empty_tendon,
                 clear_cache=lambda: calls.__setitem__("clear_cache", calls["clear_cache"] + 1),
             ),
             forward=lambda: calls.__setitem__("forward", calls["forward"] + 1),
@@ -316,7 +319,9 @@ def test_online_rollout_tiles_mjlab_tensor_proxy_without_changing_samples() -> N
     metrics = _tile_fixed_dynamics_prototypes(env, dynamics_classes=4)
 
     torch.testing.assert_close(body_mass.tensor, sampled_mass[:4].repeat(2, 1))
+    assert empty_tendon.tensor.shape == (8, 0)
     assert calls == {"clear_cache": 1, "forward": 1}
     assert metrics["tiled_model_fields"] == ["body_mass"]
+    assert metrics["empty_model_fields"] == ["tendon_length0"]
     assert metrics["gravity_tiled"] is False
     assert metrics["max_abs_replication_error"] == 0.0
