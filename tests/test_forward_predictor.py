@@ -33,6 +33,7 @@ from intact_tracking.forward_predictor_objective import (
     ForwardPredictorLossConfig,
     ForwardPredictorObjective,
 )
+from intact_tracking.rollout.online import _verify_predictor_action_target
 
 
 def _identity_state(*prefix: int) -> torch.Tensor:
@@ -217,6 +218,40 @@ def test_policy_action_is_converted_to_physical_pd_target_outside_model() -> Non
     term.max_delay = 2
     with pytest.raises(ValueError, match="stateful delay"):
         JointPositionTargetTransform.from_mjlab(env, term)
+
+
+def test_action_target_verification_ignores_auto_reset_slots() -> None:
+    expected = torch.tensor(
+        (
+            (0.1, -0.2, 0.3),
+            (1.69402, -0.7, 0.4),
+        )
+    )
+    simulator = expected.clone()
+    simulator[1].zero_()
+
+    maximum_error = _verify_predictor_action_target(
+        expected,
+        simulator,
+        torch.tensor((False, True)),
+    )
+
+    assert maximum_error == 0.0
+    assert (
+        _verify_predictor_action_target(
+            expected,
+            torch.zeros_like(expected),
+            torch.ones(2, dtype=torch.bool),
+        )
+        is None
+    )
+    simulator[0, 0] += 0.1
+    with pytest.raises(RuntimeError, match="non-reset environments"):
+        _verify_predictor_action_target(
+            expected,
+            simulator,
+            torch.tensor((False, True)),
+        )
 
 
 def test_checkpoint_mesh_arm_asset_variant_compiles_locally() -> None:

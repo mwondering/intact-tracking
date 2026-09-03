@@ -273,6 +273,46 @@ def _randomize_initial_episode_phases(env: Any, seed: int) -> dict[str, int]:
     }
 
 
+def _verify_predictor_action_target(
+    expected_target: torch.Tensor,
+    simulator_target: torch.Tensor | None,
+    reset_boundary: torch.Tensor,
+    *,
+    tolerance: float = 1.0e-6,
+) -> float | None:
+    """Verify targets only for slots whose simulator state was not auto-reset.
+
+    MJLab clears actuator targets during an in-step auto-reset.  Comparing those
+    cleared values with the target that was applied before the reset would report
+    a false action-chain mismatch.  Returning ``None`` defers the one-time check
+    when every slot happened to reset on the current step.
+    """
+
+    if not isinstance(simulator_target, torch.Tensor) or simulator_target.shape != (
+        expected_target.shape
+    ):
+        raise RuntimeError(
+            "Simulator does not expose the physical joint target needed to verify the "
+            "Forward Predictor action chain"
+        )
+    if reset_boundary.dtype != torch.bool or reset_boundary.shape != expected_target.shape[:1]:
+        raise RuntimeError(
+            "Forward Predictor action-target verification requires one boolean reset flag "
+            f"per environment, got {tuple(reset_boundary.shape)}"
+        )
+    valid = ~reset_boundary
+    if not bool(valid.any()):
+        return None
+    maximum_error = (simulator_target[valid] - expected_target[valid]).abs().max()
+    if not torch.isfinite(maximum_error) or bool(maximum_error > tolerance):
+        raise RuntimeError(
+            "External Forward Predictor action transform does not match the simulator "
+            "joint target on non-reset environments; "
+            f"max_abs_error={float(maximum_error):.6g}"
+        )
+    return float(maximum_error)
+
+
 class FixedDRTrackerRollout:
     """Step MJLab with a frozen tracker and fixed per-environment physics DR.
 
@@ -521,29 +561,21 @@ class FixedDRTrackerRollout:
         joint_target = action_transform(action) if action_transform is not None else None
 
         raw_next, reward, terminated, truncated, _ = self.env.step(action)
+        done = terminated | truncated
         if joint_target is not None and not getattr(
             self, "predictor_action_target_verified", False
         ):
             simulator_target = getattr(self.env.scene["robot"].data, "joint_pos_target", None)
-            if (
-                not isinstance(simulator_target, torch.Tensor)
-                or simulator_target.shape != joint_target.shape
-            ):
-                raise RuntimeError(
-                    "Simulator does not expose the physical joint target needed to verify the "
-                    "Forward Predictor action chain"
-                )
-            maximum_error = (simulator_target - joint_target).abs().max()
-            if not torch.isfinite(maximum_error) or bool(maximum_error > 1.0e-6):
-                raise RuntimeError(
-                    "External Forward Predictor action transform does not match the simulator "
-                    f"joint target; max_abs_error={float(maximum_error):.6g}"
-                )
-            self.predictor_action_target_max_abs_error = float(maximum_error)
-            self.predictor_action_target_verified = True
+            maximum_error = _verify_predictor_action_target(
+                joint_target,
+                simulator_target,
+                done,
+            )
+            if maximum_error is not None:
+                self.predictor_action_target_max_abs_error = maximum_error
+                self.predictor_action_target_verified = True
         next_observations = _policy_observations(raw_next, self.num_envs)
         after = _snapshot(self.env, next_observations)
-        done = terminated | truncated
         reset_boundary = done.clone()
         collector_steps = torch.full_like(self.episode_ids, self.collector_step)
         batch = {
