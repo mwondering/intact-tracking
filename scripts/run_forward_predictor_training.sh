@@ -6,18 +6,19 @@ usage() {
   printf '%s\n' \
     "Usage: $0 CHECKPOINT MOTION_SOURCE OUTPUT_DIR [PREDICTOR_OPTIONS...]" \
     "" \
-    "Train the theta-aware contrastive dynamics-context Forward Predictor." \
+    "Train the cross-motion hard-negative dynamics-context Forward Predictor." \
     "" \
     "Fixed contract:" \
-    "  physics          fixed startup DR per vector world (0% nominal by default)" \
+    "  physics          128 fixed startup-DR prototypes; never resampled" \
     "  controller       frozen tracker" \
     "  model            causal Transformer + lightweight dynamics Context Encoder" \
-    "  input            10 historical privileged-state/PD-target tokens + 1 current token" \
+    "  context input    100 completed robot-state/applied-target transitions (2 s); no foot/contact" \
+    "  predictor input  10 historical full-state/PD-target tokens + 1 current token" \
     "  output           70-D robot delta + 8-D foot state + 6-D contact force + 2-D logits" \
     "  rollout          shared one-step model recursively applied 5 times" \
-    "  supervision      privileged theta regression + theta-aware contrastive learning" \
-    "  positive pairs   distinct history windows from the same fixed-DR vector world" \
-    "  negative pairs   different worlds only when normalized theta RMS distance >= 1.25" \
+    "  supervision      dynamics prediction + matched contrastive representation learning" \
+    "  positive pairs   same dynamics class across motion/phase contexts" \
+    "  negative pairs   theta-far; exact shared-motion/shared-phase cohort first" \
     "  disabled         Residual Policy, Backward, gradient clipping" \
     "" \
     "Production defaults (override with PREDICTOR_OPTIONS):" \
@@ -25,6 +26,8 @@ usage() {
     "  --replay-capacity 262144" \
     "  --gradient-steps-per-update 4 --updates 100000" \
     "  --contrastive-weight 0.01 --contrastive-temperature 0.1" \
+    "  --dynamics-classes 128 --context-history-steps 100" \
+    "  --contrastive-hard-negative-count 255 --contrastive-phase-distance-scale 50" \
     "" \
     "Use --fixed-batch-overfit for the mandatory model-capacity diagnostic." \
     "" \
@@ -56,6 +59,8 @@ shift 3
 
 managed_options=(
   --history-steps
+  --context-history-steps
+  --dynamics-classes
   --transformer-dim
   --transformer-depth
   --transformer-heads
@@ -154,6 +159,8 @@ command+=("$@")
 command+=(
   --rollout-steps-per-update 5
   --history-steps 10
+  --context-history-steps 100
+  --dynamics-classes 128
   --transformer-dim 512
   --transformer-depth 6
   --transformer-heads 8
@@ -165,17 +172,18 @@ command+=(
 )
 
 printf '%s\n' \
-  "Training contract: theta-aware contrastive dynamics-context Forward Predictor v7" \
-  "  model: history-only Context Encoder z conditions the causal transition Transformer" \
+  "Training contract: grouped-dynamics Context Forward Predictor v10" \
+  "  model: Context Encoder sees robot state/action only; privileged features stay in predictor" \
   "  rollout: predicted robot/foot/contact state recurs 5 steps; no articulated FK in model" \
-  "  loss: dynamics + privileged DR regression (0.1) + theta-aware contrastive (0.01)" \
-  "  pairs: replay guarantees adjacent distinct same-world windows in every micro-batch" \
+  "  loss: dynamics + matched hard-negative contrastive (0.01); no theta decoder" \
+  "  context: 100 proprioceptive frames; reset-padded contexts predict but do not contrast" \
+  "  pairs: same-class positives; 128-class synchronized motion/phase cohorts as hard negatives" \
   "  replay: motion-balanced, 262144 samples per rank by default" \
   "  optimizer: effective batch 4096, micro-batch 512, BF16 autocast, fused AdamW" \
   "  diagnostics: full metric/probe evaluation every --log-interval updates" \
   "  normalization: robot/target/foot/contact/delta/DR-label stats frozen after warmup" \
-  "  inference: simulator parameters and privileged head are not required" \
-  "  near-theta different worlds: masked from contrastive denominator" \
+  "  inference: history-only; theta is never a model input or prediction target" \
+  "  negatives: theta-far exact-cohort negatives first, then cross-motion/phase negatives" \
   "  policy/backward: disabled" \
   "  distributed ranks: ${NPROC}"
 printf 'Launching:'

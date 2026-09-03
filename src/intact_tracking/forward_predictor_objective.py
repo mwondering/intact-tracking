@@ -1,4 +1,4 @@
-"""Five-step dynamics and privileged-context losses for the Forward Predictor."""
+"""Five-step dynamics and matched contrastive losses for the Forward Predictor."""
 
 from __future__ import annotations
 
@@ -39,10 +39,11 @@ class ForwardPredictorLossConfig:
     foot_weight: float = 1.0
     contact_force_weight: float = 1.0
     contact_binary_weight: float = 1.0
-    privileged_dynamics_weight: float = 0.1
     contrastive_weight: float = 0.01
     contrastive_temperature: float = 0.1
     contrastive_negative_distance: float = 1.25
+    contrastive_hard_negative_count: int = 255
+    contrastive_phase_distance_scale: float = 50.0
     huber_delta: float = 1.0
 
     def __post_init__(self) -> None:
@@ -56,7 +57,6 @@ class ForwardPredictorLossConfig:
             "foot_weight",
             "contact_force_weight",
             "contact_binary_weight",
-            "privileged_dynamics_weight",
             "contrastive_weight",
         )
         invalid = {name: getattr(self, name) for name in weights if getattr(self, name) < 0.0}
@@ -68,6 +68,10 @@ class ForwardPredictorLossConfig:
             raise ValueError("contrastive_temperature must be positive")
         if self.contrastive_negative_distance < 0.0:
             raise ValueError("contrastive_negative_distance must be non-negative")
+        if self.contrastive_hard_negative_count < 1:
+            raise ValueError("contrastive_hard_negative_count must be positive")
+        if self.contrastive_phase_distance_scale <= 0.0:
+            raise ValueError("contrastive_phase_distance_scale must be positive")
 
 
 def _physical_state(
@@ -174,41 +178,110 @@ def _physical_errors(
     }
 
 
-def _theta_aware_contrastive_loss(
+def _matched_hard_negative_contrastive_loss(
     dynamics_latent: torch.Tensor,
     context_valid: torch.Tensor,
     dynamics_id: torch.Tensor,
+    cohort_id: torch.Tensor,
     normalized_theta: torch.Tensor,
+    motion_id: torch.Tensor,
+    motion_step: torch.Tensor,
+    episode_id: torch.Tensor,
+    episode_step: torch.Tensor,
+    normalized_state: torch.Tensor,
+    normalized_action: torch.Tensor,
+    contact_binary: torch.Tensor,
     *,
     temperature: float,
     negative_distance: float,
+    hard_negative_count: int,
+    phase_distance_scale: float,
+    positive_nonoverlap_steps: int,
 ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
-    """Contrast distinct same-world histories against sufficiently different dynamics."""
+    """Contrast same-dynamics histories against nuisance-matched theta-far classes."""
 
     if dynamics_latent.ndim != 3 or context_valid.shape != dynamics_latent.shape[:2]:
         raise ValueError("Dynamics latents and context-valid mask must be [batch,horizon,...]")
     batch_size = dynamics_latent.size(0)
     if dynamics_id.shape != (batch_size,) or normalized_theta.shape[0] != batch_size:
         raise ValueError("Dynamics IDs and theta targets must share the latent batch dimension")
+    vector_fields = {
+        "motion_id": motion_id,
+        "motion_step": motion_step,
+        "episode_id": episode_id,
+        "episode_step": episode_step,
+        "cohort_id": cohort_id,
+    }
+    invalid_vectors = {
+        name: tuple(value.shape)
+        for name, value in vector_fields.items()
+        if value.shape != (batch_size,)
+    }
+    if invalid_vectors:
+        raise ValueError(f"Contrastive metadata must be batch vectors: {invalid_vectors}")
+    if normalized_state.ndim != 2 or normalized_state.size(0) != batch_size:
+        raise ValueError("Current normalized state must be [batch,state_dim]")
+    if normalized_action.ndim != 2 or normalized_action.size(0) != batch_size:
+        raise ValueError("Current normalized action must be [batch,action_dim]")
+    if contact_binary.ndim != 2 or contact_binary.size(0) != batch_size:
+        raise ValueError("Current contact state must be [batch,contact_dim]")
+    if hard_negative_count < 1 or phase_distance_scale <= 0.0:
+        raise ValueError("Hard-negative count and phase-distance scale must be positive")
+    if positive_nonoverlap_steps < 1:
+        raise ValueError("Positive non-overlap distance must be positive")
 
     valid_weight = context_valid.unsqueeze(-1).to(dynamics_latent.dtype)
-    pooled_latent = (dynamics_latent * valid_weight).sum(dim=1) / valid_weight.sum(
-        dim=1
-    ).clamp_min(1.0)
+    pooled_latent = (dynamics_latent * valid_weight).sum(dim=1) / valid_weight.sum(dim=1).clamp_min(
+        1.0
+    )
     embedding = F.normalize(pooled_latent.float(), dim=-1, eps=1.0e-8)
     cosine = embedding @ embedding.transpose(0, 1)
     logits = cosine / float(temperature)
 
     theta = normalized_theta.detach().float()
-    theta_distance = (theta[:, None] - theta[None, :]).square().mean(dim=-1).sqrt()
-    sample_valid = context_valid.any(dim=1)
+    theta_distance = torch.cdist(theta, theta) / float(theta.size(-1)) ** 0.5
+    # A reset-padded history is useful to the transition predictor, but it is
+    # not a reliable environment identity observation.  Representation pairs
+    # therefore require every one of the long-context frames to be valid.
+    sample_valid = context_valid.all(dim=1)
     pair_valid = sample_valid[:, None] & sample_valid[None, :]
     pair_valid &= ~torch.eye(batch_size, dtype=torch.bool, device=dynamics_latent.device)
     same_dynamics = dynamics_id[:, None] == dynamics_id[None, :]
     positive = pair_valid & same_dynamics
     different_dynamics = pair_valid & ~same_dynamics
-    negative = different_dynamics & (theta_distance >= float(negative_distance))
-    ignored_near = different_dynamics & ~negative
+    theta_far = theta_distance >= float(negative_distance)
+    theta_far_pair = different_dynamics & theta_far
+    ignored_near = different_dynamics & ~theta_far
+
+    same_motion = motion_id[:, None] == motion_id[None, :]
+    phase_gap = (motion_step[:, None] - motion_step[None, :]).abs()
+    contact_mismatch = (
+        (contact_binary[:, None].bool() != contact_binary[None, :].bool()).float().mean(dim=-1)
+    )
+    same_cohort = cohort_id[:, None] == cohort_id[None, :]
+    hard_candidate = theta_far_pair & same_cohort
+
+    state_action = torch.cat((normalized_state, normalized_action), dim=-1).detach().float()
+    state_action_distance = (
+        torch.cdist(state_action, state_action) / float(state_action.size(-1)) ** 0.5
+    )
+    hard_score = (
+        state_action_distance + phase_gap.float() / float(phase_distance_scale) + contact_mismatch
+    )
+    # Exact motion/phase cohorts are always selected before easier cross-motion
+    # negatives.  If the configured budget exceeds the matched 127 classes,
+    # theta-far contexts from other motions/phases fill the remainder.
+    hard_score = hard_score + (~same_cohort).to(hard_score.dtype) * 1.0e6
+    hard_score = hard_score.masked_fill(~theta_far_pair, torch.inf)
+    selected_count = min(int(hard_negative_count), max(batch_size - 1, 1))
+    selected_score, selected_indices = torch.topk(
+        hard_score,
+        k=selected_count,
+        dim=1,
+        largest=False,
+    )
+    negative = torch.zeros_like(hard_candidate)
+    negative.scatter_(1, selected_indices, torch.isfinite(selected_score))
     candidate = positive | negative
 
     masked_logits = logits.masked_fill(~candidate, -1.0e4)
@@ -216,10 +289,9 @@ def _theta_aware_contrastive_loss(
     positive_count = positive.sum(dim=1)
     negative_count = negative.sum(dim=1)
     valid_anchor = (positive_count > 0) & (negative_count > 0)
-    mean_positive_log_probability = (
-        log_probability.masked_fill(~positive, 0.0).sum(dim=1)
-        / positive_count.clamp_min(1)
-    )
+    mean_positive_log_probability = log_probability.masked_fill(~positive, 0.0).sum(
+        dim=1
+    ) / positive_count.clamp_min(1)
     anchor_weight = valid_anchor.to(logits.dtype)
     loss = -(mean_positive_log_probability * anchor_weight).sum() / anchor_weight.sum().clamp_min(
         1.0
@@ -229,17 +301,42 @@ def _theta_aware_contrastive_loss(
     negative_pairs = negative.sum().to(logits.dtype)
     different_pairs = different_dynamics.sum().to(logits.dtype)
     near_pairs = ignored_near.sum().to(logits.dtype)
+    theta_far_pairs = theta_far_pair.sum().to(logits.dtype)
+    hard_candidate_pairs = hard_candidate.sum().to(logits.dtype)
+    cross_motion_positive = positive & ~same_motion
+    different_episode = episode_id[:, None] != episode_id[None, :]
+    episode_gap = (episode_step[:, None] - episode_step[None, :]).abs()
+    nonoverlap_positive = positive & (
+        ~same_motion | different_episode | (episode_gap >= int(positive_nonoverlap_steps))
+    )
+    cross_motion_positive_pairs = cross_motion_positive.sum().to(logits.dtype)
+    nonoverlap_positive_pairs = nonoverlap_positive.sum().to(logits.dtype)
     metrics = {
         "contrastive_valid_anchor_fraction": anchor_weight.mean(),
         "contrastive_positive_pair_count": positive_pairs,
         "contrastive_negative_pair_count": negative_pairs,
-        "contrastive_negative_pair_fraction": negative_pairs
-        / different_pairs.clamp_min(1.0),
-        "contrastive_ignored_near_pair_fraction": near_pairs
-        / different_pairs.clamp_min(1.0),
+        "contrastive_negative_pair_fraction": negative_pairs / different_pairs.clamp_min(1.0),
+        "contrastive_ignored_near_pair_fraction": near_pairs / different_pairs.clamp_min(1.0),
+        "contrastive_theta_far_pair_fraction": theta_far_pairs / different_pairs.clamp_min(1.0),
+        "contrastive_hard_candidate_pair_fraction": hard_candidate_pairs
+        / theta_far_pairs.clamp_min(1.0),
+        "contrastive_matched_negative_fraction": (negative & same_cohort).sum().to(logits.dtype)
+        / negative_pairs.clamp_min(1.0),
+        "contrastive_cross_motion_positive_fraction": cross_motion_positive_pairs
+        / positive_pairs.clamp_min(1.0),
+        "contrastive_nonoverlap_positive_fraction": nonoverlap_positive_pairs
+        / positive_pairs.clamp_min(1.0),
         "contrastive_positive_cosine": cosine.masked_fill(~positive, 0.0).sum()
         / positive_pairs.clamp_min(1.0),
         "contrastive_negative_cosine": cosine.masked_fill(~negative, 0.0).sum()
+        / negative_pairs.clamp_min(1.0),
+        "contrastive_hard_negative_phase_gap": phase_gap.float().masked_fill(~negative, 0.0).sum()
+        / negative_pairs.clamp_min(1.0),
+        "contrastive_hard_negative_state_action_rms": state_action_distance.masked_fill(
+            ~negative, 0.0
+        ).sum()
+        / negative_pairs.clamp_min(1.0),
+        "contrastive_hard_negative_theta_rms": theta_distance.masked_fill(~negative, 0.0).sum()
         / negative_pairs.clamp_min(1.0),
     }
     return loss, metrics
@@ -378,6 +475,12 @@ class ForwardPredictorObjective(nn.Module):
             "delta_mean",
             "delta_std",
             "dynamics_id",
+            "motion_id",
+            "motion_step",
+            "motion_group_id",
+            "cohort_id",
+            "episode_id",
+            "episode_step",
             "privileged_dynamics",
         }
         missing = sorted(required.difference(batch))
@@ -408,17 +511,31 @@ class ForwardPredictorObjective(nn.Module):
             raise ValueError(f"State batch must be [batch,6,71], got {tuple(state.shape)}")
         if action.shape != (state.size(0), 5, 29):
             raise ValueError(f"Action batch must be [batch,5,29], got {tuple(action.shape)}")
-        expected_dynamics = (state.size(0), self.model.config.privileged_dim)
-        if tuple(batch["privileged_dynamics"].shape) != expected_dynamics:
+        if (
+            batch["privileged_dynamics"].ndim != 2
+            or batch["privileged_dynamics"].size(0) != state.size(0)
+            or batch["privileged_dynamics"].size(1) < 1
+        ):
             raise ValueError(
-                "Privileged dynamics target must have shape "
-                f"{expected_dynamics}, got {tuple(batch['privileged_dynamics'].shape)}"
+                "Theta mining labels must have shape [batch,theta_dim>0], got "
+                f"{tuple(batch['privileged_dynamics'].shape)}"
             )
-        if batch["dynamics_id"].shape != (state.size(0),):
-            raise ValueError(
-                "Dynamics IDs must have shape "
-                f"{(state.size(0),)}, got {tuple(batch['dynamics_id'].shape)}"
-            )
+        metadata_names = (
+            "dynamics_id",
+            "motion_group_id",
+            "cohort_id",
+            "motion_id",
+            "motion_step",
+            "episode_id",
+            "episode_step",
+        )
+        invalid_metadata = {
+            name: tuple(batch[name].shape)
+            for name in metadata_names
+            if batch[name].shape != (state.size(0),)
+        }
+        if invalid_metadata:
+            raise ValueError(f"Contrastive metadata must be batch vectors: {invalid_metadata}")
         expected_privileged = {
             "foot": (state.size(0), 6, 8),
             "contact_force": (state.size(0), 6, 6),
@@ -434,6 +551,29 @@ class ForwardPredictorObjective(nn.Module):
         }
         if invalid_privileged:
             raise ValueError(f"Invalid Forward Predictor privileged shapes: {invalid_privileged}")
+        expected_context = {
+            "history_state": (
+                state.size(0),
+                self.model.config.context_history_steps,
+                self.model.config.state_dim,
+            ),
+            "history_action": (
+                state.size(0),
+                self.model.config.context_history_steps,
+                self.model.config.action_dim,
+            ),
+            "history_valid": (
+                state.size(0),
+                self.model.config.context_history_steps,
+            ),
+        }
+        invalid_context = {
+            name: (tuple(batch[name].shape), shape)
+            for name, shape in expected_context.items()
+            if tuple(batch[name].shape) != shape
+        }
+        if invalid_context:
+            raise ValueError(f"Invalid Forward Predictor context shapes: {invalid_context}")
 
         history_arguments = {
             "history_state": batch["history_state"],
@@ -449,6 +589,12 @@ class ForwardPredictorObjective(nn.Module):
             "delta_mean": batch["delta_mean"],
             "delta_std": batch["delta_std"],
         }
+        dynamics_latent_seed = self.model.encode_context(
+            batch["history_state"],
+            batch["history_action"],
+            state[:, 0],
+            batch["history_valid"],
+        )
         (
             teacher_prediction,
             teacher_delta,
@@ -456,7 +602,6 @@ class ForwardPredictorObjective(nn.Module):
             teacher_force,
             teacher_binary_logits,
             dynamics_latent,
-            privileged_prediction,
             context_valid,
         ) = self.model.teacher_forced(
             state,
@@ -466,6 +611,7 @@ class ForwardPredictorObjective(nn.Module):
             batch["contact_binary"],
             **history_arguments,
             **normalization_arguments,
+            dynamics_latent=dynamics_latent_seed,
             return_context=True,
         )
         if self.training and recursive_weight == 0.0:
@@ -484,6 +630,7 @@ class ForwardPredictorObjective(nn.Module):
                     batch["contact_binary"][:, 0],
                     **history_arguments,
                     **normalization_arguments,
+                    dynamics_latent=dynamics_latent_seed,
                 )
         else:
             (
@@ -500,6 +647,7 @@ class ForwardPredictorObjective(nn.Module):
                 batch["contact_binary"][:, 0],
                 **history_arguments,
                 **normalization_arguments,
+                dynamics_latent=dynamics_latent_seed,
             )
         target = state[:, 1:]
         target_foot = batch["foot"][:, 1:]
@@ -567,32 +715,30 @@ class ForwardPredictorObjective(nn.Module):
             + self.loss_config.foot_weight * recursive_foot_loss
             + recursive_contact_loss
         )
-        privileged_target = batch["privileged_dynamics"][:, None].expand_as(
-            privileged_prediction
-        )
-        privileged_element_loss = F.huber_loss(
-            privileged_prediction,
-            privileged_target,
-            reduction="none",
-            delta=self.loss_config.huber_delta,
-        )
-        privileged_mask = context_valid.unsqueeze(-1).to(privileged_element_loss.dtype)
-        privileged_count = (
-            privileged_mask.sum() * privileged_prediction.size(-1)
-        ).clamp_min(1.0)
-        privileged_loss = (privileged_element_loss * privileged_mask).sum() / privileged_count
-        contrastive_loss, contrastive_metrics = _theta_aware_contrastive_loss(
+        contrastive_loss, contrastive_metrics = _matched_hard_negative_contrastive_loss(
             dynamics_latent,
             context_valid,
             batch["dynamics_id"],
+            batch["cohort_id"],
             batch["privileged_dynamics"],
+            batch["motion_id"],
+            batch["motion_step"],
+            batch["episode_id"],
+            batch["episode_step"],
+            state[:, 0],
+            action[:, 0],
+            batch["contact_binary"][:, 0],
             temperature=self.loss_config.contrastive_temperature,
             negative_distance=self.loss_config.contrastive_negative_distance,
+            hard_negative_count=self.loss_config.contrastive_hard_negative_count,
+            phase_distance_scale=self.loss_config.contrastive_phase_distance_scale,
+            positive_nonoverlap_steps=(
+                self.model.config.context_history_steps + self.model.config.horizon
+            ),
         )
         total_loss = (
             teacher_loss
             + float(recursive_weight) * recursive_loss
-            + self.loss_config.privileged_dynamics_weight * privileged_loss
             + self.loss_config.contrastive_weight * contrastive_loss
         )
 
@@ -601,7 +747,6 @@ class ForwardPredictorObjective(nn.Module):
                 "loss": total_loss,
                 "teacher_loss": teacher_loss.detach(),
                 "recursive_loss": recursive_loss.detach(),
-                "privileged_dynamics_loss": privileged_loss.detach(),
                 "contrastive_loss": contrastive_loss.detach(),
             }
 
@@ -730,26 +875,11 @@ class ForwardPredictorObjective(nn.Module):
                 batch["contact_force_mean"],
                 batch["contact_force_std"],
             )
-            privileged_error = privileged_prediction - privileged_target
-            privileged_mse = (privileged_error.square() * privileged_mask).sum() / privileged_count
-            privileged_mae = (privileged_error.abs() * privileged_mask).sum() / privileged_count
-            privileged_baseline_mse = (
-                privileged_target.square() * privileged_mask
-            ).sum() / privileged_count
-
         return {
             "loss": total_loss,
             "teacher_loss": teacher_loss.detach(),
             "recursive_loss": recursive_loss.detach(),
             "recursive_weight": teacher_loss.new_tensor(float(recursive_weight)),
-            "privileged_dynamics_loss": privileged_loss.detach(),
-            "privileged_dynamics_weight": teacher_loss.new_tensor(
-                self.loss_config.privileged_dynamics_weight
-            ),
-            "privileged_dynamics_mse": privileged_mse,
-            "privileged_dynamics_mae": privileged_mae,
-            "privileged_dynamics_nmse": privileged_mse
-            / privileged_baseline_mse.clamp_min(1.0e-8),
             "contrastive_loss": contrastive_loss.detach(),
             "contrastive_weight": teacher_loss.new_tensor(self.loss_config.contrastive_weight),
             "contrastive_temperature": teacher_loss.new_tensor(
@@ -757,6 +887,12 @@ class ForwardPredictorObjective(nn.Module):
             ),
             "contrastive_negative_distance": teacher_loss.new_tensor(
                 self.loss_config.contrastive_negative_distance
+            ),
+            "contrastive_hard_negative_count": teacher_loss.new_tensor(
+                self.loss_config.contrastive_hard_negative_count
+            ),
+            "contrastive_phase_distance_scale": teacher_loss.new_tensor(
+                self.loss_config.contrastive_phase_distance_scale
             ),
             **contrastive_metrics,
             "context_full_history_fraction": context_valid.float().mean(),

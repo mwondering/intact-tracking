@@ -11,6 +11,7 @@ from intact_tracking.rollout.online import (
     _disable_startup_reset_callbacks,
     _keep_startup_events,
     _restore_nominal_physics,
+    _tile_fixed_dynamics_prototypes,
 )
 
 
@@ -169,9 +170,7 @@ def test_online_rollout_restores_only_selected_worlds_to_nominal_physics() -> No
     env = SimpleNamespace(
         num_envs=2,
         sim=simulator,
-        event_manager=SimpleNamespace(
-            domain_randomization_fields=("body_mass", "dof_armature")
-        ),
+        event_manager=SimpleNamespace(domain_randomization_fields=("body_mass", "dof_armature")),
         scene={"robot": SimpleNamespace(data=SimpleNamespace(encoder_bias=torch.ones(2, 2)))},
         action_manager=SimpleNamespace(get_term=lambda _: action_term),
     )
@@ -204,3 +203,78 @@ def test_online_rollout_requires_an_integral_nominal_world_count() -> None:
         assert "must be an integer" in str(error)
     else:
         raise AssertionError("Expected an invalid half split for three vector worlds")
+
+
+def test_grouped_rollout_requires_aligned_fixed_dynamics_families() -> None:
+    for kwargs, message in (
+        ({"num_envs": 10, "dynamics_classes": 4}, "divide num_envs"),
+        (
+            {"num_envs": 8, "dynamics_classes": 4, "world_id_offset": 2},
+            "align to dynamics_classes",
+        ),
+        (
+            {"num_envs": 8, "dynamics_classes": 4, "nominal_fraction": 0.5},
+            "does not support a nominal subset",
+        ),
+    ):
+        try:
+            FixedDRRolloutConfig(
+                checkpoint_file="tracker.pt",
+                motion_file="motion.npz",
+                **kwargs,
+            )
+        except ValueError as error:
+            assert message in str(error)
+        else:
+            raise AssertionError(f"Expected invalid grouped rollout config: {kwargs}")
+
+
+def test_online_rollout_tiles_fixed_dynamics_prototypes_without_resampling() -> None:
+    body_mass = torch.arange(8, dtype=torch.float32)[:, None]
+    joint_damping = (10.0 + torch.arange(8, dtype=torch.float32))[:, None]
+    gravity = torch.arange(24, dtype=torch.float32).view(8, 3)
+    model_gravity = torch.zeros_like(gravity)
+    calls = {"clear_cache": 0, "forward": 0}
+
+    gravity_event = type("perturb_gravity", (), {})()
+    gravity_event._gravity = gravity
+    event_manager = SimpleNamespace(
+        domain_randomization_fields=("body_mass", "joint_damping", "shared_field"),
+        active_terms={"startup": ["gravity"]},
+        get_term_cfg=lambda _name: SimpleNamespace(func=gravity_event),
+    )
+    model = SimpleNamespace(
+        body_mass=body_mass,
+        joint_damping=joint_damping,
+        shared_field=torch.tensor([123.0]),
+        opt=SimpleNamespace(gravity=model_gravity),
+        clear_cache=lambda: calls.__setitem__("clear_cache", calls["clear_cache"] + 1),
+    )
+    env = SimpleNamespace(
+        num_envs=8,
+        device="cpu",
+        event_manager=event_manager,
+        sim=SimpleNamespace(
+            model=model,
+            forward=lambda: calls.__setitem__("forward", calls["forward"] + 1),
+        ),
+    )
+    expected_mass = body_mass[:4].repeat(2, 1)
+    expected_damping = joint_damping[:4].repeat(2, 1)
+    expected_gravity = gravity[:4].repeat(2, 1)
+
+    metrics = _tile_fixed_dynamics_prototypes(env, dynamics_classes=4)
+
+    torch.testing.assert_close(model.body_mass, expected_mass)
+    torch.testing.assert_close(model.joint_damping, expected_damping)
+    torch.testing.assert_close(gravity_event._gravity, expected_gravity)
+    torch.testing.assert_close(model.opt.gravity, expected_gravity)
+    torch.testing.assert_close(model.shared_field, torch.tensor([123.0]))
+    assert calls == {"clear_cache": 1, "forward": 1}
+    assert metrics == {
+        "dynamics_classes": 4,
+        "motion_groups_per_rank": 2,
+        "tiled_model_fields": ["body_mass", "joint_damping"],
+        "gravity_tiled": True,
+        "max_abs_replication_error": 0.0,
+    }

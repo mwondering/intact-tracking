@@ -37,6 +37,39 @@ def test_initial_episode_phases_are_reproducibly_desynchronized() -> None:
     assert 0 <= summary["minimum"] <= summary["maximum"] < 500
 
 
+def test_initial_episode_phases_are_synchronized_inside_each_motion_family() -> None:
+    env = SimpleNamespace(
+        episode_length_buf=torch.zeros(16, dtype=torch.long),
+        max_episode_length=500,
+    )
+
+    summary = online_module._randomize_initial_episode_phases(env, seed=11, group_size=4)
+
+    grouped = env.episode_length_buf.view(4, 4)
+    assert torch.equal(grouped, grouped[:, :1].expand_as(grouped))
+    assert summary["unique"] == torch.unique(grouped[:, 0]).numel()
+
+
+def test_partial_failure_rejoins_the_motion_familys_timeout_phase() -> None:
+    env = SimpleNamespace(
+        episode_length_buf=torch.tensor(
+            [0, 120, 120, 120, 0, 0, 0, 0, 0, 71, 0, 71],
+            dtype=torch.long,
+        )
+    )
+    done = torch.tensor(
+        [True, False, False, False, True, True, True, True, True, False, True, False]
+    )
+
+    repaired = online_module._synchronize_partial_group_timeout(env, done, group_size=4)
+
+    assert repaired == 3
+    torch.testing.assert_close(
+        env.episode_length_buf,
+        torch.tensor([120, 120, 120, 120, 0, 0, 0, 0, 71, 71, 71, 71]),
+    )
+
+
 def test_online_rollout_treats_resampling_and_reset_as_boundaries(monkeypatch) -> None:
     terminated = torch.tensor([False, True, False])
     truncated = torch.zeros(3, dtype=torch.bool)

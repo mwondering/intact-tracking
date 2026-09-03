@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -16,6 +17,7 @@ from .mjlab_adapter import (
     _clear_missing_motion_exclusions,
     _forward_predictor_snapshot,
     _policy_observations,
+    _reset_all,
     _snapshot,
 )
 
@@ -80,16 +82,25 @@ class FixedDRRolloutConfig:
     num_envs: int = 16
     device: str | None = None
     seed: int = 0
+    dynamics_seed: int | None = None
     world_id_offset: int = 0
     stochastic_policy: bool = False
     randomize_initial_episode_phase: bool = True
     nominal_fraction: float = 0.0
+    dynamics_classes: int | None = None
 
     def __post_init__(self) -> None:
         if self.num_envs < 1:
             raise ValueError("num_envs must be positive")
         if self.world_id_offset < 0:
             raise ValueError("world_id_offset must be non-negative")
+        if self.dynamics_classes is not None:
+            if self.dynamics_classes < 1 or self.num_envs % self.dynamics_classes:
+                raise ValueError("dynamics_classes must be positive and divide num_envs")
+            if self.world_id_offset % self.dynamics_classes:
+                raise ValueError("world_id_offset must align to dynamics_classes")
+            if self.nominal_fraction:
+                raise ValueError("Grouped fixed dynamics does not support a nominal subset")
         if not 0.0 <= self.nominal_fraction <= 1.0:
             raise ValueError("nominal_fraction must be in [0, 1]")
         nominal_count = self.num_envs * self.nominal_fraction
@@ -243,11 +254,7 @@ def _capture_privileged_dynamics_targets(env: Any) -> PrivilegedDynamicsTargets:
             if bool(params.get("shared_random", False)):
                 selected = selected[:, :1]
                 geom_names = ("shared",)
-            labels = [
-                f"friction/{geom_name}/{axis}"
-                for geom_name in geom_names
-                for axis in axes
-            ]
+            labels = [f"friction/{geom_name}/{axis}" for geom_name in geom_names for axis in axes]
             append(event_name, labels, selected.flatten(1))
             continue
 
@@ -487,27 +494,114 @@ def _restore_nominal_physics(env: Any, env_ids: torch.Tensor) -> dict[str, float
     }
 
 
-def _randomize_initial_episode_phases(env: Any, seed: int) -> dict[str, int]:
-    """Desynchronize timeout resets without changing robot or reference state."""
+def _randomize_initial_episode_phases(
+    env: Any,
+    seed: int,
+    group_size: int = 1,
+) -> dict[str, int]:
+    """Desynchronize timeout resets between groups while synchronizing each group."""
     episode_length = getattr(env, "episode_length_buf", None)
     maximum = int(getattr(env, "max_episode_length", 0))
     if not isinstance(episode_length, torch.Tensor) or maximum < 1:
         raise RuntimeError("Rollout environment does not expose a valid episode timeout buffer")
     generator = torch.Generator(device=episode_length.device).manual_seed(int(seed))
-    phases = torch.randint(
+    if group_size < 1 or episode_length.numel() % group_size:
+        raise ValueError("group_size must be positive and divide the environment count")
+    group_phases = torch.randint(
         low=0,
         high=maximum,
-        size=episode_length.shape,
+        size=(episode_length.numel() // group_size,),
         dtype=episode_length.dtype,
         device=episode_length.device,
         generator=generator,
     )
+    phases = group_phases.repeat_interleave(group_size)
     episode_length.copy_(phases)
     return {
         "minimum": int(phases.min().item()),
         "maximum": int(phases.max().item()),
         "unique": int(torch.unique(phases).numel()),
     }
+
+
+def _tile_fixed_dynamics_prototypes(env: Any, dynamics_classes: int) -> dict[str, Any]:
+    """Repeat the first K startup-DR worlds over all local motion groups."""
+
+    if dynamics_classes < 1 or env.num_envs % dynamics_classes:
+        raise ValueError("dynamics_classes must be positive and divide env.num_envs")
+    source_ids = torch.arange(env.num_envs, device=env.device) % dynamics_classes
+    tiled_fields: list[str] = []
+    maximum_error = torch.zeros((), device=env.device)
+    for raw_name in env.event_manager.domain_randomization_fields:
+        name = str(raw_name)
+        value = getattr(env.sim.model, name, None)
+        if not isinstance(value, torch.Tensor) or value.ndim < 1:
+            continue
+        if value.shape[0] != env.num_envs:
+            continue
+        prototypes = value[:dynamics_classes].clone()
+        value.copy_(prototypes.index_select(0, source_ids))
+        maximum_error = torch.maximum(
+            maximum_error,
+            (value - prototypes.index_select(0, source_ids)).abs().max(),
+        )
+        tiled_fields.append(name)
+
+    gravity_tiled = False
+    for event_name in env.event_manager.active_terms.get("startup", ()):
+        cfg = env.event_manager.get_term_cfg(event_name)
+        func = cfg.func
+        if type(func).__name__ != "perturb_gravity":
+            continue
+        gravity = getattr(func, "_gravity", None)
+        model_gravity = getattr(getattr(env.sim.model, "opt", None), "gravity", None)
+        if isinstance(gravity, torch.Tensor) and gravity.shape[0] == env.num_envs:
+            prototypes = gravity[:dynamics_classes].clone()
+            tiled = prototypes.index_select(0, source_ids)
+            gravity.copy_(tiled)
+            if isinstance(model_gravity, torch.Tensor) and model_gravity.shape == gravity.shape:
+                model_gravity.copy_(tiled)
+            maximum_error = torch.maximum(maximum_error, (gravity - tiled).abs().max())
+            gravity_tiled = True
+
+    clear_cache = getattr(env.sim.model, "clear_cache", None)
+    if callable(clear_cache):
+        clear_cache()
+    forward = getattr(env.sim, "forward", None)
+    if callable(forward):
+        forward()
+    if not tiled_fields and not gravity_tiled:
+        raise RuntimeError("No per-world startup dynamics field could be tiled")
+    return {
+        "dynamics_classes": dynamics_classes,
+        "motion_groups_per_rank": env.num_envs // dynamics_classes,
+        "tiled_model_fields": sorted(tiled_fields),
+        "gravity_tiled": gravity_tiled,
+        "max_abs_replication_error": float(maximum_error),
+    }
+
+
+def _synchronize_partial_group_timeout(
+    env: Any,
+    done: torch.Tensor,
+    group_size: int,
+) -> int:
+    """Keep a failed slot on its group's scheduled timeout phase."""
+
+    episode_length = getattr(env, "episode_length_buf", None)
+    if group_size <= 1 or not isinstance(episode_length, torch.Tensor):
+        return 0
+    if done.numel() % group_size:
+        raise RuntimeError("Grouped timeout synchronization received an incomplete group layout")
+    done_by_group = done.view(-1, group_size)
+    partial = done_by_group.any(dim=1) & ~done_by_group.all(dim=1)
+    if not bool(partial.any()):
+        return 0
+    lengths = episode_length.view(-1, group_size)
+    group_phase = lengths.max(dim=1).values
+    repair = partial[:, None] & done_by_group
+    lengths[repair] = group_phase[:, None].expand_as(lengths)[repair]
+    return int(repair.sum())
 
 
 def _verify_predictor_action_target(
@@ -600,9 +694,10 @@ class FixedDRTrackerRollout:
         from mjlab.utils.torch import configure_torch_backends
 
         configure_torch_backends()
-        torch.manual_seed(config.seed)
+        dynamics_seed = config.seed if config.dynamics_seed is None else config.dynamics_seed
+        torch.manual_seed(dynamics_seed)
         if torch.cuda.is_available():
-            torch.cuda.manual_seed_all(config.seed)
+            torch.cuda.manual_seed_all(dynamics_seed)
 
         checkpoint = Path(config.checkpoint_file).expanduser().resolve()
         prepared = prepare_rollout(
@@ -612,13 +707,19 @@ class FixedDRTrackerRollout:
             task_id=config.task_id,
             num_envs=config.num_envs,
         )
-        prepared.env.seed = int(config.seed)
+        prepared.env.seed = int(dynamics_seed)
         # Online replay discards transitions marked as reset boundaries, so it
         # does not need the true terminal observation. Let MJLab reset only the
         # completed slots inside ``step``. A synchronous all-environment reset
         # makes the probability of obtaining a full-context causal window
         # collapse as ``num_envs`` grows (for example at 4096 environments).
         prepared.env.auto_reset = True
+        motion_cfg = prepared.env.commands["motion"]
+        if config.dynamics_classes is not None:
+            motion_cfg.synchronized_group_size = int(config.dynamics_classes)
+            rewind_cfg = getattr(motion_cfg, "rewind", None)
+            if rewind_cfg is not None:
+                rewind_cfg.enabled = False
         self.cleared_motion_exclusions = _clear_missing_motion_exclusions(prepared.env)
         self.startup_events, self.removed_non_startup_events = _keep_startup_events(prepared.env)
         self.device = config.device or ("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -646,6 +747,21 @@ class FixedDRTrackerRollout:
                 str(Path(path).expanduser().resolve()) for path in motion_files
             )
             self.disabled_startup_reset_callbacks = _disable_startup_reset_callbacks(self.env)
+            self.dynamics_grouping: dict[str, Any] | None = None
+            if config.dynamics_classes is not None:
+                self.dynamics_grouping = _tile_fixed_dynamics_prototypes(
+                    self.env,
+                    config.dynamics_classes,
+                )
+                # Physics prototypes use a rank-independent seed.  Motion groups
+                # are then reset with the rank seed so DDP ranks collect different
+                # motions without creating new dynamics classes.
+                torch.manual_seed(config.seed)
+                if torch.cuda.is_available():
+                    torch.cuda.manual_seed_all(config.seed)
+                reset_observations = _reset_all(self.env, config.num_envs)
+            else:
+                reset_observations = None
             self.nominal_count = int(round(config.num_envs * config.nominal_fraction))
             self.nominal_env_ids = torch.arange(
                 self.nominal_count, device=self.env.device, dtype=torch.long
@@ -677,6 +793,34 @@ class FixedDRTrackerRollout:
             privileged = _capture_privileged_dynamics_targets(self.env)
             self.privileged_dynamics_names = privileged.names
             self.privileged_dynamics = privileged.values
+            prototype_count = config.dynamics_classes or config.num_envs
+            if config.dynamics_classes is not None:
+                prototype_ids = torch.arange(config.num_envs, device=self.env.device).remainder(
+                    prototype_count
+                )
+                expected_privileged = self.privileged_dynamics[:prototype_count].index_select(
+                    0, prototype_ids
+                )
+                privileged_error = (self.privileged_dynamics - expected_privileged).abs().max()
+                if bool(privileged_error > 0.0):
+                    raise RuntimeError(
+                        "Fixed dynamics prototype replication is inconsistent with privileged "
+                        f"labels; max_abs_error={float(privileged_error):.6g}"
+                    )
+                assert self.dynamics_grouping is not None
+                self.dynamics_grouping["privileged_max_abs_replication_error"] = float(
+                    privileged_error
+                )
+            prototype_bytes = (
+                self.privileged_dynamics[:prototype_count]
+                .detach()
+                .float()
+                .cpu()
+                .contiguous()
+                .numpy()
+                .tobytes()
+            )
+            self.dynamics_prototype_sha256 = hashlib.sha256(prototype_bytes).hexdigest()
             self.ignored_privileged_startup_events = privileged.ignored_startup_events
             self.dr_invariance_checks = 0
             self.wrapped = self._runtime.wrapped
@@ -684,15 +828,31 @@ class FixedDRTrackerRollout:
             self.initial_episode_phase_summary: dict[str, int] | None = None
             if config.randomize_initial_episode_phase:
                 self.initial_episode_phase_summary = _randomize_initial_episode_phases(
-                    self.env, config.seed
+                    self.env,
+                    config.seed,
+                    config.dynamics_classes or 1,
                 )
-            self.observations = self.wrapped.get_observations()
+            self.observations = (
+                reset_observations
+                if reset_observations is not None
+                else self.wrapped.get_observations()
+            )
             self.world_ids = torch.arange(
                 config.world_id_offset,
                 config.world_id_offset + config.num_envs,
                 device=self.env.device,
                 dtype=torch.long,
             )
+            if config.dynamics_classes is None:
+                self.dynamics_ids = self.world_ids
+                self.motion_group_ids = self.world_ids
+            else:
+                local_env_ids = torch.arange(
+                    config.num_envs, device=self.env.device, dtype=torch.long
+                )
+                self.dynamics_ids = local_env_ids.remainder(config.dynamics_classes)
+                first_group = config.world_id_offset // config.dynamics_classes
+                self.motion_group_ids = local_env_ids // config.dynamics_classes + first_group
             self.episode_ids = torch.zeros_like(self.world_ids)
             self.episode_steps = torch.zeros_like(self.world_ids)
             self.env_ids = torch.arange(config.num_envs, device=self.env.device, dtype=torch.long)
@@ -738,11 +898,12 @@ class FixedDRTrackerRollout:
             "removed_non_startup_events": self.removed_non_startup_events,
             "disabled_startup_reset_callbacks": self.disabled_startup_reset_callbacks,
             "fixed_dr_model_fields": sorted(self._fixed_dr_model_fields),
+            "fixed_dynamics_classes": self.config.dynamics_classes,
+            "dynamics_grouping": self.dynamics_grouping,
+            "dynamics_prototype_sha256": self.dynamics_prototype_sha256,
             "privileged_dynamics_dim": len(self.privileged_dynamics_names),
             "privileged_dynamics_names": list(self.privileged_dynamics_names),
-            "ignored_privileged_startup_events": list(
-                self.ignored_privileged_startup_events
-            ),
+            "ignored_privileged_startup_events": list(self.ignored_privileged_startup_events),
             "nominal_fraction": self.config.nominal_fraction,
             "nominal_world_count_per_rank": self.nominal_count,
             "dr_world_count_per_rank": self.num_envs - self.nominal_count,
@@ -755,13 +916,24 @@ class FixedDRTrackerRollout:
             ),
             "cleared_missing_motion_exclusions": self.cleared_motion_exclusions,
             "domain_randomization_contract": (
-                "selected slots restored to compiled nominal physics; remaining startup DR "
-                "fixed per vector slot; neither group is resampled"
+                "startup DR defines a fixed prototype set replicated across motion groups; "
+                "physics prototypes are never resampled"
+                if self.config.dynamics_classes is not None
+                else "selected slots restored to compiled nominal physics; remaining startup "
+                "DR fixed per vector slot; neither group is resampled"
             ),
-            "motion_contract": "random motion resampling at initialization and reset",
+            "motion_contract": (
+                "each contiguous dynamics-class family shares one motion and phase; scheduled "
+                "motion/timeout resets are synchronized, isolated failures rejoin in place"
+                if self.config.dynamics_classes is not None
+                else "random motion resampling at initialization and reset"
+            ),
             "motion_file_count_per_rank": len(self.motion_files),
             "reset_contract": (
-                "asynchronous per-slot auto-reset; startup events are never reapplied"
+                "group-synchronized scheduled reset with per-slot failure recovery; startup "
+                "events are never reapplied"
+                if self.config.dynamics_classes is not None
+                else "asynchronous per-slot auto-reset; startup events are never reapplied"
             ),
             "initial_episode_phase_randomized": self.config.randomize_initial_episode_phase,
             "initial_episode_phase_summary": self.initial_episode_phase_summary,
@@ -889,7 +1061,8 @@ class FixedDRTrackerRollout:
         batch = {
             "reset_boundary": reset_boundary,
             "world_id": self.world_ids,
-            "dynamics_id": self.world_ids,
+            "dynamics_id": getattr(self, "dynamics_ids", self.world_ids),
+            "motion_group_id": getattr(self, "motion_group_ids", self.world_ids),
             "privileged_dynamics": self.privileged_dynamics,
             "episode_id": self.episode_ids.clone(),
             "episode_step": self.episode_steps.clone(),
@@ -967,6 +1140,11 @@ class FixedDRTrackerRollout:
             self._assert_fixed_dr(done_ids)
             self.reset_events += 1
             self.environments_reset += done_count
+            _synchronize_partial_group_timeout(
+                self.env,
+                done,
+                getattr(self.config, "dynamics_classes", None) or 1,
+            )
         if boundary_count:
             # Both environment resets and in-step motion resampling teleport the
             # state. Exclude that transition from replay and start a fresh causal

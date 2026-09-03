@@ -191,7 +191,7 @@ class ForwardPredictorNormalization:
 
 
 class ForwardPredictorReplayBuffer:
-    """Store five-step targets with ten strictly causal state-action history frames."""
+    """Store five-step targets and reconstruct long causal context from a time archive."""
 
     REQUIRED_FIELDS = (
         "joint_target",
@@ -209,6 +209,7 @@ class ForwardPredictorReplayBuffer:
         "episode_step",
         "motion_id",
         "motion_step",
+        "motion_group_id",
         "dynamics_id",
         "privileged_dynamics",
     )
@@ -220,6 +221,8 @@ class ForwardPredictorReplayBuffer:
         dimensions: RolloutDimensions | None = None,
         horizon: int = 5,
         history_steps: int = 10,
+        context_history_steps: int = 100,
+        dynamics_classes: int | None = None,
         privileged_dim: int = 1,
         capacity: int = 16384,
         sampling_mode: str = "motion_balanced",
@@ -231,6 +234,12 @@ class ForwardPredictorReplayBuffer:
             raise ValueError("num_worlds, capacity and privileged_dim must be positive")
         if horizon != 5 or history_steps != 10:
             raise ValueError("Forward Predictor replay uses horizon=5 and history_steps=10")
+        if context_history_steps < history_steps:
+            raise ValueError("context_history_steps must be at least history_steps")
+        self.grouped_dynamics = dynamics_classes is not None
+        resolved_dynamics_classes = num_worlds if dynamics_classes is None else dynamics_classes
+        if resolved_dynamics_classes < 1 or num_worlds % resolved_dynamics_classes:
+            raise ValueError("dynamics_classes must be positive and divide num_worlds")
         if sampling_mode not in {"uniform", "motion_balanced"}:
             raise ValueError("sampling_mode must be 'uniform' or 'motion_balanced'")
         if world_id_offset < 0:
@@ -239,33 +248,45 @@ class ForwardPredictorReplayBuffer:
         self.dimensions = dimensions or RolloutDimensions()
         self.horizon = int(horizon)
         self.history_steps = int(history_steps)
+        self.context_history_steps = int(context_history_steps)
+        self.dynamics_classes = int(resolved_dynamics_classes)
+        self.motion_group_count = self.num_worlds // self.dynamics_classes
         self.privileged_dim = int(privileged_dim)
-        self.ring_steps = self.horizon + self.history_steps
         self.capacity = int(capacity)
+        # A full replay at the nominal one sample/world/five steps retention rate
+        # needs roughly horizon * capacity / num_worlds collector frames.  Keep
+        # twice that span so ordinary reset losses cannot invalidate live samples.
+        retained_collector_steps = (
+            2 * self.horizon * max(1, (self.capacity + self.num_worlds - 1) // self.num_worlds)
+        )
+        self.ring_steps = self.context_history_steps + self.horizon + retained_collector_steps
         self.sampling_mode = sampling_mode
         self.world_id_offset = int(world_id_offset)
         self.device = torch.device(device or "cpu")
         self._world_ids = tuple(range(world_id_offset, world_id_offset + num_worlds))
         self._generator = torch.Generator(device=self.device).manual_seed(seed)
         self._target_offsets = torch.arange(self.horizon - 1, -1, -1, device=self.device)
-        self._history_offsets = torch.arange(
-            self.ring_steps - 1,
-            self.horizon - 1,
-            -1,
-            device=self.device,
-        )
         self._history: dict[str, torch.Tensor] = {}
         self._samples: dict[str, torch.Tensor] = {}
         self._reset_history: torch.Tensor | None = None
+        self._history_stamp: torch.Tensor | None = None
         self._history_write = 0
+        self._collector_step = 0
         self._sample_write = 0
         self._size = 0
+        self._active_indices: torch.Tensor | None = None
         self._world_ids_validated = False
         self._sampling_weights: torch.Tensor | None = None
         self._pair_order: torch.Tensor | None = None
         self._pair_inverse: torch.Tensor | None = None
         self._pair_counts: torch.Tensor | None = None
         self._pair_starts: torch.Tensor | None = None
+        self._motion_pair_order: torch.Tensor | None = None
+        self._motion_pair_inverse: torch.Tensor | None = None
+        self._motion_pair_counts: torch.Tensor | None = None
+        self._motion_pair_starts: torch.Tensor | None = None
+        self._motion_pair_world_counts: torch.Tensor | None = None
+        self._motion_pair_world_starts: torch.Tensor | None = None
         self.total_samples_generated = 0
         self.total_transitions = 0
         self.normalizer = ForwardPredictorNormalization(
@@ -275,7 +296,9 @@ class ForwardPredictorReplayBuffer:
         )
 
     def __len__(self) -> int:
-        return self._size
+        if not self._samples:
+            return 0
+        return int(self._active_sample_indices().numel())
 
     @property
     def world_ids(self) -> tuple[int, ...]:
@@ -286,6 +309,8 @@ class ForwardPredictorReplayBuffer:
         tensors = [*self._history.values(), *self._samples.values()]
         if self._reset_history is not None:
             tensors.append(self._reset_history)
+        if self._history_stamp is not None:
+            tensors.append(self._history_stamp)
         return sum(value.numel() * value.element_size() for value in tensors)
 
     @property
@@ -299,15 +324,14 @@ class ForwardPredictorReplayBuffer:
         sample_floats = self.capacity * (
             (self.horizon + 1) * dims.robot_state
             + self.horizon * dims.action
-            + self.history_steps * (dims.robot_state + dims.action)
-            + (self.horizon + 1 + self.history_steps) * FOOT_FEATURE_DIM
-            + (self.horizon + 1 + self.history_steps) * CONTACT_FORCE_DIM
+            + (self.horizon + 1) * FOOT_FEATURE_DIM
+            + (self.horizon + 1) * CONTACT_FORCE_DIM
             + self.privileged_dim
         )
-        history_integers = 4 * self.ring_steps * self.num_worlds
-        sample_integers = 4 * self.capacity
+        history_integers = 4 * self.ring_steps * self.num_worlds + self.ring_steps
+        sample_integers = 10 * self.capacity
         flags = self.ring_steps * self.num_worlds * (1 + CONTACT_BINARY_DIM) + self.capacity * (
-            self.history_steps + (self.horizon + 1 + self.history_steps) * CONTACT_BINARY_DIM
+            1 + (self.horizon + 1) * CONTACT_BINARY_DIM
         )
         return (
             4 * (history_floats + sample_floats) + 8 * (history_integers + sample_integers) + flags
@@ -332,22 +356,16 @@ class ForwardPredictorReplayBuffer:
             "motion_step": torch.full(history_prefix, -1, dtype=torch.long, device=self.device),
         }
         self._reset_history = torch.ones(history_prefix, dtype=torch.bool, device=self.device)
+        self._history_stamp = torch.full(
+            (self.ring_steps,), -1, dtype=torch.long, device=self.device
+        )
         self._samples = {
             "state": torch.empty(
                 (self.capacity, self.horizon + 1, dims.robot_state), device=self.device
             ),
             "action": torch.empty((self.capacity, self.horizon, dims.action), device=self.device),
-            "history_state": torch.empty(
-                (self.capacity, self.history_steps, dims.robot_state), device=self.device
-            ),
-            "history_action": torch.empty(
-                (self.capacity, self.history_steps, dims.action), device=self.device
-            ),
             "foot": torch.empty(
                 (self.capacity, self.horizon + 1, FOOT_FEATURE_DIM), device=self.device
-            ),
-            "history_foot": torch.empty(
-                (self.capacity, self.history_steps, FOOT_FEATURE_DIM), device=self.device
             ),
             "contact_force": torch.empty(
                 (self.capacity, self.horizon + 1, CONTACT_FORCE_DIM), device=self.device
@@ -357,21 +375,17 @@ class ForwardPredictorReplayBuffer:
                 dtype=torch.bool,
                 device=self.device,
             ),
-            "history_contact_force": torch.empty(
-                (self.capacity, self.history_steps, CONTACT_FORCE_DIM), device=self.device
-            ),
-            "history_contact_binary": torch.empty(
-                (self.capacity, self.history_steps, CONTACT_BINARY_DIM),
-                dtype=torch.bool,
-                device=self.device,
-            ),
-            "history_valid": torch.empty(
-                (self.capacity, self.history_steps), dtype=torch.bool, device=self.device
-            ),
             "world_id": torch.empty(self.capacity, dtype=torch.long, device=self.device),
+            "env_id": torch.empty(self.capacity, dtype=torch.long, device=self.device),
+            "episode_id": torch.empty(self.capacity, dtype=torch.long, device=self.device),
+            "episode_step": torch.empty(self.capacity, dtype=torch.long, device=self.device),
             "motion_id": torch.empty(self.capacity, dtype=torch.long, device=self.device),
             "motion_step": torch.empty(self.capacity, dtype=torch.long, device=self.device),
+            "motion_group_id": torch.empty(self.capacity, dtype=torch.long, device=self.device),
+            "cohort_id": torch.empty(self.capacity, dtype=torch.long, device=self.device),
+            "collector_step": torch.empty(self.capacity, dtype=torch.long, device=self.device),
             "dynamics_id": torch.empty(self.capacity, dtype=torch.long, device=self.device),
+            "context_full": torch.empty(self.capacity, dtype=torch.bool, device=self.device),
             "privileged_dynamics": torch.empty(
                 (self.capacity, self.privileged_dim), device=self.device
             ),
@@ -398,6 +412,7 @@ class ForwardPredictorReplayBuffer:
             "episode_step": (self.num_worlds,),
             "motion_id": (self.num_worlds,),
             "motion_step": (self.num_worlds,),
+            "motion_group_id": (self.num_worlds,),
             "dynamics_id": (self.num_worlds,),
             "privileged_dynamics": (self.num_worlds, self.privileged_dim),
         }
@@ -440,21 +455,49 @@ class ForwardPredictorReplayBuffer:
             self._samples[name].index_copy_(0, positions, value)
         self._sample_write = (self._sample_write + retained) % self.capacity
         self._size = min(self.capacity, self._size + retained)
+        self._active_indices = None
         self._sampling_weights = None
         self._pair_order = None
         self._pair_inverse = None
         self._pair_counts = None
         self._pair_starts = None
+        self._motion_pair_order = None
+        self._motion_pair_inverse = None
+        self._motion_pair_counts = None
+        self._motion_pair_starts = None
+        self._motion_pair_world_counts = None
+        self._motion_pair_world_starts = None
         self.total_samples_generated += count
+
+    def _active_sample_indices(self) -> torch.Tensor:
+        """Return samples whose 100-frame context still exists in the archive."""
+
+        if self._active_indices is not None:
+            return self._active_indices
+        if self._size == 0:
+            self._active_indices = torch.empty(0, dtype=torch.long, device=self.device)
+            return self._active_indices
+        positions = torch.arange(
+            self.capacity if self._size == self.capacity else self._size,
+            device=self.device,
+        )
+        latest_step = self._collector_step - 1
+        minimum_sample_step = (
+            latest_step - self.ring_steps + self.context_history_steps + self.horizon
+        )
+        fresh = self._samples["collector_step"].index_select(0, positions) >= minimum_sample_step
+        self._active_indices = positions[fresh]
+        return self._active_indices
 
     def add_step(self, batch: dict[str, torch.Tensor]) -> int:
         self._validate_batch(batch)
         self._allocate()
         assert self._reset_history is not None
+        assert self._history_stamp is not None
         valid_transition = ~batch["reset_boundary"]
         self.normalizer.update(batch, valid_transition)
 
-        position = self._history_write
+        position = self._collector_step % self.ring_steps
         self._history["state"][position].copy_(batch["robot_state"])
         self._history["action"][position].copy_(batch["joint_target"])
         self._history["foot"][position].copy_(batch["foot"])
@@ -465,18 +508,19 @@ class ForwardPredictorReplayBuffer:
         self._history["motion_id"][position].copy_(batch["motion_id"])
         self._history["motion_step"][position].copy_(batch["motion_step"])
         self._reset_history[position].copy_(batch["reset_boundary"])
+        self._history_stamp[position] = self._collector_step
 
         target_ids = (position - self._target_offsets).remainder(self.ring_steps)
-        history_ids = (position - self._history_offsets).remainder(self.ring_steps)
         target_steps = self._history["episode_step"][target_ids]
         target_episode_ids = self._history["episode_id"][target_ids]
+        target_stamps = self._history_stamp[target_ids]
         target_start = target_steps[0]
         complete_window = (
             target_steps
             == target_start[None] + torch.arange(self.horizon, device=self.device)[:, None]
         ).all(dim=0)
-        complete_window &= target_start.remainder(self.horizon) == 0
         complete_window &= (target_episode_ids == batch["episode_id"][None]).all(dim=0)
+        complete_window &= (target_stamps == self._collector_step - self._target_offsets).all()
         crosses_reset = self._reset_history[target_ids].any(dim=0)
         valid = (
             (batch["episode_step"] + 1 >= self.horizon)
@@ -484,6 +528,8 @@ class ForwardPredictorReplayBuffer:
             & ~crosses_reset
             & ~batch["reset_boundary"]
         )
+        if (self._collector_step + 1) % self.horizon:
+            valid.zero_()
         env_ids = valid.nonzero(as_tuple=False).flatten()
         count = int(env_ids.numel())
         if count:
@@ -493,16 +539,7 @@ class ForwardPredictorReplayBuffer:
             target_action = self._history["action"][target_ids[:, None], env_ids[None, :]].permute(
                 1, 0, 2
             )
-            history_state = self._history["state"][history_ids[:, None], env_ids[None, :]].permute(
-                1, 0, 2
-            )
-            history_action = self._history["action"][
-                history_ids[:, None], env_ids[None, :]
-            ].permute(1, 0, 2)
             target_foot = self._history["foot"][target_ids[:, None], env_ids[None, :]].permute(
-                1, 0, 2
-            )
-            history_foot = self._history["foot"][history_ids[:, None], env_ids[None, :]].permute(
                 1, 0, 2
             )
             target_contact_force = self._history["contact_force"][
@@ -511,53 +548,68 @@ class ForwardPredictorReplayBuffer:
             target_contact_binary = self._history["contact_binary"][
                 target_ids[:, None], env_ids[None, :]
             ].permute(1, 0, 2)
-            history_contact_force = self._history["contact_force"][
-                history_ids[:, None], env_ids[None, :]
-            ].permute(1, 0, 2)
-            history_contact_binary = self._history["contact_binary"][
-                history_ids[:, None], env_ids[None, :]
-            ].permute(1, 0, 2)
-            prior_steps = self._history["episode_step"][
-                history_ids[:, None], env_ids[None, :]
-            ].permute(1, 0)
-            prior_episode_ids = self._history["episode_id"][
-                history_ids[:, None], env_ids[None, :]
-            ].permute(1, 0)
-            expected_prior_steps = (
+            context_start = self._collector_step - (self.horizon - 1) - self.context_history_steps
+            context_ids = (
+                context_start + torch.arange(self.context_history_steps, device=self.device)
+            ).remainder(self.ring_steps)
+            expected_context_steps = (
                 target_start[env_ids, None]
-                - self.history_steps
-                + torch.arange(self.history_steps, device=self.device)[None]
+                - self.context_history_steps
+                + torch.arange(self.context_history_steps, device=self.device)[None]
             )
-            history_valid = (
-                (expected_prior_steps >= 0)
-                & (prior_steps == expected_prior_steps)
-                & (prior_episode_ids == batch["episode_id"][env_ids, None])
-            )
+            context_full = (
+                (expected_context_steps >= 0)
+                & (
+                    self._history["episode_step"][context_ids[:, None], env_ids[None, :]].T
+                    == expected_context_steps
+                )
+                & (
+                    self._history["episode_id"][context_ids[:, None], env_ids[None, :]].T
+                    == target_episode_ids[0, env_ids, None]
+                )
+            ).all(dim=1)
+            cohort_id = (
+                torch.full_like(batch["motion_group_id"][env_ids], self._collector_step) << 32
+            ) + batch["motion_group_id"][env_ids]
             samples = {
                 "state": torch.cat((target_state, batch["next_robot_state"][env_ids, None]), dim=1),
                 "action": target_action,
-                "history_state": history_state,
-                "history_action": history_action,
                 "foot": torch.cat((target_foot, batch["next_foot"][env_ids, None]), dim=1),
-                "history_foot": history_foot,
                 "contact_force": torch.cat(
                     (target_contact_force, batch["next_contact_force"][env_ids, None]), dim=1
                 ),
                 "contact_binary": torch.cat(
                     (target_contact_binary, batch["next_contact_binary"][env_ids, None]), dim=1
                 ),
-                "history_contact_force": history_contact_force,
-                "history_contact_binary": history_contact_binary,
-                "history_valid": history_valid,
                 "world_id": batch["world_id"][env_ids],
+                "env_id": env_ids,
+                "episode_id": target_episode_ids[0, env_ids],
+                "episode_step": target_start[env_ids],
                 "motion_id": self._history["motion_id"][target_ids[0], env_ids],
                 "motion_step": self._history["motion_step"][target_ids[0], env_ids],
+                "motion_group_id": batch["motion_group_id"][env_ids],
+                "cohort_id": cohort_id,
+                "collector_step": torch.full_like(env_ids, self._collector_step),
                 "dynamics_id": batch["dynamics_id"][env_ids],
+                "context_full": context_full,
                 "privileged_dynamics": batch["privileged_dynamics"][env_ids],
             }
             self._append_samples(samples, count)
 
         self._history_write = (position + 1) % self.ring_steps
+        self._collector_step += 1
+        self._active_indices = None
+        self._sampling_weights = None
+        self._pair_order = None
+        self._pair_inverse = None
+        self._pair_counts = None
+        self._pair_starts = None
+        self._motion_pair_order = None
+        self._motion_pair_inverse = None
+        self._motion_pair_counts = None
+        self._motion_pair_starts = None
+        self._motion_pair_world_counts = None
+        self._motion_pair_world_starts = None
         self.total_transitions += self.num_worlds
         return count
 
@@ -585,8 +637,9 @@ class ForwardPredictorReplayBuffer:
         )
 
     def _motion_sampling_weights(self) -> torch.Tensor:
-        if self._sampling_weights is None or self._sampling_weights.numel() != self._size:
-            motion_ids = self._samples["motion_id"][: self._size]
+        active = self._active_sample_indices()
+        if self._sampling_weights is None or self._sampling_weights.numel() != active.numel():
+            motion_ids = self._samples["motion_id"].index_select(0, active)
             _, inverse, counts = torch.unique(
                 motion_ids,
                 return_inverse=True,
@@ -597,56 +650,139 @@ class ForwardPredictorReplayBuffer:
 
     def _dynamics_pair_tables(
         self,
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-        dynamics_ids = self._samples["dynamics_id"][: self._size]
-        local_ids = dynamics_ids - self.world_id_offset
-        if bool(((local_ids < 0) | (local_ids >= self.num_worlds)).any()):
-            raise RuntimeError("Replay dynamics IDs do not map to local vector-world slots")
-        if self._pair_order is None or self._pair_order.numel() != self._size:
-            self._pair_order = torch.argsort(local_ids)
+    ) -> tuple[
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+    ]:
+        active = self._active_sample_indices()
+        dynamics_ids = self._samples["dynamics_id"].index_select(0, active)
+        if self.grouped_dynamics:
+            if bool(((dynamics_ids < 0) | (dynamics_ids >= self.dynamics_classes)).any()):
+                raise RuntimeError("Replay dynamics IDs must index the fixed dynamics classes")
+            group_ids = dynamics_ids
+        else:
+            _, group_ids = torch.unique(dynamics_ids, sorted=True, return_inverse=True)
+        if self._pair_order is None or self._pair_order.numel() != active.numel():
+            self._pair_order = torch.argsort(group_ids)
             self._pair_inverse = torch.empty_like(self._pair_order)
-            self._pair_inverse[self._pair_order] = torch.arange(
-                self._size, device=self.device
-            )
-            self._pair_counts = torch.bincount(local_ids, minlength=self.num_worlds)
+            self._pair_inverse[self._pair_order] = torch.arange(active.numel(), device=self.device)
+            self._pair_counts = torch.bincount(group_ids, minlength=self.dynamics_classes)
             self._pair_starts = self._pair_counts.cumsum(0) - self._pair_counts
         assert self._pair_inverse is not None
         assert self._pair_counts is not None
         assert self._pair_starts is not None
         return (
-            local_ids,
+            active,
+            group_ids,
             self._pair_order,
             self._pair_inverse,
             self._pair_counts,
             self._pair_starts,
         )
 
-    def can_sample_dynamics_pairs(self, batch_size: int) -> bool:
-        """Return whether an even batch can contain distinct same-world window pairs."""
+    def can_sample_dynamics_pairs(
+        self,
+        batch_size: int,
+        *,
+        contrastive_block_size: int | None = None,
+    ) -> bool:
+        """Return whether replay can build the requested contrastive batch layout."""
 
-        if batch_size < 2 or batch_size % 2 or self._size < batch_size:
+        active_count = len(self)
+        if batch_size < 2 or batch_size % 2 or active_count < batch_size:
             return False
-        local_ids, _, _, counts, _ = self._dynamics_pair_tables()
-        eligible = counts.index_select(0, local_ids) >= 2
+        if self.grouped_dynamics:
+            block_size = contrastive_block_size or batch_size
+            if block_size % self.dynamics_classes or block_size // self.dynamics_classes < 2:
+                return False
+            _, inverse, counts = torch.unique(
+                self._samples["cohort_id"].index_select(0, self._active_sample_indices()),
+                sorted=True,
+                return_inverse=True,
+                return_counts=True,
+            )
+            del inverse
+            return int((counts == self.dynamics_classes).sum()) >= (
+                block_size // self.dynamics_classes
+            )
+        _, dynamics_ids, _, _, counts, _ = self._dynamics_pair_tables()
+        eligible = counts.index_select(0, dynamics_ids) >= 2
         return int(eligible.sum()) >= batch_size // 2
 
-    def _sample_indices(self, batch_size: int) -> torch.Tensor:
-        if self.sampling_mode == "uniform":
-            return torch.randperm(
-                self._size, generator=self._generator, device=self.device
-            )[:batch_size]
-        return torch.multinomial(
-            self._motion_sampling_weights(),
-            batch_size,
-            replacement=False,
-            generator=self._generator,
+    def _dynamics_motion_pair_tables(
+        self,
+    ) -> tuple[
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+    ]:
+        """Group replay windows by (fixed dynamics world, motion) on the device."""
+
+        active, dynamics_ids, _, _, _, _ = self._dynamics_pair_tables()
+        if self._motion_pair_order is None or self._motion_pair_order.numel() != active.numel():
+            dynamics_motion = torch.stack(
+                (dynamics_ids, self._samples["motion_id"].index_select(0, active)),
+                dim=1,
+            )
+            unique_pairs, inverse, counts = torch.unique(
+                dynamics_motion,
+                dim=0,
+                sorted=True,
+                return_inverse=True,
+                return_counts=True,
+            )
+            self._motion_pair_order = torch.argsort(inverse)
+            self._motion_pair_inverse = inverse
+            self._motion_pair_counts = counts
+            self._motion_pair_starts = counts.cumsum(0) - counts
+            self._motion_pair_world_counts = torch.bincount(
+                unique_pairs[:, 0],
+                minlength=self.dynamics_classes,
+            )
+            self._motion_pair_world_starts = (
+                self._motion_pair_world_counts.cumsum(0) - self._motion_pair_world_counts
+            )
+        assert self._motion_pair_inverse is not None
+        assert self._motion_pair_counts is not None
+        assert self._motion_pair_starts is not None
+        assert self._motion_pair_world_counts is not None
+        assert self._motion_pair_world_starts is not None
+        return (
+            self._motion_pair_order,
+            self._motion_pair_inverse,
+            self._motion_pair_counts,
+            self._motion_pair_starts,
+            self._motion_pair_world_counts,
+            self._motion_pair_world_starts,
         )
+
+    def _sample_indices(self, batch_size: int) -> torch.Tensor:
+        active = self._active_sample_indices()
+        if self.sampling_mode == "uniform":
+            ranks = torch.randperm(active.numel(), generator=self._generator, device=self.device)[
+                :batch_size
+            ]
+        else:
+            ranks = torch.multinomial(
+                self._motion_sampling_weights(),
+                batch_size,
+                replacement=False,
+                generator=self._generator,
+            )
+        return active.index_select(0, ranks)
 
     def _sample_paired_dynamics_indices(self, batch_size: int) -> torch.Tensor:
         if batch_size % 2:
             raise ValueError("Dynamics-paired batch_size must be even")
-        local_ids, order, inverse, counts, starts = self._dynamics_pair_tables()
-        eligible = counts.index_select(0, local_ids) >= 2
+        active, dynamics_ids, order, inverse, counts, starts = self._dynamics_pair_tables()
+        eligible = counts.index_select(0, dynamics_ids) >= 2
         pair_count = batch_size // 2
         if int(eligible.sum()) < pair_count:
             raise RuntimeError(
@@ -657,25 +793,153 @@ class ForwardPredictorReplayBuffer:
             anchor_weights = eligible.float()
         else:
             anchor_weights = self._motion_sampling_weights() * eligible
-        anchors = torch.multinomial(
+        anchor_ranks = torch.multinomial(
             anchor_weights,
             pair_count,
             replacement=False,
             generator=self._generator,
         )
-        anchor_dynamics = local_ids.index_select(0, anchors)
+        anchors = active.index_select(0, anchor_ranks)
+        anchor_dynamics = dynamics_ids.index_select(0, anchor_ranks)
         group_counts = counts.index_select(0, anchor_dynamics)
         group_starts = starts.index_select(0, anchor_dynamics)
-        anchor_group_rank = inverse.index_select(0, anchors) - group_starts
+        anchor_group_rank = inverse.index_select(0, anchor_ranks) - group_starts
         other_group_rank = (
-            torch.rand(pair_count, generator=self._generator, device=self.device)
-            * (group_counts - 1).float()
-        ).floor().long()
+            (
+                torch.rand(pair_count, generator=self._generator, device=self.device)
+                * (group_counts - 1).float()
+            )
+            .floor()
+            .long()
+        )
         other_group_rank += (other_group_rank >= anchor_group_rank).long()
-        positives = order.index_select(0, group_starts + other_group_rank)
+        fallback_positive_ranks = order.index_select(0, group_starts + other_group_rank)
+        fallback_positives = active.index_select(0, fallback_positive_ranks)
+
+        (
+            motion_order,
+            motion_inverse,
+            motion_counts,
+            motion_starts,
+            motion_world_counts,
+            motion_world_starts,
+        ) = self._dynamics_motion_pair_tables()
+        anchor_motion_group = motion_inverse.index_select(0, anchor_ranks)
+        world_motion_counts = motion_world_counts.index_select(0, anchor_dynamics)
+        world_motion_starts = motion_world_starts.index_select(0, anchor_dynamics)
+        anchor_motion_rank = anchor_motion_group - world_motion_starts
+        has_cross_motion = world_motion_counts >= 2
+        other_motion_rank = (
+            (
+                torch.rand(pair_count, generator=self._generator, device=self.device)
+                * (world_motion_counts - 1).clamp_min(1).float()
+            )
+            .floor()
+            .long()
+        )
+        other_motion_rank += ((other_motion_rank >= anchor_motion_rank) & has_cross_motion).long()
+        other_motion_rank = torch.where(
+            has_cross_motion,
+            other_motion_rank,
+            anchor_motion_rank,
+        )
+        other_motion_group = world_motion_starts + other_motion_rank
+        other_motion_count = motion_counts.index_select(0, other_motion_group)
+        other_motion_offset = (
+            (
+                torch.rand(pair_count, generator=self._generator, device=self.device)
+                * other_motion_count.float()
+            )
+            .floor()
+            .long()
+        )
+        cross_motion_positive_ranks = motion_order.index_select(
+            0,
+            motion_starts.index_select(0, other_motion_group) + other_motion_offset,
+        )
+        cross_motion_positives = active.index_select(0, cross_motion_positive_ranks)
+        positives = torch.where(
+            has_cross_motion,
+            cross_motion_positives,
+            fallback_positives,
+        )
         if bool(torch.eq(anchors, positives).any()):
             raise RuntimeError("Dynamics pair sampler selected the same replay window twice")
         return torch.stack((anchors, positives), dim=1).flatten()
+
+    def _sample_grouped_dynamics_indices(
+        self,
+        batch_size: int,
+        block_size: int,
+    ) -> torch.Tensor:
+        """Build each micro-batch from complete 128-class motion/phase cohorts."""
+
+        if batch_size % block_size:
+            raise ValueError("batch_size must be divisible by contrastive_block_size")
+        if block_size % self.dynamics_classes:
+            raise ValueError("contrastive_block_size must be divisible by dynamics_classes")
+        views = block_size // self.dynamics_classes
+        if views < 2:
+            raise ValueError("Each contrastive block needs at least two cohort views")
+        active = self._active_sample_indices()
+        cohort_ids = self._samples["cohort_id"].index_select(0, active)
+        unique_cohorts, inverse, counts = torch.unique(
+            cohort_ids,
+            sorted=True,
+            return_inverse=True,
+            return_counts=True,
+        )
+        eligible = (counts == self.dynamics_classes).nonzero(as_tuple=False).flatten()
+        needed = (batch_size // block_size) * views
+        if eligible.numel() < views:
+            raise RuntimeError(
+                "Replay does not yet contain enough complete 128-class motion/phase cohorts"
+            )
+        cohort_motion = torch.empty_like(unique_cohorts)
+        first_by_cohort = torch.argsort(inverse)[counts.cumsum(0) - counts]
+        cohort_motion.copy_(
+            self._samples["motion_id"].index_select(0, active.index_select(0, first_by_cohort))
+        )
+        if self.sampling_mode == "motion_balanced":
+            eligible_motion = cohort_motion.index_select(0, eligible)
+            _, motion_inverse, motion_counts = torch.unique(
+                eligible_motion,
+                return_inverse=True,
+                return_counts=True,
+            )
+            weights = motion_counts[motion_inverse].float().reciprocal()
+        else:
+            weights = torch.ones(eligible.numel(), device=self.device)
+        chosen_ranks = torch.stack(
+            tuple(
+                torch.multinomial(
+                    weights,
+                    views,
+                    replacement=False,
+                    generator=self._generator,
+                )
+                for _ in range(batch_size // block_size)
+            )
+        ).flatten()
+        chosen_groups = eligible.index_select(0, chosen_ranks)
+        order = torch.argsort(inverse)
+        starts = counts.cumsum(0) - counts
+        offsets = torch.arange(self.dynamics_classes, device=self.device)
+        grouped_ranks = order[starts.index_select(0, chosen_groups)[:, None] + offsets[None]]
+        grouped_positions = active.index_select(0, grouped_ranks.flatten()).view(
+            needed,
+            self.dynamics_classes,
+        )
+        grouped_dynamics = self._samples["dynamics_id"][grouped_positions]
+        dynamics_order = torch.argsort(grouped_dynamics, dim=1)
+        grouped_positions = torch.gather(grouped_positions, 1, dynamics_order)
+        grouped_dynamics = torch.gather(grouped_dynamics, 1, dynamics_order)
+        expected = torch.arange(self.dynamics_classes, device=self.device).expand_as(
+            grouped_dynamics
+        )
+        if not torch.equal(grouped_dynamics, expected):
+            raise RuntimeError("A motion/phase cohort does not contain each dynamics class once")
+        return grouped_positions.view(batch_size // block_size, views, -1).reshape(-1)
 
     def sample_batch(
         self,
@@ -683,17 +947,53 @@ class ForwardPredictorReplayBuffer:
         normalization: ForwardPredictorNormalizationStats,
         *,
         paired_dynamics: bool = False,
+        contrastive_block_size: int | None = None,
     ) -> dict[str, torch.Tensor]:
-        if batch_size < 1 or self._size < batch_size:
+        active_count = len(self)
+        if batch_size < 1 or active_count < batch_size:
             raise RuntimeError(
-                f"Forward Predictor replay has {self._size} samples, batch_size={batch_size}"
+                f"Forward Predictor replay has {active_count} samples, batch_size={batch_size}"
             )
-        indices = (
-            self._sample_paired_dynamics_indices(batch_size)
-            if paired_dynamics
-            else self._sample_indices(batch_size)
-        )
+        if paired_dynamics and self.grouped_dynamics:
+            indices = self._sample_grouped_dynamics_indices(
+                batch_size,
+                contrastive_block_size or batch_size,
+            )
+        elif paired_dynamics:
+            indices = self._sample_paired_dynamics_indices(batch_size)
+        else:
+            indices = self._sample_indices(batch_size)
         selected = {name: value.index_select(0, indices) for name, value in self._samples.items()}
+        assert self._history_stamp is not None
+        target_start_collector = selected["collector_step"] - (self.horizon - 1)
+        context_absolute_steps = (
+            target_start_collector[:, None]
+            - self.context_history_steps
+            + torch.arange(self.context_history_steps, device=self.device)[None]
+        )
+        context_slots = context_absolute_steps.remainder(self.ring_steps)
+        env_ids = selected["env_id"][:, None].expand_as(context_slots)
+        archive_present = self._history_stamp[context_slots] == context_absolute_steps
+        history_state = self._history["state"][context_slots, env_ids]
+        history_action = self._history["action"][context_slots, env_ids]
+        history_episode = self._history["episode_id"][context_slots, env_ids]
+        history_episode_step = self._history["episode_step"][context_slots, env_ids]
+        expected_episode_step = (
+            selected["episode_step"][:, None]
+            - self.context_history_steps
+            + torch.arange(self.context_history_steps, device=self.device)[None]
+        )
+        history_valid = (
+            archive_present
+            & (expected_episode_step >= 0)
+            & (history_episode == selected["episode_id"][:, None])
+            & (history_episode_step == expected_episode_step)
+        )
+        predictor_slots = context_slots[:, -self.history_steps :]
+        predictor_env_ids = env_ids[:, -self.history_steps :]
+        history_foot = self._history["foot"][predictor_slots, predictor_env_ids]
+        history_contact_force = self._history["contact_force"][predictor_slots, predictor_env_ids]
+        history_contact_binary = self._history["contact_binary"][predictor_slots, predictor_env_ids]
         (
             state_mean,
             state_std,
@@ -708,19 +1008,28 @@ class ForwardPredictorReplayBuffer:
             privileged_mean,
             privileged_std,
         ) = self._normalization_tensors(normalization, self.device)
+        normalized_history_state = (history_state - state_mean) / state_std
+        normalized_history_action = (history_action - action_mean) / action_std
+        valid_scale = history_valid.unsqueeze(-1)
+        normalized_history_state = torch.where(
+            valid_scale, normalized_history_state, torch.zeros_like(normalized_history_state)
+        )
+        normalized_history_action = torch.where(
+            valid_scale, normalized_history_action, torch.zeros_like(normalized_history_action)
+        )
         return {
             "state": (selected["state"] - state_mean) / state_std,
             "action": (selected["action"] - action_mean) / action_std,
-            "history_state": (selected["history_state"] - state_mean) / state_std,
-            "history_action": (selected["history_action"] - action_mean) / action_std,
+            "history_state": normalized_history_state,
+            "history_action": normalized_history_action,
             "foot": (selected["foot"] - foot_mean) / foot_std,
-            "history_foot": (selected["history_foot"] - foot_mean) / foot_std,
+            "history_foot": (history_foot - foot_mean) / foot_std,
             "contact_force": (selected["contact_force"] - contact_force_mean) / contact_force_std,
             "contact_binary": selected["contact_binary"],
-            "history_contact_force": (selected["history_contact_force"] - contact_force_mean)
+            "history_contact_force": (history_contact_force - contact_force_mean)
             / contact_force_std,
-            "history_contact_binary": selected["history_contact_binary"],
-            "history_valid": selected["history_valid"],
+            "history_contact_binary": history_contact_binary,
+            "history_valid": history_valid,
             "state_mean": state_mean,
             "state_std": state_std,
             "action_mean": action_mean,
@@ -731,14 +1040,17 @@ class ForwardPredictorReplayBuffer:
             "contact_force_std": contact_force_std,
             "delta_mean": delta_mean,
             "delta_std": delta_std,
-            "privileged_dynamics": (
-                selected["privileged_dynamics"] - privileged_mean
-            )
+            "privileged_dynamics": (selected["privileged_dynamics"] - privileged_mean)
             / privileged_std,
             "privileged_mean": privileged_mean,
             "privileged_std": privileged_std,
             "world_id": selected["world_id"],
             "dynamics_id": selected["dynamics_id"],
+            "motion_group_id": selected["motion_group_id"],
+            "cohort_id": selected["cohort_id"],
+            "context_full": history_valid.all(dim=1),
+            "episode_id": selected["episode_id"],
+            "episode_step": selected["episode_step"],
             "motion_id": selected["motion_id"],
             "motion_step": selected["motion_step"],
         }

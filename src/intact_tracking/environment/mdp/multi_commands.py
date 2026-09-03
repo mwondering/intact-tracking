@@ -1553,6 +1553,44 @@ class MultiMotionCommand(CommandTerm):
         )
         self._student_joint_bias[env_ids] = noise * self._student_joint_bias_std
 
+    def _synchronize_student_motion_randomization(self, env_ids: torch.Tensor) -> None:
+        """Share reference corruption inside a synchronized dynamics family."""
+
+        group_size = int(getattr(self.cfg, "synchronized_group_size", 1))
+        if (
+            group_size <= 1
+            or env_ids.numel() == 0
+            or not getattr(self, "_student_motion_randomization_enabled", False)
+        ):
+            return
+        selected = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
+        selected[env_ids] = True
+        selected_by_group = selected.view(-1, group_size)
+        group_ids = env_ids.div(group_size, rounding_mode="floor")
+        full = selected_by_group.all(dim=1)
+        first_unselected = (~selected_by_group).to(torch.int64).argmax(dim=1)
+        source_by_group = torch.arange(
+            selected_by_group.size(0), device=self.device
+        ) * group_size + torch.where(full, torch.zeros_like(first_unselected), first_unselected)
+        source_ids = source_by_group.index_select(0, group_ids)
+        for name in (
+            "_student_root_z_offset",
+            "_student_xy_direction",
+            "_student_xy_amplitude",
+            "_student_xy_omega",
+            "_student_xy_phase",
+            "_student_z_amplitude",
+            "_student_z_omega",
+            "_student_z_phase",
+            "_student_rot_axis",
+            "_student_rot_amplitude",
+            "_student_rot_omega",
+            "_student_rot_phase",
+            "_student_joint_bias",
+        ):
+            value = getattr(self, name)
+            value[env_ids] = value[source_ids].clone()
+
     @staticmethod
     def _spherical_noise(value: torch.Tensor, radius: float) -> torch.Tensor:
         if radius <= 0.0:
@@ -2283,6 +2321,7 @@ class MultiMotionCommand(CommandTerm):
         if env_ids.numel() == 0:
             return
         self._resample_student_motion_randomization(env_ids)
+        self._synchronize_student_motion_randomization(env_ids)
         self.boot_indicator[env_ids] = float(max(int(self.cfg.boot_indicator_max), 0))
         self.feet_standing[env_ids] = False
         # These buffers implement source-style consecutive-frame termination.
@@ -4195,10 +4234,40 @@ class MultiMotionCommand(CommandTerm):
         self._set_action_boot_target(env_ids, joint_pos)
         self._reset_sp_tracking_state(env_ids, root_pos)
 
+    def _synchronized_full_groups(self, env_ids: torch.Tensor) -> torch.Tensor:
+        """Return group IDs only when every member participates in this reset."""
+
+        group_size = int(getattr(self.cfg, "synchronized_group_size", 1))
+        if group_size <= 1:
+            return env_ids
+        if self.num_envs % group_size:
+            raise RuntimeError("synchronized_group_size must divide num_envs")
+        selected = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
+        selected[env_ids] = True
+        selected = selected.view(-1, group_size)
+        return selected.all(dim=1).nonzero(as_tuple=False).flatten()
+
+    def _broadcast_synchronized_motion(self, group_ids: torch.Tensor) -> None:
+        group_size = int(getattr(self.cfg, "synchronized_group_size", 1))
+        if group_size <= 1 or group_ids.numel() == 0:
+            return
+        leaders = group_ids * group_size
+        members = leaders[:, None] + torch.arange(group_size, device=self.device)[None]
+        for name in ("motion_idx", "motion_length", "time_steps"):
+            value = getattr(self, name)
+            value[members] = value[leaders, None]
+        gradient_labels = getattr(self, "gradient_test_motion_label", None)
+        if isinstance(gradient_labels, torch.Tensor):
+            gradient_labels[members] = gradient_labels[leaders, None]
+
     def _resample_command(self, env_ids: torch.Tensor):
         if len(env_ids) == 0:
             return
         sample_env_ids = self._prepare_reset_sampling(env_ids)
+        group_size = int(getattr(self.cfg, "synchronized_group_size", 1))
+        full_group_ids = self._synchronized_full_groups(sample_env_ids)
+        if group_size > 1:
+            sample_env_ids = full_group_ids * group_size
         if sample_env_ids.numel() > 0:
             gradient_test_mode = self.cfg.gradient_test_mode
             if gradient_test_mode is not None:
@@ -4224,6 +4293,7 @@ class MultiMotionCommand(CommandTerm):
             else:
                 assert self.cfg.sampling_mode == "adaptive"
                 self._adaptive_sampling(sample_env_ids)
+            self._broadcast_synchronized_motion(full_group_ids)
         self._set_motion_origin_offset(env_ids)
         self._invalidate_reference_cache()
         self._reset_robot_to_reference(env_ids)
@@ -4504,6 +4574,9 @@ class MultiMotionCommandCfg(CommandTermCfg):
     feet_standing_body_names: tuple[str, ...] = ()
     feet_standing: dict[str, float] = field(default_factory=dict)
     resample_on_motion_end: bool = True
+    # Forward-predictor collection only: each contiguous group contains one
+    # copy of every fixed dynamics class and shares motion identity/phase.
+    synchronized_group_size: int = 1
     anchor_body_name: str
     body_names: tuple[str, ...]
     pose_range: dict[str, tuple[float, float]] = field(default_factory=dict)

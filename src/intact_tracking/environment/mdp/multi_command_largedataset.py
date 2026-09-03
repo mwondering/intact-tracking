@@ -2740,6 +2740,10 @@ class LargeDatasetMultiMotionCommand(MultiMotionCommand):
         if len(env_ids) == 0:
             return
         sample_env_ids = self._prepare_reset_sampling(env_ids)
+        group_size = int(getattr(self.cfg, "synchronized_group_size", 1))
+        full_group_ids = self._synchronized_full_groups(sample_env_ids)
+        if group_size > 1:
+            sample_env_ids = full_group_ids * group_size
         if sample_env_ids.numel() > 0:
             if self.cfg.sampling_mode == "start":
                 motion_indices = self._sample_active_motion_ids(len(sample_env_ids))
@@ -2754,6 +2758,7 @@ class LargeDatasetMultiMotionCommand(MultiMotionCommand):
             else:
                 assert self.cfg.sampling_mode == "adaptive"
                 self._adaptive_sampling(sample_env_ids)
+            self._broadcast_synchronized_motion(full_group_ids)
         self._set_motion_origin_offset(env_ids)
         self._invalidate_reference_cache()
         self._reset_robot_to_reference(env_ids)

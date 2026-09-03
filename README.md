@@ -200,14 +200,20 @@ motion 计数。每条记录还在 `window` 中保存最近 `metric-window` 轮�
 - `history.json`：所有 update 的结构化记录；
 - `train.log`：正式脚本捕获的完整终端输出。
 
-## θ-aware contrastive dynamics-context Forward Predictor v7 训练
+## Grouped-dynamics Context Forward Predictor v10 训练
 
-当前主实验使用固定于每个 vector world 的 startup domain randomization。独立 Context Encoder
-把过去 10 个已完成的 (state, applied PD target, next state) 交互压缩为 64 维 dynamics latent
-z；z 调制 causal Transformer 的下一状态预测。训练期 privileged head 从 z 回归 simulator
-的真实随机化参数；同一固定动力学 world 的不同历史窗口构成正样本，标准化 θ 距离至少为
-1.25 的不同 world 构成负样本，距离较近者不参与对比损失。部署时 privileged head 和真实参数
-都不参与预测。
+当前主实验在启动时只随机生成 128 个 startup-DR dynamics prototype，之后不再重采样，并把
+这 128 类动力学平铺到每个连续的 128-env motion family。一个 family 内所有环境使用相同
+motion 和 phase，因此同一 cohort 的不同动力学样本天然构成强匹配负样本；相同 dynamics
+prototype 在不同 family、motion 和 phase 下的历史均可互为正样本。
+
+独立 Context Encoder 把过去 100 个已完成的
+`(71-D robot state, applied PD target, next 71-D robot state)` 交互压缩为 64 维 dynamics
+latent z，再用 z 调制 causal Transition Transformer。Context Encoder 只读取本体状态和
+applied target，不读取足端、接触或真实 θ；这些 simulator 特权状态只供 Transition
+Transformer 使用。模型没有 θ encoder/decoder，真实 θ 只用于训练期排除 θ-near 假负样本。
+reset 后尚未填满 100 帧的 context 仍用于 Forward Predictor 优化，但完全不参与正样本或
+负样本构造。
 
 每个状态包含 71 维 robot state、从 simulator 刚体状态直接读取的 8 维左右脚离地高度/速度、
 6 维接触力和 2 维接触标记；action 是在 Predictor 外部换算好的 29 维物理 PD joint target。
@@ -222,16 +228,17 @@ GPUS=0,1 ./scripts/run_forward_predictor_training.sh \
   --wandb-name forward-predictor-context
 ```
 
-脚本默认使用 0% nominal / 100% 固定 startup DR、宽度 512、6 层、8 头的 Transition
-Transformer，以及 128 维、2 层、4 头的 Context Encoder；默认
-每卡 2048 个环境、有效 batch 4096、BF16 micro-batch 512、motion-balanced replay 262144。
-micro-batch 的梯度按样本数累积后只执行一次 optimizer step，不进行梯度裁剪，但仍记录原始
-gradient norm；teacher-forced 五个窗口合并成一次 Transformer 前向，完整诊断仅按日志间隔
-执行。训练优化 teacher-forced 一步 Huber loss、固定权重 0.5 的五步递推 Huber loss、
-默认权重 0.1 的 privileged-parameter Huber loss，以及默认权重 0.01 的 θ-aware contrastive
-loss。Replay 成对采样，保证同 world 的不同窗口不会被 micro-batch 边界拆开。robot state、
-physical target、foot feature、contact force、delta 与 privileged target normalization 在
-warmup 后冻结。首次运行应先增加
+脚本默认使用 128 个固定 startup-DR prototype、宽度 512、6 层、8 头的 Transition
+Transformer，以及 128 维、2 层、4 头的 Context Encoder；默认每卡 2048 个环境，即 16 个
+motion family，有效 batch 4096、BF16 micro-batch 512、motion-balanced replay 262144。
+每个 micro-batch 包含 4 个完整的 128 类 cohort。负样本先取同 motion/phase cohort 中的
+θ-far 环境，再由其他 cohort 中 state/action/phase/contact 最接近的 θ-far 环境补足；默认最多
+255 个。micro-batch 的梯度按样本数累积后只执行一次 optimizer step，不进行梯度裁剪，但仍
+记录原始 gradient norm；teacher-forced 五个窗口合并成一次 Transformer 前向，完整诊断仅按
+日志间隔执行。训练优化 teacher-forced 一步 Huber loss、固定权重 0.5 的五步递推 Huber
+loss，以及默认权重 0.01 的 matched hard-negative contrastive loss。100 帧历史通过按时间
+归档在采样时重建，不会为每个 replay sample 重复存一份。robot state、physical target、foot
+feature、contact force、delta 与 θ mining normalization 在 warmup 后冻结。首次运行应先增加
 `--fixed-batch-overfit`，确认同一批数据可以被拟合到接近零误差。
 完整契约见 [Dynamics-context Forward Predictor flow](docs/forward_predictor_training.md)。
 

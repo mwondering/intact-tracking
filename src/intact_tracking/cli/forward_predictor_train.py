@@ -1,4 +1,4 @@
-"""Train a privileged-supervised dynamics-context predictor from tracker rollouts."""
+"""Train a contrastive dynamics-context predictor from tracker rollouts."""
 
 from __future__ import annotations
 
@@ -48,7 +48,7 @@ def build_parser() -> argparse.ArgumentParser:
     motion.add_argument("--motion-file")
     parser.add_argument("--output-dir", required=True)
     parser.add_argument("--task-id")
-    parser.add_argument("--num-envs", type=int, default=16)
+    parser.add_argument("--num-envs", type=int, default=128)
     parser.add_argument("--device")
     parser.add_argument("--distributed-backend", choices=("nccl", "gloo"))
     parser.add_argument("--seed", type=int, default=0)
@@ -108,6 +108,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--model-learning-rate", type=float, default=3.0e-4)
     parser.add_argument("--weight-decay", type=float, default=1.0e-3)
     parser.add_argument("--history-steps", type=int, default=10)
+    parser.add_argument("--context-history-steps", type=int, default=100)
+    parser.add_argument(
+        "--dynamics-classes",
+        type=int,
+        default=128,
+        help="Fixed startup-DR prototypes repeated in each synchronized motion family.",
+    )
     parser.add_argument("--transformer-dim", type=int, default=512)
     parser.add_argument("--transformer-depth", type=int, default=6)
     parser.add_argument("--transformer-heads", type=int, default=8)
@@ -133,7 +140,6 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--foot-weight", type=float, default=1.0)
     parser.add_argument("--contact-force-weight", type=float, default=1.0)
     parser.add_argument("--contact-binary-weight", type=float, default=1.0)
-    parser.add_argument("--privileged-dynamics-weight", type=float, default=0.1)
     parser.add_argument("--contrastive-weight", type=float, default=0.01)
     parser.add_argument("--contrastive-temperature", type=float, default=0.1)
     parser.add_argument(
@@ -143,6 +149,21 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Minimum RMS distance between normalized dynamics parameters for two "
             "different worlds to be treated as negatives."
+        ),
+    )
+    parser.add_argument(
+        "--contrastive-hard-negative-count",
+        type=int,
+        default=255,
+        help="Maximum theta-far negatives; exact motion/phase cohorts are selected first.",
+    )
+    parser.add_argument(
+        "--contrastive-phase-distance-scale",
+        type=float,
+        default=50.0,
+        help=(
+            "Motion-step difference equivalent to one unit of normalized state/action "
+            "distance during hard-negative ranking."
         ),
     )
 
@@ -176,6 +197,8 @@ def _validate_arguments(args: argparse.Namespace) -> None:
         "warmup_log_interval",
         "metric_window",
         "history_steps",
+        "context_history_steps",
+        "dynamics_classes",
         "transformer_dim",
         "transformer_depth",
         "transformer_heads",
@@ -183,6 +206,7 @@ def _validate_arguments(args: argparse.Namespace) -> None:
         "context_depth",
         "context_heads",
         "dynamics_latent_dim",
+        "contrastive_hard_negative_count",
     )
     invalid = {name: getattr(args, name) for name in positive if getattr(args, name) < 1}
     if invalid:
@@ -199,9 +223,20 @@ def _validate_arguments(args: argparse.Namespace) -> None:
         raise ValueError("Forward Predictor collection requires rollout-steps-per-update=5")
     if args.history_steps != 10:
         raise ValueError("Forward Predictor history-steps is fixed to ten")
+    if args.context_history_steps < args.history_steps:
+        raise ValueError("context-history-steps must be at least history-steps")
+    if args.num_envs % args.dynamics_classes:
+        raise ValueError("dynamics-classes must divide num-envs")
+    if args.nominal_fraction:
+        raise ValueError("Fixed dynamics classes require --nominal-fraction=0")
     if not 0.0 <= args.nominal_fraction <= 1.0:
         raise ValueError("nominal-fraction must be in [0, 1]")
-    for name in ("model_learning_rate", "huber_delta", "contrastive_temperature"):
+    for name in (
+        "model_learning_rate",
+        "huber_delta",
+        "contrastive_temperature",
+        "contrastive_phase_distance_scale",
+    ):
         if getattr(args, name) <= 0.0:
             raise ValueError(f"{name.replace('_', '-')} must be positive")
     if not 0.0 <= args.dropout < 1.0:
@@ -217,7 +252,6 @@ def _validate_arguments(args: argparse.Namespace) -> None:
         "foot_weight",
         "contact_force_weight",
         "contact_binary_weight",
-        "privileged_dynamics_weight",
         "contrastive_weight",
         "contrastive_negative_distance",
         "recursive_weight",
@@ -232,15 +266,16 @@ def _validate_arguments(args: argparse.Namespace) -> None:
                 "Contrastive training needs randomized dynamics; use --contrastive-weight=0 "
                 "for a 100% nominal rollout"
             )
-        odd = {
-            name: getattr(args, name)
-            for name in ("batch_size", "micro_batch_size", "fixed_probe_batch_size")
-            if getattr(args, name) % 2
+        invalid_blocks = {
+            "batch_size": args.batch_size % args.micro_batch_size,
+            "fixed_probe_batch_size": args.fixed_probe_batch_size % args.micro_batch_size,
+            "micro_batch_size/dynamics_classes": (args.micro_batch_size % args.dynamics_classes),
         }
-        if odd:
+        invalid_blocks = {name: value for name, value in invalid_blocks.items() if value}
+        if invalid_blocks or args.micro_batch_size // args.dynamics_classes < 2:
             raise ValueError(
-                "Contrastive training requires even batch, micro-batch and fixed-probe sizes "
-                f"so same-world pairs are not split: {odd}"
+                "Contrastive training requires complete micro-batches with at least two "
+                f"views of every dynamics class: {invalid_blocks}"
             )
 
 
@@ -333,9 +368,14 @@ _BATCH_FIELDS = frozenset(
         "history_contact_binary",
         "history_valid",
         "world_id",
+        "episode_id",
+        "episode_step",
         "motion_id",
         "motion_step",
         "dynamics_id",
+        "motion_group_id",
+        "cohort_id",
+        "context_full",
         "privileged_dynamics",
     }
 )
@@ -415,7 +455,10 @@ def _save_checkpoint(
         "privileged_dynamics": {
             "names": list(rollout.privileged_dynamics_names),
             "ignored_startup_events": list(rollout.ignored_privileged_startup_events),
-            "inference_contract": "history_only; simulator parameters are training labels only",
+            "inference_contract": (
+                "history_only; simulator parameters are used only to mine theta-far training "
+                "negatives and are never model inputs or prediction targets"
+            ),
         },
         "tracker": {
             "checkpoint_path": str(rollout.checkpoint_path),
@@ -467,12 +510,18 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             num_envs=args.num_envs,
             device=str(device),
             seed=rank_seed,
+            dynamics_seed=args.seed,
             world_id_offset=world_id_offset,
             stochastic_policy=args.stochastic_policy,
             randomize_initial_episode_phase=args.randomize_initial_episode_phase,
             nominal_fraction=args.nominal_fraction,
+            dynamics_classes=args.dynamics_classes,
         )
     )
+    prototype_hashes = distributed.all_gather_object(rollout.dynamics_prototype_sha256)
+    if len(set(prototype_hashes)) != 1:
+        rollout.close()
+        raise RuntimeError("DDP ranks constructed different fixed dynamics prototypes")
     if rollout.predictor_action_transform is None:
         error = rollout.predictor_action_transform_error or "unknown action-chain error"
         rollout.close()
@@ -486,15 +535,21 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         privileged_dim=len(rollout.privileged_dynamics_names),
         capacity=args.replay_capacity,
         history_steps=args.history_steps,
+        context_history_steps=args.context_history_steps,
+        dynamics_classes=args.dynamics_classes,
         sampling_mode=args.replay_sampling,
         seed=rank_seed,
         world_id_offset=world_id_offset,
         device=device,
     )
+    # Simulator construction intentionally uses a rank-independent dynamics
+    # seed. Restore the rank seed before model initialization and replay draws.
+    _seed_everything(rank_seed)
     model_config = ForwardPredictorConfig(
         state_dim=dimensions.robot_state,
         action_dim=dimensions.action,
         history_steps=args.history_steps,
+        context_history_steps=args.context_history_steps,
         transformer_dim=args.transformer_dim,
         transformer_depth=args.transformer_depth,
         transformer_heads=args.transformer_heads,
@@ -502,7 +557,6 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         context_depth=args.context_depth,
         context_heads=args.context_heads,
         dynamics_latent_dim=args.dynamics_latent_dim,
-        privileged_dim=len(rollout.privileged_dynamics_names),
         dropout=args.dropout,
     )
     loss_config = ForwardPredictorLossConfig(
@@ -515,10 +569,11 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         foot_weight=args.foot_weight,
         contact_force_weight=args.contact_force_weight,
         contact_binary_weight=args.contact_binary_weight,
-        privileged_dynamics_weight=args.privileged_dynamics_weight,
         contrastive_weight=args.contrastive_weight,
         contrastive_temperature=args.contrastive_temperature,
         contrastive_negative_distance=args.contrastive_negative_distance,
+        contrastive_hard_negative_count=args.contrastive_hard_negative_count,
+        contrastive_phase_distance_scale=args.contrastive_phase_distance_scale,
         huber_delta=args.huber_delta,
     )
     contrastive_enabled = loss_config.contrastive_weight > 0.0
@@ -550,14 +605,14 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
     )
     parameter_count = sum(parameter.numel() for parameter in model.parameters())
     run_config = {
-        "method": "theta-aware contrastive dynamics-context causal-transformer Forward Predictor v7",
+        "method": "100-frame grouped-dynamics Context Forward Predictor v10",
         "architecture": {
             "controller": "frozen tracker",
             "physics": (
-                "startup domain randomization fixed per vector world; optional nominal subset"
+                "128 fixed startup-DR prototypes repeated across synchronized motion groups"
             ),
             "input": (
-                "ten historical and one current token; each token contains 71-D robot state, "
+                "ten historical and one current predictor token; each contains 71-D robot state, "
                 "8-D simulator foot height/velocity, 6-D contact force, 2-D contact "
                 "state and the external 29-D physical PD joint target"
             ),
@@ -567,10 +622,11 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                 "2-D next-contact logits, conditioned on a history-inferred dynamics latent"
             ),
             "context": (
-                "a separate encoder maps ten completed (state, physical PD target, next-state) "
-                "interactions to z; a training-only head regresses normalized simulator DR "
-                "parameters from z; same-world replay windows form positive pairs while only "
-                "different-world parameters beyond the normalized theta threshold are negatives"
+                "a separate encoder maps 100 completed (state, physical PD target, next-state) "
+                "interactions to z; same-dynamics contexts are positives; each motion/phase "
+                "cohort supplies one context from every fixed dynamics class as hard negatives; "
+                "reset-padded contexts train prediction but are excluded from contrastive pairs; "
+                "there is no theta encoder or theta decoder"
             ),
             "rollout": (
                 "predicted robot/foot/contact state is recursively fed back for five targets; "
@@ -579,7 +635,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             "excluded": ["residual_policy", "backward"],
             "normalization": (
                 "robot state, physical target, simulator foot, contact force, robot delta and "
-                "privileged dynamics statistics frozen immediately after warmup"
+                "training-only theta mining statistics frozen immediately after warmup"
             ),
         },
         "arguments": vars(args),
@@ -608,16 +664,22 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             "estimated_storage_bytes_per_rank": replay.estimated_storage_bytes,
             "horizon": 5,
             "history_steps": args.history_steps,
+            "context_history_steps": args.context_history_steps,
+            "dynamics_classes": args.dynamics_classes,
+            "history_storage": "time archive reconstructed at sample time",
             "sampling": args.replay_sampling,
             "dynamics_paired_batches": args.contrastive_weight > 0.0,
+            "positive_pair_preference": "same dynamics across motion/phase cohorts",
+            "negative_pair_preference": "theta-far exact motion/phase cohort first",
         },
         "objective_weights": {
             "teacher_forced_weight": 1.0,
             "recursive_weight": args.recursive_weight,
-            "privileged_dynamics_weight": args.privileged_dynamics_weight,
             "contrastive_weight": args.contrastive_weight,
             "contrastive_temperature": args.contrastive_temperature,
             "contrastive_negative_distance": args.contrastive_negative_distance,
+            "contrastive_hard_negative_count": args.contrastive_hard_negative_count,
+            "contrastive_phase_distance_scale": args.contrastive_phase_distance_scale,
         },
     }
     _main_process_call(distributed, lambda: _write_json(output_dir / "run_config.json", run_config))
@@ -677,7 +739,10 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             required_batch = max(args.batch_size, args.fixed_probe_batch_size)
             ready = rollout.collector_step >= args.warmup_steps and len(replay) >= required_batch
             if ready and contrastive_enabled:
-                ready = replay.can_sample_dynamics_pairs(required_batch)
+                ready = replay.can_sample_dynamics_pairs(
+                    required_batch,
+                    contrastive_block_size=args.micro_batch_size,
+                )
             if distributed.all_true(ready):
                 break
             if rollout.collector_step >= args.max_warmup_steps:
@@ -710,12 +775,14 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             args.fixed_probe_batch_size,
             normalization,
             paired_dynamics=contrastive_enabled,
+            contrastive_block_size=args.micro_batch_size,
         )
         fixed_train_batch = (
             replay.sample_batch(
                 args.batch_size,
                 normalization,
                 paired_dynamics=contrastive_enabled,
+                contrastive_block_size=args.micro_batch_size,
             )
             if args.fixed_batch_overfit
             else None
@@ -755,6 +822,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                         args.batch_size,
                         normalization,
                         paired_dynamics=contrastive_enabled,
+                        contrastive_block_size=args.micro_batch_size,
                     )
                 )
                 optimizer.zero_grad(set_to_none=True)
@@ -788,7 +856,6 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                         "loss",
                         "teacher_loss",
                         "recursive_loss",
-                        "privileged_dynamics_loss",
                         "contrastive_loss",
                     ):
                         weighted = model_output[name].detach().float() * fraction

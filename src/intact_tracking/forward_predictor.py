@@ -138,7 +138,7 @@ def apply_physical_state_delta(state: torch.Tensor, delta: torch.Tensor) -> torc
 class ForwardPredictorConfig:
     """Capacity and shape contract for the causal one-step transition model."""
 
-    architecture_version: str = "theta_aware_contrastive_context_causal_transformer_v7"
+    architecture_version: str = "long_context_grouped_dynamics_causal_transformer_v10"
     state_dim: int = ROBOT_STATE_DIM
     action_dim: int = ACTION_DIM
     delta_dim: int = 70
@@ -147,6 +147,7 @@ class ForwardPredictorConfig:
     contact_binary_dim: int = CONTACT_BINARY_DIM
     horizon: int = 5
     history_steps: int = 10
+    context_history_steps: int = 100
     transformer_dim: int = 512
     transformer_depth: int = 6
     transformer_heads: int = 8
@@ -154,7 +155,6 @@ class ForwardPredictorConfig:
     context_depth: int = 2
     context_heads: int = 4
     dynamics_latent_dim: int = 64
-    privileged_dim: int = 1
     dropout: float = 0.0
 
     def __post_init__(self) -> None:
@@ -183,6 +183,10 @@ class ForwardPredictorConfig:
             raise ValueError("Forward Predictor rollout is fixed to five steps")
         if self.history_steps != 10:
             raise ValueError("Forward Predictor history is fixed to ten completed interactions")
+        if self.context_history_steps < self.history_steps:
+            raise ValueError(
+                "context_history_steps must be at least the ten-frame predictor history"
+            )
         if self.transformer_dim % self.transformer_heads:
             raise ValueError("transformer_dim must be divisible by transformer_heads")
         if self.context_dim % self.context_heads:
@@ -207,20 +211,20 @@ class ForwardPredictorConfig:
 
 
 class DynamicsContextEncoder(nn.Module):
-    """Infer a fixed-dynamics latent from ten completed interaction outcomes."""
+    """Infer dynamics from completed proprioceptive state-action outcomes only."""
 
     def __init__(self, config: ForwardPredictorConfig) -> None:
         super().__init__()
         self.config = config
         width = config.context_dim
-        interaction_dim = 2 * config.token_state_dim + config.action_dim
+        interaction_dim = 2 * config.state_dim + config.action_dim
         self.interaction_projection = nn.Sequential(
             nn.Linear(interaction_dim, width),
             nn.GELU(),
             nn.LayerNorm(width),
         )
         self.cls_token = nn.Parameter(torch.empty(1, 1, width))
-        self.position = nn.Parameter(torch.empty(1, config.history_steps + 1, width))
+        self.position = nn.Parameter(torch.empty(1, config.context_history_steps + 1, width))
         nn.init.trunc_normal_(self.cls_token, std=0.02)
         nn.init.trunc_normal_(self.position, std=0.02)
         layer = nn.TransformerEncoderLayer(
@@ -245,20 +249,20 @@ class DynamicsContextEncoder(nn.Module):
 
     def forward(
         self,
-        history_features: torch.Tensor,
+        history_state: torch.Tensor,
         history_action: torch.Tensor,
-        current_features: torch.Tensor,
+        current_state: torch.Tensor,
         history_valid: torch.Tensor,
     ) -> torch.Tensor:
-        batch_size = history_features.size(0)
-        next_features = torch.cat(
-            (history_features[:, 1:], current_features[:, None]),
+        batch_size = history_state.size(0)
+        next_state = torch.cat(
+            (history_state[:, 1:], current_state[:, None]),
             dim=1,
         )
-        valid = history_valid.to(device=history_features.device, dtype=torch.bool)
-        valid_scale = valid.unsqueeze(-1).to(dtype=history_features.dtype)
+        valid = history_valid.to(device=history_state.device, dtype=torch.bool)
+        valid_scale = valid.unsqueeze(-1).to(dtype=history_state.dtype)
         interactions = torch.cat(
-            (history_features, history_action.float(), next_features),
+            (history_state.float(), history_action.float(), next_state.float()),
             dim=-1,
         )
         history_tokens = self.interaction_projection(interactions * valid_scale) * valid_scale
@@ -276,7 +280,7 @@ class DynamicsContextEncoder(nn.Module):
 
 
 class ForwardDynamicsTransformer(nn.Module):
-    """Context-conditioned causal transition model with privileged supervision."""
+    """Causal transition model conditioned only on a history-inferred latent."""
 
     def __init__(self, config: ForwardPredictorConfig | None = None) -> None:
         super().__init__()
@@ -308,12 +312,6 @@ class ForwardDynamicsTransformer(nn.Module):
         self.foot_head = nn.Linear(width, self.config.foot_feature_dim)
         self.contact_force_head = nn.Linear(width, self.config.contact_force_dim)
         self.contact_binary_head = nn.Linear(width, self.config.contact_binary_dim)
-        self.privileged_head = nn.Sequential(
-            nn.LayerNorm(self.config.dynamics_latent_dim),
-            nn.Linear(self.config.dynamics_latent_dim, 2 * self.config.dynamics_latent_dim),
-            nn.GELU(),
-            nn.Linear(2 * self.config.dynamics_latent_dim, self.config.privileged_dim),
-        )
         self.register_buffer(
             "causal_mask",
             torch.triu(
@@ -325,6 +323,22 @@ class ForwardDynamicsTransformer(nn.Module):
                 diagonal=1,
             ),
             persistent=False,
+        )
+
+    def encode_context(
+        self,
+        history_state: torch.Tensor,
+        history_action: torch.Tensor,
+        normalized_state: torch.Tensor,
+        history_valid: torch.Tensor,
+    ) -> torch.Tensor:
+        """Encode the long proprioceptive interaction context exactly once."""
+
+        return self.context_encoder(
+            history_state,
+            history_action,
+            normalized_state,
+            history_valid,
         )
 
     def forward(
@@ -341,6 +355,7 @@ class ForwardDynamicsTransformer(nn.Module):
         history_contact_binary: torch.Tensor,
         history_valid: torch.Tensor,
         *,
+        dynamics_latent: torch.Tensor | None = None,
         return_context: bool = False,
     ) -> tuple[torch.Tensor, ...]:
         if tuple(normalized_state.shape) != (normalized_state.size(0), self.config.state_dim):
@@ -353,9 +368,29 @@ class ForwardDynamicsTransformer(nn.Module):
             raise ValueError(
                 f"Action must have shape {expected_action}, got {tuple(normalized_action.shape)}"
             )
+        state_history_steps = history_state.size(1)
+        allowed_state_history_steps = (
+            {self.config.context_history_steps}
+            if dynamics_latent is None
+            else {self.config.history_steps, self.config.context_history_steps}
+        )
+        if state_history_steps not in allowed_state_history_steps:
+            raise ValueError(
+                "State/action history must contain the full context when encoding z and may "
+                "contain only the predictor suffix when z is supplied; got "
+                f"{state_history_steps} frames"
+            )
         expected_history = {
-            "state": (batch_size, self.config.history_steps, self.config.state_dim),
-            "action": (batch_size, self.config.history_steps, self.config.action_dim),
+            "state": (
+                batch_size,
+                state_history_steps,
+                self.config.state_dim,
+            ),
+            "action": (
+                batch_size,
+                state_history_steps,
+                self.config.action_dim,
+            ),
             "foot": (batch_size, self.config.history_steps, self.config.foot_feature_dim),
             "contact_force": (
                 batch_size,
@@ -367,7 +402,7 @@ class ForwardDynamicsTransformer(nn.Module):
                 self.config.history_steps,
                 self.config.contact_binary_dim,
             ),
-            "valid": (batch_size, self.config.history_steps),
+            "valid": (batch_size, state_history_steps),
         }
         actual_history = {
             "state": tuple(history_state.shape),
@@ -402,8 +437,27 @@ class ForwardDynamicsTransformer(nn.Module):
         if invalid_current:
             raise ValueError(f"Invalid Forward Predictor current/stat shapes: {invalid_current}")
 
+        if dynamics_latent is None:
+            dynamics_latent = self.encode_context(
+                history_state,
+                history_action,
+                normalized_state,
+                history_valid,
+            )
+        elif tuple(dynamics_latent.shape) != (
+            batch_size,
+            self.config.dynamics_latent_dim,
+        ):
+            raise ValueError(
+                "Dynamics latent must have shape "
+                f"[{batch_size},{self.config.dynamics_latent_dim}], got "
+                f"{tuple(dynamics_latent.shape)}"
+            )
+        predictor_history_state = history_state[:, -self.config.history_steps :]
+        predictor_history_action = history_action[:, -self.config.history_steps :]
+        predictor_history_valid = history_valid[:, -self.config.history_steps :]
         history_features = self._state_features(
-            history_state,
+            predictor_history_state,
             history_foot,
             history_contact_force,
             history_contact_binary,
@@ -414,17 +468,11 @@ class ForwardDynamicsTransformer(nn.Module):
             normalized_contact_force,
             contact_binary,
         )
-        dynamics_latent = self.context_encoder(
-            history_features,
-            history_action,
-            current_features,
-            history_valid,
-        )
-        valid = history_valid.to(device=history_state.device, dtype=torch.bool)
+        valid = predictor_history_valid.to(device=history_state.device, dtype=torch.bool)
         valid_scale = valid.unsqueeze(-1).to(dtype=history_features.dtype)
         history_tokens = self.state_projection(
             history_features * valid_scale
-        ) + self.action_projection(history_action.float() * valid_scale)
+        ) + self.action_projection(predictor_history_action.float() * valid_scale)
         history_tokens = history_tokens * valid_scale + self.validity_embedding(valid.long())
         current_token = (
             self.state_projection(current_features)
@@ -446,7 +494,7 @@ class ForwardDynamicsTransformer(nn.Module):
         )
         if not return_context:
             return transition
-        return (*transition, dynamics_latent, self.privileged_head(dynamics_latent))
+        return (*transition, dynamics_latent)
 
     def _state_features(
         self,
@@ -542,12 +590,12 @@ class ForwardDynamicsTransformer(nn.Module):
             "initial_contact_binary": (batch_size, self.config.contact_binary_dim),
             "history_state": (
                 batch_size,
-                self.config.history_steps,
+                self.config.context_history_steps,
                 self.config.state_dim,
             ),
             "history_action": (
                 batch_size,
-                self.config.history_steps,
+                self.config.context_history_steps,
                 self.config.action_dim,
             ),
             "history_foot": (
@@ -565,7 +613,7 @@ class ForwardDynamicsTransformer(nn.Module):
                 self.config.history_steps,
                 self.config.contact_binary_dim,
             ),
-            "history_valid": (batch_size, self.config.history_steps),
+            "history_valid": (batch_size, self.config.context_history_steps),
             "state_mean": (self.config.state_dim,),
             "state_std": (self.config.state_dim,),
             "delta_mean": (self.config.delta_dim,),
@@ -611,6 +659,8 @@ class ForwardDynamicsTransformer(nn.Module):
         state_std: torch.Tensor,
         delta_mean: torch.Tensor,
         delta_std: torch.Tensor,
+        *,
+        dynamics_latent: torch.Tensor | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """Recursively predict five states and privileged features from prior outputs."""
 
@@ -641,6 +691,13 @@ class ForwardDynamicsTransformer(nn.Module):
         predicted_feet: list[torch.Tensor] = []
         predicted_contact_forces: list[torch.Tensor] = []
         predicted_contact_logits: list[torch.Tensor] = []
+        if dynamics_latent is None:
+            dynamics_latent = self.encode_context(
+                history_state,
+                history_action,
+                normalized_state,
+                history_valid,
+            )
         for index in range(self.config.horizon):
             action = normalized_actions[:, index]
             normalized_delta, next_foot, next_contact_force, next_contact_logits = self(
@@ -655,6 +712,7 @@ class ForwardDynamicsTransformer(nn.Module):
                 history_contact_force,
                 history_contact_binary,
                 history_valid,
+                dynamics_latent=dynamics_latent,
             )
             predicted_deltas.append(normalized_delta)
             predicted_feet.append(next_foot)
@@ -722,6 +780,7 @@ class ForwardDynamicsTransformer(nn.Module):
         delta_mean: torch.Tensor,
         delta_std: torch.Tensor,
         *,
+        dynamics_latent: torch.Tensor | None = None,
         return_context: bool = False,
     ) -> tuple[torch.Tensor, ...]:
         """Predict five independent one-step targets while advancing true history."""
@@ -799,25 +858,41 @@ class ForwardDynamicsTransformer(nn.Module):
             batch_size * horizon, -1
         )
         flat_contact_binary = contact_binaries[:, :horizon].reshape(batch_size * horizon, -1)
+        if dynamics_latent is None:
+            dynamics_latent = self.encode_context(
+                history_state,
+                history_action,
+                normalized_states[:, 0],
+                history_valid,
+            )
+        flat_latent = (
+            dynamics_latent[:, None]
+            .expand(-1, horizon, -1)
+            .reshape(
+                batch_size * horizon,
+                -1,
+            )
+        )
         flat_outputs = self(
             flat_state,
             flat_action,
             flat_foot,
             flat_contact_force,
             flat_contact_binary,
-            sliding_history(history_state, normalized_states[:, :horizon]),
-            sliding_history(history_action, normalized_actions),
+            sliding_history(history_state[:, -history_steps:], normalized_states[:, :horizon]),
+            sliding_history(history_action[:, -history_steps:], normalized_actions),
             sliding_history(history_foot, normalized_feet[:, :horizon]),
             sliding_history(history_contact_force, normalized_contact_forces[:, :horizon]),
             sliding_history(history_contact_binary, contact_binaries[:, :horizon]),
             sliding_history(
-                history_valid,
+                history_valid[:, -history_steps:],
                 torch.ones(
                     (batch_size, horizon),
                     dtype=torch.bool,
                     device=history_valid.device,
                 ),
             ),
+            dynamics_latent=flat_latent,
             return_context=return_context,
         )
         flat_delta, flat_next_foot, flat_next_force, flat_next_binary_logits = flat_outputs[:4]
@@ -842,18 +917,9 @@ class ForwardDynamicsTransformer(nn.Module):
         )
         if not return_context:
             return transition
-        flat_latent, flat_privileged = flat_outputs[4:]
-        context_valid = sliding_history(
-            history_valid,
-            torch.ones(
-                (batch_size, horizon),
-                dtype=torch.bool,
-                device=history_valid.device,
-            ),
-        ).all(dim=-1)
+        context_valid = history_valid.all(dim=-1, keepdim=True).expand(-1, horizon)
         return (
             *transition,
-            flat_latent.view(batch_size, horizon, -1),
-            flat_privileged.view(batch_size, horizon, -1),
-            context_valid.view(batch_size, horizon),
+            dynamics_latent[:, None].expand(-1, horizon, -1),
+            context_valid,
         )
