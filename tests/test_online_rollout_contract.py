@@ -6,6 +6,7 @@ import torch
 
 from intact_tracking.rollout.online import (
     FixedDRRolloutConfig,
+    _capture_privileged_dynamics_targets,
     _capture_randomized_model_fields,
     _disable_startup_reset_callbacks,
     _keep_startup_events,
@@ -53,6 +54,98 @@ def test_online_rollout_snapshots_randomized_model_fields() -> None:
 
     assert list(snapshots) == ["body_mass"]
     torch.testing.assert_close(snapshots["body_mass"], torch.tensor([[1.0], [2.0]]))
+
+
+def test_online_rollout_extracts_compact_physics_targets_and_ignores_encoder_bias() -> None:
+    def body_com_offset():
+        pass
+
+    def body_mass():
+        pass
+
+    def geom_friction():
+        pass
+
+    def encoder_bias():
+        pass
+
+    asset_cfg = SimpleNamespace(
+        name="robot",
+        body_ids=[0],
+        geom_ids=[0, 1],
+    )
+    asset = SimpleNamespace(
+        body_names=("torso",),
+        geom_names=("left_foot", "right_foot"),
+        indexing=SimpleNamespace(
+            body_ids=torch.tensor([1]),
+            geom_ids=torch.tensor([2, 3]),
+        ),
+    )
+    default_ipos = torch.zeros(3, 3)
+    body_ipos = default_ipos.repeat(2, 1, 1)
+    body_ipos[0, 1] = torch.tensor([0.1, 0.2, 0.3])
+    body_ipos[1, 1] = torch.tensor([-0.1, -0.2, -0.3])
+    default_mass = torch.tensor([1.0, 2.0, 3.0])
+    expanded_mass = default_mass.repeat(2, 1)
+    expanded_mass[:, 1] = torch.tensor([2.2, 1.8])
+    default_friction = torch.ones(4, 3)
+    expanded_friction = default_friction.repeat(2, 1, 1)
+    expanded_friction[0, 2:4, 0] = 0.5
+    expanded_friction[1, 2:4, 0] = 1.5
+    configs = {
+        "base_com": SimpleNamespace(
+            func=body_com_offset,
+            params={"asset_cfg": asset_cfg, "ranges": {0: (-1, 1), 1: (-1, 1), 2: (-1, 1)}},
+        ),
+        "base_mass": SimpleNamespace(
+            func=body_mass,
+            params={"asset_cfg": asset_cfg, "shared_random": False},
+        ),
+        "foot_friction": SimpleNamespace(
+            func=geom_friction,
+            params={"asset_cfg": asset_cfg, "shared_random": True},
+        ),
+        "encoder_bias": SimpleNamespace(func=encoder_bias, params={}),
+    }
+    manager = SimpleNamespace(
+        active_terms={"startup": list(configs)},
+        get_term_cfg=configs.__getitem__,
+    )
+    defaults = {
+        "body_ipos": default_ipos,
+        "body_mass": default_mass,
+        "geom_friction": default_friction,
+    }
+    env = SimpleNamespace(
+        num_envs=2,
+        device="cpu",
+        event_manager=manager,
+        scene={"robot": asset},
+        sim=SimpleNamespace(
+            model=SimpleNamespace(
+                body_ipos=body_ipos,
+                body_mass=expanded_mass,
+                geom_friction=expanded_friction,
+            ),
+            get_default_field=defaults.__getitem__,
+        ),
+    )
+
+    target = _capture_privileged_dynamics_targets(env)
+
+    assert target.names == (
+        "base_com/com_offset/torso/x",
+        "base_com/com_offset/torso/y",
+        "base_com/com_offset/torso/z",
+        "base_mass/relative_mass/torso",
+        "foot_friction/friction/shared/0",
+    )
+    torch.testing.assert_close(
+        target.values,
+        torch.tensor([[0.1, 0.2, 0.3, 0.1, 0.5], [-0.1, -0.2, -0.3, -0.1, 1.5]]),
+    )
+    assert target.ignored_startup_events == ("encoder_bias",)
 
 
 def test_online_rollout_restores_only_selected_worlds_to_nominal_physics() -> None:

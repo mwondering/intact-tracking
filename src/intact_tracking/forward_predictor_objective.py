@@ -1,4 +1,4 @@
-"""Five-step recurrent full-state loss for the nominal Forward Predictor."""
+"""Five-step dynamics and privileged-context losses for the Forward Predictor."""
 
 from __future__ import annotations
 
@@ -39,18 +39,35 @@ class ForwardPredictorLossConfig:
     foot_weight: float = 1.0
     contact_force_weight: float = 1.0
     contact_binary_weight: float = 1.0
+    privileged_dynamics_weight: float = 0.1
+    contrastive_weight: float = 0.01
+    contrastive_temperature: float = 0.1
+    contrastive_negative_distance: float = 1.25
     huber_delta: float = 1.0
 
     def __post_init__(self) -> None:
-        invalid = {
-            name: value
-            for name, value in vars(self).items()
-            if name != "huber_delta" and value < 0.0
-        }
+        weights = (
+            "root_position_weight",
+            "root_orientation_weight",
+            "root_linear_velocity_weight",
+            "root_angular_velocity_weight",
+            "joint_position_weight",
+            "joint_velocity_weight",
+            "foot_weight",
+            "contact_force_weight",
+            "contact_binary_weight",
+            "privileged_dynamics_weight",
+            "contrastive_weight",
+        )
+        invalid = {name: getattr(self, name) for name in weights if getattr(self, name) < 0.0}
         if invalid:
             raise ValueError(f"Forward Predictor loss weights must be non-negative: {invalid}")
         if self.huber_delta <= 0.0:
             raise ValueError("Forward Predictor huber_delta must be positive")
+        if self.contrastive_temperature <= 0.0:
+            raise ValueError("contrastive_temperature must be positive")
+        if self.contrastive_negative_distance < 0.0:
+            raise ValueError("contrastive_negative_distance must be non-negative")
 
 
 def _physical_state(
@@ -155,6 +172,77 @@ def _physical_errors(
         "joint_position_error_p99_rad": torch.quantile(joint_position_error.float(), 0.99),
         "joint_velocity_error_radps": joint_velocity_error.mean(),
     }
+
+
+def _theta_aware_contrastive_loss(
+    dynamics_latent: torch.Tensor,
+    context_valid: torch.Tensor,
+    dynamics_id: torch.Tensor,
+    normalized_theta: torch.Tensor,
+    *,
+    temperature: float,
+    negative_distance: float,
+) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
+    """Contrast distinct same-world histories against sufficiently different dynamics."""
+
+    if dynamics_latent.ndim != 3 or context_valid.shape != dynamics_latent.shape[:2]:
+        raise ValueError("Dynamics latents and context-valid mask must be [batch,horizon,...]")
+    batch_size = dynamics_latent.size(0)
+    if dynamics_id.shape != (batch_size,) or normalized_theta.shape[0] != batch_size:
+        raise ValueError("Dynamics IDs and theta targets must share the latent batch dimension")
+
+    valid_weight = context_valid.unsqueeze(-1).to(dynamics_latent.dtype)
+    pooled_latent = (dynamics_latent * valid_weight).sum(dim=1) / valid_weight.sum(
+        dim=1
+    ).clamp_min(1.0)
+    embedding = F.normalize(pooled_latent.float(), dim=-1, eps=1.0e-8)
+    cosine = embedding @ embedding.transpose(0, 1)
+    logits = cosine / float(temperature)
+
+    theta = normalized_theta.detach().float()
+    theta_distance = (theta[:, None] - theta[None, :]).square().mean(dim=-1).sqrt()
+    sample_valid = context_valid.any(dim=1)
+    pair_valid = sample_valid[:, None] & sample_valid[None, :]
+    pair_valid &= ~torch.eye(batch_size, dtype=torch.bool, device=dynamics_latent.device)
+    same_dynamics = dynamics_id[:, None] == dynamics_id[None, :]
+    positive = pair_valid & same_dynamics
+    different_dynamics = pair_valid & ~same_dynamics
+    negative = different_dynamics & (theta_distance >= float(negative_distance))
+    ignored_near = different_dynamics & ~negative
+    candidate = positive | negative
+
+    masked_logits = logits.masked_fill(~candidate, -1.0e4)
+    log_probability = logits - torch.logsumexp(masked_logits, dim=1, keepdim=True)
+    positive_count = positive.sum(dim=1)
+    negative_count = negative.sum(dim=1)
+    valid_anchor = (positive_count > 0) & (negative_count > 0)
+    mean_positive_log_probability = (
+        log_probability.masked_fill(~positive, 0.0).sum(dim=1)
+        / positive_count.clamp_min(1)
+    )
+    anchor_weight = valid_anchor.to(logits.dtype)
+    loss = -(mean_positive_log_probability * anchor_weight).sum() / anchor_weight.sum().clamp_min(
+        1.0
+    )
+
+    positive_pairs = positive.sum().to(logits.dtype)
+    negative_pairs = negative.sum().to(logits.dtype)
+    different_pairs = different_dynamics.sum().to(logits.dtype)
+    near_pairs = ignored_near.sum().to(logits.dtype)
+    metrics = {
+        "contrastive_valid_anchor_fraction": anchor_weight.mean(),
+        "contrastive_positive_pair_count": positive_pairs,
+        "contrastive_negative_pair_count": negative_pairs,
+        "contrastive_negative_pair_fraction": negative_pairs
+        / different_pairs.clamp_min(1.0),
+        "contrastive_ignored_near_pair_fraction": near_pairs
+        / different_pairs.clamp_min(1.0),
+        "contrastive_positive_cosine": cosine.masked_fill(~positive, 0.0).sum()
+        / positive_pairs.clamp_min(1.0),
+        "contrastive_negative_cosine": cosine.masked_fill(~negative, 0.0).sum()
+        / negative_pairs.clamp_min(1.0),
+    }
+    return loss, metrics
 
 
 def _contact_losses(
@@ -289,6 +377,8 @@ class ForwardPredictorObjective(nn.Module):
             "contact_force_std",
             "delta_mean",
             "delta_std",
+            "dynamics_id",
+            "privileged_dynamics",
         }
         missing = sorted(required.difference(batch))
         if missing:
@@ -318,6 +408,17 @@ class ForwardPredictorObjective(nn.Module):
             raise ValueError(f"State batch must be [batch,6,71], got {tuple(state.shape)}")
         if action.shape != (state.size(0), 5, 29):
             raise ValueError(f"Action batch must be [batch,5,29], got {tuple(action.shape)}")
+        expected_dynamics = (state.size(0), self.model.config.privileged_dim)
+        if tuple(batch["privileged_dynamics"].shape) != expected_dynamics:
+            raise ValueError(
+                "Privileged dynamics target must have shape "
+                f"{expected_dynamics}, got {tuple(batch['privileged_dynamics'].shape)}"
+            )
+        if batch["dynamics_id"].shape != (state.size(0),):
+            raise ValueError(
+                "Dynamics IDs must have shape "
+                f"{(state.size(0),)}, got {tuple(batch['dynamics_id'].shape)}"
+            )
         expected_privileged = {
             "foot": (state.size(0), 6, 8),
             "contact_force": (state.size(0), 6, 6),
@@ -354,6 +455,9 @@ class ForwardPredictorObjective(nn.Module):
             teacher_foot,
             teacher_force,
             teacher_binary_logits,
+            dynamics_latent,
+            privileged_prediction,
+            context_valid,
         ) = self.model.teacher_forced(
             state,
             action,
@@ -362,6 +466,7 @@ class ForwardPredictorObjective(nn.Module):
             batch["contact_binary"],
             **history_arguments,
             **normalization_arguments,
+            return_context=True,
         )
         if self.training and recursive_weight == 0.0:
             with torch.no_grad():
@@ -462,13 +567,42 @@ class ForwardPredictorObjective(nn.Module):
             + self.loss_config.foot_weight * recursive_foot_loss
             + recursive_contact_loss
         )
-        total_loss = teacher_loss + float(recursive_weight) * recursive_loss
+        privileged_target = batch["privileged_dynamics"][:, None].expand_as(
+            privileged_prediction
+        )
+        privileged_element_loss = F.huber_loss(
+            privileged_prediction,
+            privileged_target,
+            reduction="none",
+            delta=self.loss_config.huber_delta,
+        )
+        privileged_mask = context_valid.unsqueeze(-1).to(privileged_element_loss.dtype)
+        privileged_count = (
+            privileged_mask.sum() * privileged_prediction.size(-1)
+        ).clamp_min(1.0)
+        privileged_loss = (privileged_element_loss * privileged_mask).sum() / privileged_count
+        contrastive_loss, contrastive_metrics = _theta_aware_contrastive_loss(
+            dynamics_latent,
+            context_valid,
+            batch["dynamics_id"],
+            batch["privileged_dynamics"],
+            temperature=self.loss_config.contrastive_temperature,
+            negative_distance=self.loss_config.contrastive_negative_distance,
+        )
+        total_loss = (
+            teacher_loss
+            + float(recursive_weight) * recursive_loss
+            + self.loss_config.privileged_dynamics_weight * privileged_loss
+            + self.loss_config.contrastive_weight * contrastive_loss
+        )
 
         if not compute_metrics:
             return {
                 "loss": total_loss,
                 "teacher_loss": teacher_loss.detach(),
                 "recursive_loss": recursive_loss.detach(),
+                "privileged_dynamics_loss": privileged_loss.detach(),
+                "contrastive_loss": contrastive_loss.detach(),
             }
 
         with torch.no_grad():
@@ -596,12 +730,37 @@ class ForwardPredictorObjective(nn.Module):
                 batch["contact_force_mean"],
                 batch["contact_force_std"],
             )
+            privileged_error = privileged_prediction - privileged_target
+            privileged_mse = (privileged_error.square() * privileged_mask).sum() / privileged_count
+            privileged_mae = (privileged_error.abs() * privileged_mask).sum() / privileged_count
+            privileged_baseline_mse = (
+                privileged_target.square() * privileged_mask
+            ).sum() / privileged_count
 
         return {
             "loss": total_loss,
             "teacher_loss": teacher_loss.detach(),
             "recursive_loss": recursive_loss.detach(),
             "recursive_weight": teacher_loss.new_tensor(float(recursive_weight)),
+            "privileged_dynamics_loss": privileged_loss.detach(),
+            "privileged_dynamics_weight": teacher_loss.new_tensor(
+                self.loss_config.privileged_dynamics_weight
+            ),
+            "privileged_dynamics_mse": privileged_mse,
+            "privileged_dynamics_mae": privileged_mae,
+            "privileged_dynamics_nmse": privileged_mse
+            / privileged_baseline_mse.clamp_min(1.0e-8),
+            "contrastive_loss": contrastive_loss.detach(),
+            "contrastive_weight": teacher_loss.new_tensor(self.loss_config.contrastive_weight),
+            "contrastive_temperature": teacher_loss.new_tensor(
+                self.loss_config.contrastive_temperature
+            ),
+            "contrastive_negative_distance": teacher_loss.new_tensor(
+                self.loss_config.contrastive_negative_distance
+            ),
+            **contrastive_metrics,
+            "context_full_history_fraction": context_valid.float().mean(),
+            "dynamics_latent_rms": dynamics_latent.detach().square().mean().sqrt(),
             "teacher_mse": teacher_mse,
             "teacher_nmse": teacher_mse / no_change_mse.clamp_min(1.0e-8),
             "teacher_foot_loss": teacher_foot_loss.detach(),

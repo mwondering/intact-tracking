@@ -97,6 +97,7 @@ def test_online_rollout_treats_resampling_and_reset_as_boundaries(monkeypatch) -
     rollout.predictor_action_target_verified = False
     rollout.predictor_action_target_max_abs_error = None
     rollout._fixed_dr_model_fields = {"body_mass": torch.ones(3, 1)}
+    rollout.privileged_dynamics = torch.zeros(3, 1)
     rollout.dr_invariance_checks = 0
     rollout.world_ids = torch.arange(3)
     rollout.is_nominal = torch.tensor([True, False, False])
@@ -159,6 +160,7 @@ def test_online_rollout_adds_residual_after_frozen_tracker(monkeypatch) -> None:
     rollout.policy = lambda _observations: torch.full((1, 29), 0.5)
     rollout._clip_actions = 1.0
     rollout._fixed_dr_model_fields = {"body_mass": torch.ones(1, 1)}
+    rollout.privileged_dynamics = torch.zeros(1, 1)
     rollout.dr_invariance_checks = 0
     rollout.world_ids = torch.arange(1)
     rollout.is_nominal = torch.zeros(1, dtype=torch.bool)

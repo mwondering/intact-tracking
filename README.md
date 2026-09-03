@@ -200,34 +200,40 @@ motion 计数。每条记录还在 `window` 中保存最近 `metric-window` 轮�
 - `history.json`：所有 update 的结构化记录；
 - `train.log`：正式脚本捕获的完整终端输出。
 
-## Privileged-contact direct-foot causal-Transformer Forward Predictor v5 训练
+## θ-aware contrastive dynamics-context Forward Predictor v7 训练
 
-当前主实验先隔离 Predictor 能力：不构造 Context Encoder、Residual Policy 或 Backward
-Predictor，只训练一个约 19.02M 参数的 causal Transformer。每个 token 包含 71 维机器人状态、
-由 simulator 刚体状态直接读取的 8 维左右脚离地高度/速度、6 维接触力、2 维接触标记，以及在
-模型外部由 policy action 换算好的 29 维物理 PD joint target。模型读取 10 个历史 token 和 1 个
-当前 token，同时预测下一步的 70 维 robot delta、8 维足端状态、6 维接触力和 2 个接触 logits；
-递推时使用上一步预测出的足端状态，因此训练热路径不再执行 articulated FK，也不会使用真实
-未来足端特征。
+当前主实验使用固定于每个 vector world 的 startup domain randomization。独立 Context Encoder
+把过去 10 个已完成的 (state, applied PD target, next state) 交互压缩为 64 维 dynamics latent
+z；z 调制 causal Transformer 的下一状态预测。训练期 privileged head 从 z 回归 simulator
+的真实随机化参数；同一固定动力学 world 的不同历史窗口构成正样本，标准化 θ 距离至少为
+1.25 的不同 world 构成负样本，距离较近者不参与对比损失。部署时 privileged head 和真实参数
+都不参与预测。
+
+每个状态包含 71 维 robot state、从 simulator 刚体状态直接读取的 8 维左右脚离地高度/速度、
+6 维接触力和 2 维接触标记；action 是在 Predictor 外部换算好的 29 维物理 PD joint target。
+Transition Transformer 同时预测 70 维 robot delta、8 维足端状态、6 维接触力和 2 个接触
+logits；五步递推使用上一步预测结果，训练热路径不执行 articulated FK。
 
 ```bash
 GPUS=0,1 ./scripts/run_forward_predictor_training.sh \
   /path/to/checkpoint.pt \
   /path/to/motion_directory \
   /path/to/runs/forward_predictor \
-  --wandb-name forward-predictor-nominal
+  --wandb-name forward-predictor-context
 ```
 
-脚本固定 nominal physics、Transformer 宽度 512、6 层、8 头、10 帧历史和五步递推；默认
+脚本默认使用 0% nominal / 100% 固定 startup DR、宽度 512、6 层、8 头的 Transition
+Transformer，以及 128 维、2 层、4 头的 Context Encoder；默认
 每卡 2048 个环境、有效 batch 4096、BF16 micro-batch 512、motion-balanced replay 262144。
 micro-batch 的梯度按样本数累积后只执行一次 optimizer step，不进行梯度裁剪，但仍记录原始
 gradient norm；teacher-forced 五个窗口合并成一次 Transformer 前向，完整诊断仅按日志间隔
-执行。训练优化 teacher-forced 一步 Huber loss 和固定权重 0.5 的五步递推 Huber
-loss，两项从第一个 optimizer step 起共同优化；robot/foot/contact force 使用 Huber，接触标记
-使用 BCE。robot state、physical target、foot feature、contact force 与 delta normalization 在
+执行。训练优化 teacher-forced 一步 Huber loss、固定权重 0.5 的五步递推 Huber loss、
+默认权重 0.1 的 privileged-parameter Huber loss，以及默认权重 0.01 的 θ-aware contrastive
+loss。Replay 成对采样，保证同 world 的不同窗口不会被 micro-batch 边界拆开。robot state、
+physical target、foot feature、contact force、delta 与 privileged target normalization 在
 warmup 后冻结。首次运行应先增加
 `--fixed-batch-overfit`，确认同一批数据可以被拟合到接近零误差。
-完整契约见 [Nominal Forward Predictor flow](docs/forward_predictor_training.md)。
+完整契约见 [Dynamics-context Forward Predictor flow](docs/forward_predictor_training.md)。
 
 ## 旧版 Context-conditioned Forward-only 训练
 

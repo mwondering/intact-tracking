@@ -1,4 +1,4 @@
-"""Train a recursive nominal Forward Predictor from frozen-tracker rollouts."""
+"""Train a privileged-supervised dynamics-context predictor from tracker rollouts."""
 
 from __future__ import annotations
 
@@ -58,6 +58,12 @@ def build_parser() -> argparse.ArgumentParser:
         action=argparse.BooleanOptionalAction,
         default=True,
     )
+    parser.add_argument(
+        "--nominal-fraction",
+        type=float,
+        default=0.0,
+        help="Fraction of vector worlds restored to nominal physics; the default keeps all DR.",
+    )
 
     parser.add_argument("--warmup-steps", type=int, default=100)
     parser.add_argument("--max-warmup-steps", type=int, default=10_000)
@@ -105,6 +111,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--transformer-dim", type=int, default=512)
     parser.add_argument("--transformer-depth", type=int, default=6)
     parser.add_argument("--transformer-heads", type=int, default=8)
+    parser.add_argument("--context-dim", type=int, default=128)
+    parser.add_argument("--context-depth", type=int, default=2)
+    parser.add_argument("--context-heads", type=int, default=4)
+    parser.add_argument("--dynamics-latent-dim", type=int, default=64)
     parser.add_argument("--dropout", type=float, default=0.0)
     parser.add_argument("--huber-delta", type=float, default=1.0)
     parser.add_argument(
@@ -123,6 +133,18 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--foot-weight", type=float, default=1.0)
     parser.add_argument("--contact-force-weight", type=float, default=1.0)
     parser.add_argument("--contact-binary-weight", type=float, default=1.0)
+    parser.add_argument("--privileged-dynamics-weight", type=float, default=0.1)
+    parser.add_argument("--contrastive-weight", type=float, default=0.01)
+    parser.add_argument("--contrastive-temperature", type=float, default=0.1)
+    parser.add_argument(
+        "--contrastive-negative-distance",
+        type=float,
+        default=1.25,
+        help=(
+            "Minimum RMS distance between normalized dynamics parameters for two "
+            "different worlds to be treated as negatives."
+        ),
+    )
 
     parser.add_argument(
         "--wandb",
@@ -157,6 +179,10 @@ def _validate_arguments(args: argparse.Namespace) -> None:
         "transformer_dim",
         "transformer_depth",
         "transformer_heads",
+        "context_dim",
+        "context_depth",
+        "context_heads",
+        "dynamics_latent_dim",
     )
     invalid = {name: getattr(args, name) for name in positive if getattr(args, name) < 1}
     if invalid:
@@ -173,7 +199,9 @@ def _validate_arguments(args: argparse.Namespace) -> None:
         raise ValueError("Forward Predictor collection requires rollout-steps-per-update=5")
     if args.history_steps != 10:
         raise ValueError("Forward Predictor history-steps is fixed to ten")
-    for name in ("model_learning_rate", "huber_delta"):
+    if not 0.0 <= args.nominal_fraction <= 1.0:
+        raise ValueError("nominal-fraction must be in [0, 1]")
+    for name in ("model_learning_rate", "huber_delta", "contrastive_temperature"):
         if getattr(args, name) <= 0.0:
             raise ValueError(f"{name.replace('_', '-')} must be positive")
     if not 0.0 <= args.dropout < 1.0:
@@ -189,10 +217,31 @@ def _validate_arguments(args: argparse.Namespace) -> None:
         "foot_weight",
         "contact_force_weight",
         "contact_binary_weight",
+        "privileged_dynamics_weight",
+        "contrastive_weight",
+        "contrastive_negative_distance",
         "recursive_weight",
     ):
         if getattr(args, name) < 0.0:
             raise ValueError(f"{name.replace('_', '-')} must be non-negative")
+    if args.contrastive_weight > 0.0:
+        if args.num_envs < 2:
+            raise ValueError("Contrastive training requires at least two vector worlds")
+        if args.nominal_fraction == 1.0:
+            raise ValueError(
+                "Contrastive training needs randomized dynamics; use --contrastive-weight=0 "
+                "for a 100% nominal rollout"
+            )
+        odd = {
+            name: getattr(args, name)
+            for name in ("batch_size", "micro_batch_size", "fixed_probe_batch_size")
+            if getattr(args, name) % 2
+        }
+        if odd:
+            raise ValueError(
+                "Contrastive training requires even batch, micro-batch and fixed-probe sizes "
+                f"so same-world pairs are not split: {odd}"
+            )
 
 
 def _seed_everything(seed: int) -> None:
@@ -286,6 +335,8 @@ _BATCH_FIELDS = frozenset(
         "world_id",
         "motion_id",
         "motion_step",
+        "dynamics_id",
+        "privileged_dynamics",
     }
 )
 
@@ -361,6 +412,11 @@ def _save_checkpoint(
         "model_config": asdict(model_config),
         "loss_config": asdict(loss_config),
         "normalization": asdict(normalization),
+        "privileged_dynamics": {
+            "names": list(rollout.privileged_dynamics_names),
+            "ignored_startup_events": list(rollout.ignored_privileged_startup_events),
+            "inference_contract": "history_only; simulator parameters are training labels only",
+        },
         "tracker": {
             "checkpoint_path": str(rollout.checkpoint_path),
             "checkpoint_sha256": tracker_sha256,
@@ -414,7 +470,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             world_id_offset=world_id_offset,
             stochastic_policy=args.stochastic_policy,
             randomize_initial_episode_phase=args.randomize_initial_episode_phase,
-            nominal_fraction=1.0,
+            nominal_fraction=args.nominal_fraction,
         )
     )
     if rollout.predictor_action_transform is None:
@@ -427,6 +483,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
     replay = ForwardPredictorReplayBuffer(
         num_worlds=args.num_envs,
         dimensions=dimensions,
+        privileged_dim=len(rollout.privileged_dynamics_names),
         capacity=args.replay_capacity,
         history_steps=args.history_steps,
         sampling_mode=args.replay_sampling,
@@ -441,6 +498,11 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         transformer_dim=args.transformer_dim,
         transformer_depth=args.transformer_depth,
         transformer_heads=args.transformer_heads,
+        context_dim=args.context_dim,
+        context_depth=args.context_depth,
+        context_heads=args.context_heads,
+        dynamics_latent_dim=args.dynamics_latent_dim,
+        privileged_dim=len(rollout.privileged_dynamics_names),
         dropout=args.dropout,
     )
     loss_config = ForwardPredictorLossConfig(
@@ -453,8 +515,13 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         foot_weight=args.foot_weight,
         contact_force_weight=args.contact_force_weight,
         contact_binary_weight=args.contact_binary_weight,
+        privileged_dynamics_weight=args.privileged_dynamics_weight,
+        contrastive_weight=args.contrastive_weight,
+        contrastive_temperature=args.contrastive_temperature,
+        contrastive_negative_distance=args.contrastive_negative_distance,
         huber_delta=args.huber_delta,
     )
+    contrastive_enabled = loss_config.contrastive_weight > 0.0
     model = ForwardDynamicsTransformer(model_config).to(device)
     objective = ForwardPredictorObjective(model, loss_config)
     training_module: torch.nn.Module
@@ -483,10 +550,12 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
     )
     parameter_count = sum(parameter.numel() for parameter in model.parameters())
     run_config = {
-        "method": "privileged-contact direct-foot causal-transformer Forward Predictor v5",
+        "method": "theta-aware contrastive dynamics-context causal-transformer Forward Predictor v7",
         "architecture": {
             "controller": "frozen tracker",
-            "physics": "100% compiled nominal dynamics; DR slots restored to defaults",
+            "physics": (
+                "startup domain randomization fixed per vector world; optional nominal subset"
+            ),
             "input": (
                 "ten historical and one current token; each token contains 71-D robot state, "
                 "8-D simulator foot height/velocity, 6-D contact force, 2-D contact "
@@ -495,16 +564,22 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             "transition": (
                 "shared causal Transformer predicts normalized 70-D robot-state delta, "
                 "normalized 8-D next foot state, normalized 6-D next contact force and "
-                "2-D next-contact logits"
+                "2-D next-contact logits, conditioned on a history-inferred dynamics latent"
+            ),
+            "context": (
+                "a separate encoder maps ten completed (state, physical PD target, next-state) "
+                "interactions to z; a training-only head regresses normalized simulator DR "
+                "parameters from z; same-world replay windows form positive pairs while only "
+                "different-world parameters beyond the normalized theta threshold are negatives"
             ),
             "rollout": (
                 "predicted robot/foot/contact state is recursively fed back for five targets; "
                 "the training/model hot path contains no articulated foot FK"
             ),
-            "excluded": ["context_encoder", "residual_policy", "backward"],
+            "excluded": ["residual_policy", "backward"],
             "normalization": (
-                "robot state, physical target, simulator foot, contact force and robot delta "
-                "statistics frozen immediately after warmup"
+                "robot state, physical target, simulator foot, contact force, robot delta and "
+                "privileged dynamics statistics frozen immediately after warmup"
             ),
         },
         "arguments": vars(args),
@@ -534,10 +609,15 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             "horizon": 5,
             "history_steps": args.history_steps,
             "sampling": args.replay_sampling,
+            "dynamics_paired_batches": args.contrastive_weight > 0.0,
         },
         "objective_weights": {
             "teacher_forced_weight": 1.0,
             "recursive_weight": args.recursive_weight,
+            "privileged_dynamics_weight": args.privileged_dynamics_weight,
+            "contrastive_weight": args.contrastive_weight,
+            "contrastive_temperature": args.contrastive_temperature,
+            "contrastive_negative_distance": args.contrastive_negative_distance,
         },
     }
     _main_process_call(distributed, lambda: _write_json(output_dir / "run_config.json", run_config))
@@ -594,9 +674,10 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
     try:
         warmup_started = time.monotonic()
         while True:
-            ready = rollout.collector_step >= args.warmup_steps and len(replay) >= max(
-                args.batch_size, args.fixed_probe_batch_size
-            )
+            required_batch = max(args.batch_size, args.fixed_probe_batch_size)
+            ready = rollout.collector_step >= args.warmup_steps and len(replay) >= required_batch
+            if ready and contrastive_enabled:
+                ready = replay.can_sample_dynamics_pairs(required_batch)
             if distributed.all_true(ready):
                 break
             if rollout.collector_step >= args.max_warmup_steps:
@@ -625,9 +706,17 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
 
         normalization = _global_normalization(distributed, replay, global_world_ids)
         replay.normalizer.freeze()
-        fixed_probe_batch = replay.sample_batch(args.fixed_probe_batch_size, normalization)
+        fixed_probe_batch = replay.sample_batch(
+            args.fixed_probe_batch_size,
+            normalization,
+            paired_dynamics=contrastive_enabled,
+        )
         fixed_train_batch = (
-            replay.sample_batch(args.batch_size, normalization)
+            replay.sample_batch(
+                args.batch_size,
+                normalization,
+                paired_dynamics=contrastive_enabled,
+            )
             if args.fixed_batch_overfit
             else None
         )
@@ -662,7 +751,11 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                 train_batch = (
                     fixed_train_batch
                     if fixed_train_batch is not None
-                    else replay.sample_batch(args.batch_size, normalization)
+                    else replay.sample_batch(
+                        args.batch_size,
+                        normalization,
+                        paired_dynamics=contrastive_enabled,
+                    )
                 )
                 optimizer.zero_grad(set_to_none=True)
                 accumulated_losses: dict[str, torch.Tensor] = {}
@@ -691,7 +784,13 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                             validate_batch=False,
                         )
                         (model_output["loss"] * fraction).backward()
-                    for name in ("loss", "teacher_loss", "recursive_loss"):
+                    for name in (
+                        "loss",
+                        "teacher_loss",
+                        "recursive_loss",
+                        "privileged_dynamics_loss",
+                        "contrastive_loss",
+                    ):
                         weighted = model_output[name].detach().float() * fraction
                         accumulated_losses[name] = (
                             accumulated_losses.get(name, torch.zeros_like(weighted)) + weighted

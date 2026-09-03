@@ -6,21 +6,25 @@ usage() {
   printf '%s\n' \
     "Usage: $0 CHECKPOINT MOTION_SOURCE OUTPUT_DIR [PREDICTOR_OPTIONS...]" \
     "" \
-    "Train the nominal causal-Transformer full-state Forward Predictor." \
+    "Train the theta-aware contrastive dynamics-context Forward Predictor." \
     "" \
     "Fixed contract:" \
-    "  physics          100% nominal" \
+    "  physics          fixed startup DR per vector world (0% nominal by default)" \
     "  controller       frozen tracker" \
-    "  model            causal Transformer, width 512, 6 layers, 8 heads (~19.02M)" \
+    "  model            causal Transformer + lightweight dynamics Context Encoder" \
     "  input            10 historical privileged-state/PD-target tokens + 1 current token" \
     "  output           70-D robot delta + 8-D foot state + 6-D contact force + 2-D logits" \
     "  rollout          shared one-step model recursively applied 5 times" \
-    "  disabled         Context Encoder, Residual Policy, Backward, gradient clipping" \
+    "  supervision      privileged theta regression + theta-aware contrastive learning" \
+    "  positive pairs   distinct history windows from the same fixed-DR vector world" \
+    "  negative pairs   different worlds only when normalized theta RMS distance >= 1.25" \
+    "  disabled         Residual Policy, Backward, gradient clipping" \
     "" \
     "Production defaults (override with PREDICTOR_OPTIONS):" \
     "  --num-envs 2048 --batch-size 4096 --micro-batch-size 512 --amp-dtype bfloat16" \
     "  --replay-capacity 262144" \
     "  --gradient-steps-per-update 4 --updates 100000" \
+    "  --contrastive-weight 0.01 --contrastive-temperature 0.1" \
     "" \
     "Use --fixed-batch-overfit for the mandatory model-capacity diagnostic." \
     "" \
@@ -55,6 +59,10 @@ managed_options=(
   --transformer-dim
   --transformer-depth
   --transformer-heads
+  --context-dim
+  --context-depth
+  --context-heads
+  --dynamics-latent-dim
   --dropout
   --rollout-steps-per-update
 )
@@ -149,19 +157,26 @@ command+=(
   --transformer-dim 512
   --transformer-depth 6
   --transformer-heads 8
+  --context-dim 128
+  --context-depth 2
+  --context-heads 4
+  --dynamics-latent-dim 64
   --dropout 0
 )
 
 printf '%s\n' \
-  "Training contract: privileged-contact direct-foot causal-Transformer Forward Predictor v5" \
-  "  model: 87-D state features + physical PD target -> robot/foot/contact next state, ~19.03M" \
+  "Training contract: theta-aware contrastive dynamics-context Forward Predictor v7" \
+  "  model: history-only Context Encoder z conditions the causal transition Transformer" \
   "  rollout: predicted robot/foot/contact state recurs 5 steps; no articulated FK in model" \
-  "  loss: teacher/recursive robot+foot+contact loss with fixed recursive weight" \
+  "  loss: dynamics + privileged DR regression (0.1) + theta-aware contrastive (0.01)" \
+  "  pairs: replay guarantees adjacent distinct same-world windows in every micro-batch" \
   "  replay: motion-balanced, 262144 samples per rank by default" \
   "  optimizer: effective batch 4096, micro-batch 512, BF16 autocast, fused AdamW" \
   "  diagnostics: full metric/probe evaluation every --log-interval updates" \
-  "  normalization: robot/PD-target/foot/contact-force/delta stats frozen after warmup" \
-  "  context/policy/backward: disabled" \
+  "  normalization: robot/target/foot/contact/delta/DR-label stats frozen after warmup" \
+  "  inference: simulator parameters and privileged head are not required" \
+  "  near-theta different worlds: masked from contrastive denominator" \
+  "  policy/backward: disabled" \
   "  distributed ranks: ${NPROC}"
 printf 'Launching:'
 printf ' %q' "${command[@]}"

@@ -291,6 +291,10 @@ def test_forward_predictor_launcher_builds_locked_causal_transformer_command(
     assert _last_option_value(arguments, "--transformer-dim") == "512"
     assert _last_option_value(arguments, "--transformer-depth") == "6"
     assert _last_option_value(arguments, "--transformer-heads") == "8"
+    assert _last_option_value(arguments, "--context-dim") == "128"
+    assert _last_option_value(arguments, "--context-depth") == "2"
+    assert _last_option_value(arguments, "--context-heads") == "4"
+    assert _last_option_value(arguments, "--dynamics-latent-dim") == "64"
     assert _last_option_value(arguments, "--dropout") == "0"
 
 

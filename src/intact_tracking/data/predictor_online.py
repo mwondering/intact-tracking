@@ -1,4 +1,4 @@
-"""Compact online replay for nominal five-step Forward Predictor training."""
+"""Compact online replay for context-conditioned five-step predictor training."""
 
 from __future__ import annotations
 
@@ -53,6 +53,8 @@ class ForwardPredictorNormalizationStats:
     contact_force_std: tuple[float, ...]
     delta_mean: tuple[float, ...]
     delta_std: tuple[float, ...]
+    privileged_mean: tuple[float, ...]
+    privileged_std: tuple[float, ...]
     world_ids: tuple[int, ...]
     epsilon: float = 1.0e-6
 
@@ -69,10 +71,14 @@ class ForwardPredictorNormalization:
         self,
         dimensions: RolloutDimensions,
         *,
+        privileged_dim: int,
         epsilon: float = 1.0e-6,
         device: torch.device | str | None = None,
     ) -> None:
         self.dimensions = dimensions
+        if privileged_dim < 1:
+            raise ValueError("privileged_dim must be positive")
+        self.privileged_dim = int(privileged_dim)
         self.epsilon = float(epsilon)
         self.device = torch.device(device or "cpu")
         self.state = _RunningMoments(dimensions.robot_state, self.device)
@@ -80,6 +86,7 @@ class ForwardPredictorNormalization:
         self.foot = _RunningMoments(FOOT_FEATURE_DIM, self.device)
         self.contact_force = _RunningMoments(CONTACT_FORCE_DIM, self.device)
         self.delta = _RunningMoments(70, self.device)
+        self.privileged = _RunningMoments(self.privileged_dim, self.device)
         self.frozen = False
 
     def update(self, batch: dict[str, torch.Tensor], valid: torch.Tensor) -> None:
@@ -99,6 +106,7 @@ class ForwardPredictorNormalization:
             )
         )
         self.delta.update(physical_state_delta(current, following))
+        self.privileged.update(batch["privileged_dynamics"][valid])
 
     def freeze(self) -> None:
         self.frozen = True
@@ -113,6 +121,7 @@ class ForwardPredictorNormalization:
                 FOOT_FEATURE_DIM,
                 CONTACT_FORCE_DIM,
                 70,
+                self.privileged_dim,
             )
         )
 
@@ -124,6 +133,7 @@ class ForwardPredictorNormalization:
                 self.foot.packed(),
                 self.contact_force.packed(),
                 self.delta.packed(),
+                self.privileged.packed(),
             )
         )
         return packed.to(device=device) if device is not None else packed
@@ -161,6 +171,7 @@ class ForwardPredictorNormalization:
         foot_mean, foot_std = read(FOOT_FEATURE_DIM)
         contact_force_mean, contact_force_std = read(CONTACT_FORCE_DIM)
         delta_mean, delta_std = read(70)
+        privileged_mean, privileged_std = read(self.privileged_dim)
         return ForwardPredictorNormalizationStats(
             state_mean=_float_tuple(state_mean),
             state_std=_float_tuple(state_std),
@@ -172,6 +183,8 @@ class ForwardPredictorNormalization:
             contact_force_std=_float_tuple(contact_force_std),
             delta_mean=_float_tuple(delta_mean),
             delta_std=_float_tuple(delta_std),
+            privileged_mean=_float_tuple(privileged_mean),
+            privileged_std=_float_tuple(privileged_std),
             world_ids=world_ids,
             epsilon=self.epsilon,
         )
@@ -196,6 +209,8 @@ class ForwardPredictorReplayBuffer:
         "episode_step",
         "motion_id",
         "motion_step",
+        "dynamics_id",
+        "privileged_dynamics",
     )
 
     def __init__(
@@ -205,14 +220,15 @@ class ForwardPredictorReplayBuffer:
         dimensions: RolloutDimensions | None = None,
         horizon: int = 5,
         history_steps: int = 10,
+        privileged_dim: int = 1,
         capacity: int = 16384,
         sampling_mode: str = "motion_balanced",
         seed: int = 0,
         world_id_offset: int = 0,
         device: torch.device | str | None = None,
     ) -> None:
-        if num_worlds < 1 or capacity < 1:
-            raise ValueError("num_worlds and capacity must be positive")
+        if num_worlds < 1 or capacity < 1 or privileged_dim < 1:
+            raise ValueError("num_worlds, capacity and privileged_dim must be positive")
         if horizon != 5 or history_steps != 10:
             raise ValueError("Forward Predictor replay uses horizon=5 and history_steps=10")
         if sampling_mode not in {"uniform", "motion_balanced"}:
@@ -223,6 +239,7 @@ class ForwardPredictorReplayBuffer:
         self.dimensions = dimensions or RolloutDimensions()
         self.horizon = int(horizon)
         self.history_steps = int(history_steps)
+        self.privileged_dim = int(privileged_dim)
         self.ring_steps = self.horizon + self.history_steps
         self.capacity = int(capacity)
         self.sampling_mode = sampling_mode
@@ -245,10 +262,15 @@ class ForwardPredictorReplayBuffer:
         self._size = 0
         self._world_ids_validated = False
         self._sampling_weights: torch.Tensor | None = None
+        self._pair_order: torch.Tensor | None = None
+        self._pair_inverse: torch.Tensor | None = None
+        self._pair_counts: torch.Tensor | None = None
+        self._pair_starts: torch.Tensor | None = None
         self.total_samples_generated = 0
         self.total_transitions = 0
         self.normalizer = ForwardPredictorNormalization(
             self.dimensions,
+            privileged_dim=self.privileged_dim,
             device=self.device,
         )
 
@@ -280,9 +302,10 @@ class ForwardPredictorReplayBuffer:
             + self.history_steps * (dims.robot_state + dims.action)
             + (self.horizon + 1 + self.history_steps) * FOOT_FEATURE_DIM
             + (self.horizon + 1 + self.history_steps) * CONTACT_FORCE_DIM
+            + self.privileged_dim
         )
         history_integers = 4 * self.ring_steps * self.num_worlds
-        sample_integers = 3 * self.capacity
+        sample_integers = 4 * self.capacity
         flags = self.ring_steps * self.num_worlds * (1 + CONTACT_BINARY_DIM) + self.capacity * (
             self.history_steps + (self.horizon + 1 + self.history_steps) * CONTACT_BINARY_DIM
         )
@@ -348,6 +371,10 @@ class ForwardPredictorReplayBuffer:
             "world_id": torch.empty(self.capacity, dtype=torch.long, device=self.device),
             "motion_id": torch.empty(self.capacity, dtype=torch.long, device=self.device),
             "motion_step": torch.empty(self.capacity, dtype=torch.long, device=self.device),
+            "dynamics_id": torch.empty(self.capacity, dtype=torch.long, device=self.device),
+            "privileged_dynamics": torch.empty(
+                (self.capacity, self.privileged_dim), device=self.device
+            ),
         }
 
     def _validate_batch(self, batch: dict[str, torch.Tensor]) -> None:
@@ -371,6 +398,8 @@ class ForwardPredictorReplayBuffer:
             "episode_step": (self.num_worlds,),
             "motion_id": (self.num_worlds,),
             "motion_step": (self.num_worlds,),
+            "dynamics_id": (self.num_worlds,),
+            "privileged_dynamics": (self.num_worlds, self.privileged_dim),
         }
         for name, shape in expected.items():
             value = batch[name]
@@ -412,6 +441,10 @@ class ForwardPredictorReplayBuffer:
         self._sample_write = (self._sample_write + retained) % self.capacity
         self._size = min(self.capacity, self._size + retained)
         self._sampling_weights = None
+        self._pair_order = None
+        self._pair_inverse = None
+        self._pair_counts = None
+        self._pair_starts = None
         self.total_samples_generated += count
 
     def add_step(self, batch: dict[str, torch.Tensor]) -> int:
@@ -519,6 +552,8 @@ class ForwardPredictorReplayBuffer:
                 "world_id": batch["world_id"][env_ids],
                 "motion_id": self._history["motion_id"][target_ids[0], env_ids],
                 "motion_step": self._history["motion_step"][target_ids[0], env_ids],
+                "dynamics_id": batch["dynamics_id"][env_ids],
+                "privileged_dynamics": batch["privileged_dynamics"][env_ids],
             }
             self._append_samples(samples, count)
 
@@ -544,37 +579,120 @@ class ForwardPredictorReplayBuffer:
                 "contact_force_std",
                 "delta_mean",
                 "delta_std",
+                "privileged_mean",
+                "privileged_std",
             )
         )
+
+    def _motion_sampling_weights(self) -> torch.Tensor:
+        if self._sampling_weights is None or self._sampling_weights.numel() != self._size:
+            motion_ids = self._samples["motion_id"][: self._size]
+            _, inverse, counts = torch.unique(
+                motion_ids,
+                return_inverse=True,
+                return_counts=True,
+            )
+            self._sampling_weights = counts[inverse].float().reciprocal()
+        return self._sampling_weights
+
+    def _dynamics_pair_tables(
+        self,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        dynamics_ids = self._samples["dynamics_id"][: self._size]
+        local_ids = dynamics_ids - self.world_id_offset
+        if bool(((local_ids < 0) | (local_ids >= self.num_worlds)).any()):
+            raise RuntimeError("Replay dynamics IDs do not map to local vector-world slots")
+        if self._pair_order is None or self._pair_order.numel() != self._size:
+            self._pair_order = torch.argsort(local_ids)
+            self._pair_inverse = torch.empty_like(self._pair_order)
+            self._pair_inverse[self._pair_order] = torch.arange(
+                self._size, device=self.device
+            )
+            self._pair_counts = torch.bincount(local_ids, minlength=self.num_worlds)
+            self._pair_starts = self._pair_counts.cumsum(0) - self._pair_counts
+        assert self._pair_inverse is not None
+        assert self._pair_counts is not None
+        assert self._pair_starts is not None
+        return (
+            local_ids,
+            self._pair_order,
+            self._pair_inverse,
+            self._pair_counts,
+            self._pair_starts,
+        )
+
+    def can_sample_dynamics_pairs(self, batch_size: int) -> bool:
+        """Return whether an even batch can contain distinct same-world window pairs."""
+
+        if batch_size < 2 or batch_size % 2 or self._size < batch_size:
+            return False
+        local_ids, _, _, counts, _ = self._dynamics_pair_tables()
+        eligible = counts.index_select(0, local_ids) >= 2
+        return int(eligible.sum()) >= batch_size // 2
+
+    def _sample_indices(self, batch_size: int) -> torch.Tensor:
+        if self.sampling_mode == "uniform":
+            return torch.randperm(
+                self._size, generator=self._generator, device=self.device
+            )[:batch_size]
+        return torch.multinomial(
+            self._motion_sampling_weights(),
+            batch_size,
+            replacement=False,
+            generator=self._generator,
+        )
+
+    def _sample_paired_dynamics_indices(self, batch_size: int) -> torch.Tensor:
+        if batch_size % 2:
+            raise ValueError("Dynamics-paired batch_size must be even")
+        local_ids, order, inverse, counts, starts = self._dynamics_pair_tables()
+        eligible = counts.index_select(0, local_ids) >= 2
+        pair_count = batch_size // 2
+        if int(eligible.sum()) < pair_count:
+            raise RuntimeError(
+                "Forward Predictor replay cannot form enough distinct same-world history "
+                f"pairs for batch_size={batch_size}"
+            )
+        if self.sampling_mode == "uniform":
+            anchor_weights = eligible.float()
+        else:
+            anchor_weights = self._motion_sampling_weights() * eligible
+        anchors = torch.multinomial(
+            anchor_weights,
+            pair_count,
+            replacement=False,
+            generator=self._generator,
+        )
+        anchor_dynamics = local_ids.index_select(0, anchors)
+        group_counts = counts.index_select(0, anchor_dynamics)
+        group_starts = starts.index_select(0, anchor_dynamics)
+        anchor_group_rank = inverse.index_select(0, anchors) - group_starts
+        other_group_rank = (
+            torch.rand(pair_count, generator=self._generator, device=self.device)
+            * (group_counts - 1).float()
+        ).floor().long()
+        other_group_rank += (other_group_rank >= anchor_group_rank).long()
+        positives = order.index_select(0, group_starts + other_group_rank)
+        if bool(torch.eq(anchors, positives).any()):
+            raise RuntimeError("Dynamics pair sampler selected the same replay window twice")
+        return torch.stack((anchors, positives), dim=1).flatten()
 
     def sample_batch(
         self,
         batch_size: int,
         normalization: ForwardPredictorNormalizationStats,
+        *,
+        paired_dynamics: bool = False,
     ) -> dict[str, torch.Tensor]:
         if batch_size < 1 or self._size < batch_size:
             raise RuntimeError(
                 f"Forward Predictor replay has {self._size} samples, batch_size={batch_size}"
             )
-        if self.sampling_mode == "uniform":
-            indices = torch.randperm(self._size, generator=self._generator, device=self.device)[
-                :batch_size
-            ]
-        else:
-            if self._sampling_weights is None or self._sampling_weights.numel() != self._size:
-                motion_ids = self._samples["motion_id"][: self._size]
-                _, inverse, counts = torch.unique(
-                    motion_ids,
-                    return_inverse=True,
-                    return_counts=True,
-                )
-                self._sampling_weights = counts[inverse].float().reciprocal()
-            indices = torch.multinomial(
-                self._sampling_weights,
-                batch_size,
-                replacement=False,
-                generator=self._generator,
-            )
+        indices = (
+            self._sample_paired_dynamics_indices(batch_size)
+            if paired_dynamics
+            else self._sample_indices(batch_size)
+        )
         selected = {name: value.index_select(0, indices) for name, value in self._samples.items()}
         (
             state_mean,
@@ -587,6 +705,8 @@ class ForwardPredictorReplayBuffer:
             contact_force_std,
             delta_mean,
             delta_std,
+            privileged_mean,
+            privileged_std,
         ) = self._normalization_tensors(normalization, self.device)
         return {
             "state": (selected["state"] - state_mean) / state_std,
@@ -611,7 +731,14 @@ class ForwardPredictorReplayBuffer:
             "contact_force_std": contact_force_std,
             "delta_mean": delta_mean,
             "delta_std": delta_std,
+            "privileged_dynamics": (
+                selected["privileged_dynamics"] - privileged_mean
+            )
+            / privileged_std,
+            "privileged_mean": privileged_mean,
+            "privileged_std": privileged_std,
             "world_id": selected["world_id"],
+            "dynamics_id": selected["dynamics_id"],
             "motion_id": selected["motion_id"],
             "motion_step": selected["motion_step"],
         }

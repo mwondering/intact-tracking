@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -100,6 +100,242 @@ class FixedDRRolloutConfig:
             )
         if bool(self.motion_path) == bool(self.motion_file):
             raise ValueError("Provide exactly one of motion_path or motion_file")
+
+
+@dataclass(frozen=True)
+class PrivilegedDynamicsTargets:
+    """Compact simulator-only labels for one fixed dynamics realization per world."""
+
+    names: tuple[str, ...]
+    values: torch.Tensor
+    ignored_startup_events: tuple[str, ...]
+
+
+def _entity_indices_and_names(
+    env: Any,
+    asset_cfg: Any,
+    kind: str,
+) -> tuple[torch.Tensor, tuple[str, ...]]:
+    asset = env.scene[asset_cfg.name]
+    raw_ids = getattr(asset_cfg, f"{kind}_ids")
+    all_names = tuple(str(name) for name in getattr(asset, f"{kind}_names"))
+    if isinstance(raw_ids, slice):
+        local_ids = torch.arange(len(all_names), device=env.device, dtype=torch.long)[raw_ids]
+    else:
+        local_ids = torch.as_tensor(raw_ids, device=env.device, dtype=torch.long)
+    global_ids = getattr(asset.indexing, f"{kind}_ids").index_select(0, local_ids)
+    names = tuple(all_names[int(index)] for index in local_ids.detach().cpu().tolist())
+    return global_ids.to(dtype=torch.long), names
+
+
+def _target_axes(params: Mapping[str, Any], default: tuple[int, ...]) -> tuple[int, ...]:
+    axes = params.get("axes")
+    if axes is not None:
+        return tuple(int(axis) for axis in axes)
+    ranges = params.get("ranges")
+    if isinstance(ranges, Mapping):
+        indexed = []
+        for key in ranges:
+            try:
+                indexed.append(int(key))
+            except (TypeError, ValueError):
+                continue
+        if indexed:
+            return tuple(indexed)
+    return default
+
+
+def _expanded_and_default_field(env: Any, name: str) -> tuple[torch.Tensor, torch.Tensor]:
+    actual = getattr(env.sim.model, name)
+    default = env.sim.get_default_field(name).to(device=actual.device, dtype=actual.dtype)
+    if actual.ndim == default.ndim:
+        actual = actual.unsqueeze(0).expand(env.num_envs, *actual.shape)
+    if actual.shape[0] != env.num_envs or actual.shape[1:] != default.shape:
+        raise RuntimeError(
+            f"Privileged dynamics field {name!r} has incompatible shapes: "
+            f"{tuple(actual.shape)} vs default {tuple(default.shape)}"
+        )
+    return actual, default
+
+
+def _safe_scale(actual: torch.Tensor, default: torch.Tensor) -> torch.Tensor:
+    expanded_default = default.unsqueeze(0).expand_as(actual)
+    return torch.where(
+        expanded_default.abs() > 1.0e-8,
+        actual / expanded_default,
+        actual - expanded_default,
+    )
+
+
+def _capture_privileged_dynamics_targets(env: Any) -> PrivilegedDynamicsTargets:
+    """Read compact causal DR factors after nominal-slot restoration.
+
+    Action-chain nuisance variables such as encoder bias and joint-command
+    offsets are intentionally excluded: the Forward Predictor already consumes
+    the physical PD target produced after that chain.
+    """
+
+    blocks: list[torch.Tensor] = []
+    names: list[str] = []
+    ignored: list[str] = []
+
+    def append(event_name: str, labels: list[str], values: torch.Tensor) -> None:
+        values = values.detach().to(device=env.device, dtype=torch.float32)
+        if values.ndim != 2 or values.shape != (env.num_envs, len(labels)):
+            raise RuntimeError(
+                f"Privileged event {event_name!r} produced {tuple(values.shape)} for "
+                f"{len(labels)} labels"
+            )
+        if values.numel() and not bool(torch.isfinite(values).all()):
+            raise RuntimeError(f"Privileged event {event_name!r} produced non-finite labels")
+        if labels:
+            blocks.append(values)
+            names.extend(f"{event_name}/{label}" for label in labels)
+
+    startup_names = tuple(env.event_manager.active_terms.get("startup", ()))
+    for event_name in startup_names:
+        cfg = env.event_manager.get_term_cfg(event_name)
+        func = cfg.func
+        func_name = getattr(func, "__name__", type(func).__name__)
+        params = cfg.params
+
+        if func_name == "body_com_offset":
+            asset_cfg = params["asset_cfg"]
+            body_ids, body_names = _entity_indices_and_names(env, asset_cfg, "body")
+            axes = _target_axes(params, (0, 1, 2))
+            actual, default = _expanded_and_default_field(env, "body_ipos")
+            selected = actual.index_select(1, body_ids) - default.index_select(0, body_ids)
+            selected = selected[..., list(axes)]
+            if bool(params.get("shared_random", False)):
+                selected = selected[:, :1]
+                body_names = ("shared",)
+            labels = [
+                f"com_offset/{body_name}/{axis_name}"
+                for body_name in body_names
+                for axis_name in ("xyz"[axis] for axis in axes)
+            ]
+            append(event_name, labels, selected.flatten(1))
+            continue
+
+        if func_name == "body_mass":
+            asset_cfg = params["asset_cfg"]
+            body_ids, body_names = _entity_indices_and_names(env, asset_cfg, "body")
+            actual, default = _expanded_and_default_field(env, "body_mass")
+            selected_actual = actual.index_select(1, body_ids)
+            selected_default = default.index_select(0, body_ids)
+            relative_delta = _safe_scale(selected_actual, selected_default) - 1.0
+            if bool(params.get("shared_random", False)):
+                relative_delta = relative_delta[:, :1]
+                body_names = ("shared",)
+            append(
+                event_name,
+                [f"relative_mass/{body_name}" for body_name in body_names],
+                relative_delta,
+            )
+            continue
+
+        if func_name == "geom_friction":
+            asset_cfg = params["asset_cfg"]
+            geom_ids, geom_names = _entity_indices_and_names(env, asset_cfg, "geom")
+            axes = _target_axes(params, (0,))
+            actual, _ = _expanded_and_default_field(env, "geom_friction")
+            selected = actual.index_select(1, geom_ids)[..., list(axes)]
+            if bool(params.get("shared_random", False)):
+                selected = selected[:, :1]
+                geom_names = ("shared",)
+            labels = [
+                f"friction/{geom_name}/{axis}"
+                for geom_name in geom_names
+                for axis in axes
+            ]
+            append(event_name, labels, selected.flatten(1))
+            continue
+
+        if func_name == "perturb_body_com":
+            body_ids = func.global_body_ids.to(device=env.device, dtype=torch.long)
+            actual, default = _expanded_and_default_field(env, "body_ipos")
+            offsets = actual.index_select(1, body_ids) - default.index_select(0, body_ids)
+            body_names = tuple(str(func.asset.body_names[index]) for index in func.body_ids)
+            labels = [
+                f"com_offset/{body_name}/{axis_name}"
+                for body_name in body_names
+                for axis_name in "xyz"
+            ]
+            append(event_name, labels, offsets.flatten(1))
+            continue
+
+        if func_name == "perturb_body_materials":
+            geom_ids = func.geom_global_ids.to(device=env.device, dtype=torch.long)
+            friction, _ = _expanded_and_default_field(env, "geom_friction")
+            solref, _ = _expanded_and_default_field(env, "geom_solref")
+            static = friction.index_select(1, geom_ids)[..., 0]
+            time_constant = solref.index_select(1, geom_ids)[..., 0]
+            damping_ratio = solref.index_select(1, geom_ids)[..., 1]
+            geom_names = tuple(str(name) for name in func.geom_names)
+            if func.homogeneous:
+                static = static[:, :1]
+                time_constant = time_constant[:, :1]
+                damping_ratio = damping_ratio[:, :1]
+                geom_names = ("shared",)
+            append(
+                event_name,
+                [f"static_friction/{name}" for name in geom_names]
+                + [f"solref_time_constant/{name}" for name in geom_names]
+                + [f"solref_damping_ratio/{name}" for name in geom_names],
+                torch.cat((static, time_constant, damping_ratio), dim=-1),
+            )
+            continue
+
+        if func_name == "motor_params_implicit":
+            motor_blocks: list[torch.Tensor] = []
+            motor_labels: list[str] = []
+            if func.kp_ctrl_ids.numel():
+                gain, _ = _expanded_and_default_field(env, "actuator_gainprm")
+                actual = gain[:, func.kp_ctrl_ids, 0]
+                motor_blocks.append(_safe_scale(actual, func.kp_gain_def))
+                motor_labels.extend(f"kp_scale/{name}" for name in func.kp_names)
+            if func.kd_ctrl_ids.numel():
+                bias, _ = _expanded_and_default_field(env, "actuator_biasprm")
+                actual = bias[:, func.kd_ctrl_ids, 2]
+                motor_blocks.append(_safe_scale(actual, func.kd_bias_def))
+                motor_labels.extend(f"kd_scale/{name}" for name in func.kd_names)
+            if func.arm_dof_ids.numel():
+                armature, _ = _expanded_and_default_field(env, "dof_armature")
+                actual = armature[:, func.arm_dof_ids]
+                motor_blocks.append(_safe_scale(actual, func.arm_def))
+                motor_labels.extend(f"armature_scale/{name}" for name in func.arm_names)
+            if func.fric_dof_ids.numel():
+                frictionloss, _ = _expanded_and_default_field(env, "dof_frictionloss")
+                motor_blocks.append(frictionloss[:, func.fric_dof_ids])
+                motor_labels.extend(f"frictionloss/{name}" for name in func.fric_names)
+            if motor_blocks:
+                append(event_name, motor_labels, torch.cat(motor_blocks, dim=-1))
+            else:
+                ignored.append(str(event_name))
+            continue
+
+        if func_name == "perturb_gravity":
+            gravity = func.observe()
+            append(event_name, ["gravity/x", "gravity/y", "gravity/z"], gravity)
+            continue
+
+        # These affect the policy-to-target or observation chain, not dynamics
+        # after the physical PD target used by this predictor has been formed.
+        if func_name in {"encoder_bias", "random_joint_offset"}:
+            ignored.append(str(event_name))
+            continue
+
+        ignored.append(str(event_name))
+
+    if not blocks:
+        raise RuntimeError(
+            "No supported persistent physics parameter is available for privileged "
+            f"supervision; startup events={list(startup_names)}, ignored={ignored}"
+        )
+    values = torch.cat(blocks, dim=-1).contiguous().clone()
+    if len(set(names)) != len(names):
+        raise RuntimeError("Privileged dynamics target names must be unique")
+    return PrivilegedDynamicsTargets(tuple(names), values, tuple(sorted(ignored)))
 
 
 def _keep_startup_events(env_cfg: Any) -> tuple[list[str], list[str]]:
@@ -438,6 +674,10 @@ class FixedDRTrackerRollout:
             self._fixed_dr_model_fields = _capture_randomized_model_fields(self.env)
             if not self._fixed_dr_model_fields:
                 raise RuntimeError("Startup DR did not expose any randomized physics fields")
+            privileged = _capture_privileged_dynamics_targets(self.env)
+            self.privileged_dynamics_names = privileged.names
+            self.privileged_dynamics = privileged.values
+            self.ignored_privileged_startup_events = privileged.ignored_startup_events
             self.dr_invariance_checks = 0
             self.wrapped = self._runtime.wrapped
             self.policy = self._runtime.policy
@@ -498,6 +738,11 @@ class FixedDRTrackerRollout:
             "removed_non_startup_events": self.removed_non_startup_events,
             "disabled_startup_reset_callbacks": self.disabled_startup_reset_callbacks,
             "fixed_dr_model_fields": sorted(self._fixed_dr_model_fields),
+            "privileged_dynamics_dim": len(self.privileged_dynamics_names),
+            "privileged_dynamics_names": list(self.privileged_dynamics_names),
+            "ignored_privileged_startup_events": list(
+                self.ignored_privileged_startup_events
+            ),
             "nominal_fraction": self.config.nominal_fraction,
             "nominal_world_count_per_rank": self.nominal_count,
             "dr_world_count_per_rank": self.num_envs - self.nominal_count,
@@ -644,6 +889,8 @@ class FixedDRTrackerRollout:
         batch = {
             "reset_boundary": reset_boundary,
             "world_id": self.world_ids,
+            "dynamics_id": self.world_ids,
+            "privileged_dynamics": self.privileged_dynamics,
             "episode_id": self.episode_ids.clone(),
             "episode_step": self.episode_steps.clone(),
             "motion_id": before["motion_id"],
