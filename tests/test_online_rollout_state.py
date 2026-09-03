@@ -37,15 +37,25 @@ def test_initial_episode_phases_are_reproducibly_desynchronized() -> None:
     assert 0 <= summary["minimum"] <= summary["maximum"] < 500
 
 
-def test_online_rollout_resets_only_completed_slots(monkeypatch) -> None:
+def test_online_rollout_treats_resampling_and_reset_as_boundaries(monkeypatch) -> None:
     terminated = torch.tensor([False, True, False])
     truncated = torch.zeros(3, dtype=torch.bool)
+    motion_resample_boundary = torch.tensor([False, False, True])
+    motion_command = SimpleNamespace(motion_resample_boundary=motion_resample_boundary)
 
     class FakeEnv:
         device = "cpu"
 
         def __init__(self) -> None:
             self.sim = SimpleNamespace(model=SimpleNamespace(body_mass=torch.ones(3, 1)))
+            self.command_manager = SimpleNamespace(get_term=lambda _name: motion_command)
+            simulator_target = torch.zeros(3, 29)
+            simulator_target[1:] = 1.6676
+            self.scene = {
+                "robot": SimpleNamespace(
+                    data=SimpleNamespace(joint_pos_target=simulator_target)
+                )
+            }
 
         def step(self, action: torch.Tensor):
             assert action.shape == (3, 29)
@@ -66,9 +76,13 @@ def test_online_rollout_resets_only_completed_slots(monkeypatch) -> None:
     rollout.config = SimpleNamespace(num_envs=3)
     rollout.closed = False
     rollout.env = FakeEnv()
+    rollout.motion_command = motion_command
     rollout.observations = "before"
     rollout.policy = lambda _observations: torch.zeros(3, 29)
     rollout._clip_actions = None
+    rollout.predictor_action_transform = lambda action: torch.zeros_like(action)
+    rollout.predictor_action_target_verified = False
+    rollout.predictor_action_target_max_abs_error = None
     rollout._fixed_dr_model_fields = {"body_mass": torch.ones(3, 1)}
     rollout.dr_invariance_checks = 0
     rollout.world_ids = torch.arange(3)
@@ -84,18 +98,20 @@ def test_online_rollout_resets_only_completed_slots(monkeypatch) -> None:
 
     batch = rollout.step()
 
-    assert batch["reset_boundary"].tolist() == [False, True, False]
+    assert batch["reset_boundary"].tolist() == [False, True, True]
     assert batch["episode_id"].tolist() == [0, 0, 0]
     assert batch["episode_step"].tolist() == [4, 4, 4]
     assert batch["is_nominal"].tolist() == [True, False, False]
-    assert rollout.episode_ids.tolist() == [0, 1, 0]
-    assert rollout.episode_steps.tolist() == [5, 0, 5]
+    assert rollout.episode_ids.tolist() == [0, 1, 1]
+    assert rollout.episode_steps.tolist() == [5, 0, 0]
     assert rollout.observations == "after"
     assert rollout.reset_events == 1
     assert rollout.environments_reset == 1
     assert rollout.synchronous_resets == 0
     assert rollout.dr_invariance_checks == 1
     assert rollout.motions_seen_count == 3
+    assert rollout.predictor_action_target_verified
+    assert rollout.predictor_action_target_max_abs_error == 0.0
 
 
 def test_online_rollout_adds_residual_after_frozen_tracker(monkeypatch) -> None:

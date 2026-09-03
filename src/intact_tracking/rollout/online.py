@@ -276,16 +276,16 @@ def _randomize_initial_episode_phases(env: Any, seed: int) -> dict[str, int]:
 def _verify_predictor_action_target(
     expected_target: torch.Tensor,
     simulator_target: torch.Tensor | None,
-    reset_boundary: torch.Tensor,
+    transition_boundary: torch.Tensor,
     *,
     tolerance: float = 1.0e-6,
 ) -> float | None:
-    """Verify targets only for slots whose simulator state was not auto-reset.
+    """Verify targets only for slots without an in-step discontinuity.
 
-    MJLab clears actuator targets during an in-step auto-reset.  Comparing those
-    cleared values with the target that was applied before the reset would report
-    a false action-chain mismatch.  Returning ``None`` defers the one-time check
-    when every slot happened to reset on the current step.
+    MJLab clears or rewrites actuator targets during an in-step auto-reset or
+    motion resample. Comparing those values with the target applied before the
+    discontinuity would report a false action-chain mismatch. Returning ``None``
+    defers the one-time check when every slot crossed a boundary on this step.
     """
 
     if not isinstance(simulator_target, torch.Tensor) or simulator_target.shape != (
@@ -295,22 +295,59 @@ def _verify_predictor_action_target(
             "Simulator does not expose the physical joint target needed to verify the "
             "Forward Predictor action chain"
         )
-    if reset_boundary.dtype != torch.bool or reset_boundary.shape != expected_target.shape[:1]:
+    if (
+        transition_boundary.dtype != torch.bool
+        or transition_boundary.shape != expected_target.shape[:1]
+    ):
         raise RuntimeError(
-            "Forward Predictor action-target verification requires one boolean reset flag "
-            f"per environment, got {tuple(reset_boundary.shape)}"
+            "Forward Predictor action-target verification requires one boolean boundary "
+            f"flag per environment, got {tuple(transition_boundary.shape)}"
         )
-    valid = ~reset_boundary
+    valid = ~transition_boundary
     if not bool(valid.any()):
         return None
     maximum_error = (simulator_target[valid] - expected_target[valid]).abs().max()
     if not torch.isfinite(maximum_error) or bool(maximum_error > tolerance):
         raise RuntimeError(
             "External Forward Predictor action transform does not match the simulator "
-            "joint target on non-reset environments; "
+            "joint target on non-boundary environments; "
             f"max_abs_error={float(maximum_error):.6g}"
         )
     return float(maximum_error)
+
+
+def _read_motion_resample_boundary(
+    motion_command: Any,
+    environment_boundary: torch.Tensor,
+) -> torch.Tensor:
+    """Snapshot the command's mid-episode motion-resample pulse.
+
+    A motion can end and be replaced inside ``env.step`` without terminating or
+    truncating the environment.  The command then teleports the robot/reference
+    state and rewrites actuator targets, so that transition is just as much a
+    causal boundary as an environment reset.
+    """
+
+    boundary = getattr(motion_command, "motion_resample_boundary", None)
+    if boundary is None:
+        return torch.zeros_like(environment_boundary)
+    if (
+        not isinstance(boundary, torch.Tensor)
+        or boundary.dtype != torch.bool
+        or boundary.shape != environment_boundary.shape
+        or boundary.device != environment_boundary.device
+    ):
+        shape = tuple(boundary.shape) if isinstance(boundary, torch.Tensor) else None
+        dtype = boundary.dtype if isinstance(boundary, torch.Tensor) else None
+        device = boundary.device if isinstance(boundary, torch.Tensor) else None
+        raise RuntimeError(
+            "Motion command must expose one boolean motion_resample_boundary flag "
+            "per environment on the rollout device; "
+            f"shape={shape}, dtype={dtype}, device={device}"
+        )
+    # The command clears this pulse at the beginning of its next update.  Keep a
+    # stable copy for replay and episode bookkeeping performed after env.step.
+    return boundary.detach().clone()
 
 
 class FixedDRTrackerRollout:
@@ -361,6 +398,7 @@ class FixedDRTrackerRollout:
         try:
             self.env = self._runtime.env
             motion_command = self.env.command_manager.get_term("motion")
+            self.motion_command = motion_command
             motion_files = getattr(motion_command, "motion_files", None)
             if motion_files is None:
                 motion_store = getattr(motion_command, "motion_store", None)
@@ -562,6 +600,11 @@ class FixedDRTrackerRollout:
 
         raw_next, reward, terminated, truncated, _ = self.env.step(action)
         done = terminated | truncated
+        motion_resample_boundary = _read_motion_resample_boundary(
+            getattr(self, "motion_command", None),
+            done,
+        )
+        reset_boundary = done | motion_resample_boundary
         if joint_target is not None and not getattr(
             self, "predictor_action_target_verified", False
         ):
@@ -569,14 +612,13 @@ class FixedDRTrackerRollout:
             maximum_error = _verify_predictor_action_target(
                 joint_target,
                 simulator_target,
-                done,
+                reset_boundary,
             )
             if maximum_error is not None:
                 self.predictor_action_target_max_abs_error = maximum_error
                 self.predictor_action_target_verified = True
         next_observations = _policy_observations(raw_next, self.num_envs)
         after = _snapshot(self.env, next_observations)
-        reset_boundary = done.clone()
         collector_steps = torch.full_like(self.episode_ids, self.collector_step)
         batch = {
             "proprio": before["proprio"],
@@ -633,16 +675,22 @@ class FixedDRTrackerRollout:
         self.episode_steps += 1
         done_ids = done.nonzero(as_tuple=False).flatten()
         done_count = int(done_ids.numel())
+        boundary_ids = reset_boundary.nonzero(as_tuple=False).flatten()
+        boundary_count = int(boundary_ids.numel())
         if done_count:
             # MJLab has already reset precisely these slots and returned their
-            # post-reset observations. Boundary transitions are excluded from
-            # causal replay samples, while unaffected slots remain continuous.
+            # post-reset observations. Startup DR must remain fixed across the
+            # environment reset.
             self._assert_fixed_dr(done_ids)
-            self._record_motion_ids(after["motion_id"][done_ids])
-            self.episode_ids[done_ids] += 1
-            self.episode_steps[done_ids] = 0
             self.reset_events += 1
             self.environments_reset += done_count
+        if boundary_count:
+            # Both environment resets and in-step motion resampling teleport the
+            # state. Exclude that transition from replay and start a fresh causal
+            # episode at the already-returned post-boundary state.
+            self._record_motion_ids(after["motion_id"][boundary_ids])
+            self.episode_ids[boundary_ids] += 1
+            self.episode_steps[boundary_ids] = 0
         self.observations = next_observations
         return batch
 

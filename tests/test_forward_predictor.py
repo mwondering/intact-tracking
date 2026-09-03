@@ -220,7 +220,7 @@ def test_policy_action_is_converted_to_physical_pd_target_outside_model() -> Non
         JointPositionTargetTransform.from_mjlab(env, term)
 
 
-def test_action_target_verification_ignores_auto_reset_slots() -> None:
+def test_action_target_verification_ignores_discontinuous_slots() -> None:
     expected = torch.tensor(
         (
             (0.1, -0.2, 0.3),
@@ -246,7 +246,7 @@ def test_action_target_verification_ignores_auto_reset_slots() -> None:
         is None
     )
     simulator[0, 0] += 0.1
-    with pytest.raises(RuntimeError, match="non-reset environments"):
+    with pytest.raises(RuntimeError, match="non-boundary environments"):
         _verify_predictor_action_target(
             expected,
             simulator,
