@@ -15,6 +15,19 @@ from intact_tracking.rollout.online import (
 )
 
 
+class _TensorProxy:
+    """Minimal non-Tensor proxy matching MJLab's TorchArray interface."""
+
+    def __init__(self, tensor: torch.Tensor) -> None:
+        self.tensor = tensor
+
+    def clone(self) -> torch.Tensor:
+        return self.tensor.clone()
+
+    def __setitem__(self, index, value: torch.Tensor) -> None:
+        self.tensor[index] = value
+
+
 def test_online_rollout_removes_every_non_startup_event() -> None:
     startup = SimpleNamespace(mode="startup")
     config = SimpleNamespace(
@@ -278,3 +291,32 @@ def test_online_rollout_tiles_fixed_dynamics_prototypes_without_resampling() -> 
         "gravity_tiled": True,
         "max_abs_replication_error": 0.0,
     }
+
+
+def test_online_rollout_tiles_mjlab_tensor_proxy_without_changing_samples() -> None:
+    sampled_mass = torch.arange(8, dtype=torch.float32)[:, None]
+    body_mass = _TensorProxy(sampled_mass.clone())
+    calls = {"clear_cache": 0, "forward": 0}
+    env = SimpleNamespace(
+        num_envs=8,
+        device="cpu",
+        event_manager=SimpleNamespace(
+            domain_randomization_fields=("body_mass",),
+            active_terms={"startup": []},
+        ),
+        sim=SimpleNamespace(
+            model=SimpleNamespace(
+                body_mass=body_mass,
+                clear_cache=lambda: calls.__setitem__("clear_cache", calls["clear_cache"] + 1),
+            ),
+            forward=lambda: calls.__setitem__("forward", calls["forward"] + 1),
+        ),
+    )
+
+    metrics = _tile_fixed_dynamics_prototypes(env, dynamics_classes=4)
+
+    torch.testing.assert_close(body_mass.tensor, sampled_mass[:4].repeat(2, 1))
+    assert calls == {"clear_cache": 1, "forward": 1}
+    assert metrics["tiled_model_fields"] == ["body_mass"]
+    assert metrics["gravity_tiled"] is False
+    assert metrics["max_abs_replication_error"] == 0.0

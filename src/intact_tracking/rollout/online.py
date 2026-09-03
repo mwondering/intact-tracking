@@ -525,29 +525,43 @@ def _randomize_initial_episode_phases(
 
 
 def _tile_fixed_dynamics_prototypes(env: Any, dynamics_classes: int) -> dict[str, Any]:
-    """Repeat the first K startup-DR worlds over all local motion groups."""
+    """Repeat the first K checkpoint-DR worlds over all local motion groups.
+
+    MJLab exposes Warp model arrays through ``TorchArray`` proxies rather than
+    ``torch.Tensor`` instances. Their ``clone`` and slice-assignment operations
+    use the zero-copy torch view, so rely on that tensor-like interface
+    without changing or resampling the checkpoint's startup DR configuration.
+    """
 
     if dynamics_classes < 1 or env.num_envs % dynamics_classes:
         raise ValueError("dynamics_classes must be positive and divide env.num_envs")
+    device = torch.device(env.device)
+    if device.type == "cuda":
+        # Startup DR writes model values on MJLab's Warp stream. Finish those
+        # one-time writes before taking the K checkpoint-distribution samples.
+        torch.cuda.synchronize(device)
     source_ids = torch.arange(env.num_envs, device=env.device) % dynamics_classes
     tiled_fields: list[str] = []
-    maximum_error = torch.zeros((), device=env.device)
+    tiled_model_values: list[tuple[str, Any, torch.Tensor]] = []
     for raw_name in env.event_manager.domain_randomization_fields:
         name = str(raw_name)
         value = getattr(env.sim.model, name, None)
-        if not isinstance(value, torch.Tensor) or value.ndim < 1:
+        clone = getattr(value, "clone", None)
+        if not callable(clone):
             continue
-        if value.shape[0] != env.num_envs:
+        expanded = clone()
+        if not isinstance(expanded, torch.Tensor) or expanded.ndim < 1:
             continue
-        prototypes = value[:dynamics_classes].clone()
-        value.copy_(prototypes.index_select(0, source_ids))
-        maximum_error = torch.maximum(
-            maximum_error,
-            (value - prototypes.index_select(0, source_ids)).abs().max(),
-        )
+        if expanded.shape[0] != env.num_envs:
+            continue
+        prototypes = expanded[:dynamics_classes].clone()
+        tiled = prototypes.index_select(0, source_ids)
+        tiled_model_values.append((name, value, tiled))
         tiled_fields.append(name)
 
     gravity_tiled = False
+    tiled_gravity_values: list[tuple[torch.Tensor, torch.Tensor]] = []
+    tiled_model_gravity_values: list[tuple[Any, torch.Tensor]] = []
     for event_name in env.event_manager.active_terms.get("startup", ()):
         cfg = env.event_manager.get_term_cfg(event_name)
         func = cfg.func
@@ -559,10 +573,29 @@ def _tile_fixed_dynamics_prototypes(env: Any, dynamics_classes: int) -> dict[str
             prototypes = gravity[:dynamics_classes].clone()
             tiled = prototypes.index_select(0, source_ids)
             gravity.copy_(tiled)
-            if isinstance(model_gravity, torch.Tensor) and model_gravity.shape == gravity.shape:
-                model_gravity.copy_(tiled)
-            maximum_error = torch.maximum(maximum_error, (gravity - tiled).abs().max())
+            tiled_gravity_values.append((gravity, tiled))
+            model_gravity_clone = getattr(model_gravity, "clone", None)
+            if callable(model_gravity_clone):
+                model_gravity_tensor = model_gravity_clone()
+                if (
+                    isinstance(model_gravity_tensor, torch.Tensor)
+                    and model_gravity_tensor.shape == gravity.shape
+                ):
+                    tiled_model_gravity_values.append((model_gravity, tiled))
             gravity_tiled = True
+
+    if not tiled_fields and not gravity_tiled:
+        raise RuntimeError("No per-world startup dynamics field could be tiled")
+    if device.type == "cuda":
+        # All source tensors above were prepared on the current torch stream;
+        # make them visible before TorchArray schedules writes on Warp's stream.
+        torch.cuda.current_stream(device).synchronize()
+    for _name, value, expected in tiled_model_values:
+        # Slice assignment intentionally goes through TorchArray.__setitem__,
+        # which schedules the write on MJLab's Warp stream.
+        value[:] = expected
+    for model_gravity, expected in tiled_model_gravity_values:
+        model_gravity[:] = expected
 
     clear_cache = getattr(env.sim.model, "clear_cache", None)
     if callable(clear_cache):
@@ -570,8 +603,19 @@ def _tile_fixed_dynamics_prototypes(env: Any, dynamics_classes: int) -> dict[str
     forward = getattr(env.sim, "forward", None)
     if callable(forward):
         forward()
-    if not tiled_fields and not gravity_tiled:
-        raise RuntimeError("No per-world startup dynamics field could be tiled")
+
+    # This runs once during construction. Synchronize before auditing values
+    # written through TorchArray's external Warp stream.
+    if device.type == "cuda":
+        torch.cuda.synchronize(device)
+    maximum_error = torch.zeros((), device=env.device)
+    for name, value, expected in tiled_model_values:
+        replicated = value.clone()
+        if not isinstance(replicated, torch.Tensor):
+            raise RuntimeError(f"DR model field {name!r} did not clone to a Tensor")
+        maximum_error = torch.maximum(maximum_error, (replicated - expected).abs().max())
+    for gravity, expected in tiled_gravity_values:
+        maximum_error = torch.maximum(maximum_error, (gravity - expected).abs().max())
     return {
         "dynamics_classes": dynamics_classes,
         "motion_groups_per_rank": env.num_envs // dynamics_classes,
