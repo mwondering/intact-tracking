@@ -10,6 +10,7 @@ from typing import Any
 import torch
 
 from intact_tracking.environment.runtime import create_runtime, prepare_rollout
+from intact_tracking.forward_predictor_inputs import JointPositionTargetTransform
 
 from .mjlab_adapter import (
     _clear_missing_motion_exclusions,
@@ -227,9 +228,7 @@ def _restore_nominal_physics(env: Any, env_ids: torch.Tensor) -> dict[str, float
         expanded = getattr(env.sim.model, name).clone()
         restored = expanded[env_ids]
         if default.numel():
-            maximum_error = torch.maximum(
-                maximum_error, (restored - default).abs().max()
-            )
+            maximum_error = torch.maximum(maximum_error, (restored - default).abs().max())
             if dr_ids.numel():
                 dr_maximum_difference = torch.maximum(
                     dr_maximum_difference, (expanded[dr_ids] - default).abs().max()
@@ -336,15 +335,27 @@ class FixedDRTrackerRollout:
             self.nominal_env_ids = torch.arange(
                 self.nominal_count, device=self.env.device, dtype=torch.long
             )
-            self.is_nominal = torch.zeros(
-                config.num_envs, device=self.env.device, dtype=torch.bool
-            )
+            self.is_nominal = torch.zeros(config.num_envs, device=self.env.device, dtype=torch.bool)
             self.is_nominal[self.nominal_env_ids] = True
             self.nominal_restore_metrics: dict[str, float] | None = None
             if self.nominal_count:
                 self.nominal_restore_metrics = _restore_nominal_physics(
                     self.env, self.nominal_env_ids
                 )
+            action_term = self.env.action_manager.get_term("joint_pos")
+            self.predictor_action_transform: JointPositionTargetTransform | None = None
+            self.predictor_action_transform_error: str | None = None
+            try:
+                self.predictor_action_transform = JointPositionTargetTransform.from_mjlab(
+                    self.env, action_term
+                )
+            except ValueError as error:
+                # Other training entry points still use this rollout class with
+                # stateful SP action terms.  Only the dedicated Forward
+                # Predictor requires the external memoryless transform.
+                self.predictor_action_transform_error = str(error)
+            self.predictor_action_target_verified = False
+            self.predictor_action_target_max_abs_error: float | None = None
             self._fixed_dr_model_fields = _capture_randomized_model_fields(self.env)
             if not self._fixed_dr_model_fields:
                 raise RuntimeError("Startup DR did not expose any randomized physics fields")
@@ -413,6 +424,11 @@ class FixedDRTrackerRollout:
             "dr_world_count_per_rank": self.num_envs - self.nominal_count,
             "nominal_world_local_ids": list(range(self.nominal_count)),
             "nominal_restore_metrics": self.nominal_restore_metrics,
+            "predictor_action_transform": (
+                self.predictor_action_transform.contract
+                if self.predictor_action_transform is not None
+                else {"available": False, "error": self.predictor_action_transform_error}
+            ),
             "cleared_missing_motion_exclusions": self.cleared_motion_exclusions,
             "domain_randomization_contract": (
                 "selected slots restored to compiled nominal physics; remaining startup DR "
@@ -480,9 +496,7 @@ class FixedDRTrackerRollout:
         actor = getattr(getattr(self, "_runtime", None), "actor", None)
         with torch.inference_mode():
             policy_observation = (
-                actor.get_latent(self.observations)
-                if actor is not None
-                else before["observation"]
+                actor.get_latent(self.observations) if actor is not None else before["observation"]
             )
             tracker_action = self.policy(self.observations)
         if not isinstance(tracker_action, torch.Tensor):
@@ -503,8 +517,30 @@ class FixedDRTrackerRollout:
         action = tracker_action + residual_action
         if self._clip_actions is not None:
             action = action.clamp(-float(self._clip_actions), float(self._clip_actions))
+        action_transform = getattr(self, "predictor_action_transform", None)
+        joint_target = action_transform(action) if action_transform is not None else None
 
         raw_next, reward, terminated, truncated, _ = self.env.step(action)
+        if joint_target is not None and not getattr(
+            self, "predictor_action_target_verified", False
+        ):
+            simulator_target = getattr(self.env.scene["robot"].data, "joint_pos_target", None)
+            if (
+                not isinstance(simulator_target, torch.Tensor)
+                or simulator_target.shape != joint_target.shape
+            ):
+                raise RuntimeError(
+                    "Simulator does not expose the physical joint target needed to verify the "
+                    "Forward Predictor action chain"
+                )
+            maximum_error = (simulator_target - joint_target).abs().max()
+            if not torch.isfinite(maximum_error) or bool(maximum_error > 1.0e-6):
+                raise RuntimeError(
+                    "External Forward Predictor action transform does not match the simulator "
+                    f"joint target; max_abs_error={float(maximum_error):.6g}"
+                )
+            self.predictor_action_target_max_abs_error = float(maximum_error)
+            self.predictor_action_target_verified = True
         next_observations = _policy_observations(raw_next, self.num_envs)
         after = _snapshot(self.env, next_observations)
         done = terminated | truncated
@@ -534,6 +570,8 @@ class FixedDRTrackerRollout:
             "motion_id": before["motion_id"],
             "motion_step": before["motion_step"],
         }
+        if joint_target is not None:
+            batch["joint_target"] = joint_target
         raw_state_fields = (
             "robot_state",
             "reference_state",
@@ -546,6 +584,16 @@ class FixedDRTrackerRollout:
                     "reference_state": before["reference_state"],
                     "next_reference_state": after["reference_state"],
                     "tracking_error": _tracking_error_snapshot(self.env, after),
+                }
+            )
+        contact_fields = ("contact_force", "contact_binary")
+        if all(name in before and name in after for name in contact_fields):
+            batch.update(
+                {
+                    "contact_force": before["contact_force"],
+                    "next_contact_force": after["contact_force"],
+                    "contact_binary": before["contact_binary"],
+                    "next_contact_binary": after["contact_binary"],
                 }
             )
 

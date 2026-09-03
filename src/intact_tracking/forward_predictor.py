@@ -7,6 +7,15 @@ from dataclasses import asdict, dataclass
 import torch
 from torch import nn
 
+from .forward_predictor_inputs import (
+    ACTION_DIM,
+    CONTACT_BINARY_DIM,
+    CONTACT_FORCE_DIM,
+    FOOT_FEATURE_DIM,
+    ROBOT_STATE_DIM,
+    G1FootKinematics,
+)
+
 ROOT_POSITION = slice(0, 3)
 ROOT_ORIENTATION = slice(3, 7)
 ROOT_LINEAR_VELOCITY = slice(7, 10)
@@ -130,10 +139,13 @@ def apply_physical_state_delta(state: torch.Tensor, delta: torch.Tensor) -> torc
 class ForwardPredictorConfig:
     """Capacity and shape contract for the causal one-step transition model."""
 
-    architecture_version: str = "nominal_recursive_causal_transformer_v3"
-    state_dim: int = 71
-    action_dim: int = 29
+    architecture_version: str = "privileged_contact_causal_transformer_v4"
+    state_dim: int = ROBOT_STATE_DIM
+    action_dim: int = ACTION_DIM
     delta_dim: int = 70
+    foot_feature_dim: int = FOOT_FEATURE_DIM
+    contact_force_dim: int = CONTACT_FORCE_DIM
+    contact_binary_dim: int = CONTACT_BINARY_DIM
     horizon: int = 5
     history_steps: int = 10
     transformer_dim: int = 512
@@ -150,8 +162,19 @@ class ForwardPredictorConfig:
         invalid = {name: value for name, value in positive.items() if value < 1}
         if invalid:
             raise ValueError(f"Forward Predictor dimensions must be positive: {invalid}")
-        if self.state_dim != 71 or self.action_dim != 29 or self.delta_dim != 70:
-            raise ValueError("Forward Predictor is fixed to 71-D state, 29-D action, 70-D delta")
+        fixed_dimensions = (
+            self.state_dim == ROBOT_STATE_DIM
+            and self.action_dim == ACTION_DIM
+            and self.delta_dim == 70
+            and self.foot_feature_dim == FOOT_FEATURE_DIM
+            and self.contact_force_dim == CONTACT_FORCE_DIM
+            and self.contact_binary_dim == CONTACT_BINARY_DIM
+        )
+        if not fixed_dimensions:
+            raise ValueError(
+                "Forward Predictor is fixed to 71-D robot state, 8-D derived foot features, "
+                "6-D contact force, 2-D contact state, 29-D applied target and 70-D robot delta"
+            )
         if self.horizon != 5:
             raise ValueError("Forward Predictor rollout is fixed to five steps")
         if self.history_steps != 10:
@@ -167,20 +190,28 @@ class ForwardPredictorConfig:
 
         return self.history_steps + 1
 
+    @property
+    def token_state_dim(self) -> int:
+        return (
+            self.state_dim
+            + self.foot_feature_dim
+            + self.contact_force_dim
+            + self.contact_binary_dim
+        )
+
 
 class ForwardDynamicsTransformer(nn.Module):
-    """Causal Transformer over ten historical and one current state-action token."""
+    """Causal Transformer over privileged state and physical PD-target tokens."""
 
     def __init__(self, config: ForwardPredictorConfig | None = None) -> None:
         super().__init__()
         self.config = config or ForwardPredictorConfig()
         width = self.config.transformer_dim
-        self.state_projection = nn.Linear(self.config.state_dim, width)
+        self.foot_kinematics = G1FootKinematics()
+        self.state_projection = nn.Linear(self.config.token_state_dim, width)
         self.action_projection = nn.Linear(self.config.action_dim, width)
         self.validity_embedding = nn.Embedding(2, width)
-        self.position = nn.Parameter(
-            torch.empty(1, self.config.sequence_length, width)
-        )
+        self.position = nn.Parameter(torch.empty(1, self.config.sequence_length, width))
         nn.init.trunc_normal_(self.position, std=0.02)
         layer = nn.TransformerEncoderLayer(
             d_model=width,
@@ -198,6 +229,8 @@ class ForwardDynamicsTransformer(nn.Module):
         )
         self.output_norm = nn.LayerNorm(width)
         self.delta_head = nn.Linear(width, self.config.delta_dim)
+        self.contact_force_head = nn.Linear(width, self.config.contact_force_dim)
+        self.contact_binary_head = nn.Linear(width, self.config.contact_binary_dim)
         self.register_buffer(
             "causal_mask",
             torch.triu(
@@ -215,10 +248,18 @@ class ForwardDynamicsTransformer(nn.Module):
         self,
         normalized_state: torch.Tensor,
         normalized_action: torch.Tensor,
+        normalized_contact_force: torch.Tensor,
+        contact_binary: torch.Tensor,
         history_state: torch.Tensor,
         history_action: torch.Tensor,
+        history_contact_force: torch.Tensor,
+        history_contact_binary: torch.Tensor,
         history_valid: torch.Tensor,
-    ) -> torch.Tensor:
+        state_mean: torch.Tensor,
+        state_std: torch.Tensor,
+        foot_mean: torch.Tensor,
+        foot_std: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         if tuple(normalized_state.shape) != (normalized_state.size(0), self.config.state_dim):
             raise ValueError(
                 f"State must be [batch,{self.config.state_dim}], got {tuple(normalized_state.shape)}"
@@ -232,11 +273,23 @@ class ForwardDynamicsTransformer(nn.Module):
         expected_history = {
             "state": (batch_size, self.config.history_steps, self.config.state_dim),
             "action": (batch_size, self.config.history_steps, self.config.action_dim),
+            "contact_force": (
+                batch_size,
+                self.config.history_steps,
+                self.config.contact_force_dim,
+            ),
+            "contact_binary": (
+                batch_size,
+                self.config.history_steps,
+                self.config.contact_binary_dim,
+            ),
             "valid": (batch_size, self.config.history_steps),
         }
         actual_history = {
             "state": tuple(history_state.shape),
             "action": tuple(history_action.shape),
+            "contact_force": tuple(history_contact_force.shape),
+            "contact_binary": tuple(history_contact_binary.shape),
             "valid": tuple(history_valid.shape),
         }
         invalid = {
@@ -246,33 +299,108 @@ class ForwardDynamicsTransformer(nn.Module):
         }
         if invalid:
             raise ValueError(f"Invalid Forward Predictor history shapes: {invalid}")
-        valid = history_valid.to(device=history_state.device, dtype=torch.bool)
-        valid_scale = valid.unsqueeze(-1).to(dtype=torch.float32)
-        history_tokens = (
-            self.state_projection(history_state.float() * valid_scale)
-            + self.action_projection(history_action.float() * valid_scale)
+        expected_current = {
+            "contact_force": (batch_size, self.config.contact_force_dim),
+            "contact_binary": (batch_size, self.config.contact_binary_dim),
+            "state_mean": (self.config.state_dim,),
+            "state_std": (self.config.state_dim,),
+            "foot_mean": (self.config.foot_feature_dim,),
+            "foot_std": (self.config.foot_feature_dim,),
+        }
+        actual_current = {
+            "contact_force": tuple(normalized_contact_force.shape),
+            "contact_binary": tuple(contact_binary.shape),
+            "state_mean": tuple(state_mean.shape),
+            "state_std": tuple(state_std.shape),
+            "foot_mean": tuple(foot_mean.shape),
+            "foot_std": tuple(foot_std.shape),
+        }
+        invalid_current = {
+            name: (actual_current[name], shape)
+            for name, shape in expected_current.items()
+            if actual_current[name] != shape
+        }
+        if invalid_current:
+            raise ValueError(f"Invalid Forward Predictor current/stat shapes: {invalid_current}")
+
+        history_features = self._state_features(
+            history_state,
+            history_contact_force,
+            history_contact_binary,
+            state_mean,
+            state_std,
+            foot_mean,
+            foot_std,
         )
+        current_features = self._state_features(
+            normalized_state,
+            normalized_contact_force,
+            contact_binary,
+            state_mean,
+            state_std,
+            foot_mean,
+            foot_std,
+        )
+        valid = history_valid.to(device=history_state.device, dtype=torch.bool)
+        valid_scale = valid.unsqueeze(-1).to(dtype=history_features.dtype)
+        history_tokens = self.state_projection(
+            history_features * valid_scale
+        ) + self.action_projection(history_action.float() * valid_scale)
         history_tokens = history_tokens * valid_scale + self.validity_embedding(valid.long())
         current_token = (
-            self.state_projection(normalized_state.float())
+            self.state_projection(current_features)
             + self.action_projection(normalized_action.float())
             + self.validity_embedding.weight[1]
         ).unsqueeze(1)
         tokens = torch.cat((history_tokens, current_token), dim=1) + self.position
         encoded = self.transformer(tokens, mask=self.causal_mask)
-        return self.delta_head(self.output_norm(encoded[:, -1]))
+        output = self.output_norm(encoded[:, -1])
+        return (
+            self.delta_head(output),
+            self.contact_force_head(output),
+            self.contact_binary_head(output),
+        )
+
+    def _state_features(
+        self,
+        normalized_state: torch.Tensor,
+        normalized_contact_force: torch.Tensor,
+        contact_binary: torch.Tensor,
+        state_mean: torch.Tensor,
+        state_std: torch.Tensor,
+        foot_mean: torch.Tensor,
+        foot_std: torch.Tensor,
+    ) -> torch.Tensor:
+        physical_state = normalized_state.float() * state_std + state_mean
+        foot = self.foot_kinematics(physical_state)
+        normalized_foot = (foot - foot_mean) / foot_std
+        return torch.cat(
+            (
+                normalized_state.float(),
+                normalized_foot,
+                normalized_contact_force.float(),
+                contact_binary.float(),
+            ),
+            dim=-1,
+        )
 
     @staticmethod
     def _roll_history(
         history_state: torch.Tensor,
         history_action: torch.Tensor,
+        history_contact_force: torch.Tensor,
+        history_contact_binary: torch.Tensor,
         history_valid: torch.Tensor,
         state: torch.Tensor,
         action: torch.Tensor,
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        contact_force: torch.Tensor,
+        contact_binary: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         return (
             torch.cat((history_state[:, 1:], state[:, None]), dim=1),
             torch.cat((history_action[:, 1:], action[:, None]), dim=1),
+            torch.cat((history_contact_force[:, 1:], contact_force[:, None]), dim=1),
+            torch.cat((history_contact_binary[:, 1:], contact_binary[:, None]), dim=1),
             torch.cat(
                 (
                     history_valid[:, 1:],
@@ -300,11 +428,17 @@ class ForwardDynamicsTransformer(nn.Module):
         self,
         initial_normalized_state: torch.Tensor,
         normalized_actions: torch.Tensor,
+        initial_normalized_contact_force: torch.Tensor,
+        initial_contact_binary: torch.Tensor,
         history_state: torch.Tensor,
         history_action: torch.Tensor,
+        history_contact_force: torch.Tensor,
+        history_contact_binary: torch.Tensor,
         history_valid: torch.Tensor,
         state_mean: torch.Tensor,
         state_std: torch.Tensor,
+        foot_mean: torch.Tensor,
+        foot_std: torch.Tensor,
         delta_mean: torch.Tensor,
         delta_std: torch.Tensor,
     ) -> None:
@@ -312,6 +446,8 @@ class ForwardDynamicsTransformer(nn.Module):
         expected = {
             "initial_state": (batch_size, self.config.state_dim),
             "actions": (batch_size, self.config.horizon, self.config.action_dim),
+            "initial_contact_force": (batch_size, self.config.contact_force_dim),
+            "initial_contact_binary": (batch_size, self.config.contact_binary_dim),
             "history_state": (
                 batch_size,
                 self.config.history_steps,
@@ -322,20 +458,38 @@ class ForwardDynamicsTransformer(nn.Module):
                 self.config.history_steps,
                 self.config.action_dim,
             ),
+            "history_contact_force": (
+                batch_size,
+                self.config.history_steps,
+                self.config.contact_force_dim,
+            ),
+            "history_contact_binary": (
+                batch_size,
+                self.config.history_steps,
+                self.config.contact_binary_dim,
+            ),
             "history_valid": (batch_size, self.config.history_steps),
             "state_mean": (self.config.state_dim,),
             "state_std": (self.config.state_dim,),
+            "foot_mean": (self.config.foot_feature_dim,),
+            "foot_std": (self.config.foot_feature_dim,),
             "delta_mean": (self.config.delta_dim,),
             "delta_std": (self.config.delta_dim,),
         }
         actual = {
             "initial_state": tuple(initial_normalized_state.shape),
             "actions": tuple(normalized_actions.shape),
+            "initial_contact_force": tuple(initial_normalized_contact_force.shape),
+            "initial_contact_binary": tuple(initial_contact_binary.shape),
             "history_state": tuple(history_state.shape),
             "history_action": tuple(history_action.shape),
+            "history_contact_force": tuple(history_contact_force.shape),
+            "history_contact_binary": tuple(history_contact_binary.shape),
             "history_valid": tuple(history_valid.shape),
             "state_mean": tuple(state_mean.shape),
             "state_std": tuple(state_std.shape),
+            "foot_mean": tuple(foot_mean.shape),
+            "foot_std": tuple(foot_std.shape),
             "delta_mean": tuple(delta_mean.shape),
             "delta_std": tuple(delta_std.shape),
         }
@@ -349,42 +503,70 @@ class ForwardDynamicsTransformer(nn.Module):
         self,
         initial_normalized_state: torch.Tensor,
         normalized_actions: torch.Tensor,
+        initial_normalized_contact_force: torch.Tensor,
+        initial_contact_binary: torch.Tensor,
         history_state: torch.Tensor,
         history_action: torch.Tensor,
+        history_contact_force: torch.Tensor,
+        history_contact_binary: torch.Tensor,
         history_valid: torch.Tensor,
         state_mean: torch.Tensor,
         state_std: torch.Tensor,
+        foot_mean: torch.Tensor,
+        foot_std: torch.Tensor,
         delta_mean: torch.Tensor,
         delta_std: torch.Tensor,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """Recursively predict five normalized states using the model's own prior outputs."""
 
         self._validate_rollout_inputs(
             initial_normalized_state,
             normalized_actions,
+            initial_normalized_contact_force,
+            initial_contact_binary,
             history_state,
             history_action,
+            history_contact_force,
+            history_contact_binary,
             history_valid,
             state_mean,
             state_std,
+            foot_mean,
+            foot_std,
             delta_mean,
             delta_std,
         )
 
         normalized_state = initial_normalized_state.float()
+        normalized_contact_force = initial_normalized_contact_force.float()
+        contact_binary = initial_contact_binary.float()
         predicted_states: list[torch.Tensor] = []
         predicted_deltas: list[torch.Tensor] = []
+        predicted_contact_forces: list[torch.Tensor] = []
+        predicted_contact_logits: list[torch.Tensor] = []
         for index in range(self.config.horizon):
             action = normalized_actions[:, index]
-            normalized_delta = self(
+            normalized_delta, next_contact_force, next_contact_logits = self(
                 normalized_state,
                 action,
+                normalized_contact_force,
+                contact_binary,
                 history_state,
                 history_action,
+                history_contact_force,
+                history_contact_binary,
                 history_valid,
+                state_mean,
+                state_std,
+                foot_mean,
+                foot_std,
             )
             predicted_deltas.append(normalized_delta)
+            predicted_contact_forces.append(next_contact_force)
+            predicted_contact_logits.append(next_contact_logits)
             previous_state = normalized_state
+            previous_contact_force = normalized_contact_force
+            previous_contact_binary = contact_binary
             normalized_state = self._apply_normalized_delta(
                 previous_state,
                 normalized_delta,
@@ -394,56 +576,120 @@ class ForwardDynamicsTransformer(nn.Module):
                 delta_std,
             )
             predicted_states.append(normalized_state)
-            history_state, history_action, history_valid = self._roll_history(
+            (
                 history_state,
                 history_action,
+                history_contact_force,
+                history_contact_binary,
+                history_valid,
+            ) = self._roll_history(
+                history_state,
+                history_action,
+                history_contact_force,
+                history_contact_binary,
                 history_valid,
                 previous_state,
                 action,
+                previous_contact_force,
+                previous_contact_binary,
             )
-        return torch.stack(predicted_states, dim=1), torch.stack(predicted_deltas, dim=1)
+            normalized_contact_force = next_contact_force
+            contact_binary = torch.sigmoid(next_contact_logits)
+        return (
+            torch.stack(predicted_states, dim=1),
+            torch.stack(predicted_deltas, dim=1),
+            torch.stack(predicted_contact_forces, dim=1),
+            torch.stack(predicted_contact_logits, dim=1),
+        )
 
     def teacher_forced(
         self,
         normalized_states: torch.Tensor,
         normalized_actions: torch.Tensor,
+        normalized_contact_forces: torch.Tensor,
+        contact_binaries: torch.Tensor,
         history_state: torch.Tensor,
         history_action: torch.Tensor,
+        history_contact_force: torch.Tensor,
+        history_contact_binary: torch.Tensor,
         history_valid: torch.Tensor,
         state_mean: torch.Tensor,
         state_std: torch.Tensor,
+        foot_mean: torch.Tensor,
+        foot_std: torch.Tensor,
         delta_mean: torch.Tensor,
         delta_std: torch.Tensor,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """Predict five independent one-step targets while advancing true history."""
 
         if tuple(normalized_states.shape[1:]) != (self.config.horizon + 1, self.config.state_dim):
             raise ValueError(
                 f"Teacher-forced states must be [batch,6,71], got {tuple(normalized_states.shape)}"
             )
+        expected_contacts = {
+            "contact_force": (
+                normalized_states.size(0),
+                self.config.horizon + 1,
+                self.config.contact_force_dim,
+            ),
+            "contact_binary": (
+                normalized_states.size(0),
+                self.config.horizon + 1,
+                self.config.contact_binary_dim,
+            ),
+        }
+        actual_contacts = {
+            "contact_force": tuple(normalized_contact_forces.shape),
+            "contact_binary": tuple(contact_binaries.shape),
+        }
+        invalid_contacts = {
+            name: (actual_contacts[name], shape)
+            for name, shape in expected_contacts.items()
+            if actual_contacts[name] != shape
+        }
+        if invalid_contacts:
+            raise ValueError(f"Invalid teacher-forced contact shapes: {invalid_contacts}")
         self._validate_rollout_inputs(
             normalized_states[:, 0],
             normalized_actions,
+            normalized_contact_forces[:, 0],
+            contact_binaries[:, 0],
             history_state,
             history_action,
+            history_contact_force,
+            history_contact_binary,
             history_valid,
             state_mean,
             state_std,
+            foot_mean,
+            foot_std,
             delta_mean,
             delta_std,
         )
 
         predicted_states: list[torch.Tensor] = []
         predicted_deltas: list[torch.Tensor] = []
+        predicted_contact_forces: list[torch.Tensor] = []
+        predicted_contact_logits: list[torch.Tensor] = []
         for index in range(self.config.horizon):
             current_state = normalized_states[:, index]
             action = normalized_actions[:, index]
-            normalized_delta = self(
+            current_contact_force = normalized_contact_forces[:, index]
+            current_contact_binary = contact_binaries[:, index]
+            normalized_delta, next_contact_force, next_contact_logits = self(
                 current_state,
                 action,
+                current_contact_force,
+                current_contact_binary,
                 history_state,
                 history_action,
+                history_contact_force,
+                history_contact_binary,
                 history_valid,
+                state_mean,
+                state_std,
+                foot_mean,
+                foot_std,
             )
             predicted_states.append(
                 self._apply_normalized_delta(
@@ -456,11 +702,28 @@ class ForwardDynamicsTransformer(nn.Module):
                 )
             )
             predicted_deltas.append(normalized_delta)
-            history_state, history_action, history_valid = self._roll_history(
+            predicted_contact_forces.append(next_contact_force)
+            predicted_contact_logits.append(next_contact_logits)
+            (
                 history_state,
                 history_action,
+                history_contact_force,
+                history_contact_binary,
+                history_valid,
+            ) = self._roll_history(
+                history_state,
+                history_action,
+                history_contact_force,
+                history_contact_binary,
                 history_valid,
                 current_state,
                 action,
+                current_contact_force,
+                current_contact_binary,
             )
-        return torch.stack(predicted_states, dim=1), torch.stack(predicted_deltas, dim=1)
+        return (
+            torch.stack(predicted_states, dim=1),
+            torch.stack(predicted_deltas, dim=1),
+            torch.stack(predicted_contact_forces, dim=1),
+            torch.stack(predicted_contact_logits, dim=1),
+        )

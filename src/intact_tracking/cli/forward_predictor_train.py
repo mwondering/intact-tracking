@@ -114,6 +114,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--root-angular-velocity-weight", type=float, default=1.0)
     parser.add_argument("--joint-position-weight", type=float, default=1.0)
     parser.add_argument("--joint-velocity-weight", type=float, default=1.0)
+    parser.add_argument("--contact-force-weight", type=float, default=1.0)
+    parser.add_argument("--contact-binary-weight", type=float, default=1.0)
 
     parser.add_argument(
         "--wandb",
@@ -177,6 +179,8 @@ def _validate_arguments(args: argparse.Namespace) -> None:
         "root_angular_velocity_weight",
         "joint_position_weight",
         "joint_velocity_weight",
+        "contact_force_weight",
+        "contact_binary_weight",
         "recursive_weight",
     ):
         if getattr(args, name) < 0.0:
@@ -257,6 +261,10 @@ _BATCH_FIELDS = frozenset(
         "action",
         "history_state",
         "history_action",
+        "contact_force",
+        "contact_binary",
+        "history_contact_force",
+        "history_contact_binary",
         "history_valid",
         "world_id",
         "motion_id",
@@ -273,8 +281,7 @@ def _slice_predictor_batch(
     """Slice sample fields while sharing the rank-global normalization tensors."""
 
     return {
-        name: value[start:stop] if name in _BATCH_FIELDS else value
-        for name, value in batch.items()
+        name: value[start:stop] if name in _BATCH_FIELDS else value for name, value in batch.items()
     }
 
 
@@ -384,6 +391,13 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             nominal_fraction=1.0,
         )
     )
+    if rollout.predictor_action_transform is None:
+        error = rollout.predictor_action_transform_error or "unknown action-chain error"
+        rollout.close()
+        raise RuntimeError(
+            "Forward Predictor requires an external memoryless policy-action to physical "
+            f"PD-target transform: {error}"
+        )
     replay = ForwardPredictorReplayBuffer(
         num_worlds=args.num_envs,
         dimensions=dimensions,
@@ -410,6 +424,8 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         root_angular_velocity_weight=args.root_angular_velocity_weight,
         joint_position_weight=args.joint_position_weight,
         joint_velocity_weight=args.joint_velocity_weight,
+        contact_force_weight=args.contact_force_weight,
+        contact_binary_weight=args.contact_binary_weight,
         huber_delta=args.huber_delta,
     )
     model = ForwardDynamicsTransformer(model_config).to(device)
@@ -439,21 +455,28 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
     )
     parameter_count = sum(parameter.numel() for parameter in model.parameters())
     run_config = {
-        "method": "nominal causal-transformer Forward Predictor v3",
+        "method": "privileged-contact causal-transformer Forward Predictor v4",
         "architecture": {
             "controller": "frozen tracker",
             "physics": "100% compiled nominal dynamics; DR slots restored to defaults",
             "input": (
-                "ten historical (71-D state, 29-D action, valid) tokens followed by "
-                "one current (71-D state, 29-D action) token"
+                "ten historical and one current token; each token contains 71-D robot state, "
+                "8-D differentiable-FK foot height/velocity, 6-D contact force, 2-D contact "
+                "state and the external 29-D physical PD joint target"
             ),
             "transition": (
-                "shared causal Transformer predicts normalized 70-D full-state delta "
-                "from the final token"
+                "shared causal Transformer predicts normalized 70-D robot-state delta, "
+                "normalized 6-D next contact force and 2-D next-contact logits"
             ),
-            "rollout": "predicted state is recursively fed back for all five actions",
+            "rollout": (
+                "predicted robot/contact state is recursively fed back for five targets; "
+                "foot features are recomputed from predicted q/qdot by differentiable FK"
+            ),
             "excluded": ["context_encoder", "residual_policy", "backward"],
-            "normalization": "state/action/delta statistics frozen immediately after warmup",
+            "normalization": (
+                "robot state, physical target, FK foot, contact force and robot delta "
+                "statistics frozen immediately after warmup"
+            ),
         },
         "arguments": vars(args),
         "model": asdict(model_config),
@@ -638,7 +661,9 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                         (model_output["loss"] * fraction).backward()
                     for name, value in model_output.items():
                         if value.numel() == 1:
-                            metrics[name] = metrics.get(name, 0.0) + float(value.detach()) * fraction
+                            metrics[name] = (
+                                metrics.get(name, 0.0) + float(value.detach()) * fraction
+                            )
 
                 gradient_norm = _gradient_norm(parameters)
                 if not np.isfinite(gradient_norm):

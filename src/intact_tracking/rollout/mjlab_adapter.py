@@ -14,6 +14,7 @@ import torch
 
 from intact_tracking.data import RolloutDimensions, RolloutShardWriter
 from intact_tracking.environment.runtime import create_runtime, prepare_rollout
+from intact_tracking.forward_predictor_inputs import CONTACT_BINARY_DIM, CONTACT_FORCE_DIM
 
 PROPRIO_TERM_DIMS = (29, 29, 3, 3, 29, 29)
 PROPRIO_HISTORY = 50
@@ -145,12 +146,58 @@ def _robot_raw_state(env: Any) -> torch.Tensor:
     return value
 
 
+def _feet_contact_snapshot(env: Any) -> dict[str, torch.Tensor]:
+    """Read current left/right terrain contact without making it a policy input."""
+
+    try:
+        sensor = env.scene["contact_forces"]
+    except (KeyError, TypeError):
+        return {}
+    force = getattr(sensor.data, "force", None)
+    if not isinstance(force, torch.Tensor):
+        return {}
+    force_history = getattr(sensor.data, "force_history", None)
+    if isinstance(force_history, torch.Tensor):
+        force = force_history.mean(dim=2)
+    primary_names = tuple(getattr(sensor, "primary_names", ()))
+    expected_names = ("left_ankle_roll_link", "right_ankle_roll_link")
+    if set(primary_names) != set(expected_names):
+        raise RuntimeError(
+            "Forward Predictor contact sensor must resolve exactly the two feet; "
+            f"got {primary_names}"
+        )
+    indices = torch.as_tensor(
+        [primary_names.index(name) for name in expected_names],
+        dtype=torch.long,
+        device=force.device,
+    )
+    force = force.index_select(1, indices).reshape(env.num_envs, -1)
+    if force.shape != (env.num_envs, CONTACT_FORCE_DIM):
+        raise RuntimeError(
+            "Forward Predictor contact force must have shape "
+            f"[{env.num_envs},{CONTACT_FORCE_DIM}], got {tuple(force.shape)}"
+        )
+
+    from intact_tracking.environment.mdp.sp import feet_contact_binary_state
+
+    binary = feet_contact_binary_state(env, "contact_forces").index_select(1, indices).bool()
+    if binary.shape != (env.num_envs, CONTACT_BINARY_DIM):
+        raise RuntimeError(
+            "Forward Predictor contact state must have shape "
+            f"[{env.num_envs},{CONTACT_BINARY_DIM}], got {tuple(binary.shape)}"
+        )
+    return {
+        "contact_force": force,
+        "contact_binary": binary,
+    }
+
+
 def _snapshot(env: Any, observations: Any) -> dict[str, torch.Tensor]:
     history = observations["estimator_history"]
     proprio = _latest_proprio(history)
     reference_observation, reference_state = _reference_snapshot(env)
     command = env.command_manager.get_term("motion")
-    return {
+    snapshot = {
         "proprio": proprio,
         # INTACT endpoints use the sensor/reference quantities common to both
         # sides. Previous action and torque remain in the interaction context.
@@ -161,6 +208,8 @@ def _snapshot(env: Any, observations: Any) -> dict[str, torch.Tensor]:
         "motion_id": command.motion_idx.clone(),
         "motion_step": command.time_steps.clone(),
     }
+    snapshot.update(_feet_contact_snapshot(env))
+    return snapshot
 
 
 def _filter_disturbance_events(env_cfg: Any) -> list[str]:

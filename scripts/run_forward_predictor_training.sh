@@ -11,9 +11,9 @@ usage() {
     "Fixed contract:" \
     "  physics          100% nominal" \
     "  controller       frozen tracker" \
-    "  model            causal Transformer, width 512, 6 layers, 8 heads (~19.01M)" \
-    "  input            10 historical state/action tokens + 1 current token" \
-    "  output           70-D full-state delta" \
+    "  model            causal Transformer, width 512, 6 layers, 8 heads (~19.02M)" \
+    "  input            10 historical privileged-state/PD-target tokens + 1 current token" \
+    "  output           70-D robot delta + 6-D contact force + 2-D contact logits" \
     "  rollout          shared one-step model recursively applied 5 times" \
     "  disabled         Context Encoder, Residual Policy, Backward, gradient clipping" \
     "" \
@@ -152,13 +152,13 @@ command+=(
 )
 
 printf '%s\n' \
-  "Training contract: nominal causal-Transformer Forward Predictor v3" \
-  "  model: 10 historical pair tokens + current pair token -> 70-D delta, ~19.01M" \
-  "  rollout: one shared causal Transformer recursively applied for 5 steps" \
-  "  loss: teacher-forced one-step Huber + fixed-weight recursive five-step Huber" \
+  "Training contract: privileged-contact causal-Transformer Forward Predictor v4" \
+  "  model: 87-D state features + physical PD target -> robot/contact next state, ~19.02M" \
+  "  rollout: predicted q/qdot -> differentiable foot FK; robot/contact state recurs 5 steps" \
+  "  loss: teacher/recursive robot+contact loss with fixed recursive weight" \
   "  replay: motion-balanced, 262144 samples per rank by default" \
   "  optimizer: effective batch 4096, micro-batch 256, no gradient clipping" \
-  "  normalization: frozen after warmup" \
+  "  normalization: robot/PD-target/foot/contact-force/delta stats frozen after warmup" \
   "  context/policy/backward: disabled" \
   "  distributed ranks: ${NPROC}"
 printf 'Launching:'

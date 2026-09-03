@@ -1,6 +1,7 @@
 """INTACT for context-conditioned humanoid tracking."""
 
 from .forward_predictor import ForwardDynamicsTransformer, ForwardPredictorConfig
+from .forward_predictor_inputs import G1FootKinematics, JointPositionTargetTransform
 from .forward_predictor_objective import ForwardPredictorLossConfig, ForwardPredictorObjective
 from .model import TrackingINTACT, TrackingINTACTConfig
 from .objective import INTACTLossConfig, intact_objective
@@ -18,6 +19,8 @@ __all__ = [
     "ForwardPredictorConfig",
     "ForwardPredictorLossConfig",
     "ForwardPredictorObjective",
+    "G1FootKinematics",
+    "JointPositionTargetTransform",
     "ResidualLossConfig",
     "ResidualTrackingConfig",
     "ResidualTrackingModel",

@@ -25,6 +25,7 @@ from omegaconf import DictConfig, ListConfig, OmegaConf
 
 from intact_tracking.environment import mdp
 from intact_tracking.environment.assets.robots import (
+    get_g1_tracking_bfm_mesh_arm_spv1_robot_cfg,
     get_g1_tracking_bfm_robot_cfg,
     get_g1_tracking_bfm_spv1_robot_cfg,
 )
@@ -781,11 +782,10 @@ def _build_robot(cfg: DictConfig):
         robot_cfg = get_g1_tracking_bfm_robot_cfg()
     elif asset == "tracking_bfm_spv1_g1":
         robot_cfg = get_g1_tracking_bfm_spv1_robot_cfg()
+    elif asset == "tracking_bfm_mesh_arm_spv1_g1":
+        robot_cfg = get_g1_tracking_bfm_mesh_arm_spv1_robot_cfg()
     else:
-        raise ValueError(
-            "The in-repository rollout runtime supports only tracking_bfm_g1 and "
-            f"tracking_bfm_spv1_g1, got {asset!r}"
-        )
+        raise ValueError(f"Unsupported in-repository G1 rollout asset: {asset!r}")
     joint_name_order = cfg.robot.get("joint_name_order")
     if joint_name_order is not None:
         # Policy-facing metadata only. It does not modify XML order, articulation,

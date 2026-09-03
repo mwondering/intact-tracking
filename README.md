@@ -200,12 +200,14 @@ motion 计数。每条记录还在 `window` 中保存最近 `metric-window` 轮�
 - `history.json`：所有 update 的结构化记录；
 - `train.log`：正式脚本捕获的完整终端输出。
 
-## Nominal causal-Transformer Forward Predictor v3 训练
+## Privileged-contact causal-Transformer Forward Predictor v4 训练
 
 当前主实验先隔离 Predictor 能力：不构造 Context Encoder、Residual Policy 或 Backward
-Predictor，只训练一个约 19.01M 参数的 causal Transformer。每个时刻的 71 维完整状态、29 维
-tracker action 和 valid 标记融合成一个 token；模型读取 10 个历史 token 和 1 个当前 token，
-从最后一个 token 预测 70 维 full-state delta，并把预测状态递归回灌五次。
+Predictor，只训练一个约 19.02M 参数的 causal Transformer。每个 token 包含 71 维机器人状态、
+由该状态经可微 G1 FK 得到的 8 维左右脚离地高度/速度、6 维接触力、2 维接触标记，以及在模型
+外部由 policy action 换算好的 29 维物理 PD joint target。模型读取 10 个历史 token 和 1 个当前
+token，同时预测下一步的 70 维 robot delta、6 维接触力和 2 个接触 logits；递推时根据预测
+q/qdot 重算足端特征，而不是复用真实未来特征。
 
 ```bash
 GPUS=0,1 ./scripts/run_forward_predictor_training.sh \
@@ -219,8 +221,9 @@ GPUS=0,1 ./scripts/run_forward_predictor_training.sh \
 每卡 2048 个环境、有效 batch 4096、micro-batch 256、motion-balanced replay 262144。
 micro-batch 的梯度按样本数累积后只执行一次 optimizer step，不进行梯度裁剪，但仍记录原始
 gradient norm。训练优化 teacher-forced 一步 Huber loss 和固定权重 0.5 的五步递推 Huber
-loss，两项从第一个 optimizer step 起共同优化。state/action/delta normalization 在 warmup 后
-冻结。首次运行应先增加
+loss，两项从第一个 optimizer step 起共同优化；robot/contact force 使用 Huber，接触标记使用
+BCE。robot state、physical target、foot feature、contact force 与 delta normalization 在
+warmup 后冻结。首次运行应先增加
 `--fixed-batch-overfit`，确认同一批数据可以被拟合到接近零误差。
 完整契约见 [Nominal Forward Predictor flow](docs/forward_predictor_training.md)。
 
