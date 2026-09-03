@@ -14,6 +14,15 @@ FOOT_FEATURE_DIM = 8
 CONTACT_FORCE_DIM = 6
 CONTACT_BINARY_DIM = 2
 
+G1_FOOT_BODY_NAMES = (
+    "left_ankle_roll_link",
+    "right_ankle_roll_link",
+)
+G1_FOOT_SITE_POSITIONS = (
+    (0.04, 0.0, -0.037),
+    (0.04, 0.0, -0.037),
+)
+
 G1_XML_JOINT_NAMES = (
     "left_hip_pitch_joint",
     "left_hip_roll_joint",
@@ -81,6 +90,56 @@ def _quaternion_rotate(quaternion: torch.Tensor, vector: torch.Tensor) -> torch.
     first_cross = torch.linalg.cross(quaternion_vector, vector, dim=-1)
     second_cross = torch.linalg.cross(quaternion_vector, first_cross, dim=-1)
     return vector + 2.0 * (quaternion[..., :1] * first_cross + second_cross)
+
+
+def g1_foot_features_from_link_state(
+    link_position: torch.Tensor,
+    link_quaternion: torch.Tensor,
+    link_linear_velocity: torch.Tensor,
+    link_angular_velocity: torch.Tensor,
+) -> torch.Tensor:
+    """Read sole height/velocity from simulator-provided ankle-link state.
+
+    This is a constant-time rigid-point transform, not articulated forward
+    kinematics. ``link_position`` must already be relative to the environment
+    origin so its z component uses the same ground-height convention as the
+    Forward Predictor state.
+    """
+
+    expected_prefix = link_position.shape[:-1]
+    expected = {
+        "link_position": (*expected_prefix, 3),
+        "link_quaternion": (*expected_prefix, 4),
+        "link_linear_velocity": (*expected_prefix, 3),
+        "link_angular_velocity": (*expected_prefix, 3),
+    }
+    actual = {
+        "link_position": tuple(link_position.shape),
+        "link_quaternion": tuple(link_quaternion.shape),
+        "link_linear_velocity": tuple(link_linear_velocity.shape),
+        "link_angular_velocity": tuple(link_angular_velocity.shape),
+    }
+    invalid = {
+        name: (actual[name], shape) for name, shape in expected.items() if actual[name] != shape
+    }
+    if invalid or len(expected_prefix) < 1 or expected_prefix[-1] != FOOT_COUNT:
+        raise ValueError(
+            "G1 foot link state must have matching [...,2,3/4] shapes; "
+            f"invalid={invalid}, position={tuple(link_position.shape)}"
+        )
+
+    local_site = link_position.new_tensor(G1_FOOT_SITE_POSITIONS)
+    while local_site.ndim < link_position.ndim:
+        local_site = local_site.unsqueeze(0)
+    site_offset = _quaternion_rotate(link_quaternion, local_site.expand_as(link_position))
+    site_position = link_position + site_offset
+    site_velocity = link_linear_velocity + torch.linalg.cross(
+        link_angular_velocity,
+        site_offset,
+        dim=-1,
+    )
+    per_foot = torch.cat((site_position[..., 2:3], site_velocity), dim=-1)
+    return per_foot.flatten(start_dim=-2)
 
 
 class G1FootKinematics(nn.Module):

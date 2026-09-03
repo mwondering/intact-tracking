@@ -36,6 +36,7 @@ class ForwardPredictorLossConfig:
     root_angular_velocity_weight: float = 1.0
     joint_position_weight: float = 1.0
     joint_velocity_weight: float = 1.0
+    foot_weight: float = 1.0
     contact_force_weight: float = 1.0
     contact_binary_weight: float = 1.0
     huber_delta: float = 1.0
@@ -191,25 +192,43 @@ def _contact_losses(
     return total, components
 
 
+def _foot_loss(
+    normalized_prediction: torch.Tensor,
+    normalized_target: torch.Tensor,
+    config: ForwardPredictorLossConfig,
+    *,
+    huber: bool,
+) -> torch.Tensor:
+    if normalized_prediction.shape != normalized_target.shape:
+        raise ValueError("Foot prediction and target shapes must match")
+    if huber:
+        return F.huber_loss(
+            normalized_prediction,
+            normalized_target,
+            reduction="mean",
+            delta=config.huber_delta,
+        )
+    return (normalized_prediction - normalized_target).square().mean()
+
+
 def _privileged_physical_errors(
-    model: ForwardDynamicsTransformer,
-    state_prediction: torch.Tensor,
-    state_target: torch.Tensor,
+    normalized_foot_prediction: torch.Tensor,
+    normalized_foot_target: torch.Tensor,
     force_prediction: torch.Tensor,
     force_target: torch.Tensor,
     binary_logits: torch.Tensor,
     binary_target: torch.Tensor,
-    state_mean: torch.Tensor,
-    state_std: torch.Tensor,
+    foot_mean: torch.Tensor,
+    foot_std: torch.Tensor,
     contact_force_mean: torch.Tensor,
     contact_force_std: torch.Tensor,
 ) -> dict[str, torch.Tensor]:
-    predicted_state = _physical_state(state_prediction, state_mean, state_std)
-    target_state = _physical_state(state_target, state_mean, state_std)
-    predicted_foot = model.foot_kinematics(predicted_state).reshape(
-        *predicted_state.shape[:-1], 2, 4
+    predicted_foot = (normalized_foot_prediction * foot_std + foot_mean).reshape(
+        *normalized_foot_prediction.shape[:-1], 2, 4
     )
-    target_foot = model.foot_kinematics(target_state).reshape(*target_state.shape[:-1], 2, 4)
+    target_foot = (normalized_foot_target * foot_std + foot_mean).reshape(
+        *normalized_foot_target.shape[:-1], 2, 4
+    )
     height_error = (predicted_foot[..., 0] - target_foot[..., 0]).abs()
     velocity_error = torch.linalg.vector_norm(
         predicted_foot[..., 1:] - target_foot[..., 1:], dim=-1
@@ -253,10 +272,12 @@ class ForwardPredictorObjective(nn.Module):
         required = {
             "state",
             "action",
+            "foot",
             "contact_force",
             "contact_binary",
             "history_state",
             "history_action",
+            "history_foot",
             "history_contact_force",
             "history_contact_binary",
             "history_valid",
@@ -275,15 +296,20 @@ class ForwardPredictorObjective(nn.Module):
         finite_names = required.difference(
             {"history_valid", "contact_binary", "history_contact_binary"}
         )
-        if any(not torch.isfinite(batch[name]).all() for name in finite_names):
+        finite = torch.stack([torch.isfinite(batch[name]).all() for name in finite_names]).all()
+        if not bool(finite):
             raise ValueError("Forward Predictor batch contains non-finite values")
 
     def forward(
         self,
         batch: dict[str, torch.Tensor],
         recursive_weight: float = DEFAULT_RECURSIVE_WEIGHT,
+        *,
+        compute_metrics: bool = True,
+        validate_batch: bool = True,
     ) -> dict[str, torch.Tensor]:
-        self._validate_batch(batch)
+        if validate_batch:
+            self._validate_batch(batch)
         if recursive_weight < 0.0:
             raise ValueError("recursive_weight must be non-negative")
         state = batch["state"]
@@ -292,23 +318,26 @@ class ForwardPredictorObjective(nn.Module):
             raise ValueError(f"State batch must be [batch,6,71], got {tuple(state.shape)}")
         if action.shape != (state.size(0), 5, 29):
             raise ValueError(f"Action batch must be [batch,5,29], got {tuple(action.shape)}")
-        expected_contacts = {
+        expected_privileged = {
+            "foot": (state.size(0), 6, 8),
             "contact_force": (state.size(0), 6, 6),
             "contact_binary": (state.size(0), 6, 2),
+            "history_foot": (state.size(0), 10, 8),
             "history_contact_force": (state.size(0), 10, 6),
             "history_contact_binary": (state.size(0), 10, 2),
         }
-        invalid_contacts = {
+        invalid_privileged = {
             name: (tuple(batch[name].shape), shape)
-            for name, shape in expected_contacts.items()
+            for name, shape in expected_privileged.items()
             if tuple(batch[name].shape) != shape
         }
-        if invalid_contacts:
-            raise ValueError(f"Invalid Forward Predictor contact shapes: {invalid_contacts}")
+        if invalid_privileged:
+            raise ValueError(f"Invalid Forward Predictor privileged shapes: {invalid_privileged}")
 
         history_arguments = {
             "history_state": batch["history_state"],
             "history_action": batch["history_action"],
+            "history_foot": batch["history_foot"],
             "history_contact_force": batch["history_contact_force"],
             "history_contact_binary": batch["history_contact_binary"],
             "history_valid": batch["history_valid"],
@@ -316,19 +345,19 @@ class ForwardPredictorObjective(nn.Module):
         normalization_arguments = {
             "state_mean": batch["state_mean"],
             "state_std": batch["state_std"],
-            "foot_mean": batch["foot_mean"],
-            "foot_std": batch["foot_std"],
             "delta_mean": batch["delta_mean"],
             "delta_std": batch["delta_std"],
         }
         (
             teacher_prediction,
             teacher_delta,
+            teacher_foot,
             teacher_force,
             teacher_binary_logits,
         ) = self.model.teacher_forced(
             state,
             action,
+            batch["foot"],
             batch["contact_force"],
             batch["contact_binary"],
             **history_arguments,
@@ -339,11 +368,13 @@ class ForwardPredictorObjective(nn.Module):
                 (
                     recursive_prediction,
                     recursive_delta,
+                    recursive_foot,
                     recursive_force,
                     recursive_binary_logits,
                 ) = self.model.rollout(
                     state[:, 0],
                     action,
+                    batch["foot"][:, 0],
                     batch["contact_force"][:, 0],
                     batch["contact_binary"][:, 0],
                     **history_arguments,
@@ -353,17 +384,20 @@ class ForwardPredictorObjective(nn.Module):
             (
                 recursive_prediction,
                 recursive_delta,
+                recursive_foot,
                 recursive_force,
                 recursive_binary_logits,
             ) = self.model.rollout(
                 state[:, 0],
                 action,
+                batch["foot"][:, 0],
                 batch["contact_force"][:, 0],
                 batch["contact_binary"][:, 0],
                 **history_arguments,
                 **normalization_arguments,
             )
         target = state[:, 1:]
+        target_foot = batch["foot"][:, 1:]
         target_force = batch["contact_force"][:, 1:]
         target_binary = batch["contact_binary"][:, 1:]
         teacher_error = _normalized_state_error(
@@ -390,6 +424,18 @@ class ForwardPredictorObjective(nn.Module):
             self.loss_config,
             huber=True,
         )
+        teacher_foot_loss = _foot_loss(
+            teacher_foot,
+            target_foot,
+            self.loss_config,
+            huber=True,
+        )
+        recursive_foot_loss = _foot_loss(
+            recursive_foot,
+            target_foot,
+            self.loss_config,
+            huber=True,
+        )
         teacher_contact_loss, teacher_contact_components = _contact_losses(
             teacher_force,
             teacher_binary_logits,
@@ -406,12 +452,28 @@ class ForwardPredictorObjective(nn.Module):
             self.loss_config,
             huber=True,
         )
-        teacher_loss = teacher_state_loss + teacher_contact_loss
-        recursive_loss = recursive_state_loss + recursive_contact_loss
+        teacher_loss = (
+            teacher_state_loss
+            + self.loss_config.foot_weight * teacher_foot_loss
+            + teacher_contact_loss
+        )
+        recursive_loss = (
+            recursive_state_loss
+            + self.loss_config.foot_weight * recursive_foot_loss
+            + recursive_contact_loss
+        )
         total_loss = teacher_loss + float(recursive_weight) * recursive_loss
+
+        if not compute_metrics:
+            return {
+                "loss": total_loss,
+                "teacher_loss": teacher_loss.detach(),
+                "recursive_loss": recursive_loss.detach(),
+            }
 
         with torch.no_grad():
             unchanged = state[:, :1].expand_as(target)
+            unchanged_foot = batch["foot"][:, :1].expand_as(target_foot)
             unchanged_force = batch["contact_force"][:, :1].expand_as(target_force)
             unchanged_error = _normalized_state_error(
                 unchanged,
@@ -435,6 +497,24 @@ class ForwardPredictorObjective(nn.Module):
                 self.loss_config,
                 huber=False,
             )
+            teacher_foot_mse = _foot_loss(
+                teacher_foot,
+                target_foot,
+                self.loss_config,
+                huber=False,
+            )
+            recursive_foot_mse = _foot_loss(
+                recursive_foot,
+                target_foot,
+                self.loss_config,
+                huber=False,
+            )
+            no_change_foot_mse = _foot_loss(
+                unchanged_foot,
+                target_foot,
+                self.loss_config,
+                huber=False,
+            )
             teacher_force_mse = (teacher_force - target_force).square().mean()
             recursive_force_mse = (recursive_force - target_force).square().mean()
             no_change_force_mse = (unchanged_force - target_force).square().mean()
@@ -453,7 +533,17 @@ class ForwardPredictorObjective(nn.Module):
                     self.loss_config,
                     huber=True,
                 )
-                horizon_loss = horizon_state_loss + horizon_contact_loss
+                horizon_foot_loss = _foot_loss(
+                    recursive_foot[:, index : index + 1],
+                    target_foot[:, index : index + 1],
+                    self.loss_config,
+                    huber=True,
+                )
+                horizon_loss = (
+                    horizon_state_loss
+                    + self.loss_config.foot_weight * horizon_foot_loss
+                    + horizon_contact_loss
+                )
                 horizon_mse, _ = _state_losses(
                     recursive_error[:, index : index + 1],
                     self.loss_config,
@@ -483,28 +573,26 @@ class ForwardPredictorObjective(nn.Module):
                 batch["state_std"],
             )
             privileged_metrics = _privileged_physical_errors(
-                self.model,
-                recursive_prediction,
-                target,
+                recursive_foot,
+                target_foot,
                 recursive_force,
                 target_force,
                 recursive_binary_logits,
                 target_binary,
-                batch["state_mean"],
-                batch["state_std"],
+                batch["foot_mean"],
+                batch["foot_std"],
                 batch["contact_force_mean"],
                 batch["contact_force_std"],
             )
             teacher_privileged_metrics = _privileged_physical_errors(
-                self.model,
-                teacher_prediction,
-                target,
+                teacher_foot,
+                target_foot,
                 teacher_force,
                 target_force,
                 teacher_binary_logits,
                 target_binary,
-                batch["state_mean"],
-                batch["state_std"],
+                batch["foot_mean"],
+                batch["foot_std"],
                 batch["contact_force_mean"],
                 batch["contact_force_std"],
             )
@@ -516,17 +604,26 @@ class ForwardPredictorObjective(nn.Module):
             "recursive_weight": teacher_loss.new_tensor(float(recursive_weight)),
             "teacher_mse": teacher_mse,
             "teacher_nmse": teacher_mse / no_change_mse.clamp_min(1.0e-8),
+            "teacher_foot_loss": teacher_foot_loss.detach(),
+            "teacher_foot_mse": teacher_foot_mse,
+            "teacher_foot_nmse": teacher_foot_mse / no_change_foot_mse.clamp_min(1.0e-8),
             "teacher_contact_force_mse": teacher_force_mse,
             "teacher_contact_force_nmse": teacher_force_mse / no_change_force_mse.clamp_min(1.0e-8),
             "rollout_loss": recursive_loss.detach(),
             "rollout_mse": recursive_mse,
             "rollout_no_change_loss": no_change_mse,
             "rollout_nmse": recursive_mse / no_change_mse.clamp_min(1.0e-8),
+            "foot_loss": recursive_foot_loss.detach(),
+            "foot_mse": recursive_foot_mse,
+            "foot_no_change_mse": no_change_foot_mse,
+            "foot_nmse": recursive_foot_mse / no_change_foot_mse.clamp_min(1.0e-8),
             "contact_force_mse": recursive_force_mse,
             "contact_force_no_change_mse": no_change_force_mse,
             "contact_force_nmse": recursive_force_mse / no_change_force_mse.clamp_min(1.0e-8),
             "teacher_normalized_delta_rms": teacher_delta.detach().square().mean().sqrt(),
             "predicted_normalized_delta_rms": recursive_delta.detach().square().mean().sqrt(),
+            "teacher_normalized_foot_rms": teacher_foot.detach().square().mean().sqrt(),
+            "predicted_normalized_foot_rms": recursive_foot.detach().square().mean().sqrt(),
             "history_valid_fraction": batch["history_valid"].float().mean(),
             **{
                 f"teacher_{name}_loss": value.detach() for name, value in teacher_components.items()

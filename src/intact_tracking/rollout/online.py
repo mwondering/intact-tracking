@@ -14,6 +14,7 @@ from intact_tracking.forward_predictor_inputs import JointPositionTargetTransfor
 
 from .mjlab_adapter import (
     _clear_missing_motion_exclusions,
+    _forward_predictor_snapshot,
     _policy_observations,
     _snapshot,
 )
@@ -564,25 +565,42 @@ class FixedDRTrackerRollout:
     def step(
         self,
         residual_action_fn: Callable[[torch.Tensor, torch.Tensor], torch.Tensor] | None = None,
+        *,
+        include_policy_observation: bool = True,
+        predictor_only: bool = False,
     ) -> dict[str, torch.Tensor]:
         """Collect one transition, optionally adding a learned residual action."""
         if self.closed:
             raise RuntimeError("Cannot step a closed rollout")
-        before = _snapshot(self.env, self.observations)
+        if predictor_only and residual_action_fn is not None:
+            raise ValueError("predictor_only collection cannot request a residual action")
+        before = (
+            _forward_predictor_snapshot(self.env)
+            if predictor_only
+            else _snapshot(self.env, self.observations)
+        )
         if self.collector_step == 0:
             self._record_motion_ids(before["motion_id"])
         actor = getattr(getattr(self, "_runtime", None), "actor", None)
+        needs_policy_observation = (
+            include_policy_observation and not predictor_only
+        ) or residual_action_fn is not None
         with torch.inference_mode():
-            policy_observation = (
-                actor.get_latent(self.observations) if actor is not None else before["observation"]
-            )
+            policy_observation = None
+            if needs_policy_observation:
+                policy_observation = (
+                    actor.get_latent(self.observations)
+                    if actor is not None
+                    else before["observation"]
+                )
             tracker_action = self.policy(self.observations)
         if not isinstance(tracker_action, torch.Tensor):
             raise TypeError(
                 f"Frozen tracker must return a Tensor, got {type(tracker_action).__name__}"
             )
-        residual_action = torch.zeros_like(tracker_action)
+        residual_action = None if predictor_only else torch.zeros_like(tracker_action)
         if residual_action_fn is not None:
+            assert policy_observation is not None
             with torch.inference_mode():
                 residual_action = residual_action_fn(policy_observation, tracker_action)
             if not isinstance(residual_action, torch.Tensor):
@@ -592,7 +610,7 @@ class FixedDRTrackerRollout:
                     "Residual action shape must match tracker action: "
                     f"{tuple(residual_action.shape)} vs {tuple(tracker_action.shape)}"
                 )
-        action = tracker_action + residual_action
+        action = tracker_action if residual_action is None else tracker_action + residual_action
         if self._clip_actions is not None:
             action = action.clamp(-float(self._clip_actions), float(self._clip_actions))
         action_transform = getattr(self, "predictor_action_transform", None)
@@ -618,46 +636,64 @@ class FixedDRTrackerRollout:
                 self.predictor_action_target_max_abs_error = maximum_error
                 self.predictor_action_target_verified = True
         next_observations = _policy_observations(raw_next, self.num_envs)
-        after = _snapshot(self.env, next_observations)
-        collector_steps = torch.full_like(self.episode_ids, self.collector_step)
+        after = (
+            _forward_predictor_snapshot(self.env)
+            if predictor_only
+            else _snapshot(self.env, next_observations)
+        )
         batch = {
-            "proprio": before["proprio"],
-            "next_proprio": after["proprio"],
-            "observation": before["observation"],
-            "next_observation": after["observation"],
-            "reference_observation": before["reference_observation"],
-            "next_reference_observation": after["reference_observation"],
-            "policy_observation": policy_observation,
-            "tracker_action": tracker_action,
-            "residual_action": residual_action,
-            "action": action,
-            "reward": reward,
-            "terminated": terminated,
-            "truncated": truncated,
             "reset_boundary": reset_boundary,
             "world_id": self.world_ids,
-            "is_nominal": self.is_nominal,
             "episode_id": self.episode_ids.clone(),
             "episode_step": self.episode_steps.clone(),
-            "collector_step": collector_steps,
-            "env_id": self.env_ids,
             "motion_id": before["motion_id"],
             "motion_step": before["motion_step"],
         }
+        if not predictor_only:
+            assert residual_action is not None
+            batch.update(
+                {
+                    "proprio": before["proprio"],
+                    "next_proprio": after["proprio"],
+                    "observation": before["observation"],
+                    "next_observation": after["observation"],
+                    "reference_observation": before["reference_observation"],
+                    "next_reference_observation": after["reference_observation"],
+                    "tracker_action": tracker_action,
+                    "residual_action": residual_action,
+                    "action": action,
+                    "reward": reward,
+                    "terminated": terminated,
+                    "truncated": truncated,
+                    "is_nominal": self.is_nominal,
+                    "collector_step": torch.full_like(self.episode_ids, self.collector_step),
+                    "env_id": self.env_ids,
+                }
+            )
+        if policy_observation is not None:
+            batch["policy_observation"] = policy_observation
         if joint_target is not None:
             batch["joint_target"] = joint_target
-        raw_state_fields = (
-            "robot_state",
-            "reference_state",
-        )
-        if all(name in before and name in after for name in raw_state_fields):
+        if "robot_state" in before and "robot_state" in after:
             batch.update(
                 {
                     "robot_state": before["robot_state"],
                     "next_robot_state": after["robot_state"],
+                }
+            )
+        if "reference_state" in before and "reference_state" in after:
+            batch.update(
+                {
                     "reference_state": before["reference_state"],
                     "next_reference_state": after["reference_state"],
                     "tracking_error": _tracking_error_snapshot(self.env, after),
+                }
+            )
+        if "foot" in before and "foot" in after:
+            batch.update(
+                {
+                    "foot": before["foot"],
+                    "next_foot": after["foot"],
                 }
             )
         contact_fields = ("contact_force", "contact_binary")

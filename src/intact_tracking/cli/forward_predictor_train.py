@@ -73,8 +73,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--micro-batch-size",
         type=int,
-        default=256,
+        default=512,
         help="Maximum per-rank batch processed by one forward/backward pass.",
+    )
+    parser.add_argument(
+        "--amp-dtype",
+        choices=("bfloat16", "float32"),
+        default="bfloat16",
+        help="CUDA training precision; bfloat16 keeps model parameters in float32.",
     )
     parser.add_argument("--replay-capacity", type=int, default=262_144)
     parser.add_argument(
@@ -114,6 +120,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--root-angular-velocity-weight", type=float, default=1.0)
     parser.add_argument("--joint-position-weight", type=float, default=1.0)
     parser.add_argument("--joint-velocity-weight", type=float, default=1.0)
+    parser.add_argument("--foot-weight", type=float, default=1.0)
     parser.add_argument("--contact-force-weight", type=float, default=1.0)
     parser.add_argument("--contact-binary-weight", type=float, default=1.0)
 
@@ -179,6 +186,7 @@ def _validate_arguments(args: argparse.Namespace) -> None:
         "root_angular_velocity_weight",
         "joint_position_weight",
         "joint_velocity_weight",
+        "foot_weight",
         "contact_force_weight",
         "contact_binary_weight",
         "recursive_weight",
@@ -245,14 +253,21 @@ def _global_normalization(
 
 
 def _gradient_norm(parameters: list[torch.nn.Parameter]) -> float:
-    values = [
-        parameter.grad.detach().float().norm(2)
-        for parameter in parameters
-        if parameter.grad is not None
-    ]
-    if not values:
+    gradients = [parameter.grad for parameter in parameters if parameter.grad is not None]
+    if not gradients:
         return 0.0
-    return float(torch.stack(values).norm(2))
+    return float(torch.nn.utils.get_total_norm(gradients, norm_type=2.0, foreach=True))
+
+
+def _scalar_tensors_to_floats(values: dict[str, torch.Tensor]) -> dict[str, float]:
+    """Transfer scalar diagnostics to the host with one synchronization."""
+
+    scalars = [(name, value) for name, value in values.items() if value.numel() == 1]
+    if not scalars:
+        return {}
+    packed = torch.stack([value.detach().float().reshape(()) for _, value in scalars])
+    host_values = packed.cpu().tolist()
+    return {name: float(value) for (name, _), value in zip(scalars, host_values, strict=True)}
 
 
 _BATCH_FIELDS = frozenset(
@@ -261,6 +276,8 @@ _BATCH_FIELDS = frozenset(
         "action",
         "history_state",
         "history_action",
+        "foot",
+        "history_foot",
         "contact_force",
         "contact_binary",
         "history_contact_force",
@@ -306,6 +323,12 @@ def _wandb_payload(record: dict[str, Any]) -> dict[str, Any]:
         "rollout/reset_fraction": record["reset_fraction"],
     }
     payload.update({f"train/{name}": value for name, value in record["train"].items()})
+    payload.update(
+        {
+            f"optimization_train/{name}": value
+            for name, value in record["optimization_train"].items()
+        }
+    )
     payload.update({f"fixed_probe/{name}": value for name, value in record["fixed_probe"].items()})
     return payload
 
@@ -372,6 +395,9 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
     checkpoint_path = Path(paths["checkpoint_path"])
     tracker_sha256 = paths["tracker_sha256"]
     device = distributed.device
+    amp_enabled = device.type == "cuda" and args.amp_dtype == "bfloat16"
+    if amp_enabled and not torch.cuda.is_bf16_supported():
+        raise RuntimeError("--amp-dtype=bfloat16 requires a CUDA device with BF16 support")
     world_id_offset = distributed.rank * args.num_envs
     global_world_ids = tuple(range(args.num_envs * distributed.world_size))
     dimensions = RolloutDimensions()
@@ -424,6 +450,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         root_angular_velocity_weight=args.root_angular_velocity_weight,
         joint_position_weight=args.joint_position_weight,
         joint_velocity_weight=args.joint_velocity_weight,
+        foot_weight=args.foot_weight,
         contact_force_weight=args.contact_force_weight,
         contact_binary_weight=args.contact_binary_weight,
         huber_delta=args.huber_delta,
@@ -447,6 +474,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         parameters,
         lr=args.model_learning_rate,
         weight_decay=args.weight_decay,
+        fused=device.type == "cuda",
     )
     optimizer_steps_target = args.updates * args.gradient_steps_per_update
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
@@ -455,26 +483,27 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
     )
     parameter_count = sum(parameter.numel() for parameter in model.parameters())
     run_config = {
-        "method": "privileged-contact causal-transformer Forward Predictor v4",
+        "method": "privileged-contact direct-foot causal-transformer Forward Predictor v5",
         "architecture": {
             "controller": "frozen tracker",
             "physics": "100% compiled nominal dynamics; DR slots restored to defaults",
             "input": (
                 "ten historical and one current token; each token contains 71-D robot state, "
-                "8-D differentiable-FK foot height/velocity, 6-D contact force, 2-D contact "
+                "8-D simulator foot height/velocity, 6-D contact force, 2-D contact "
                 "state and the external 29-D physical PD joint target"
             ),
             "transition": (
                 "shared causal Transformer predicts normalized 70-D robot-state delta, "
-                "normalized 6-D next contact force and 2-D next-contact logits"
+                "normalized 8-D next foot state, normalized 6-D next contact force and "
+                "2-D next-contact logits"
             ),
             "rollout": (
-                "predicted robot/contact state is recursively fed back for five targets; "
-                "foot features are recomputed from predicted q/qdot by differentiable FK"
+                "predicted robot/foot/contact state is recursively fed back for five targets; "
+                "the training/model hot path contains no articulated foot FK"
             ),
             "excluded": ["context_encoder", "residual_policy", "backward"],
             "normalization": (
-                "robot state, physical target, FK foot, contact force and robot delta "
+                "robot state, physical target, simulator foot, contact force and robot delta "
                 "statistics frozen immediately after warmup"
             ),
         },
@@ -496,6 +525,9 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             "micro_batch_size_per_rank": args.micro_batch_size,
             "gradient_accumulation": True,
             "gradient_clipping": False,
+            "amp_dtype": "bfloat16" if amp_enabled else "float32",
+            "fused_adamw": device.type == "cuda",
+            "diagnostics_interval": args.log_interval,
         },
         "replay": {
             "estimated_storage_bytes_per_rank": replay.estimated_storage_bytes,
@@ -572,7 +604,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                     "Forward Predictor warmup exhausted before every rank had a full batch: "
                     f"steps={rollout.collector_step}, replay={len(replay)}"
                 )
-            replay.add_step(rollout.step())
+            replay.add_step(rollout.step(predictor_only=True))
             if distributed.is_main and (
                 rollout.collector_step == 1
                 or rollout.collector_step % args.warmup_log_interval == 0
@@ -621,10 +653,10 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             if update > 1 and not args.fixed_batch_overfit:
                 model.eval()
                 for _ in range(args.rollout_steps_per_update):
-                    replay.add_step(rollout.step())
+                    replay.add_step(rollout.step(predictor_only=True))
 
             training_module.train()
-            step_metrics: list[dict[str, float]] = []
+            step_losses: list[dict[str, torch.Tensor]] = []
             gradient_norms: list[float] = []
             for _ in range(args.gradient_steps_per_update):
                 train_batch = (
@@ -633,7 +665,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                     else replay.sample_batch(args.batch_size, normalization)
                 )
                 optimizer.zero_grad(set_to_none=True)
-                metrics: dict[str, float] = {}
+                accumulated_losses: dict[str, torch.Tensor] = {}
                 micro_starts = range(0, args.batch_size, args.micro_batch_size)
                 for start in micro_starts:
                     stop = min(start + args.micro_batch_size, args.batch_size)
@@ -646,24 +678,24 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                         and not final_micro_batch
                         else nullcontext()
                     )
-                    with sync_context:
+                    autocast_context = (
+                        torch.autocast(device_type="cuda", dtype=torch.bfloat16)
+                        if amp_enabled
+                        else nullcontext()
+                    )
+                    with sync_context, autocast_context:
                         model_output = training_module(
                             micro_batch,
                             recursive_weight=args.recursive_weight,
+                            compute_metrics=False,
+                            validate_batch=False,
                         )
-                        if not isinstance(model_output, dict) or not torch.isfinite(
-                            model_output["loss"]
-                        ):
-                            raise RuntimeError(
-                                "Non-finite Forward Predictor objective at step "
-                                f"{optimizer_steps + 1}"
-                            )
                         (model_output["loss"] * fraction).backward()
-                    for name, value in model_output.items():
-                        if value.numel() == 1:
-                            metrics[name] = (
-                                metrics.get(name, 0.0) + float(value.detach()) * fraction
-                            )
+                    for name in ("loss", "teacher_loss", "recursive_loss"):
+                        weighted = model_output[name].detach().float() * fraction
+                        accumulated_losses[name] = (
+                            accumulated_losses.get(name, torch.zeros_like(weighted)) + weighted
+                        )
 
                 gradient_norm = _gradient_norm(parameters)
                 if not np.isfinite(gradient_norm):
@@ -672,81 +704,102 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                 optimizer.step()
                 scheduler.step()
                 optimizer_steps += 1
-                metrics["sample_motion_count"] = float(
-                    torch.unique(train_batch["motion_id"]).numel()
-                )
-                step_metrics.append(metrics)
+                step_losses.append(accumulated_losses)
 
-            local_train = {
-                name: sum(item[name] for item in step_metrics) / len(step_metrics)
-                for name in step_metrics[0]
-            }
-            train = distributed.mean_scalars(local_train)
-            model.eval()
-            with torch.inference_mode():
-                local_probe = {
-                    name: float(value.detach())
-                    for name, value in objective(
-                        fixed_probe_batch,
-                        recursive_weight=args.recursive_weight,
-                    ).items()
-                    if value.numel() == 1
-                }
+            should_report = update == 1 or update % args.log_interval == 0 or update == args.updates
+            if should_report:
+                local_optimization_train = _scalar_tensors_to_floats(
+                    {
+                        name: torch.stack([item[name] for item in step_losses]).mean()
+                        for name in step_losses[0]
+                    }
+                )
+                optimization_train = distributed.mean_scalars(local_optimization_train)
+                training_module.eval()
+                diagnostic_batch = _slice_predictor_batch(
+                    train_batch,
+                    0,
+                    min(args.fixed_probe_batch_size, args.batch_size),
+                )
+                autocast_context = (
+                    torch.autocast(device_type="cuda", dtype=torch.bfloat16)
+                    if amp_enabled
+                    else nullcontext()
+                )
+                with torch.inference_mode(), autocast_context:
+                    local_train = _scalar_tensors_to_floats(
+                        objective(
+                            diagnostic_batch,
+                            recursive_weight=args.recursive_weight,
+                            validate_batch=False,
+                        )
+                    )
+                    local_probe = _scalar_tensors_to_floats(
+                        objective(
+                            fixed_probe_batch,
+                            recursive_weight=args.recursive_weight,
+                            validate_batch=False,
+                        )
+                    )
+                local_train["sample_motion_count"] = float(
+                    torch.unique(diagnostic_batch["motion_id"]).numel()
+                )
                 local_probe["sample_motion_count"] = float(
                     torch.unique(fixed_probe_batch["motion_id"]).numel()
                 )
-            fixed_probe = distributed.mean_scalars(local_probe)
-            counts = distributed.sum_integers(
-                {
-                    "transitions": rollout.transitions,
-                    "replay_size": len(replay),
-                    "replay_storage_bytes": replay.storage_bytes,
-                    "samples_generated": replay.total_samples_generated,
-                    "reset_events": rollout.reset_events,
-                    "environments_reset": rollout.environments_reset,
-                }
-            )
-            new_samples = counts["samples_generated"] - previous_samples_generated
-            previous_samples_generated = counts["samples_generated"]
-            new_environments_reset = counts["environments_reset"] - previous_environments_reset
-            previous_environments_reset = counts["environments_reset"]
-            new_reset_events = counts["reset_events"] - previous_reset_events
-            previous_reset_events = counts["reset_events"]
-            new_transitions = counts["transitions"] - previous_transitions
-            previous_transitions = counts["transitions"]
-            gradient_summary = distributed.mean_scalars(
-                {"gradient_norm": sum(gradient_norms) / len(gradient_norms)}
-            )
-            record = {
-                "update": update,
-                "optimizer_steps": optimizer_steps,
-                **counts,
-                "new_samples_generated": new_samples,
-                "new_environments_reset": new_environments_reset,
-                "new_reset_events": new_reset_events,
-                "reset_fraction": new_environments_reset / max(new_transitions, 1),
-                "learning_rate_model": optimizer.param_groups[0]["lr"],
-                "normalization_frozen": True,
-                "fixed_batch_overfit": args.fixed_batch_overfit,
-                "loss_weights": _loss_weight_payload(loss_config),
-                **gradient_summary,
-                "train": train,
-                "fixed_probe": fixed_probe,
-            }
-            if distributed.is_main:
-                rolling_loss.append(train)
-                record["window"] = {
-                    name: {
-                        "mean": float(np.mean([item[name] for item in rolling_loss])),
-                        "std": float(np.std([item[name] for item in rolling_loss])),
+                train = distributed.mean_scalars(local_train)
+                fixed_probe = distributed.mean_scalars(local_probe)
+                counts = distributed.sum_integers(
+                    {
+                        "transitions": rollout.transitions,
+                        "replay_size": len(replay),
+                        "replay_storage_bytes": replay.storage_bytes,
+                        "samples_generated": replay.total_samples_generated,
+                        "reset_events": rollout.reset_events,
+                        "environments_reset": rollout.environments_reset,
                     }
-                    for name in train
+                )
+                new_samples = counts["samples_generated"] - previous_samples_generated
+                previous_samples_generated = counts["samples_generated"]
+                new_environments_reset = counts["environments_reset"] - previous_environments_reset
+                previous_environments_reset = counts["environments_reset"]
+                new_reset_events = counts["reset_events"] - previous_reset_events
+                previous_reset_events = counts["reset_events"]
+                new_transitions = counts["transitions"] - previous_transitions
+                previous_transitions = counts["transitions"]
+                gradient_summary = distributed.mean_scalars(
+                    {"gradient_norm": sum(gradient_norms) / len(gradient_norms)}
+                )
+                record = {
+                    "update": update,
+                    "optimizer_steps": optimizer_steps,
+                    **counts,
+                    "new_samples_generated": new_samples,
+                    "new_environments_reset": new_environments_reset,
+                    "new_reset_events": new_reset_events,
+                    "reset_fraction": new_environments_reset / max(new_transitions, 1),
+                    "learning_rate_model": optimizer.param_groups[0]["lr"],
+                    "normalization_frozen": True,
+                    "fixed_batch_overfit": args.fixed_batch_overfit,
+                    "loss_weights": _loss_weight_payload(loss_config),
+                    **gradient_summary,
+                    "optimization_train": optimization_train,
+                    "train": train,
+                    "fixed_probe": fixed_probe,
                 }
-                history.append(record)
-                with metrics_path.open("a") as handle:
-                    handle.write(json.dumps(record, sort_keys=True) + "\n")
-                wandb_logger.log(_wandb_payload(record), step=update)
-                if update == 1 or update % args.log_interval == 0 or update == args.updates:
+                if distributed.is_main:
+                    rolling_loss.append(train)
+                    record["window"] = {
+                        name: {
+                            "mean": float(np.mean([item[name] for item in rolling_loss])),
+                            "std": float(np.std([item[name] for item in rolling_loss])),
+                        }
+                        for name in train
+                    }
+                    history.append(record)
+                    with metrics_path.open("a") as handle:
+                        handle.write(json.dumps(record, sort_keys=True) + "\n")
+                    wandb_logger.log(_wandb_payload(record), step=update)
                     print(json.dumps(record, sort_keys=True), flush=True)
 
             if args.checkpoint_interval and update % args.checkpoint_interval == 0:

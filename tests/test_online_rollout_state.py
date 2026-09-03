@@ -52,9 +52,7 @@ def test_online_rollout_treats_resampling_and_reset_as_boundaries(monkeypatch) -
             simulator_target = torch.zeros(3, 29)
             simulator_target[1:] = 1.6676
             self.scene = {
-                "robot": SimpleNamespace(
-                    data=SimpleNamespace(joint_pos_target=simulator_target)
-                )
+                "robot": SimpleNamespace(data=SimpleNamespace(joint_pos_target=simulator_target))
             }
 
         def step(self, action: torch.Tensor):
@@ -66,6 +64,12 @@ def test_online_rollout_treats_resampling_and_reset_as_boundaries(monkeypatch) -
         "_snapshot",
         lambda _env, observations: _snapshot(0.0 if observations == "before" else 1.0),
     )
+    predictor_snapshots = iter((_snapshot(0.0), _snapshot(1.0)))
+    monkeypatch.setattr(
+        online_module,
+        "_forward_predictor_snapshot",
+        lambda _env: next(predictor_snapshots),
+    )
     monkeypatch.setattr(
         online_module,
         "_policy_observations",
@@ -73,6 +77,15 @@ def test_online_rollout_treats_resampling_and_reset_as_boundaries(monkeypatch) -
     )
 
     rollout = FixedDRTrackerRollout.__new__(FixedDRTrackerRollout)
+    latent_calls = 0
+
+    class Actor:
+        def get_latent(self, _observations: object) -> torch.Tensor:
+            nonlocal latent_calls
+            latent_calls += 1
+            return torch.zeros(3, 64)
+
+    rollout._runtime = SimpleNamespace(actor=Actor())
     rollout.config = SimpleNamespace(num_envs=3)
     rollout.closed = False
     rollout.env = FakeEnv()
@@ -96,12 +109,15 @@ def test_online_rollout_treats_resampling_and_reset_as_boundaries(monkeypatch) -
     rollout.synchronous_resets = 0
     rollout._motion_ids_seen = torch.arange(3)
 
-    batch = rollout.step()
+    batch = rollout.step(predictor_only=True)
 
+    assert latent_calls == 0
+    assert "policy_observation" not in batch
+    assert "reference_observation" not in batch
+    assert "tracking_error" not in batch
     assert batch["reset_boundary"].tolist() == [False, True, True]
     assert batch["episode_id"].tolist() == [0, 0, 0]
     assert batch["episode_step"].tolist() == [4, 4, 4]
-    assert batch["is_nominal"].tolist() == [True, False, False]
     assert rollout.episode_ids.tolist() == [0, 1, 1]
     assert rollout.episode_steps.tolist() == [5, 0, 0]
     assert rollout.observations == "after"
@@ -155,9 +171,7 @@ def test_online_rollout_adds_residual_after_frozen_tracker(monkeypatch) -> None:
     rollout.synchronous_resets = 0
     rollout._motion_ids_seen = torch.empty(0, dtype=torch.long)
 
-    batch = rollout.step(
-        lambda observation, tracker: torch.full_like(tracker, 0.25)
-    )
+    batch = rollout.step(lambda observation, tracker: torch.full_like(tracker, 0.25))
     torch.testing.assert_close(batch["tracker_action"], torch.full((1, 29), 0.5))
     torch.testing.assert_close(batch["residual_action"], torch.full((1, 29), 0.25))
     torch.testing.assert_close(batch["action"], torch.full((1, 29), 0.75))

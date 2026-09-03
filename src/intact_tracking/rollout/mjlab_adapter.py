@@ -14,7 +14,13 @@ import torch
 
 from intact_tracking.data import RolloutDimensions, RolloutShardWriter
 from intact_tracking.environment.runtime import create_runtime, prepare_rollout
-from intact_tracking.forward_predictor_inputs import CONTACT_BINARY_DIM, CONTACT_FORCE_DIM
+from intact_tracking.forward_predictor_inputs import (
+    CONTACT_BINARY_DIM,
+    CONTACT_FORCE_DIM,
+    FOOT_FEATURE_DIM,
+    G1_FOOT_BODY_NAMES,
+    g1_foot_features_from_link_state,
+)
 
 PROPRIO_TERM_DIMS = (29, 29, 3, 3, 29, 29)
 PROPRIO_HISTORY = 50
@@ -146,6 +152,35 @@ def _robot_raw_state(env: Any) -> torch.Tensor:
     return value
 
 
+def _feet_motion_snapshot(env: Any) -> dict[str, torch.Tensor]:
+    """Read sole height/velocity directly from simulator link kinematics."""
+
+    robot = env.scene["robot"]
+    body_names = tuple(str(name).split("/")[-1] for name in robot.body_names)
+    missing = [name for name in G1_FOOT_BODY_NAMES if name not in body_names]
+    if missing:
+        raise RuntimeError(f"Forward Predictor foot bodies are missing: {missing}")
+    indices = torch.as_tensor(
+        [body_names.index(name) for name in G1_FOOT_BODY_NAMES],
+        dtype=torch.long,
+        device=robot.data.body_link_pos_w.device,
+    )
+    link_position = robot.data.body_link_pos_w.index_select(1, indices)
+    link_position = link_position - env.scene.env_origins[:, None, :]
+    foot = g1_foot_features_from_link_state(
+        link_position,
+        robot.data.body_link_quat_w.index_select(1, indices),
+        robot.data.body_link_lin_vel_w.index_select(1, indices),
+        robot.data.body_link_ang_vel_w.index_select(1, indices),
+    )
+    if foot.shape != (env.num_envs, FOOT_FEATURE_DIM):
+        raise RuntimeError(
+            "Forward Predictor foot feature must have shape "
+            f"[{env.num_envs},{FOOT_FEATURE_DIM}], got {tuple(foot.shape)}"
+        )
+    return {"foot": foot}
+
+
 def _feet_contact_snapshot(env: Any) -> dict[str, torch.Tensor]:
     """Read current left/right terrain contact without making it a policy input."""
 
@@ -208,6 +243,21 @@ def _snapshot(env: Any, observations: Any) -> dict[str, torch.Tensor]:
         "motion_id": command.motion_idx.clone(),
         "motion_step": command.time_steps.clone(),
     }
+    snapshot.update(_feet_motion_snapshot(env))
+    snapshot.update(_feet_contact_snapshot(env))
+    return snapshot
+
+
+def _forward_predictor_snapshot(env: Any) -> dict[str, torch.Tensor]:
+    """Read only simulator fields consumed by the online predictor replay."""
+
+    command = env.command_manager.get_term("motion")
+    snapshot = {
+        "robot_state": _robot_raw_state(env),
+        "motion_id": command.motion_idx.clone(),
+        "motion_step": command.time_steps.clone(),
+    }
+    snapshot.update(_feet_motion_snapshot(env))
     snapshot.update(_feet_contact_snapshot(env))
     return snapshot
 

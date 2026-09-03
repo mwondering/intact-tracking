@@ -13,12 +13,12 @@ usage() {
     "  controller       frozen tracker" \
     "  model            causal Transformer, width 512, 6 layers, 8 heads (~19.02M)" \
     "  input            10 historical privileged-state/PD-target tokens + 1 current token" \
-    "  output           70-D robot delta + 6-D contact force + 2-D contact logits" \
+    "  output           70-D robot delta + 8-D foot state + 6-D contact force + 2-D logits" \
     "  rollout          shared one-step model recursively applied 5 times" \
     "  disabled         Context Encoder, Residual Policy, Backward, gradient clipping" \
     "" \
     "Production defaults (override with PREDICTOR_OPTIONS):" \
-    "  --num-envs 2048 --batch-size 4096 --micro-batch-size 256" \
+    "  --num-envs 2048 --batch-size 4096 --micro-batch-size 512 --amp-dtype bfloat16" \
     "  --replay-capacity 262144" \
     "  --gradient-steps-per-update 4 --updates 100000" \
     "" \
@@ -131,7 +131,8 @@ command+=(
   --output-dir "${OUTPUT_DIR}"
   --num-envs 2048
   --batch-size 4096
-  --micro-batch-size 256
+  --micro-batch-size 512
+  --amp-dtype bfloat16
   --replay-capacity 262144
   --replay-sampling motion_balanced
   --gradient-steps-per-update 4
@@ -152,12 +153,13 @@ command+=(
 )
 
 printf '%s\n' \
-  "Training contract: privileged-contact causal-Transformer Forward Predictor v4" \
-  "  model: 87-D state features + physical PD target -> robot/contact next state, ~19.02M" \
-  "  rollout: predicted q/qdot -> differentiable foot FK; robot/contact state recurs 5 steps" \
-  "  loss: teacher/recursive robot+contact loss with fixed recursive weight" \
+  "Training contract: privileged-contact direct-foot causal-Transformer Forward Predictor v5" \
+  "  model: 87-D state features + physical PD target -> robot/foot/contact next state, ~19.03M" \
+  "  rollout: predicted robot/foot/contact state recurs 5 steps; no articulated FK in model" \
+  "  loss: teacher/recursive robot+foot+contact loss with fixed recursive weight" \
   "  replay: motion-balanced, 262144 samples per rank by default" \
-  "  optimizer: effective batch 4096, micro-batch 256, no gradient clipping" \
+  "  optimizer: effective batch 4096, micro-batch 512, BF16 autocast, fused AdamW" \
+  "  diagnostics: full metric/probe evaluation every --log-interval updates" \
   "  normalization: robot/PD-target/foot/contact-force/delta stats frozen after warmup" \
   "  context/policy/backward: disabled" \
   "  distributed ranks: ${NPROC}"

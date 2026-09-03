@@ -281,7 +281,8 @@ def test_forward_predictor_launcher_builds_locked_causal_transformer_command(
     ]
     assert _last_option_value(arguments, "--num-envs") == "2048"
     assert _last_option_value(arguments, "--batch-size") == "4096"
-    assert _last_option_value(arguments, "--micro-batch-size") == "256"
+    assert _last_option_value(arguments, "--micro-batch-size") == "512"
+    assert _last_option_value(arguments, "--amp-dtype") == "bfloat16"
     assert _last_option_value(arguments, "--replay-capacity") == "262144"
     assert _last_option_value(arguments, "--replay-sampling") == "motion_balanced"
     assert _last_option_value(arguments, "--gradient-steps-per-update") == "4"

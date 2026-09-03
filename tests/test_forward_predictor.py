@@ -28,6 +28,7 @@ from intact_tracking.forward_predictor_inputs import (
     G1_XML_JOINT_NAMES,
     G1FootKinematics,
     JointPositionTargetTransform,
+    g1_foot_features_from_link_state,
 )
 from intact_tracking.forward_predictor_objective import (
     ForwardPredictorLossConfig,
@@ -67,28 +68,31 @@ def _history(batch_size: int) -> dict[str, torch.Tensor]:
     return {
         "history_state": torch.zeros(batch_size, 10, 71),
         "history_action": torch.zeros(batch_size, 10, 29),
+        "history_foot": torch.zeros(batch_size, 10, 8),
         "history_contact_force": torch.zeros(batch_size, 10, 6),
         "history_contact_binary": torch.zeros(batch_size, 10, 2, dtype=torch.bool),
         "history_valid": torch.zeros(batch_size, 10, dtype=torch.bool),
     }
 
 
-def _current_contacts(batch_size: int) -> tuple[torch.Tensor, torch.Tensor]:
-    return torch.zeros(batch_size, 6), torch.zeros(batch_size, 2, dtype=torch.bool)
-
-
-def _contact_trajectory(batch_size: int) -> tuple[torch.Tensor, torch.Tensor]:
+def _current_privileged(
+    batch_size: int,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     return (
-        torch.zeros(batch_size, 6, 6),
-        torch.zeros(batch_size, 6, 2, dtype=torch.bool),
+        torch.zeros(batch_size, 8),
+        torch.zeros(batch_size, 6),
+        torch.zeros(batch_size, 2, dtype=torch.bool),
     )
 
 
-def _forward_normalization() -> dict[str, torch.Tensor]:
-    normalization = _normalization()
-    return {
-        name: normalization[name] for name in ("state_mean", "state_std", "foot_mean", "foot_std")
-    }
+def _privileged_trajectory(
+    batch_size: int,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    return (
+        torch.zeros(batch_size, 6, 8),
+        torch.zeros(batch_size, 6, 6),
+        torch.zeros(batch_size, 6, 2, dtype=torch.bool),
+    )
 
 
 def _rollout_normalization() -> dict[str, torch.Tensor]:
@@ -98,8 +102,6 @@ def _rollout_normalization() -> dict[str, torch.Tensor]:
         for name in (
             "state_mean",
             "state_std",
-            "foot_mean",
-            "foot_std",
             "delta_mean",
             "delta_std",
         )
@@ -118,12 +120,13 @@ def _rollout_target(initial: torch.Tensor, delta: torch.Tensor) -> torch.Tensor:
 def test_default_forward_predictor_is_a_twenty_million_parameter_transformer() -> None:
     model = ForwardDynamicsTransformer()
 
-    assert sum(parameter.numel() for parameter in model.parameters()) == 19_022_414
+    assert sum(parameter.numel() for parameter in model.parameters()) == 19_026_518
     assert model.config.history_steps == 10
     assert model.config.sequence_length == 11
     assert model.config.transformer_dim == 512
     assert model.config.transformer_depth == 6
     assert model.config.transformer_heads == 8
+    assert not hasattr(model, "foot_kinematics")
     assert model.causal_mask.shape == (11, 11)
     assert torch.equal(model.causal_mask, torch.triu(torch.ones(11, 11, dtype=torch.bool), 1))
 
@@ -137,25 +140,26 @@ def test_masked_history_values_do_not_affect_transformer_prediction() -> None:
     changed = {name: value.clone() for name, value in history.items()}
     changed["history_state"].normal_()
     changed["history_action"].normal_()
+    changed["history_foot"].normal_()
     changed["history_contact_force"].normal_()
     changed["history_contact_binary"].logical_not_()
-    contact_force, contact_binary = _current_contacts(2)
+    foot, contact_force, contact_binary = _current_privileged(2)
 
     expected = model(
         state,
         action,
+        foot,
         contact_force,
         contact_binary,
         **history,
-        **_forward_normalization(),
     )
     actual = model(
         state,
         action,
+        foot,
         contact_force,
         contact_binary,
         **changed,
-        **_forward_normalization(),
     )
 
     assert all(
@@ -177,6 +181,23 @@ def test_g1_foot_features_are_differentiable_in_q_and_qdot() -> None:
     assert state.grad is not None
     assert state.grad[:, 13:42].abs().sum() > 0.0
     assert state.grad[:, 42:71].abs().sum() > 0.0
+
+
+def test_foot_features_are_read_from_simulator_link_state_without_fk() -> None:
+    position = torch.tensor([[[0.0, 0.1, 0.50], [0.0, -0.1, 0.60]]])
+    quaternion = torch.tensor([[[1.0, 0.0, 0.0, 0.0]] * 2])
+    linear_velocity = torch.tensor([[[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]])
+    angular_velocity = torch.zeros(1, 2, 3)
+
+    foot = g1_foot_features_from_link_state(
+        position,
+        quaternion,
+        linear_velocity,
+        angular_velocity,
+    )
+
+    expected = torch.tensor([[0.463, 1.0, 2.0, 3.0, 0.563, 4.0, 5.0, 6.0]])
+    torch.testing.assert_close(foot, expected)
 
 
 def test_policy_action_is_converted_to_physical_pd_target_outside_model() -> None:
@@ -294,10 +315,11 @@ def test_forward_predictor_recursively_propagates_gradients_through_five_steps()
     initial = _identity_state(3)
     actions = torch.randn(3, 5, 29)
 
-    contact_force, contact_binary = _current_contacts(3)
-    prediction, deltas, predicted_force, contact_logits = model.rollout(
+    foot, contact_force, contact_binary = _current_privileged(3)
+    prediction, deltas, predicted_foot, predicted_force, contact_logits = model.rollout(
         initial,
         actions,
+        foot,
         contact_force,
         contact_binary,
         **_history(3),
@@ -306,6 +328,7 @@ def test_forward_predictor_recursively_propagates_gradients_through_five_steps()
     loss = (
         prediction.square().mean()
         + deltas.square().mean()
+        + predicted_foot.square().mean()
         + predicted_force.square().mean()
         + contact_logits.square().mean()
     )
@@ -313,11 +336,90 @@ def test_forward_predictor_recursively_propagates_gradients_through_five_steps()
 
     assert prediction.shape == (3, 5, 71)
     assert deltas.shape == (3, 5, 70)
+    assert predicted_foot.shape == (3, 5, 8)
     assert predicted_force.shape == (3, 5, 6)
     assert contact_logits.shape == (3, 5, 2)
     assert torch.isfinite(prediction).all()
     assert all(parameter.grad is not None for parameter in model.parameters())
     assert sum(float(parameter.grad.square().sum()) for parameter in model.parameters()) > 0.0
+
+
+def test_teacher_forced_windows_are_vectorized_and_match_sequential_evaluation() -> None:
+    torch.manual_seed(11)
+    model = ForwardDynamicsTransformer(_small_config()).eval()
+    batch_size = 2
+    states = torch.randn(batch_size, 6, 71)
+    states[..., 3:7] = torch.nn.functional.normalize(states[..., 3:7], dim=-1)
+    actions = torch.randn(batch_size, 5, 29)
+    feet = torch.randn(batch_size, 6, 8)
+    forces = torch.randn(batch_size, 6, 6)
+    binaries = torch.rand(batch_size, 6, 2) > 0.5
+    history = {
+        "history_state": torch.randn(batch_size, 10, 71),
+        "history_action": torch.randn(batch_size, 10, 29),
+        "history_foot": torch.randn(batch_size, 10, 8),
+        "history_contact_force": torch.randn(batch_size, 10, 6),
+        "history_contact_binary": torch.rand(batch_size, 10, 2) > 0.5,
+        "history_valid": torch.rand(batch_size, 10) > 0.25,
+    }
+    normalization = _rollout_normalization()
+    calls = 0
+
+    def count_forward(
+        _module: torch.nn.Module,
+        _inputs: tuple[torch.Tensor, ...],
+        _output: tuple[torch.Tensor, ...],
+    ) -> None:
+        nonlocal calls
+        calls += 1
+
+    handle = model.register_forward_hook(count_forward)
+    vectorized = model.teacher_forced(
+        states,
+        actions,
+        feet,
+        forces,
+        binaries,
+        **history,
+        **normalization,
+    )
+    handle.remove()
+
+    sequential_outputs: list[list[torch.Tensor]] = [[], [], [], [], []]
+    rolling = tuple(history.values())
+    for index in range(5):
+        outputs = model(
+            states[:, index],
+            actions[:, index],
+            feet[:, index],
+            forces[:, index],
+            binaries[:, index],
+            *rolling,
+        )
+        next_state = model._apply_normalized_delta(
+            states[:, index],
+            outputs[0],
+            **normalization,
+        )
+        for destination, value in zip(
+            sequential_outputs,
+            (next_state, *outputs),
+            strict=True,
+        ):
+            destination.append(value)
+        rolling = model._roll_history(
+            *rolling,
+            states[:, index],
+            actions[:, index],
+            feet[:, index],
+            forces[:, index],
+            binaries[:, index],
+        )
+    sequential = tuple(torch.stack(values, dim=1) for values in sequential_outputs)
+
+    assert calls == 1
+    for actual, expected in zip(vectorized, sequential, strict=True):
+        torch.testing.assert_close(actual, expected, rtol=1.0e-5, atol=1.0e-6)
 
 
 def test_rollout_feeds_each_predicted_state_into_the_next_transition() -> None:
@@ -326,43 +428,39 @@ def test_rollout_feeds_each_predicted_state_into_the_next_transition() -> None:
             self,
             normalized_state: torch.Tensor,
             normalized_action: torch.Tensor,
+            normalized_foot: torch.Tensor,
             normalized_contact_force: torch.Tensor,
             contact_binary: torch.Tensor,
             history_state: torch.Tensor,
             history_action: torch.Tensor,
+            history_foot: torch.Tensor,
             history_contact_force: torch.Tensor,
             history_contact_binary: torch.Tensor,
             history_valid: torch.Tensor,
-            state_mean: torch.Tensor,
-            state_std: torch.Tensor,
-            foot_mean: torch.Tensor,
-            foot_std: torch.Tensor,
-        ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
             del (
                 normalized_action,
                 contact_binary,
                 history_state,
                 history_action,
+                history_foot,
                 history_contact_force,
                 history_contact_binary,
                 history_valid,
-                state_mean,
-                state_std,
-                foot_mean,
-                foot_std,
             )
             delta = normalized_state.new_zeros((*normalized_state.shape[:-1], 70))
             delta[..., 0] = normalized_state[..., 0]
             logits = normalized_contact_force.new_zeros((*normalized_contact_force.shape[:-1], 2))
-            return delta, normalized_contact_force, logits
+            return delta, normalized_foot + 1.0, normalized_contact_force, logits
 
     model = DoublingRootPositionPredictor(_small_config())
     initial = _identity_state(1)
     initial[:, 0] = 1.0
-    contact_force, contact_binary = _current_contacts(1)
-    prediction, _, _, _ = model.rollout(
+    foot, contact_force, contact_binary = _current_privileged(1)
+    prediction, _, predicted_foot, _, _ = model.rollout(
         initial,
         torch.zeros(1, 5, 29),
+        foot,
         contact_force,
         contact_binary,
         **_history(1),
@@ -372,6 +470,10 @@ def test_rollout_feeds_each_predicted_state_into_the_next_transition() -> None:
     assert torch.equal(
         prediction[0, :, 0],
         torch.tensor([2.0, 4.0, 8.0, 16.0, 32.0]),
+    )
+    assert torch.equal(
+        predicted_foot[0, :, 0],
+        torch.arange(1.0, 6.0),
     )
 
 
@@ -384,10 +486,11 @@ def test_five_step_objective_is_zero_for_exact_recursive_trajectory() -> None:
     physical_delta[:, 0] = 0.01
     physical_delta[:, 12:41] = 0.002
     target = _rollout_target(initial, physical_delta)
-    contact_force, contact_binary = _contact_trajectory(2)
+    foot, contact_force, contact_binary = _privileged_trajectory(2)
     batch = {
         "state": torch.cat((initial[:, None], target), dim=1),
         "action": torch.randn(2, 5, 29),
+        "foot": foot,
         "contact_force": contact_force,
         "contact_binary": contact_binary,
         **_history(2),
@@ -400,8 +503,11 @@ def test_five_step_objective_is_zero_for_exact_recursive_trajectory() -> None:
     )
 
     output = objective(batch)
+    fast_output = objective(batch, compute_metrics=False, validate_batch=False)
 
     assert output["loss"].item() < 1.0e-10
+    assert set(fast_output) == {"loss", "teacher_loss", "recursive_loss"}
+    torch.testing.assert_close(fast_output["loss"], output["loss"])
     assert output["recursive_weight"].item() == 0.5
     assert output["rollout_nmse"].item() < 1.0e-8
     for step in range(1, 6):
@@ -414,10 +520,11 @@ def test_teacher_only_stage_updates_every_transformer_parameter() -> None:
     initial = _identity_state(3)
     delta = torch.randn(3, 70) * 0.01
     target = _rollout_target(initial, delta)
-    contact_force, contact_binary = _contact_trajectory(3)
+    foot, contact_force, contact_binary = _privileged_trajectory(3)
     batch = {
         "state": torch.cat((initial[:, None], target), dim=1),
         "action": torch.randn(3, 5, 29),
+        "foot": foot,
         "contact_force": contact_force,
         "contact_binary": contact_binary,
         **_history(3),
@@ -443,6 +550,8 @@ def _transition_batch(step: int, reset_second_world: bool = False) -> dict[str, 
         "joint_target": torch.full((2, 29), float(step)),
         "robot_state": state,
         "next_robot_state": following,
+        "foot": torch.full((2, 8), float(step)),
+        "next_foot": torch.full((2, 8), float(step + 1)),
         "contact_force": torch.full((2, 6), float(step)),
         "next_contact_force": torch.full((2, 6), float(step + 1)),
         "contact_binary": torch.full((2, 2), step % 2 == 0, dtype=torch.bool),
@@ -475,10 +584,12 @@ def test_predictor_replay_materializes_only_reset_free_five_step_windows() -> No
     sampled = replay.sample_batch(1, stats)
     physical_states = sampled["state"] * sampled["state_std"] + sampled["state_mean"]
     physical_actions = sampled["action"] * sampled["action_std"] + sampled["action_mean"]
+    physical_foot = sampled["foot"] * sampled["foot_std"] + sampled["foot_mean"]
 
     assert sampled["world_id"].item() == 10
     assert torch.equal(physical_states[0, :, 0], torch.arange(6, dtype=torch.float32))
     assert torch.equal(physical_actions[0, :, 0], torch.arange(5, dtype=torch.float32))
+    assert torch.equal(physical_foot[0, :, 0], torch.arange(6, dtype=torch.float32))
     assert not sampled["history_valid"].any()
     assert replay.normalizer.frozen
 
@@ -498,6 +609,8 @@ def _single_transition(
         "joint_target": torch.full((1, 29), state_value),
         "robot_state": state,
         "next_robot_state": following,
+        "foot": torch.full((1, 8), state_value),
+        "next_foot": torch.full((1, 8), state_value + 1.0),
         "contact_force": torch.full((1, 6), state_value),
         "next_contact_force": torch.full((1, 6), state_value + 1.0),
         "contact_binary": torch.full((1, 2), episode_step % 2 == 0, dtype=torch.bool),
@@ -629,7 +742,8 @@ def test_forward_predictor_cli_defaults_to_recursive_nominal_training() -> None:
 
     assert args.gradient_steps_per_update == 4
     assert args.batch_size == 4096
-    assert args.micro_batch_size == 256
+    assert args.micro_batch_size == 512
+    assert args.amp_dtype == "bfloat16"
     assert args.replay_capacity == 262_144
     assert args.replay_sampling == "motion_balanced"
     assert args.history_steps == 10
@@ -640,6 +754,7 @@ def test_forward_predictor_cli_defaults_to_recursive_nominal_training() -> None:
     assert not hasattr(args, "gradient_clip")
     assert args.rollout_steps_per_update == 5
     assert args.recursive_weight == 0.5
+    assert args.foot_weight == 1.0
     assert args.contact_force_weight == 1.0
     assert args.contact_binary_weight == 1.0
 
@@ -647,8 +762,10 @@ def test_forward_predictor_cli_defaults_to_recursive_nominal_training() -> None:
 def test_micro_batch_slice_preserves_global_normalization_tensors() -> None:
     batch = {
         "state": torch.arange(24).reshape(4, 6),
+        "foot": torch.arange(32).reshape(4, 8),
         "contact_force": torch.arange(24).reshape(4, 6),
         "contact_binary": torch.ones(4, 6, 2, dtype=torch.bool),
+        "history_foot": torch.ones(4, 10, 8),
         "history_contact_force": torch.ones(4, 10, 6),
         "history_contact_binary": torch.ones(4, 10, 2, dtype=torch.bool),
         "history_valid": torch.ones(4, 10, dtype=torch.bool),
@@ -660,6 +777,7 @@ def test_micro_batch_slice_preserves_global_normalization_tensors() -> None:
     micro_batch = _slice_predictor_batch(batch, 1, 3)
 
     assert torch.equal(micro_batch["state"], batch["state"][1:3])
+    assert torch.equal(micro_batch["foot"], batch["foot"][1:3])
     assert torch.equal(micro_batch["contact_force"], batch["contact_force"][1:3])
     assert torch.equal(micro_batch["contact_binary"], batch["contact_binary"][1:3])
     assert torch.equal(micro_batch["history_valid"], batch["history_valid"][1:3])

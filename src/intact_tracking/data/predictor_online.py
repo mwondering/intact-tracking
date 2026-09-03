@@ -12,7 +12,6 @@ from intact_tracking.forward_predictor_inputs import (
     CONTACT_BINARY_DIM,
     CONTACT_FORCE_DIM,
     FOOT_FEATURE_DIM,
-    G1FootKinematics,
 )
 
 from .schema import RolloutDimensions
@@ -34,8 +33,6 @@ class _RunningMoments:
         flat = value.detach().to(device=self.device, dtype=torch.float64).reshape(-1, self.width)
         if flat.numel() == 0:
             return
-        if not torch.isfinite(flat).all():
-            raise ValueError("Forward Predictor normalization received a non-finite value")
         self.count += flat.size(0)
         self.total.add_(flat.sum(dim=0))
         self.square_total.add_(flat.square().sum(dim=0))
@@ -83,7 +80,6 @@ class ForwardPredictorNormalization:
         self.foot = _RunningMoments(FOOT_FEATURE_DIM, self.device)
         self.contact_force = _RunningMoments(CONTACT_FORCE_DIM, self.device)
         self.delta = _RunningMoments(70, self.device)
-        self.foot_kinematics = G1FootKinematics().to(self.device)
         self.frozen = False
 
     def update(self, batch: dict[str, torch.Tensor], valid: torch.Tensor) -> None:
@@ -91,13 +87,11 @@ class ForwardPredictorNormalization:
             return
         if valid.dtype != torch.bool or valid.shape != (batch["robot_state"].size(0),):
             raise ValueError("Forward Predictor normalization mask must be [num_worlds] bool")
-        if not bool(valid.any()):
-            return
         current = batch["robot_state"][valid]
         following = batch["next_robot_state"][valid]
         self.state.update(torch.cat((current, following), dim=0))
         self.action.update(batch["joint_target"][valid])
-        self.foot.update(self.foot_kinematics(torch.cat((current, following), dim=0)))
+        self.foot.update(torch.cat((batch["foot"][valid], batch["next_foot"][valid]), dim=0))
         self.contact_force.update(
             torch.cat(
                 (batch["contact_force"][valid], batch["next_contact_force"][valid]),
@@ -190,6 +184,8 @@ class ForwardPredictorReplayBuffer:
         "joint_target",
         "robot_state",
         "next_robot_state",
+        "foot",
+        "next_foot",
         "contact_force",
         "next_contact_force",
         "contact_binary",
@@ -274,12 +270,15 @@ class ForwardPredictorReplayBuffer:
     def estimated_storage_bytes(self) -> int:
         dims = self.dimensions
         history_floats = (
-            self.ring_steps * self.num_worlds * (dims.robot_state + dims.action + CONTACT_FORCE_DIM)
+            self.ring_steps
+            * self.num_worlds
+            * (dims.robot_state + dims.action + FOOT_FEATURE_DIM + CONTACT_FORCE_DIM)
         )
         sample_floats = self.capacity * (
             (self.horizon + 1) * dims.robot_state
             + self.horizon * dims.action
             + self.history_steps * (dims.robot_state + dims.action)
+            + (self.horizon + 1 + self.history_steps) * FOOT_FEATURE_DIM
             + (self.horizon + 1 + self.history_steps) * CONTACT_FORCE_DIM
         )
         history_integers = 4 * self.ring_steps * self.num_worlds
@@ -299,6 +298,7 @@ class ForwardPredictorReplayBuffer:
         self._history = {
             "state": torch.zeros((*history_prefix, dims.robot_state), device=self.device),
             "action": torch.zeros((*history_prefix, dims.action), device=self.device),
+            "foot": torch.zeros((*history_prefix, FOOT_FEATURE_DIM), device=self.device),
             "contact_force": torch.zeros((*history_prefix, CONTACT_FORCE_DIM), device=self.device),
             "contact_binary": torch.zeros(
                 (*history_prefix, CONTACT_BINARY_DIM), dtype=torch.bool, device=self.device
@@ -319,6 +319,12 @@ class ForwardPredictorReplayBuffer:
             ),
             "history_action": torch.empty(
                 (self.capacity, self.history_steps, dims.action), device=self.device
+            ),
+            "foot": torch.empty(
+                (self.capacity, self.horizon + 1, FOOT_FEATURE_DIM), device=self.device
+            ),
+            "history_foot": torch.empty(
+                (self.capacity, self.history_steps, FOOT_FEATURE_DIM), device=self.device
             ),
             "contact_force": torch.empty(
                 (self.capacity, self.horizon + 1, CONTACT_FORCE_DIM), device=self.device
@@ -353,6 +359,8 @@ class ForwardPredictorReplayBuffer:
             "joint_target": (self.num_worlds, dims.action),
             "robot_state": (self.num_worlds, dims.robot_state),
             "next_robot_state": (self.num_worlds, dims.robot_state),
+            "foot": (self.num_worlds, FOOT_FEATURE_DIM),
+            "next_foot": (self.num_worlds, FOOT_FEATURE_DIM),
             "contact_force": (self.num_worlds, CONTACT_FORCE_DIM),
             "next_contact_force": (self.num_worlds, CONTACT_FORCE_DIM),
             "contact_binary": (self.num_worlds, CONTACT_BINARY_DIM),
@@ -372,8 +380,6 @@ class ForwardPredictorReplayBuffer:
                 raise ValueError(
                     f"Forward Predictor field {name!r} has {tuple(value.shape)}, expected {shape}"
                 )
-            if not torch.isfinite(value).all():
-                raise ValueError(f"Forward Predictor field {name!r} contains non-finite values")
         if batch["reset_boundary"].dtype != torch.bool:
             raise ValueError("reset_boundary must be boolean")
         if batch["contact_binary"].dtype != torch.bool:
@@ -418,6 +424,7 @@ class ForwardPredictorReplayBuffer:
         position = self._history_write
         self._history["state"][position].copy_(batch["robot_state"])
         self._history["action"][position].copy_(batch["joint_target"])
+        self._history["foot"][position].copy_(batch["foot"])
         self._history["contact_force"][position].copy_(batch["contact_force"])
         self._history["contact_binary"][position].copy_(batch["contact_binary"])
         self._history["episode_id"][position].copy_(batch["episode_id"])
@@ -459,6 +466,12 @@ class ForwardPredictorReplayBuffer:
             history_action = self._history["action"][
                 history_ids[:, None], env_ids[None, :]
             ].permute(1, 0, 2)
+            target_foot = self._history["foot"][target_ids[:, None], env_ids[None, :]].permute(
+                1, 0, 2
+            )
+            history_foot = self._history["foot"][history_ids[:, None], env_ids[None, :]].permute(
+                1, 0, 2
+            )
             target_contact_force = self._history["contact_force"][
                 target_ids[:, None], env_ids[None, :]
             ].permute(1, 0, 2)
@@ -492,6 +505,8 @@ class ForwardPredictorReplayBuffer:
                 "action": target_action,
                 "history_state": history_state,
                 "history_action": history_action,
+                "foot": torch.cat((target_foot, batch["next_foot"][env_ids, None]), dim=1),
+                "history_foot": history_foot,
                 "contact_force": torch.cat(
                     (target_contact_force, batch["next_contact_force"][env_ids, None]), dim=1
                 ),
@@ -578,6 +593,8 @@ class ForwardPredictorReplayBuffer:
             "action": (selected["action"] - action_mean) / action_std,
             "history_state": (selected["history_state"] - state_mean) / state_std,
             "history_action": (selected["history_action"] - action_mean) / action_std,
+            "foot": (selected["foot"] - foot_mean) / foot_std,
+            "history_foot": (selected["history_foot"] - foot_mean) / foot_std,
             "contact_force": (selected["contact_force"] - contact_force_mean) / contact_force_std,
             "contact_binary": selected["contact_binary"],
             "history_contact_force": (selected["history_contact_force"] - contact_force_mean)
