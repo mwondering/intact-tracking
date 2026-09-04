@@ -201,53 +201,37 @@ motion 计数。每条记录还在 `window` 中保存最近 `metric-window` 轮�
 - `history.json`：所有 update 的结构化记录；
 - `train.log`：正式脚本捕获的完整终端输出。
 
-## Local-contrastive Context Forward Predictor v11 训练
+## Nominal-counterfactual Context Forward Predictor v12 训练
 
-当前主实验在启动时只随机生成 128 个 startup-DR dynamics prototype，之后不再重采样，并把
-这 128 类动力学平铺到每个连续的 128-env motion family。一个 family 内所有环境使用相同
-motion 和 phase，因此同一 cohort 的不同动力学样本天然构成严格匹配负样本。正样本不再跨
-motion：它们来自同一个物理 world、同一个 episode 和同一个 motion 内偏移 5～20 个控制步的
-局部历史窗口。
+当前主实验使用两个严格配对的数据批次。批次 A 在全局 4096 个独立采样 motion/phase 的环境中
+正常运行冻结 tracker，其中一半是 compiled nominal physics，另一半是一次采样后永久固定的
+startup DR。批次 B 从每段 A 轨迹的起始物理状态出发，在纯 nominal simulator 中直接重放 A
+真正执行的五个 PD joint target。由此得到的五步 A-B 响应，是 latent 学习所使用的可观察动力学
+监督；真实 θ 不进入模型、loss 或样本筛选。
 
-独立 Context Encoder 把过去 100 个已完成的
-`(71-D robot state, applied PD target, next 71-D robot state)` 交互压缩为 64 维 dynamics
-latent z，再用 z 调制 causal Transition Transformer。Context Encoder 只读取本体状态和
-applied target，不读取足端、接触或真实 θ；这些 simulator 特权状态只供 Transition
-Transformer 使用。模型没有 θ encoder/decoder，真实 θ 不参与正负样本筛选；无论两组 DR
-参数相距多近，同一 motion/phase cohort 中的不同 world 都作为负样本，让 encoder 只按历史中
-实际可观察到的响应差异学习。
-reset 后尚未填满 100 帧的 context 仍用于 Forward Predictor 优化，但完全不参与正样本或
-负样本构造。
+Context Encoder 只读取过去 100 帧
+`(71-D robot state, applied PD target, next 71-D robot state)`，不读取 foot/contact。相同 A
+world、episode、motion 中精确偏移 5 帧的完整窗口作为局部不变视图；跨 world 的 latent 距离则
+连续匹配其 A-B 响应距离，不设置差异阈值，也不再人为定义 128 类环境或同步 motion family。
+reset 后未填满 context 的样本仍可训练 predictor，但不参与表征约束。
 
-每个状态包含 71 维 robot state、从 simulator 刚体状态直接读取的 8 维左右脚离地高度/速度、
-6 维接触力和 2 维接触标记；action 是在 Predictor 外部换算好的 29 维物理 PD joint target。
-Transition Transformer 同时预测 70 维 robot delta、8 维足端状态、6 维接触力和 2 个接触
-logits；五步递推使用上一步预测结果，训练热路径不执行 articulated FK。
+共享的 Transition Transformer 同时训练 nominal 与 DR 数据，使用最近 10 帧 robot/foot/contact
+状态、当前状态、applied target 和 latent，递推预测未来五帧 robot state、足端和接触状态。
+训练热路径不执行 articulated FK。
 
 ```bash
 GPUS=0,1 ./scripts/run_forward_predictor_training.sh \
   /path/to/checkpoint.pt \
   /path/to/motion_directory \
   /path/to/runs/forward_predictor \
-  --wandb-name forward-predictor-context
+  --wandb-name forward-predictor-v12
 ```
 
-脚本默认使用 128 个固定 startup-DR prototype、宽度 512、6 层、8 头的 Transition
-Transformer，以及 128 维、2 层、4 头的 Context Encoder；默认每卡 2048 个环境，即 16 个
-motion family，有效 batch 4096、BF16 micro-batch 512、motion-balanced replay 262144。
-每个 micro-batch 包含同一 family 的 4 个局部时间 cohort，默认窗口之间形成 5/10/15/20 步
-偏移。每个 anchor 的正样本是这些 cohort 中同一个 world 的窗口，负样本是其所在 cohort 中
-其余全部 127 个 world，128 个环境两两互为负样本；不同 motion 或不同 phase 的 pair 完全忽略，
-也没有 θ/响应距离阈值。
-micro-batch 的梯度按样本数累积后只执行一次 optimizer step，不进行梯度裁剪，但仍
-记录原始 gradient norm；teacher-forced 五个窗口合并成一次 Transformer 前向，完整诊断仅按
-日志间隔执行。训练优化 teacher-forced 一步 Huber loss、固定权重 0.5 的五步递推 Huber
-loss，以及默认权重 0.01 的 local exact-cohort contrastive loss。100 帧历史通过按时间
-归档在采样时重建，不会为每个 replay sample 重复存一份。robot state、physical target、foot
-feature、contact force 与 delta normalization 在 warmup 后冻结；theta 只保留 prototype 级
-provenance，不进入 replay。固定 probe 会
-等待完整 100 帧历史后再冻结，避免其表征指标永久为零。首次运行应先增加
-`--fixed-batch-overfit`，确认同一批数据可以被拟合到接近零误差。
+脚本固定全局 4096 个 A 环境并按 GPU 均分，默认有效 batch 4096、BF16 micro-batch 512、
+motion-balanced replay 262144。训练 loss 是 teacher-forced prediction、固定权重 0.5 的五步
+recursive prediction，以及默认权重 0.01 的 response-geometry representation；不使用梯度裁剪。
+日志仅保留 predictor 一步 NMSE、nominal/DR 五步 NMSE、同环境 latent cosine、latent/response
+距离相关性，以及“换成其他环境 latent 后 DR 误差上升多少”的 shuffle ratio 等核心诊断。
 完整契约见 [Dynamics-context Forward Predictor flow](docs/forward_predictor_training.md)。
 
 ## 旧版 Context-conditioned Forward-only 训练

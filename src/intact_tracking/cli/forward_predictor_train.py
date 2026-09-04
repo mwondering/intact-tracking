@@ -1,4 +1,4 @@
-"""Train a contrastive dynamics-context predictor from tracker rollouts."""
+"""Train a nominal-counterfactual dynamics-context Forward Predictor."""
 
 from __future__ import annotations
 
@@ -8,7 +8,6 @@ import json
 import os
 import random
 import time
-from collections import deque
 from contextlib import nullcontext
 from dataclasses import asdict
 from pathlib import Path
@@ -33,7 +32,12 @@ from intact_tracking.forward_predictor_objective import (
     ForwardPredictorLossConfig,
     ForwardPredictorObjective,
 )
-from intact_tracking.rollout import FixedDRRolloutConfig, FixedDRTrackerRollout
+from intact_tracking.rollout import (
+    FixedDRRolloutConfig,
+    FixedDRTrackerRollout,
+    NominalPairRollout,
+    NominalPairRolloutConfig,
+)
 from intact_tracking.rollout.mjlab_adapter import _sha256
 from intact_tracking.wandb_logger import WandbLogger
 
@@ -48,7 +52,7 @@ def build_parser() -> argparse.ArgumentParser:
     motion.add_argument("--motion-file")
     parser.add_argument("--output-dir", required=True)
     parser.add_argument("--task-id")
-    parser.add_argument("--num-envs", type=int, default=128)
+    parser.add_argument("--num-envs", type=int, default=4096)
     parser.add_argument("--device")
     parser.add_argument("--distributed-backend", choices=("nccl", "gloo"))
     parser.add_argument("--seed", type=int, default=0)
@@ -61,9 +65,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--nominal-fraction",
         type=float,
-        default=0.0,
-        help="Fraction of vector worlds restored to nominal physics; the default keeps all DR.",
+        default=0.5,
+        help="Batch-A fraction restored to nominal physics; fixed to one half for this task.",
     )
+    parser.add_argument("--nominal-restore-atol", type=float, default=1.0e-5)
 
     parser.add_argument("--warmup-steps", type=int, default=100)
     parser.add_argument("--max-warmup-steps", type=int, default=10_000)
@@ -102,19 +107,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--log-interval", type=int, default=10)
     parser.add_argument("--warmup-log-interval", type=int, default=10)
-    parser.add_argument("--metric-window", type=int, default=100)
     parser.add_argument("--checkpoint-interval", type=int, default=1000)
 
     parser.add_argument("--model-learning-rate", type=float, default=3.0e-4)
     parser.add_argument("--weight-decay", type=float, default=1.0e-3)
     parser.add_argument("--history-steps", type=int, default=10)
     parser.add_argument("--context-history-steps", type=int, default=100)
-    parser.add_argument(
-        "--dynamics-classes",
-        type=int,
-        default=128,
-        help="Fixed startup-DR prototypes repeated in each synchronized motion family.",
-    )
     parser.add_argument("--transformer-dim", type=int, default=512)
     parser.add_argument("--transformer-depth", type=int, default=6)
     parser.add_argument("--transformer-heads", type=int, default=8)
@@ -140,16 +138,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--foot-weight", type=float, default=1.0)
     parser.add_argument("--contact-force-weight", type=float, default=1.0)
     parser.add_argument("--contact-binary-weight", type=float, default=1.0)
-    parser.add_argument("--contrastive-weight", type=float, default=0.01)
-    parser.add_argument("--contrastive-temperature", type=float, default=0.1)
+    parser.add_argument("--representation-weight", type=float, default=0.01)
+    parser.add_argument("--response-distance-scale", type=float, default=1.0)
     parser.add_argument(
-        "--contrastive-positive-max-offset-steps",
+        "--positive-offset-steps",
         type=int,
-        default=20,
-        help=(
-            "Largest control-step offset between same-world context windows used as "
-            "positives; negatives never use a dynamics-distance threshold."
-        ),
+        default=5,
+        help="Exact same-world context-window shift used as the local positive.",
     )
 
     parser.add_argument(
@@ -180,10 +175,8 @@ def _validate_arguments(args: argparse.Namespace) -> None:
         "fixed_probe_batch_size",
         "log_interval",
         "warmup_log_interval",
-        "metric_window",
         "history_steps",
         "context_history_steps",
-        "dynamics_classes",
         "transformer_dim",
         "transformer_depth",
         "transformer_heads",
@@ -191,7 +184,7 @@ def _validate_arguments(args: argparse.Namespace) -> None:
         "context_depth",
         "context_heads",
         "dynamics_latent_dim",
-        "contrastive_positive_max_offset_steps",
+        "positive_offset_steps",
     )
     invalid = {name: getattr(args, name) for name in positive if getattr(args, name) < 1}
     if invalid:
@@ -210,16 +203,17 @@ def _validate_arguments(args: argparse.Namespace) -> None:
         raise ValueError("Forward Predictor history-steps is fixed to ten")
     if args.context_history_steps < args.history_steps:
         raise ValueError("context-history-steps must be at least history-steps")
-    if args.num_envs % args.dynamics_classes:
-        raise ValueError("dynamics-classes must divide num-envs")
-    if args.nominal_fraction:
-        raise ValueError("Fixed dynamics classes require --nominal-fraction=0")
-    if not 0.0 <= args.nominal_fraction <= 1.0:
-        raise ValueError("nominal-fraction must be in [0, 1]")
+    if args.nominal_fraction != 0.5:
+        raise ValueError("This task requires --nominal-fraction=0.5")
+    if args.num_envs % 2:
+        raise ValueError("num-envs must be even for the 50/50 nominal/DR A batch")
+    if args.positive_offset_steps != 5:
+        raise ValueError("This task requires --positive-offset-steps=5")
     for name in (
         "model_learning_rate",
         "huber_delta",
-        "contrastive_temperature",
+        "response_distance_scale",
+        "nominal_restore_atol",
     ):
         if getattr(args, name) <= 0.0:
             raise ValueError(f"{name.replace('_', '-')} must be positive")
@@ -236,37 +230,13 @@ def _validate_arguments(args: argparse.Namespace) -> None:
         "foot_weight",
         "contact_force_weight",
         "contact_binary_weight",
-        "contrastive_weight",
+        "representation_weight",
         "recursive_weight",
     ):
         if getattr(args, name) < 0.0:
             raise ValueError(f"{name.replace('_', '-')} must be non-negative")
-    if args.contrastive_weight > 0.0:
-        if args.num_envs < 2:
-            raise ValueError("Contrastive training requires at least two vector worlds")
-        if args.nominal_fraction == 1.0:
-            raise ValueError(
-                "Contrastive training needs randomized dynamics; use --contrastive-weight=0 "
-                "for a 100% nominal rollout"
-            )
-        invalid_blocks = {
-            "batch_size": args.batch_size % args.micro_batch_size,
-            "fixed_probe_batch_size": args.fixed_probe_batch_size % args.micro_batch_size,
-            "micro_batch_size/dynamics_classes": (args.micro_batch_size % args.dynamics_classes),
-        }
-        invalid_blocks = {name: value for name, value in invalid_blocks.items() if value}
-        if invalid_blocks or args.micro_batch_size // args.dynamics_classes < 2:
-            raise ValueError(
-                "Contrastive training requires complete micro-batches with at least two "
-                f"views of every dynamics class: {invalid_blocks}"
-            )
-        temporal_span = (args.micro_batch_size // args.dynamics_classes - 1) * 5
-        if temporal_span > args.contrastive_positive_max_offset_steps:
-            raise ValueError(
-                "A contrastive micro-batch spans "
-                f"{temporal_span} steps, exceeding "
-                "--contrastive-positive-max-offset-steps"
-            )
+    if args.representation_weight > 0.0 and args.num_envs < 2:
+        raise ValueError("Representation training requires at least two vector worlds")
 
 
 def _seed_everything(seed: int) -> None:
@@ -326,13 +296,6 @@ def _global_normalization(
     return replay.normalizer.snapshot_from_packed(packed, global_world_ids)
 
 
-def _gradient_norm(parameters: list[torch.nn.Parameter]) -> float:
-    gradients = [parameter.grad for parameter in parameters if parameter.grad is not None]
-    if not gradients:
-        return 0.0
-    return float(torch.nn.utils.get_total_norm(gradients, norm_type=2.0, foreach=True))
-
-
 def _scalar_tensors_to_floats(values: dict[str, torch.Tensor]) -> dict[str, float]:
     """Transfer scalar diagnostics to the host with one synchronization."""
 
@@ -347,9 +310,15 @@ def _scalar_tensors_to_floats(values: dict[str, torch.Tensor]) -> dict[str, floa
 _BATCH_FIELDS = frozenset(
     {
         "state",
+        "nominal_state",
         "action",
         "history_state",
         "history_action",
+        "positive_current_state",
+        "positive_history_state",
+        "positive_history_action",
+        "positive_history_valid",
+        "positive_pair_valid",
         "foot",
         "history_foot",
         "contact_force",
@@ -358,15 +327,21 @@ _BATCH_FIELDS = frozenset(
         "history_contact_binary",
         "history_valid",
         "world_id",
-        "episode_id",
-        "episode_step",
         "motion_id",
-        "motion_step",
-        "dynamics_id",
-        "motion_group_id",
-        "cohort_id",
+        "is_nominal",
         "context_full",
     }
+)
+
+_CORE_PROBE_METRICS = (
+    "one_step_nmse",
+    "nominal_five_step_nmse",
+    "dr_five_step_nmse",
+    "latent_positive_cosine",
+    "latent_response_correlation",
+    "latent_shuffle_dr_error_ratio",
+    "dr_counterfactual_rms",
+    "nominal_counterfactual_rms",
 )
 
 
@@ -382,6 +357,29 @@ def _slice_predictor_batch(
     }
 
 
+def _collect_counterfactual_block(
+    rollout: FixedDRTrackerRollout,
+    nominal_rollout: NominalPairRollout,
+    replay: ForwardPredictorReplayBuffer,
+) -> dict[str, float]:
+    """Collect broad A data and one exactly action-matched nominal B rollout."""
+
+    batches = [rollout.step(predictor_only=True) for _ in range(5)]
+    joint_targets = torch.stack([batch["joint_target"] for batch in batches], dim=1)
+    with torch.inference_mode():
+        nominal_states, diagnostics = nominal_rollout.rollout_joint_targets(
+            batches[0]["robot_state"],
+            joint_targets,
+            motion_ids=batches[0]["motion_id"],
+            motion_steps=batches[0]["motion_step"],
+            motion_files=rollout.motion_files,
+        )
+    for index, batch in enumerate(batches):
+        batch["nominal_next_robot_state"] = nominal_states[:, index]
+        replay.add_step(batch)
+    return diagnostics
+
+
 def _loss_weight_payload(config: ForwardPredictorLossConfig) -> dict[str, float]:
     return {name: float(value) for name, value in asdict(config).items()}
 
@@ -391,18 +389,10 @@ def _wandb_payload(record: dict[str, Any]) -> dict[str, Any]:
         "update": record["update"],
         "optimizer_steps": record["optimizer_steps"],
         "optimization/learning_rate_model": record["learning_rate_model"],
-        "optimization/gradient_norm": record["gradient_norm"],
         "replay/size": record["replay_size"],
         "replay/samples_generated": record["samples_generated"],
-        "replay/new_samples_generated": record["new_samples_generated"],
-        "replay/storage_bytes": record["replay_storage_bytes"],
         "rollout/transitions": record["transitions"],
-        "rollout/environments_reset": record["environments_reset"],
-        "rollout/environments_reset_delta": record["new_environments_reset"],
-        "rollout/reset_events_delta": record["new_reset_events"],
-        "rollout/reset_fraction": record["reset_fraction"],
     }
-    payload.update({f"train/{name}": value for name, value in record["train"].items()})
     payload.update(
         {
             f"optimization_train/{name}": value
@@ -446,8 +436,9 @@ def _save_checkpoint(
             "ignored_startup_events": list(rollout.ignored_privileged_startup_events),
             "prototype_sha256": rollout.dynamics_prototype_sha256,
             "inference_contract": (
-                "history_only; simulator parameters are retained only as DR provenance and "
-                "are never model inputs, prediction targets, or contrastive-pair filters"
+                "history_only; simulator parameters are retained only as DR provenance. "
+                "Representation supervision comes from the observed A-minus-nominal-B "
+                "five-step response, never from simulator parameters"
             ),
         },
         "tracker": {
@@ -500,18 +491,13 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             num_envs=args.num_envs,
             device=str(device),
             seed=rank_seed,
-            dynamics_seed=args.seed,
+            dynamics_seed=rank_seed,
             world_id_offset=world_id_offset,
             stochastic_policy=args.stochastic_policy,
             randomize_initial_episode_phase=args.randomize_initial_episode_phase,
             nominal_fraction=args.nominal_fraction,
-            dynamics_classes=args.dynamics_classes,
         )
     )
-    prototype_hashes = distributed.all_gather_object(rollout.dynamics_prototype_sha256)
-    if len(set(prototype_hashes)) != 1:
-        rollout.close()
-        raise RuntimeError("DDP ranks constructed different fixed dynamics prototypes")
     if rollout.predictor_action_transform is None:
         error = rollout.predictor_action_transform_error or "unknown action-chain error"
         rollout.close()
@@ -519,14 +505,30 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             "Forward Predictor requires an external memoryless policy-action to physical "
             f"PD-target transform: {error}"
         )
+    try:
+        nominal_rollout = NominalPairRollout(
+            NominalPairRolloutConfig(
+                checkpoint_file=str(checkpoint_path),
+                motion_path=args.motion_path,
+                motion_file=args.motion_file,
+                task_id=args.task_id,
+                num_envs=args.num_envs,
+                device=str(device),
+                seed=rank_seed + 100_000,
+                horizon=5,
+                restore_atol=args.nominal_restore_atol,
+            )
+        )
+    except BaseException:
+        rollout.close()
+        raise
     replay = ForwardPredictorReplayBuffer(
         num_worlds=args.num_envs,
         dimensions=dimensions,
         capacity=args.replay_capacity,
         history_steps=args.history_steps,
         context_history_steps=args.context_history_steps,
-        positive_max_offset_steps=args.contrastive_positive_max_offset_steps,
-        dynamics_classes=args.dynamics_classes,
+        positive_offset_steps=args.positive_offset_steps,
         sampling_mode=args.replay_sampling,
         seed=rank_seed,
         world_id_offset=world_id_offset,
@@ -559,12 +561,10 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         foot_weight=args.foot_weight,
         contact_force_weight=args.contact_force_weight,
         contact_binary_weight=args.contact_binary_weight,
-        contrastive_weight=args.contrastive_weight,
-        contrastive_temperature=args.contrastive_temperature,
-        contrastive_positive_max_offset_steps=args.contrastive_positive_max_offset_steps,
+        representation_weight=args.representation_weight,
+        response_distance_scale=args.response_distance_scale,
         huber_delta=args.huber_delta,
     )
-    contrastive_enabled = loss_config.contrastive_weight > 0.0
     model = ForwardDynamicsTransformer(model_config).to(device)
     objective = ForwardPredictorObjective(model, loss_config)
     training_module: torch.nn.Module
@@ -593,11 +593,13 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
     )
     parameter_count = sum(parameter.numel() for parameter in model.parameters())
     run_config = {
-        "method": "100-frame local-contrastive Context Forward Predictor v11",
+        "method": "nominal-counterfactual dynamics-context Forward Predictor v12",
         "architecture": {
             "controller": "frozen tracker",
             "physics": (
-                "128 fixed startup-DR prototypes repeated across synchronized motion groups"
+                "batch A is an independent-motion 50/50 mixture of compiled nominal and "
+                "fixed startup-DR worlds; batch B restores every A start state into nominal "
+                "physics and replays the exact five physical PD targets"
             ),
             "input": (
                 "ten historical and one current predictor token; each contains 71-D robot state, "
@@ -611,11 +613,10 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             ),
             "context": (
                 "a separate encoder maps 100 completed (state, physical PD target, next-state) "
-                "interactions to z; nearby windows from the same physical world, episode and "
-                "motion are positives; every other world in the exact same motion/phase cohort "
-                "is a negative without any theta or response-distance threshold; "
-                "reset-padded contexts train prediction but are excluded from contrastive pairs; "
-                "there is no theta encoder or theta decoder"
+                "interactions to z; the exact +/-5-frame window in the same A world/episode/motion "
+                "is the invariant view, while cross-world latent geometry continuously matches "
+                "the corresponding A-minus-B response geometry. There is no threshold, dynamics "
+                "class, theta encoder or theta decoder"
             ),
             "rollout": (
                 "predicted robot/foot/contact state is recursively fed back for five targets; "
@@ -631,7 +632,8 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         "model": asdict(model_config),
         "model_parameters": parameter_count,
         "loss": asdict(loss_config),
-        "rollout": rollout.metadata,
+        "batch_a_rollout": rollout.metadata,
+        "batch_b_rollout": nominal_rollout.metadata,
         "tracker_checkpoint_sha256": tracker_sha256,
         "mjlab_version": importlib.metadata.version("mjlab"),
         "distributed": {
@@ -654,26 +656,28 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             "horizon": 5,
             "history_steps": args.history_steps,
             "context_history_steps": args.context_history_steps,
-            "positive_max_offset_steps": args.contrastive_positive_max_offset_steps,
-            "dynamics_classes": args.dynamics_classes,
+            "positive_offset_steps": args.positive_offset_steps,
             "history_storage": "time archive reconstructed at sample time",
             "sampling": args.replay_sampling,
-            "dynamics_paired_batches": args.contrastive_weight > 0.0,
             "positive_pairs": (
-                "same world/episode/motion, shifted by at most "
-                f"{args.contrastive_positive_max_offset_steps} steps"
+                "same A world/episode/motion, exact +/-5-frame context-window shift; both "
+                "contexts must contain all 100 frames"
             ),
-            "negative_pairs": "all other worlds in the exact same motion/phase cohort",
-            "cross_motion_or_phase_pairs": "ignored",
-            "dynamics_distance_threshold": None,
+            "response_pairs": (
+                "cross-world broad-replay pairs; normalized latent distance continuously matches "
+                "five-step A-minus-nominal-B response distance without a threshold"
+            ),
+            "predictor_sampling": (
+                "broad ordinary replay; incomplete contexts remain eligible for prediction"
+            ),
         },
         "objective_weights": {
             "teacher_forced_weight": 1.0,
             "recursive_weight": args.recursive_weight,
-            "contrastive_weight": args.contrastive_weight,
-            "contrastive_temperature": args.contrastive_temperature,
-            "contrastive_positive_max_offset_steps": (args.contrastive_positive_max_offset_steps),
+            "representation_weight": args.representation_weight,
+            "response_distance_scale": args.response_distance_scale,
         },
+        "reported_probe_metrics": list(_CORE_PROBE_METRICS),
     }
     _main_process_call(distributed, lambda: _write_json(output_dir / "run_config.json", run_config))
     if distributed.is_main:
@@ -718,11 +722,11 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                 config=run_config,
             )
     except BaseException:
+        nominal_rollout.close()
         rollout.close()
         raise
 
     history: list[dict[str, Any]] = []
-    rolling_loss: deque[dict[str, float]] = deque(maxlen=args.metric_window)
     metrics_path = output_dir / "metrics.jsonl"
     optimizer_steps = 0
     completed = False
@@ -731,20 +735,11 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         while True:
             required_batch = max(args.batch_size, args.fixed_probe_batch_size)
             ready = rollout.collector_step >= args.warmup_steps and len(replay) >= required_batch
-            if ready and contrastive_enabled:
-                ready = replay.can_sample_dynamics_pairs(
-                    required_batch,
-                    contrastive_block_size=args.micro_batch_size,
-                )
-            if ready and contrastive_enabled:
-                full_context_batch = (
+            if ready and args.representation_weight > 0.0:
+                positive_batch = (
                     args.batch_size if args.fixed_batch_overfit else args.fixed_probe_batch_size
                 )
-                ready = replay.can_sample_dynamics_pairs(
-                    full_context_batch,
-                    contrastive_block_size=args.micro_batch_size,
-                    contrastive_ready_only=True,
-                )
+                ready = replay.can_sample_positive_pairs(positive_batch)
             if distributed.all_true(ready):
                 break
             if rollout.collector_step >= args.max_warmup_steps:
@@ -752,9 +747,9 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                     "Forward Predictor warmup exhausted before every rank had a full batch: "
                     f"steps={rollout.collector_step}, replay={len(replay)}"
                 )
-            replay.add_step(rollout.step(predictor_only=True))
+            nominal_diagnostics = _collect_counterfactual_block(rollout, nominal_rollout, replay)
             if distributed.is_main and (
-                rollout.collector_step == 1
+                rollout.collector_step == 5
                 or rollout.collector_step % args.warmup_log_interval == 0
             ):
                 print(
@@ -765,6 +760,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                             "replay_size": len(replay),
                             "samples_generated": replay.total_samples_generated,
                             "elapsed_seconds": time.monotonic() - warmup_started,
+                            **nominal_diagnostics,
                         },
                         sort_keys=True,
                     ),
@@ -776,17 +772,13 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         fixed_probe_batch = replay.sample_batch(
             args.fixed_probe_batch_size,
             normalization,
-            paired_dynamics=contrastive_enabled,
-            contrastive_block_size=args.micro_batch_size,
-            contrastive_ready_only=contrastive_enabled,
+            positive_ready_only=args.representation_weight > 0.0,
         )
         fixed_train_batch = (
             replay.sample_batch(
                 args.batch_size,
                 normalization,
-                paired_dynamics=contrastive_enabled,
-                contrastive_block_size=args.micro_batch_size,
-                contrastive_ready_only=contrastive_enabled,
+                positive_ready_only=args.representation_weight > 0.0,
             )
             if args.fixed_batch_overfit
             else None
@@ -803,31 +795,18 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                 ),
                 flush=True,
             )
-
-        previous_samples_generated = 0
-        previous_environments_reset = 0
-        previous_reset_events = 0
-        previous_transitions = 0
-
         for update in range(1, args.updates + 1):
             if update > 1 and not args.fixed_batch_overfit:
                 model.eval()
-                for _ in range(args.rollout_steps_per_update):
-                    replay.add_step(rollout.step(predictor_only=True))
+                _collect_counterfactual_block(rollout, nominal_rollout, replay)
 
             training_module.train()
             step_losses: list[dict[str, torch.Tensor]] = []
-            gradient_norms: list[float] = []
             for _ in range(args.gradient_steps_per_update):
                 train_batch = (
                     fixed_train_batch
                     if fixed_train_batch is not None
-                    else replay.sample_batch(
-                        args.batch_size,
-                        normalization,
-                        paired_dynamics=contrastive_enabled,
-                        contrastive_block_size=args.micro_batch_size,
-                    )
+                    else replay.sample_batch(args.batch_size, normalization)
                 )
                 optimizer.zero_grad(set_to_none=True)
                 accumulated_losses: dict[str, torch.Tensor] = {}
@@ -858,19 +837,13 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                         (model_output["loss"] * fraction).backward()
                     for name in (
                         "loss",
-                        "teacher_loss",
-                        "recursive_loss",
-                        "contrastive_loss",
+                        "prediction_loss",
+                        "representation_loss",
                     ):
                         weighted = model_output[name].detach().float() * fraction
                         accumulated_losses[name] = (
                             accumulated_losses.get(name, torch.zeros_like(weighted)) + weighted
                         )
-
-                gradient_norm = _gradient_norm(parameters)
-                if not np.isfinite(gradient_norm):
-                    raise RuntimeError("Forward Predictor produced a non-finite gradient norm")
-                gradient_norms.append(gradient_norm)
                 optimizer.step()
                 scheduler.step()
                 optimizer_steps += 1
@@ -886,86 +859,37 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                 )
                 optimization_train = distributed.mean_scalars(local_optimization_train)
                 training_module.eval()
-                diagnostic_batch = _slice_predictor_batch(
-                    train_batch,
-                    0,
-                    min(args.fixed_probe_batch_size, args.batch_size),
-                )
                 autocast_context = (
                     torch.autocast(device_type="cuda", dtype=torch.bfloat16)
                     if amp_enabled
                     else nullcontext()
                 )
                 with torch.inference_mode(), autocast_context:
-                    local_train = _scalar_tensors_to_floats(
-                        objective(
-                            diagnostic_batch,
-                            recursive_weight=args.recursive_weight,
-                            validate_batch=False,
-                        )
+                    probe_output = objective(
+                        fixed_probe_batch,
+                        recursive_weight=args.recursive_weight,
+                        validate_batch=False,
                     )
                     local_probe = _scalar_tensors_to_floats(
-                        objective(
-                            fixed_probe_batch,
-                            recursive_weight=args.recursive_weight,
-                            validate_batch=False,
-                        )
+                        {name: probe_output[name] for name in _CORE_PROBE_METRICS}
                     )
-                local_train["sample_motion_count"] = float(
-                    torch.unique(diagnostic_batch["motion_id"]).numel()
-                )
-                local_probe["sample_motion_count"] = float(
-                    torch.unique(fixed_probe_batch["motion_id"]).numel()
-                )
-                train = distributed.mean_scalars(local_train)
                 fixed_probe = distributed.mean_scalars(local_probe)
                 counts = distributed.sum_integers(
                     {
                         "transitions": rollout.transitions,
                         "replay_size": len(replay),
-                        "replay_storage_bytes": replay.storage_bytes,
                         "samples_generated": replay.total_samples_generated,
-                        "reset_events": rollout.reset_events,
-                        "environments_reset": rollout.environments_reset,
                     }
-                )
-                new_samples = counts["samples_generated"] - previous_samples_generated
-                previous_samples_generated = counts["samples_generated"]
-                new_environments_reset = counts["environments_reset"] - previous_environments_reset
-                previous_environments_reset = counts["environments_reset"]
-                new_reset_events = counts["reset_events"] - previous_reset_events
-                previous_reset_events = counts["reset_events"]
-                new_transitions = counts["transitions"] - previous_transitions
-                previous_transitions = counts["transitions"]
-                gradient_summary = distributed.mean_scalars(
-                    {"gradient_norm": sum(gradient_norms) / len(gradient_norms)}
                 )
                 record = {
                     "update": update,
                     "optimizer_steps": optimizer_steps,
                     **counts,
-                    "new_samples_generated": new_samples,
-                    "new_environments_reset": new_environments_reset,
-                    "new_reset_events": new_reset_events,
-                    "reset_fraction": new_environments_reset / max(new_transitions, 1),
                     "learning_rate_model": optimizer.param_groups[0]["lr"],
-                    "normalization_frozen": True,
-                    "fixed_batch_overfit": args.fixed_batch_overfit,
-                    "loss_weights": _loss_weight_payload(loss_config),
-                    **gradient_summary,
                     "optimization_train": optimization_train,
-                    "train": train,
                     "fixed_probe": fixed_probe,
                 }
                 if distributed.is_main:
-                    rolling_loss.append(train)
-                    record["window"] = {
-                        name: {
-                            "mean": float(np.mean([item[name] for item in rolling_loss])),
-                            "std": float(np.std([item[name] for item in rolling_loss])),
-                        }
-                        for name in train
-                    }
                     history.append(record)
                     with metrics_path.open("a") as handle:
                         handle.write(json.dumps(record, sort_keys=True) + "\n")
@@ -1013,6 +937,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         return output_dir / "last.pt"
     finally:
         wandb_logger.finish(exit_code=0 if completed else 1)
+        nominal_rollout.close()
         rollout.close()
 
 

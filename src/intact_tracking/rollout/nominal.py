@@ -208,7 +208,9 @@ class NominalPairRollout:
         try:
             raw, _ = self.env.reset()
             if raw:
-                raise RuntimeError("Nominal dynamics environment unexpectedly produced observations")
+                raise RuntimeError(
+                    "Nominal dynamics environment unexpectedly produced observations"
+                )
             if self.env.event_manager.domain_randomization_fields:
                 raise RuntimeError("Nominal dynamics environment still exposes DR model fields")
             self.robot = self.env.scene["robot"]
@@ -216,12 +218,8 @@ class NominalPairRollout:
             if self.action_dim != 29:
                 raise RuntimeError(f"Nominal action width is {self.action_dim}, expected 29")
             if int(self.robot.num_joints) != 29:
-                raise RuntimeError(
-                    f"Nominal robot has {self.robot.num_joints} joints, expected 29"
-                )
-            self._env_ids = torch.arange(
-                config.num_envs, dtype=torch.long, device=self.device
-            )
+                raise RuntimeError(f"Nominal robot has {self.robot.num_joints} joints, expected 29")
+            self._env_ids = torch.arange(config.num_envs, dtype=torch.long, device=self.device)
             self._validated = False
             self._last_repeat_error = 0.0
             self._last_repeat_pose_error = 0.0
@@ -282,9 +280,7 @@ class NominalPairRollout:
 
         root_state = state[:, :13].detach().clone()
         root_state[:, :3].add_(env.scene.env_origins)
-        root_state[:, 3:7] = torch.nn.functional.normalize(
-            root_state[:, 3:7], dim=-1, eps=1.0e-8
-        )
+        root_state[:, 3:7] = torch.nn.functional.normalize(root_state[:, 3:7], dim=-1, eps=1.0e-8)
         joint_position = state[:, 13:42].detach()
         joint_velocity = state[:, 42:71].detach()
         self.robot.write_root_state_to_sim(root_state, env_ids=self._env_ids)
@@ -333,6 +329,99 @@ class NominalPairRollout:
             states.append(_robot_raw_state(self.env).clone())
         return torch.stack(states, dim=1)
 
+    def _step_joint_targets(self, joint_targets: torch.Tensor) -> torch.Tensor:
+        """Advance nominal physics with already-resolved physical PD targets.
+
+        ``joint_targets`` is in simulator robot-joint order.  It deliberately
+        bypasses the policy-facing action term: scale, offset, clipping,
+        encoder bias, delay and smoothing have already happened in rollout A.
+        Reapplying that chain here would make A/B differ in both controller and
+        physics and would invalidate the counterfactual target.
+        """
+
+        env = self.env
+        states: list[torch.Tensor] = []
+        for index in range(self.config.horizon):
+            target = joint_targets[:, index]
+            for _ in range(env.cfg.decimation):
+                self.robot.set_joint_position_target(target, env_ids=self._env_ids)
+                env.scene.write_data_to_sim()
+                env.sim.step()
+                env.scene.update(dt=env.physics_dt)
+            env.sim.forward()
+            states.append(_robot_raw_state(env).clone())
+        return torch.stack(states, dim=1)
+
+    def rollout_joint_targets(
+        self,
+        state: torch.Tensor,
+        joint_targets: torch.Tensor,
+        *,
+        motion_ids: torch.Tensor | None = None,
+        motion_steps: torch.Tensor | None = None,
+        motion_files: Sequence[str] | None = None,
+    ) -> tuple[torch.Tensor, dict[str, float]]:
+        """Run the exact nominal-physics B batch for one A-batch trajectory.
+
+        The starting qpos/qvel are restored from A and the five *physical* PD
+        targets recorded in A are replayed directly.  The task, policy and
+        policy-action transform are therefore absent from the B data path.
+        """
+
+        if self.closed:
+            raise RuntimeError("Cannot use a closed nominal pair rollout")
+        expected_state = (self.num_envs, 71)
+        expected_targets = (self.num_envs, self.config.horizon, self.action_dim)
+        if tuple(state.shape) != expected_state:
+            raise ValueError(f"Nominal state has {tuple(state.shape)}, expected {expected_state}")
+        if tuple(joint_targets.shape) != expected_targets:
+            raise ValueError(
+                "Nominal joint_targets has "
+                f"{tuple(joint_targets.shape)}, expected {expected_targets}"
+            )
+        if state.device != self.device or joint_targets.device != self.device:
+            raise ValueError(f"Nominal inputs must be on {self.device}")
+        for name, value in (("motion_ids", motion_ids), ("motion_steps", motion_steps)):
+            if value is None:
+                continue
+            if tuple(value.shape) != (self.num_envs,):
+                raise ValueError(
+                    f"Nominal {name} has {tuple(value.shape)}, expected {(self.num_envs,)}"
+                )
+
+        zero_previous_action = torch.zeros(
+            (self.num_envs, self.action_dim),
+            dtype=joint_targets.dtype,
+            device=self.device,
+        )
+        restore_error = self._restore(state, zero_previous_action)
+        target = self._step_joint_targets(joint_targets)
+        if not self._validated:
+            self._restore(state, zero_previous_action)
+            repeated = self._step_joint_targets(joint_targets)
+            diagnostics = _repeat_error_diagnostics(
+                target,
+                repeated,
+                motion_ids=motion_ids,
+                motion_steps=motion_steps,
+                motion_files=motion_files,
+            )
+            self._last_repeat_error = float(diagnostics["full_state"]["max"])
+            self._last_repeat_pose_error = float(diagnostics["pose"]["max"])
+            self._last_repeat_full_state_p99_error = float(diagnostics["full_state"]["p99"])
+            self._last_repeat_pose_p99_error = float(diagnostics["pose"]["p99"])
+            if (
+                self._last_repeat_pose_error > self.config.restore_atol
+                or self._last_repeat_error > 10.0 * self.config.restore_atol
+            ):
+                self._last_repeat_warning = 1.0
+            self._validated = True
+        return target, {
+            "restore_max_abs_error": restore_error,
+            "repeat_max_abs_error": self._last_repeat_error,
+            "repeat_warning": self._last_repeat_warning,
+        }
+
     def rollout(
         self,
         state: torch.Tensor,
@@ -379,9 +468,7 @@ class NominalPairRollout:
             repeat_pose_error = float(diagnostics["pose"]["max"])
             self._last_repeat_error = repeat_error
             self._last_repeat_pose_error = repeat_pose_error
-            self._last_repeat_full_state_p99_error = float(
-                diagnostics["full_state"]["p99"]
-            )
+            self._last_repeat_full_state_p99_error = float(diagnostics["full_state"]["p99"])
             self._last_repeat_pose_p99_error = float(diagnostics["pose"]["p99"])
             if (
                 repeat_pose_error > self.config.restore_atol
@@ -393,9 +480,7 @@ class NominalPairRollout:
                     "restore_max_abs_error": restore_error,
                     "pose_atol": self.config.restore_atol,
                     "full_state_atol": 10.0 * self.config.restore_atol,
-                    "action_term": type(
-                        self.env.action_manager.get_term("joint_pos")
-                    ).__name__,
+                    "action_term": type(self.env.action_manager.get_term("joint_pos")).__name__,
                     **diagnostics,
                 }
                 if self.config.failure_log_file:
@@ -412,9 +497,7 @@ class NominalPairRollout:
             "nominal_restore_repeat_full_state_p99_abs_error": (
                 self._last_repeat_full_state_p99_error
             ),
-            "nominal_restore_repeat_pose_p99_abs_error": (
-                self._last_repeat_pose_p99_error
-            ),
+            "nominal_restore_repeat_pose_p99_abs_error": (self._last_repeat_pose_p99_error),
             "nominal_restore_repeat_warning": self._last_repeat_warning,
         }
 

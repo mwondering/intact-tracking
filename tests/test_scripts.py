@@ -280,6 +280,7 @@ def test_forward_predictor_launcher_builds_locked_causal_transformer_command(
         "intact_tracking.cli.forward_predictor_train",
     ]
     assert _last_option_value(arguments, "--num-envs") == "2048"
+    assert _last_option_value(arguments, "--nominal-fraction") == "0.5"
     assert _last_option_value(arguments, "--batch-size") == "4096"
     assert _last_option_value(arguments, "--micro-batch-size") == "512"
     assert _last_option_value(arguments, "--amp-dtype") == "bfloat16"
@@ -288,6 +289,8 @@ def test_forward_predictor_launcher_builds_locked_causal_transformer_command(
     assert _last_option_value(arguments, "--gradient-steps-per-update") == "4"
     assert _last_option_value(arguments, "--rollout-steps-per-update") == "5"
     assert _last_option_value(arguments, "--history-steps") == "10"
+    assert _last_option_value(arguments, "--context-history-steps") == "100"
+    assert _last_option_value(arguments, "--positive-offset-steps") == "5"
     assert _last_option_value(arguments, "--transformer-dim") == "512"
     assert _last_option_value(arguments, "--transformer-depth") == "6"
     assert _last_option_value(arguments, "--transformer-heads") == "8"
@@ -325,3 +328,22 @@ def test_forward_predictor_launcher_rejects_architecture_override(tmp_path: Path
 
     assert result.returncode == 2
     assert "fixed by the Forward Predictor launcher" in result.stderr
+
+    second_output = tmp_path / "second-output"
+    second = subprocess.run(
+        [
+            str(REPOSITORY / "scripts/run_forward_predictor_training.sh"),
+            str(checkpoint),
+            str(motion),
+            str(second_output),
+            "--nominal-fraction",
+            "0.0",
+        ],
+        cwd=REPOSITORY,
+        env=environment,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert second.returncode == 2
+    assert "fixed by the Forward Predictor launcher" in second.stderr

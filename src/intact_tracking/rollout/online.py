@@ -1118,6 +1118,10 @@ class FixedDRTrackerRollout:
             "world_id": self.world_ids,
             "dynamics_id": getattr(self, "dynamics_ids", self.world_ids),
             "motion_group_id": getattr(self, "motion_group_ids", self.world_ids),
+            # This label is data provenance only.  It never enters either the
+            # Context Encoder or the Forward Predictor, but is needed to audit
+            # the requested 50/50 nominal/DR mixture and to report split errors.
+            "is_nominal": self.is_nominal,
             "privileged_dynamics": self.privileged_dynamics,
             "episode_id": self.episode_ids.clone(),
             "episode_step": self.episode_steps.clone(),
@@ -1140,7 +1144,6 @@ class FixedDRTrackerRollout:
                     "reward": reward,
                     "terminated": terminated,
                     "truncated": truncated,
-                    "is_nominal": self.is_nominal,
                     "collector_step": torch.full_like(self.episode_ids, self.collector_step),
                     "env_id": self.env_ids,
                 }

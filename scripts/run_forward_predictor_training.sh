@@ -6,10 +6,12 @@ usage() {
   printf '%s\n' \
     "Usage: $0 CHECKPOINT MOTION_SOURCE OUTPUT_DIR [PREDICTOR_OPTIONS...]" \
     "" \
-    "Train the local-contrastive dynamics-context Forward Predictor." \
+    "Train the nominal-counterfactual dynamics-context Forward Predictor." \
     "" \
     "Fixed contract:" \
-    "  physics          128 fixed startup-DR prototypes; never resampled" \
+    "  batch A          4096 global worlds: 50% nominal + 50% fixed startup DR" \
+    "  batch A motion   every world samples motion and phase independently" \
+    "  batch B          clone every A start state into nominal physics and replay 5 PD targets" \
     "  disturbance      checkpoint step/interval random pushes are not reproduced" \
     "  controller       frozen tracker" \
     "  model            causal Transformer + lightweight dynamics Context Encoder" \
@@ -17,19 +19,17 @@ usage() {
     "  predictor input  10 historical full-state/PD-target tokens + 1 current token" \
     "  output           70-D robot delta + 8-D foot state + 6-D contact force + 2-D logits" \
     "  rollout          shared one-step model recursively applied 5 times" \
-    "  supervision      dynamics prediction + local contrastive representation learning" \
-    "  positive pairs   same world/episode/motion, nearby context windows" \
-    "  negative pairs   every other world at the exact same motion and phase" \
-    "  ignored pairs    different motion/phase; no theta or response-distance threshold" \
+    "  supervision      A next-state prediction + continuous A-minus-B response geometry" \
+    "  invariant views  same A world/episode/motion, exact +/-5-frame context windows" \
+    "  relation pairs   cross-world latent distance matches response distance; no threshold" \
     "  disabled         Residual Policy, Backward, gradient clipping" \
     "" \
     "Production defaults (override with PREDICTOR_OPTIONS):" \
-    "  --num-envs 2048 --batch-size 4096 --micro-batch-size 512 --amp-dtype bfloat16" \
+    "  4096 A worlds globally --batch-size 4096 --micro-batch-size 512 --amp-dtype bfloat16" \
     "  --replay-capacity 262144" \
     "  --gradient-steps-per-update 4 --updates 100000" \
-    "  --contrastive-weight 0.01 --contrastive-temperature 0.1" \
-    "  --dynamics-classes 128 --context-history-steps 100" \
-    "  --contrastive-positive-max-offset-steps 20" \
+    "  --representation-weight 0.01 --response-distance-scale 1.0" \
+    "  --context-history-steps 100 --positive-offset-steps 5" \
     "" \
     "Use --fixed-batch-overfit for the mandatory model-capacity diagnostic." \
     "" \
@@ -60,9 +60,11 @@ OUTPUT_DIR="$3"
 shift 3
 
 managed_options=(
+  --num-envs
+  --nominal-fraction
   --history-steps
   --context-history-steps
-  --dynamics-classes
+  --positive-offset-steps
   --transformer-dim
   --transformer-depth
   --transformer-heads
@@ -125,6 +127,17 @@ if [[ -n "${GPUS}" ]]; then
   NPROC="${#gpu_ids[@]}"
 fi
 
+GLOBAL_ENVS=4096
+if (( GLOBAL_ENVS % NPROC != 0 )); then
+  echo "4096 global A environments must divide evenly across ${NPROC} ranks." >&2
+  exit 2
+fi
+LOCAL_ENVS=$((GLOBAL_ENVS / NPROC))
+if (( LOCAL_ENVS % 2 != 0 )); then
+  echo "Each rank needs an even A environment count for the 50/50 split." >&2
+  exit 2
+fi
+
 command=(env -u PYTHONPATH)
 if [[ -n "${GPUS}" ]]; then
   command+=(CUDA_VISIBLE_DEVICES="${GPUS}")
@@ -144,7 +157,8 @@ command+=(
   --checkpoint-file "${CHECKPOINT_FILE}"
   "${motion_argument[@]}"
   --output-dir "${OUTPUT_DIR}"
-  --num-envs 2048
+  --num-envs "${LOCAL_ENVS}"
+  --nominal-fraction 0.5
   --batch-size 4096
   --micro-batch-size 512
   --amp-dtype bfloat16
@@ -162,7 +176,7 @@ command+=(
   --rollout-steps-per-update 5
   --history-steps 10
   --context-history-steps 100
-  --dynamics-classes 128
+  --positive-offset-steps 5
   --transformer-dim 512
   --transformer-depth 6
   --transformer-heads 8
@@ -174,20 +188,21 @@ command+=(
 )
 
 printf '%s\n' \
-  "Training contract: local-contrastive Context Forward Predictor v11" \
+  "Training contract: nominal-counterfactual Context Forward Predictor v12" \
   "  model: Context Encoder sees robot state/action only; privileged features stay in predictor" \
   "  rollout: predicted robot/foot/contact state recurs 5 steps; no articulated FK in model" \
   "  disturbance: checkpoint step/interval random pushes are removed" \
-  "  loss: dynamics + local exact-cohort contrastive (0.01); no theta decoder" \
+  "  batch A: ${GLOBAL_ENVS} global independent-motion worlds, half nominal and half fixed DR" \
+  "  batch B: nominal counterfactual from each A start state and exact applied PD targets" \
+  "  loss: shared nominal/DR prediction + continuous response-geometry representation" \
   "  context: 100 proprioceptive frames; reset-padded contexts predict but do not contrast" \
-  "  positives: same-world windows shifted 5/10/15/20 steps within one episode and motion" \
-  "  negatives: all other worlds in the same 128-class motion/phase cohort" \
+  "  invariant views: same-world windows shifted exactly 5 frames" \
+  "  relation: cross-world latent distance follows A-minus-B response distance without threshold" \
   "  replay: motion-balanced, 262144 samples per rank by default" \
   "  optimizer: effective batch 4096, micro-batch 512, BF16 autocast, fused AdamW" \
-  "  diagnostics: full metric/probe evaluation every --log-interval updates" \
-  "  normalization: robot/target/foot/contact/delta/DR-provenance stats frozen after warmup" \
+  "  diagnostics: compact fixed-probe accuracy, latent geometry, and latent-shuffle test" \
+  "  normalization: robot/target/foot/contact/delta statistics frozen after warmup" \
   "  inference: history-only; theta is never a model input or prediction target" \
-  "  pair filter: cross-motion/phase pairs ignored; no dynamics-distance threshold" \
   "  policy/backward: disabled" \
   "  distributed ranks: ${NPROC}"
 printf 'Launching:'
