@@ -23,6 +23,8 @@ from intact_tracking.residual_context import (
     load_frozen_context_checkpoint,
 )
 from intact_tracking.residual_policy import FrozenTrackerResidualActor, ResidualPPO
+from intact_tracking.residual_runner import _initialize_logging_writer_collectively
+from intact_tracking.wandb_logger import RslWandbLogWriter
 
 
 class _FakeTracker(nn.Module):
@@ -370,3 +372,129 @@ def test_train_configuration_reuses_spv52_observations_and_ppo_hyperparameters()
     assert train["algorithm"]["actor_learning_rate"] == 1.0e-3
     assert train["algorithm"]["critic_learning_rate"] == 5.0e-4
     assert "estimator_learning_rate" not in train["algorithm"]
+
+
+def test_train_configuration_uses_compatible_wandb_writer() -> None:
+    source = OmegaConf.create(
+        {
+            "agent": {
+                "actor": {"distribution_cfg": {}},
+                "critic": {},
+                "algorithm": {},
+            },
+            "task": {"agent_overrides": {}},
+        }
+    )
+    train = _build_train_configuration(
+        source,
+        tracker_checkpoint=Path("tracker.pt"),
+        tracker_actor_kwargs={},
+        tracker_obs_groups={"actor": ["actor"], "critic": ["critic"]},
+        baseline="no-latent",
+        dynamics_latent_dim=0,
+        residual_hidden_dims=(8,),
+        residual_scale=0.25,
+        iterations=1,
+        num_steps_per_env=1,
+        save_interval=1,
+        seed=1,
+        logger="wandb",
+        wandb_project="project",
+        actor_learning_rate=None,
+        critic_learning_rate=None,
+        check_for_nan=False,
+    )
+
+    assert train["logger"] == {
+        "class_name": "intact_tracking.wandb_logger:RslWandbLogWriter",
+        "project_name": "project",
+    }
+
+
+def test_rsl_wandb_writer_does_not_pass_removed_start_method(monkeypatch, tmp_path) -> None:
+    calls: list[tuple[str, object]] = []
+
+    class FakeConfig:
+        def update(self, value):
+            calls.append(("config", value))
+
+    class FakeWandb:
+        config = FakeConfig()
+
+        @staticmethod
+        def init(**kwargs):
+            calls.append(("init", kwargs))
+
+        @staticmethod
+        def log(payload, step=None):
+            calls.append(("log", (payload, step)))
+
+        @staticmethod
+        def finish():
+            calls.append(("finish", None))
+
+    monkeypatch.setattr(
+        "intact_tracking.wandb_logger.importlib.import_module",
+        lambda _name: FakeWandb,
+    )
+    writer = RslWandbLogWriter(str(tmp_path), "project")
+    logger = type(
+        "Logger",
+        (),
+        {
+            "writer": writer,
+            "logger_type": "intact_tracking.wandb_logger:RslWandbLogWriter",
+            "init_logging_writer": lambda self: None,
+        },
+    )()
+    _initialize_logging_writer_collectively(
+        logger,
+        is_distributed=False,
+        device="cpu",
+    )
+    writer.add_scalar("loss", 1.0, 3)
+    writer.stop()
+
+    init_kwargs = next(value for name, value in calls if name == "init")
+    assert isinstance(init_kwargs, dict)
+    assert "settings" not in init_kwargs
+    assert logger.logger_type == "WandbLogWriter"
+    assert ("log", ({"loss": 1.0}, 3)) in calls
+
+
+def test_collective_logger_initialization_propagates_peer_failure(monkeypatch) -> None:
+    logger = type("Logger", (), {"init_logging_writer": lambda self: None})()
+
+    def report_rank_zero_failure(value, op):
+        assert op == torch.distributed.ReduceOp.MIN
+        value.zero_()
+
+    monkeypatch.setattr(torch.distributed, "all_reduce", report_rank_zero_failure)
+    with pytest.raises(RuntimeError, match="failed on another distributed rank"):
+        _initialize_logging_writer_collectively(
+            logger,
+            is_distributed=True,
+            device="cpu",
+        )
+
+
+def test_collective_logger_initialization_reports_local_failure(monkeypatch) -> None:
+    class FailingLogger:
+        @staticmethod
+        def init_logging_writer():
+            raise ValueError("incompatible writer")
+
+    reduced: list[int] = []
+
+    def capture_failure(value, op):
+        assert op == torch.distributed.ReduceOp.MIN
+        reduced.append(int(value.item()))
+
+    monkeypatch.setattr(torch.distributed, "all_reduce", capture_failure)
+    with pytest.raises(ValueError, match="incompatible writer"):
+        _initialize_logging_writer_collectively(
+            FailingLogger(),
+            is_distributed=True,
+            device="cpu",
+        )
+    assert reduced == [0]

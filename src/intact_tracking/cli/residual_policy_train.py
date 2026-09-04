@@ -189,7 +189,14 @@ def _build_train_configuration(
             "max_iterations": int(iterations),
             "save_interval": int(save_interval),
             "seed": int(seed),
-            "logger": str(logger),
+            "logger": (
+                {
+                    "class_name": "intact_tracking.wandb_logger:RslWandbLogWriter",
+                    "project_name": str(wandb_project),
+                }
+                if logger == "wandb"
+                else "tensorboard"
+            ),
             "wandb_project": str(wandb_project),
             "run_name": None,
             "resume": False,

@@ -1,10 +1,97 @@
-"""Small rank-zero Weights & Biases adapter for online training."""
+"""Weights & Biases adapters used by the standalone and RSL-RL trainers."""
 
 from __future__ import annotations
 
 import importlib
+import os
+import pathlib
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any
+
+from rsl_rl.utils.log_writer import LogWriter
+from torch.utils.tensorboard import SummaryWriter
+
+
+class RslWandbLogWriter(SummaryWriter, LogWriter):
+    """RSL-RL W&B writer compatible with current W&B releases.
+
+    RSL-RL 5.4's bundled writer passes ``Settings(start_method="thread")``.
+    That setting was removed from newer W&B versions, so constructing the
+    bundled writer raises before training starts.  W&B now manages its own
+    service startup, therefore no explicit start method is needed.
+    """
+
+    def __init__(self, log_dir: str, project_name: str) -> None:
+        try:
+            wandb = importlib.import_module("wandb")
+        except ImportError as error:
+            raise RuntimeError(
+                "W&B logging is enabled but wandb is not installed; install the project "
+                "dependencies or pass --logger tensorboard"
+            ) from error
+
+        super().__init__(log_dir, flush_secs=10)
+        self._wandb = wandb
+        self.logged_videos: set[str] = set()
+        try:
+            self._wandb.init(
+                project=project_name,
+                entity=os.environ.get("WANDB_USERNAME"),
+                name=os.path.basename(os.path.normpath(log_dir)),
+                config={"log_dir": log_dir},
+            )
+        except Exception:
+            SummaryWriter.close(self)
+            raise
+
+    def add_scalar(
+        self,
+        tag: str,
+        scalar_value: float,
+        global_step: int | None = None,
+        walltime: float | None = None,
+        new_style: bool = False,
+    ) -> None:
+        super().add_scalar(
+            tag,
+            scalar_value,
+            global_step=global_step,
+            walltime=walltime,
+            new_style=new_style,
+        )
+        self._wandb.log({tag: scalar_value}, step=global_step)
+
+    def store_config(self, env_cfg: dict | object, train_cfg: dict) -> None:
+        self._wandb.config.update({"train_cfg": train_cfg})
+        if hasattr(env_cfg, "to_dict"):
+            serialized_env_cfg = env_cfg.to_dict()
+        else:
+            try:
+                serialized_env_cfg = asdict(env_cfg)
+            except TypeError:
+                serialized_env_cfg = env_cfg
+        self._wandb.config.update({"env_cfg": serialized_env_cfg})
+
+    def save_model(self, model_path: str, it: int) -> None:
+        del it
+        self._wandb.save(model_path, base_path=os.path.dirname(model_path))
+
+    def save_file(self, path: str) -> None:
+        self._wandb.save(path, base_path=os.path.dirname(path))
+
+    def save_video(self, video: pathlib.Path, it: int) -> None:
+        if video.name in self.logged_videos:
+            return
+        self._wandb.log(
+            {"video": self._wandb.Video(str(video), format="mp4")},
+            step=it,
+        )
+        self.logged_videos.add(video.name)
+
+    def stop(self) -> None:
+        SummaryWriter.close(self)
+        self._wandb.finish()
 
 
 class WandbLogger:

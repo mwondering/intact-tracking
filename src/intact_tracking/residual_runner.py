@@ -14,6 +14,43 @@ from rsl_rl.runners.on_policy_runner import check_nan
 from tensordict import TensorDict
 
 from .residual_policy import FrozenTrackerResidualActor
+from .wandb_logger import RslWandbLogWriter
+
+
+def _initialize_logging_writer_collectively(
+    logger: Any,
+    *,
+    is_distributed: bool,
+    device: str,
+) -> None:
+    """Initialize rank-zero logging and propagate startup failure to every rank."""
+
+    initialization_error: Exception | None = None
+    try:
+        logger.init_logging_writer()
+    except Exception as error:
+        initialization_error = error
+
+    if initialization_error is None and isinstance(
+        getattr(logger, "writer", None), RslWandbLogWriter
+    ):
+        # RSL-RL uses this exact marker to avoid mixing iteration and wall-time
+        # values in W&B's single monotonically increasing step axis.
+        logger.logger_type = "WandbLogWriter"
+
+    if is_distributed:
+        initialized = torch.tensor(
+            initialization_error is None,
+            dtype=torch.int32,
+            device=device,
+        )
+        torch.distributed.all_reduce(initialized, op=torch.distributed.ReduceOp.MIN)
+        if not bool(initialized.item()):
+            if initialization_error is not None:
+                raise initialization_error
+            raise RuntimeError("Logging writer initialization failed on another distributed rank")
+    elif initialization_error is not None:
+        raise initialization_error
 
 
 class ResidualOnPolicyRunner(MjlabOnPolicyRunner):
@@ -130,7 +167,11 @@ class ResidualOnPolicyRunner(MjlabOnPolicyRunner):
             )
         if self.gpu_global_rank == 0:
             print("Initializing logging writer...", flush=True)
-        self.logger.init_logging_writer()
+        _initialize_logging_writer_collectively(
+            self.logger,
+            is_distributed=self.is_distributed,
+            device=self.device,
+        )
         if self.gpu_global_rank == 0:
             print("Logging writer initialized.", flush=True)
 
