@@ -27,6 +27,7 @@ intact-tracking-train = "intact_tracking.cli.online_train:main"
 intact-tracking-train-offline = "intact_tracking.cli.train:main"
 intact-tracking-collect = "intact_tracking.cli.collect:main"
 intact-tracking-residual-train = "intact_tracking.cli.residual_train:main"
+intact-tracking-residual-policy-train = "intact_tracking.cli.residual_policy_train:main"
 intact-tracking-forward-predictor-train = "intact_tracking.cli.forward_predictor_train:main"
 
 [tool.setuptools.packages.find]

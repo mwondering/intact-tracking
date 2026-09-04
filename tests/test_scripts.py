@@ -31,6 +31,30 @@ printf 'fake checkpoint\n' > "${output_dir}/last.pt"
     return executable
 
 
+def _fake_residual_python(tmp_path: Path) -> Path:
+    executable = tmp_path / "fake-residual-python"
+    executable.write_text(
+        """#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "${CUDA_VISIBLE_DEVICES:-unset}" > "${CAPTURE_ENV}"
+printf '%s\n' "$@" > "${CAPTURE_ARGS}"
+output_dir=""
+previous=""
+for argument in "$@"; do
+  if [[ "${previous}" == "--output-dir" ]]; then
+    output_dir="${argument}"
+    break
+  fi
+  previous="${argument}"
+done
+test -n "${output_dir}"
+printf 'fake residual checkpoint\n' > "${output_dir}/checkpoint_final.pt"
+"""
+    )
+    executable.chmod(0o755)
+    return executable
+
+
 def _launcher_inputs(tmp_path: Path) -> tuple[Path, Path]:
     checkpoint = tmp_path / "tracker.pt"
     motion = tmp_path / "motion.npz"
@@ -42,6 +66,90 @@ def _launcher_inputs(tmp_path: Path) -> tuple[Path, Path]:
 def _last_option_value(arguments: list[str], option: str) -> str:
     index = len(arguments) - 1 - arguments[::-1].index(option)
     return arguments[index + 1]
+
+
+def test_latent_residual_launcher_uses_context_checkpoint_and_multigpu(tmp_path: Path) -> None:
+    tracker, motion = _launcher_inputs(tmp_path)
+    forward = tmp_path / "forward.pt"
+    forward.touch()
+    output = tmp_path / "latent-output"
+    captured_args = tmp_path / "latent-args"
+    captured_env = tmp_path / "latent-environment"
+    environment = {
+        **os.environ,
+        "PYTHON_BIN": str(_fake_residual_python(tmp_path)),
+        "GPUS": "2,5",
+        "CAPTURE_ARGS": str(captured_args),
+        "CAPTURE_ENV": str(captured_env),
+    }
+
+    subprocess.run(
+        [
+            str(REPOSITORY / "scripts/run_residual_policy_latent.sh"),
+            str(tracker),
+            str(forward),
+            str(motion),
+            str(output),
+            "--iterations",
+            "1",
+        ],
+        cwd=REPOSITORY,
+        env=environment,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    arguments = captured_args.read_text().splitlines()
+    assert captured_env.read_text().strip() == "2,5"
+    assert arguments[:7] == [
+        "-m",
+        "torch.distributed.run",
+        "--standalone",
+        "--nproc-per-node",
+        "2",
+        "-m",
+        "intact_tracking.cli.residual_policy_train",
+    ]
+    assert _last_option_value(arguments, "--baseline") == "latent"
+    assert _last_option_value(arguments, "--forward-checkpoint") == str(forward.resolve())
+    assert _last_option_value(arguments, "--num-envs") == "2048"
+    assert _last_option_value(arguments, "--iterations") == "1"
+    assert "--no-include-disturbances" in arguments
+
+
+def test_no_latent_residual_launcher_has_no_context_checkpoint(tmp_path: Path) -> None:
+    tracker, motion = _launcher_inputs(tmp_path)
+    output = tmp_path / "no-latent-output"
+    captured_args = tmp_path / "no-latent-args"
+    environment = {
+        **os.environ,
+        "PYTHON_BIN": str(_fake_residual_python(tmp_path)),
+        "DEVICE": "cuda:3",
+        "CAPTURE_ARGS": str(captured_args),
+        "CAPTURE_ENV": str(tmp_path / "no-latent-environment"),
+    }
+    environment.pop("GPUS", None)
+
+    subprocess.run(
+        [
+            str(REPOSITORY / "scripts/run_residual_policy_no_latent.sh"),
+            str(tracker),
+            str(motion),
+            str(output),
+        ],
+        cwd=REPOSITORY,
+        env=environment,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    arguments = captured_args.read_text().splitlines()
+    assert arguments[:2] == ["-m", "intact_tracking.cli.residual_policy_train"]
+    assert _last_option_value(arguments, "--baseline") == "no-latent"
+    assert "--forward-checkpoint" not in arguments
+    assert _last_option_value(arguments, "--device") == "cuda:3"
 
 
 def test_training_launcher_builds_multigpu_torchrun_command(tmp_path: Path) -> None:

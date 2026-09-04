@@ -234,6 +234,35 @@ recursive prediction，以及默认权重 0.01 的 response-geometry representat
 距离相关性，以及“换成其他环境 latent 后 DR 误差上升多少”的 shuffle ratio 等核心诊断。
 完整契约见 [Dynamics-context Forward Predictor flow](docs/forward_predictor_training.md)。
 
+## Frozen-tracker residual PPO
+
+Forward Predictor v12 训练完成后，可以冻结原 SPV5-2A tracker 与 Context Encoder，只训练一个
+bounded residual policy，并与完全不运行 Context Encoder 的 residual baseline 做直接 A/B 对比。
+两个基线复用 checkpoint 中的 SPV5-2A reward、critic observation、HEFT critic 权重与 PPO
+超参数；初始 residual 为零，初始动作分布与原 tracker 完全一致。latent 版本只执行 100 帧
+history-to-latent 推理，不执行 Forward Predictor，也不读取 simulator θ。
+
+```bash
+GPUS=0,1,2,3 ./scripts/run_residual_policy_latent.sh \
+  /path/to/SPV5-2A/checkpoint.pt \
+  /path/to/forward_predictor_v12/last.pt \
+  /path/to/motion_directory \
+  ./runs/residual_policy_latent \
+  --seed 42
+
+GPUS=0,1,2,3 ./scripts/run_residual_policy_no_latent.sh \
+  /path/to/SPV5-2A/checkpoint.pt \
+  /path/to/motion_directory \
+  ./runs/residual_policy_no_latent \
+  --seed 42
+```
+
+launcher 固定全局 4096 个环境并按 rank 均分；默认保留 startup DR、移除随机推力等
+step/interval disturbance。两次实验应保持 tracker、motion、seed、GPU 数和 PPO 参数一致。
+训练日志额外提供 residual 幅度、latent shuffle/zero action delta 与 context 填充率，用于区分
+“residual 本身有效”和“residual 确实利用了 latent”。完整契约和判据见
+[Frozen-tracker residual PPO](docs/residual_policy_training.md)。
+
 ## 旧版 Context-conditioned Forward-only 训练
 
 旧实验入口已经移除 Backward Predictor、Residual Policy 与 Tracking loss，只训练一个统一的
@@ -344,10 +373,12 @@ gradient、固定 16-token contract、单步 Direct action、跨 shard episode �
 
 ## 当前边界
 
-当前完成“冻结 tracker 在线 rollout → 内存 causal replay → 即时 INTACT 联合更新”的闭环。
+当前完成“冻结 tracker 在线 rollout → dynamics latent → frozen-tracker residual PPO”的训练闭环，
+并提供 latent/no-latent 两个严格对照入口。
 当前架构版本为 `single_step_effect_v1`；旧版 145 维 action-block actor checkpoint 与新的
 29 维单步 actor 不兼容，Stage-I 需要重新训练。
 在线训练没有独立 validation split；需要泛化评估时，应另启固定 DR seeds/worlds 的只读评估。
 当前 checkpoint 不保存 replay 内容，因此尚不支持 bit-exact 中断续训。Stage II RL action
-head 尚未加入；在正确 context 相对 no/wrong/shuffled context 的收益通过验证前，不进入
-Stage II。当前正式 launcher 支持单机多卡；多节点 torchrun 尚未作为受支持配置验证。
+head 已加入，但在正确 latent 相对 no/wrong/shuffled latent 的独立评估收益通过验证前，不应把它
+视为有效的 dynamics adaptation。当前正式 launcher 支持单机多卡；多节点 torchrun 尚未作为
+受支持配置验证。
