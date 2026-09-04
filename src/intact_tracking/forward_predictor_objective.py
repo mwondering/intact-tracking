@@ -1,4 +1,4 @@
-"""Five-step dynamics and matched contrastive losses for the Forward Predictor."""
+"""Five-step dynamics and locally matched contrastive losses for the Forward Predictor."""
 
 from __future__ import annotations
 
@@ -41,9 +41,7 @@ class ForwardPredictorLossConfig:
     contact_binary_weight: float = 1.0
     contrastive_weight: float = 0.01
     contrastive_temperature: float = 0.1
-    contrastive_negative_distance: float = 1.25
-    contrastive_hard_negative_count: int = 255
-    contrastive_phase_distance_scale: float = 50.0
+    contrastive_positive_max_offset_steps: int = 20
     huber_delta: float = 1.0
 
     def __post_init__(self) -> None:
@@ -66,12 +64,8 @@ class ForwardPredictorLossConfig:
             raise ValueError("Forward Predictor huber_delta must be positive")
         if self.contrastive_temperature <= 0.0:
             raise ValueError("contrastive_temperature must be positive")
-        if self.contrastive_negative_distance < 0.0:
-            raise ValueError("contrastive_negative_distance must be non-negative")
-        if self.contrastive_hard_negative_count < 1:
-            raise ValueError("contrastive_hard_negative_count must be positive")
-        if self.contrastive_phase_distance_scale <= 0.0:
-            raise ValueError("contrastive_phase_distance_scale must be positive")
+        if self.contrastive_positive_max_offset_steps < 1:
+            raise ValueError("contrastive_positive_max_offset_steps must be positive")
 
 
 def _physical_state(
@@ -178,34 +172,35 @@ def _physical_errors(
     }
 
 
-def _matched_hard_negative_contrastive_loss(
+def _local_dynamics_contrastive_loss(
     dynamics_latent: torch.Tensor,
     context_valid: torch.Tensor,
+    world_id: torch.Tensor,
     dynamics_id: torch.Tensor,
     cohort_id: torch.Tensor,
-    normalized_theta: torch.Tensor,
     motion_id: torch.Tensor,
     motion_step: torch.Tensor,
     episode_id: torch.Tensor,
     episode_step: torch.Tensor,
-    normalized_state: torch.Tensor,
-    normalized_action: torch.Tensor,
-    contact_binary: torch.Tensor,
     *,
     temperature: float,
-    negative_distance: float,
-    hard_negative_count: int,
-    phase_distance_scale: float,
-    positive_nonoverlap_steps: int,
+    positive_max_offset_steps: int,
 ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
-    """Contrast same-dynamics histories against nuisance-matched theta-far classes."""
+    """Contrast local same-world views against exact motion/phase cohort peers.
+
+    A positive is the same physical vector world observed a few control steps
+    earlier or later in the same episode and motion.  A negative is every other
+    dynamics class in the *same* synchronized motion/phase cohort.  Pairs from
+    other motions or phases are ignored, and simulator parameters are not used
+    to decide whether a visible response difference is worth learning.
+    """
 
     if dynamics_latent.ndim != 3 or context_valid.shape != dynamics_latent.shape[:2]:
         raise ValueError("Dynamics latents and context-valid mask must be [batch,horizon,...]")
     batch_size = dynamics_latent.size(0)
-    if dynamics_id.shape != (batch_size,) or normalized_theta.shape[0] != batch_size:
-        raise ValueError("Dynamics IDs and theta targets must share the latent batch dimension")
     vector_fields = {
+        "world_id": world_id,
+        "dynamics_id": dynamics_id,
         "motion_id": motion_id,
         "motion_step": motion_step,
         "episode_id": episode_id,
@@ -219,16 +214,8 @@ def _matched_hard_negative_contrastive_loss(
     }
     if invalid_vectors:
         raise ValueError(f"Contrastive metadata must be batch vectors: {invalid_vectors}")
-    if normalized_state.ndim != 2 or normalized_state.size(0) != batch_size:
-        raise ValueError("Current normalized state must be [batch,state_dim]")
-    if normalized_action.ndim != 2 or normalized_action.size(0) != batch_size:
-        raise ValueError("Current normalized action must be [batch,action_dim]")
-    if contact_binary.ndim != 2 or contact_binary.size(0) != batch_size:
-        raise ValueError("Current contact state must be [batch,contact_dim]")
-    if hard_negative_count < 1 or phase_distance_scale <= 0.0:
-        raise ValueError("Hard-negative count and phase-distance scale must be positive")
-    if positive_nonoverlap_steps < 1:
-        raise ValueError("Positive non-overlap distance must be positive")
+    if positive_max_offset_steps < 1:
+        raise ValueError("Positive temporal offset must be positive")
 
     valid_weight = context_valid.unsqueeze(-1).to(dynamics_latent.dtype)
     pooled_latent = (dynamics_latent * valid_weight).sum(dim=1) / valid_weight.sum(dim=1).clamp_min(
@@ -238,50 +225,32 @@ def _matched_hard_negative_contrastive_loss(
     cosine = embedding @ embedding.transpose(0, 1)
     logits = cosine / float(temperature)
 
-    theta = normalized_theta.detach().float()
-    theta_distance = torch.cdist(theta, theta) / float(theta.size(-1)) ** 0.5
     # A reset-padded history is useful to the transition predictor, but it is
     # not a reliable environment identity observation.  Representation pairs
     # therefore require every one of the long-context frames to be valid.
     sample_valid = context_valid.all(dim=1)
     pair_valid = sample_valid[:, None] & sample_valid[None, :]
     pair_valid &= ~torch.eye(batch_size, dtype=torch.bool, device=dynamics_latent.device)
+    same_world = world_id[:, None] == world_id[None, :]
     same_dynamics = dynamics_id[:, None] == dynamics_id[None, :]
-    positive = pair_valid & same_dynamics
-    different_dynamics = pair_valid & ~same_dynamics
-    theta_far = theta_distance >= float(negative_distance)
-    theta_far_pair = different_dynamics & theta_far
-    ignored_near = different_dynamics & ~theta_far
-
     same_motion = motion_id[:, None] == motion_id[None, :]
-    phase_gap = (motion_step[:, None] - motion_step[None, :]).abs()
-    contact_mismatch = (
-        (contact_binary[:, None].bool() != contact_binary[None, :].bool()).float().mean(dim=-1)
+    same_episode = episode_id[:, None] == episode_id[None, :]
+    episode_step_gap = (episode_step[:, None] - episode_step[None, :]).abs()
+    motion_step_gap = (motion_step[:, None] - motion_step[None, :]).abs()
+    local_temporal_view = (
+        (episode_step_gap > 0)
+        & (episode_step_gap <= int(positive_max_offset_steps))
+        & (motion_step_gap <= int(positive_max_offset_steps))
     )
-    same_cohort = cohort_id[:, None] == cohort_id[None, :]
-    hard_candidate = theta_far_pair & same_cohort
+    positive = (
+        pair_valid & same_world & same_dynamics & same_motion & same_episode & local_temporal_view
+    )
 
-    state_action = torch.cat((normalized_state, normalized_action), dim=-1).detach().float()
-    state_action_distance = (
-        torch.cdist(state_action, state_action) / float(state_action.size(-1)) ** 0.5
-    )
-    hard_score = (
-        state_action_distance + phase_gap.float() / float(phase_distance_scale) + contact_mismatch
-    )
-    # Exact motion/phase cohorts are always selected before easier cross-motion
-    # negatives.  If the configured budget exceeds the matched 127 classes,
-    # theta-far contexts from other motions/phases fill the remainder.
-    hard_score = hard_score + (~same_cohort).to(hard_score.dtype) * 1.0e6
-    hard_score = hard_score.masked_fill(~theta_far_pair, torch.inf)
-    selected_count = min(int(hard_negative_count), max(batch_size - 1, 1))
-    selected_score, selected_indices = torch.topk(
-        hard_score,
-        k=selected_count,
-        dim=1,
-        largest=False,
-    )
-    negative = torch.zeros_like(hard_candidate)
-    negative.scatter_(1, selected_indices, torch.isfinite(selected_score))
+    # A cohort is created from all fixed dynamics classes at the exact same
+    # collector step, motion and phase.  Every distinct world in that cohort is
+    # a negative: there is deliberately no theta/response-distance threshold.
+    same_cohort = cohort_id[:, None] == cohort_id[None, :]
+    negative = pair_valid & same_cohort & same_motion & (motion_step_gap == 0) & ~same_world
     candidate = positive | negative
 
     masked_logits = logits.masked_fill(~candidate, -1.0e4)
@@ -299,44 +268,35 @@ def _matched_hard_negative_contrastive_loss(
 
     positive_pairs = positive.sum().to(logits.dtype)
     negative_pairs = negative.sum().to(logits.dtype)
-    different_pairs = different_dynamics.sum().to(logits.dtype)
-    near_pairs = ignored_near.sum().to(logits.dtype)
-    theta_far_pairs = theta_far_pair.sum().to(logits.dtype)
-    hard_candidate_pairs = hard_candidate.sum().to(logits.dtype)
-    cross_motion_positive = positive & ~same_motion
-    different_episode = episode_id[:, None] != episode_id[None, :]
-    episode_gap = (episode_step[:, None] - episode_step[None, :]).abs()
-    nonoverlap_positive = positive & (
-        ~same_motion | different_episode | (episode_gap >= int(positive_nonoverlap_steps))
-    )
-    cross_motion_positive_pairs = cross_motion_positive.sum().to(logits.dtype)
-    nonoverlap_positive_pairs = nonoverlap_positive.sum().to(logits.dtype)
+    valid_pairs = pair_valid.sum().to(logits.dtype)
     metrics = {
         "contrastive_valid_anchor_fraction": anchor_weight.mean(),
+        "contrastive_full_context_sample_fraction": sample_valid.float().mean(),
         "contrastive_positive_pair_count": positive_pairs,
         "contrastive_negative_pair_count": negative_pairs,
-        "contrastive_negative_pair_fraction": negative_pairs / different_pairs.clamp_min(1.0),
-        "contrastive_ignored_near_pair_fraction": near_pairs / different_pairs.clamp_min(1.0),
-        "contrastive_theta_far_pair_fraction": theta_far_pairs / different_pairs.clamp_min(1.0),
-        "contrastive_hard_candidate_pair_fraction": hard_candidate_pairs
-        / theta_far_pairs.clamp_min(1.0),
-        "contrastive_matched_negative_fraction": (negative & same_cohort).sum().to(logits.dtype)
+        "contrastive_negatives_per_valid_anchor": (
+            negative_count.float() * valid_anchor.float()
+        ).sum()
+        / anchor_weight.sum().clamp_min(1.0),
+        "contrastive_candidate_pair_fraction": (positive_pairs + negative_pairs)
+        / valid_pairs.clamp_min(1.0),
+        "contrastive_exact_cohort_negative_fraction": (
+            negative & same_cohort & same_motion & (motion_step_gap == 0)
+        )
+        .sum()
+        .to(logits.dtype)
         / negative_pairs.clamp_min(1.0),
-        "contrastive_cross_motion_positive_fraction": cross_motion_positive_pairs
+        "contrastive_positive_episode_step_gap": episode_step_gap.float()
+        .masked_fill(~positive, 0.0)
+        .sum()
         / positive_pairs.clamp_min(1.0),
-        "contrastive_nonoverlap_positive_fraction": nonoverlap_positive_pairs
+        "contrastive_positive_motion_step_gap": motion_step_gap.float()
+        .masked_fill(~positive, 0.0)
+        .sum()
         / positive_pairs.clamp_min(1.0),
         "contrastive_positive_cosine": cosine.masked_fill(~positive, 0.0).sum()
         / positive_pairs.clamp_min(1.0),
         "contrastive_negative_cosine": cosine.masked_fill(~negative, 0.0).sum()
-        / negative_pairs.clamp_min(1.0),
-        "contrastive_hard_negative_phase_gap": phase_gap.float().masked_fill(~negative, 0.0).sum()
-        / negative_pairs.clamp_min(1.0),
-        "contrastive_hard_negative_state_action_rms": state_action_distance.masked_fill(
-            ~negative, 0.0
-        ).sum()
-        / negative_pairs.clamp_min(1.0),
-        "contrastive_hard_negative_theta_rms": theta_distance.masked_fill(~negative, 0.0).sum()
         / negative_pairs.clamp_min(1.0),
     }
     return loss, metrics
@@ -474,6 +434,7 @@ class ForwardPredictorObjective(nn.Module):
             "contact_force_std",
             "delta_mean",
             "delta_std",
+            "world_id",
             "dynamics_id",
             "motion_id",
             "motion_step",
@@ -481,7 +442,6 @@ class ForwardPredictorObjective(nn.Module):
             "cohort_id",
             "episode_id",
             "episode_step",
-            "privileged_dynamics",
         }
         missing = sorted(required.difference(batch))
         if missing:
@@ -511,16 +471,8 @@ class ForwardPredictorObjective(nn.Module):
             raise ValueError(f"State batch must be [batch,6,71], got {tuple(state.shape)}")
         if action.shape != (state.size(0), 5, 29):
             raise ValueError(f"Action batch must be [batch,5,29], got {tuple(action.shape)}")
-        if (
-            batch["privileged_dynamics"].ndim != 2
-            or batch["privileged_dynamics"].size(0) != state.size(0)
-            or batch["privileged_dynamics"].size(1) < 1
-        ):
-            raise ValueError(
-                "Theta mining labels must have shape [batch,theta_dim>0], got "
-                f"{tuple(batch['privileged_dynamics'].shape)}"
-            )
         metadata_names = (
+            "world_id",
             "dynamics_id",
             "motion_group_id",
             "cohort_id",
@@ -715,26 +667,18 @@ class ForwardPredictorObjective(nn.Module):
             + self.loss_config.foot_weight * recursive_foot_loss
             + recursive_contact_loss
         )
-        contrastive_loss, contrastive_metrics = _matched_hard_negative_contrastive_loss(
+        contrastive_loss, contrastive_metrics = _local_dynamics_contrastive_loss(
             dynamics_latent,
             context_valid,
+            batch["world_id"],
             batch["dynamics_id"],
             batch["cohort_id"],
-            batch["privileged_dynamics"],
             batch["motion_id"],
             batch["motion_step"],
             batch["episode_id"],
             batch["episode_step"],
-            state[:, 0],
-            action[:, 0],
-            batch["contact_binary"][:, 0],
             temperature=self.loss_config.contrastive_temperature,
-            negative_distance=self.loss_config.contrastive_negative_distance,
-            hard_negative_count=self.loss_config.contrastive_hard_negative_count,
-            phase_distance_scale=self.loss_config.contrastive_phase_distance_scale,
-            positive_nonoverlap_steps=(
-                self.model.config.context_history_steps + self.model.config.horizon
-            ),
+            positive_max_offset_steps=self.loss_config.contrastive_positive_max_offset_steps,
         )
         total_loss = (
             teacher_loss
@@ -885,14 +829,8 @@ class ForwardPredictorObjective(nn.Module):
             "contrastive_temperature": teacher_loss.new_tensor(
                 self.loss_config.contrastive_temperature
             ),
-            "contrastive_negative_distance": teacher_loss.new_tensor(
-                self.loss_config.contrastive_negative_distance
-            ),
-            "contrastive_hard_negative_count": teacher_loss.new_tensor(
-                self.loss_config.contrastive_hard_negative_count
-            ),
-            "contrastive_phase_distance_scale": teacher_loss.new_tensor(
-                self.loss_config.contrastive_phase_distance_scale
+            "contrastive_positive_max_offset_steps": teacher_loss.new_tensor(
+                self.loss_config.contrastive_positive_max_offset_steps
             ),
             **contrastive_metrics,
             "context_full_history_fraction": context_valid.float().mean(),

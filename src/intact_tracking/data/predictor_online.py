@@ -53,8 +53,6 @@ class ForwardPredictorNormalizationStats:
     contact_force_std: tuple[float, ...]
     delta_mean: tuple[float, ...]
     delta_std: tuple[float, ...]
-    privileged_mean: tuple[float, ...]
-    privileged_std: tuple[float, ...]
     world_ids: tuple[int, ...]
     epsilon: float = 1.0e-6
 
@@ -71,14 +69,10 @@ class ForwardPredictorNormalization:
         self,
         dimensions: RolloutDimensions,
         *,
-        privileged_dim: int,
         epsilon: float = 1.0e-6,
         device: torch.device | str | None = None,
     ) -> None:
         self.dimensions = dimensions
-        if privileged_dim < 1:
-            raise ValueError("privileged_dim must be positive")
-        self.privileged_dim = int(privileged_dim)
         self.epsilon = float(epsilon)
         self.device = torch.device(device or "cpu")
         self.state = _RunningMoments(dimensions.robot_state, self.device)
@@ -86,7 +80,6 @@ class ForwardPredictorNormalization:
         self.foot = _RunningMoments(FOOT_FEATURE_DIM, self.device)
         self.contact_force = _RunningMoments(CONTACT_FORCE_DIM, self.device)
         self.delta = _RunningMoments(70, self.device)
-        self.privileged = _RunningMoments(self.privileged_dim, self.device)
         self.frozen = False
 
     def update(self, batch: dict[str, torch.Tensor], valid: torch.Tensor) -> None:
@@ -106,7 +99,6 @@ class ForwardPredictorNormalization:
             )
         )
         self.delta.update(physical_state_delta(current, following))
-        self.privileged.update(batch["privileged_dynamics"][valid])
 
     def freeze(self) -> None:
         self.frozen = True
@@ -121,7 +113,6 @@ class ForwardPredictorNormalization:
                 FOOT_FEATURE_DIM,
                 CONTACT_FORCE_DIM,
                 70,
-                self.privileged_dim,
             )
         )
 
@@ -133,7 +124,6 @@ class ForwardPredictorNormalization:
                 self.foot.packed(),
                 self.contact_force.packed(),
                 self.delta.packed(),
-                self.privileged.packed(),
             )
         )
         return packed.to(device=device) if device is not None else packed
@@ -171,7 +161,6 @@ class ForwardPredictorNormalization:
         foot_mean, foot_std = read(FOOT_FEATURE_DIM)
         contact_force_mean, contact_force_std = read(CONTACT_FORCE_DIM)
         delta_mean, delta_std = read(70)
-        privileged_mean, privileged_std = read(self.privileged_dim)
         return ForwardPredictorNormalizationStats(
             state_mean=_float_tuple(state_mean),
             state_std=_float_tuple(state_std),
@@ -183,8 +172,6 @@ class ForwardPredictorNormalization:
             contact_force_std=_float_tuple(contact_force_std),
             delta_mean=_float_tuple(delta_mean),
             delta_std=_float_tuple(delta_std),
-            privileged_mean=_float_tuple(privileged_mean),
-            privileged_std=_float_tuple(privileged_std),
             world_ids=world_ids,
             epsilon=self.epsilon,
         )
@@ -211,7 +198,6 @@ class ForwardPredictorReplayBuffer:
         "motion_step",
         "motion_group_id",
         "dynamics_id",
-        "privileged_dynamics",
     )
 
     def __init__(
@@ -222,20 +208,22 @@ class ForwardPredictorReplayBuffer:
         horizon: int = 5,
         history_steps: int = 10,
         context_history_steps: int = 100,
+        positive_max_offset_steps: int = 20,
         dynamics_classes: int | None = None,
-        privileged_dim: int = 1,
         capacity: int = 16384,
         sampling_mode: str = "motion_balanced",
         seed: int = 0,
         world_id_offset: int = 0,
         device: torch.device | str | None = None,
     ) -> None:
-        if num_worlds < 1 or capacity < 1 or privileged_dim < 1:
-            raise ValueError("num_worlds, capacity and privileged_dim must be positive")
+        if num_worlds < 1 or capacity < 1:
+            raise ValueError("num_worlds and capacity must be positive")
         if horizon != 5 or history_steps != 10:
             raise ValueError("Forward Predictor replay uses horizon=5 and history_steps=10")
         if context_history_steps < history_steps:
             raise ValueError("context_history_steps must be at least history_steps")
+        if positive_max_offset_steps < horizon:
+            raise ValueError("positive_max_offset_steps must be at least one replay horizon")
         self.grouped_dynamics = dynamics_classes is not None
         resolved_dynamics_classes = num_worlds if dynamics_classes is None else dynamics_classes
         if resolved_dynamics_classes < 1 or num_worlds % resolved_dynamics_classes:
@@ -249,9 +237,9 @@ class ForwardPredictorReplayBuffer:
         self.horizon = int(horizon)
         self.history_steps = int(history_steps)
         self.context_history_steps = int(context_history_steps)
+        self.positive_max_offset_steps = int(positive_max_offset_steps)
         self.dynamics_classes = int(resolved_dynamics_classes)
         self.motion_group_count = self.num_worlds // self.dynamics_classes
-        self.privileged_dim = int(privileged_dim)
         self.capacity = int(capacity)
         # A full replay at the nominal one sample/world/five steps retention rate
         # needs roughly horizon * capacity / num_worlds collector frames.  Keep
@@ -277,23 +265,11 @@ class ForwardPredictorReplayBuffer:
         self._active_indices: torch.Tensor | None = None
         self._world_ids_validated = False
         self._sampling_weights: torch.Tensor | None = None
-        self._pair_order: torch.Tensor | None = None
-        self._pair_inverse: torch.Tensor | None = None
-        self._pair_counts: torch.Tensor | None = None
-        self._pair_starts: torch.Tensor | None = None
-        self._motion_pair_order: torch.Tensor | None = None
-        self._motion_pair_inverse: torch.Tensor | None = None
-        self._motion_pair_counts: torch.Tensor | None = None
-        self._motion_pair_starts: torch.Tensor | None = None
-        self._motion_pair_world_counts: torch.Tensor | None = None
-        self._motion_pair_world_starts: torch.Tensor | None = None
+        self._local_positive_cache: tuple[torch.Tensor, torch.Tensor, torch.Tensor] | None = None
+        self._temporal_run_cache: dict[tuple[int, bool], tuple[torch.Tensor, torch.Tensor]] = {}
         self.total_samples_generated = 0
         self.total_transitions = 0
-        self.normalizer = ForwardPredictorNormalization(
-            self.dimensions,
-            privileged_dim=self.privileged_dim,
-            device=self.device,
-        )
+        self.normalizer = ForwardPredictorNormalization(self.dimensions, device=self.device)
 
     def __len__(self) -> int:
         if not self._samples:
@@ -326,7 +302,6 @@ class ForwardPredictorReplayBuffer:
             + self.horizon * dims.action
             + (self.horizon + 1) * FOOT_FEATURE_DIM
             + (self.horizon + 1) * CONTACT_FORCE_DIM
-            + self.privileged_dim
         )
         history_integers = 4 * self.ring_steps * self.num_worlds + self.ring_steps
         sample_integers = 10 * self.capacity
@@ -386,9 +361,6 @@ class ForwardPredictorReplayBuffer:
             "collector_step": torch.empty(self.capacity, dtype=torch.long, device=self.device),
             "dynamics_id": torch.empty(self.capacity, dtype=torch.long, device=self.device),
             "context_full": torch.empty(self.capacity, dtype=torch.bool, device=self.device),
-            "privileged_dynamics": torch.empty(
-                (self.capacity, self.privileged_dim), device=self.device
-            ),
         }
 
     def _validate_batch(self, batch: dict[str, torch.Tensor]) -> None:
@@ -414,7 +386,6 @@ class ForwardPredictorReplayBuffer:
             "motion_step": (self.num_worlds,),
             "motion_group_id": (self.num_worlds,),
             "dynamics_id": (self.num_worlds,),
-            "privileged_dynamics": (self.num_worlds, self.privileged_dim),
         }
         for name, shape in expected.items():
             value = batch[name]
@@ -457,16 +428,8 @@ class ForwardPredictorReplayBuffer:
         self._size = min(self.capacity, self._size + retained)
         self._active_indices = None
         self._sampling_weights = None
-        self._pair_order = None
-        self._pair_inverse = None
-        self._pair_counts = None
-        self._pair_starts = None
-        self._motion_pair_order = None
-        self._motion_pair_inverse = None
-        self._motion_pair_counts = None
-        self._motion_pair_starts = None
-        self._motion_pair_world_counts = None
-        self._motion_pair_world_starts = None
+        self._local_positive_cache = None
+        self._temporal_run_cache.clear()
         self.total_samples_generated += count
 
     def _active_sample_indices(self) -> torch.Tensor:
@@ -592,7 +555,6 @@ class ForwardPredictorReplayBuffer:
                 "collector_step": torch.full_like(env_ids, self._collector_step),
                 "dynamics_id": batch["dynamics_id"][env_ids],
                 "context_full": context_full,
-                "privileged_dynamics": batch["privileged_dynamics"][env_ids],
             }
             self._append_samples(samples, count)
 
@@ -600,16 +562,8 @@ class ForwardPredictorReplayBuffer:
         self._collector_step += 1
         self._active_indices = None
         self._sampling_weights = None
-        self._pair_order = None
-        self._pair_inverse = None
-        self._pair_counts = None
-        self._pair_starts = None
-        self._motion_pair_order = None
-        self._motion_pair_inverse = None
-        self._motion_pair_counts = None
-        self._motion_pair_starts = None
-        self._motion_pair_world_counts = None
-        self._motion_pair_world_starts = None
+        self._local_positive_cache = None
+        self._temporal_run_cache.clear()
         self.total_transitions += self.num_worlds
         return count
 
@@ -631,8 +585,6 @@ class ForwardPredictorReplayBuffer:
                 "contact_force_std",
                 "delta_mean",
                 "delta_std",
-                "privileged_mean",
-                "privileged_std",
             )
         )
 
@@ -648,47 +600,12 @@ class ForwardPredictorReplayBuffer:
             self._sampling_weights = counts[inverse].float().reciprocal()
         return self._sampling_weights
 
-    def _dynamics_pair_tables(
-        self,
-    ) -> tuple[
-        torch.Tensor,
-        torch.Tensor,
-        torch.Tensor,
-        torch.Tensor,
-        torch.Tensor,
-        torch.Tensor,
-    ]:
-        active = self._active_sample_indices()
-        dynamics_ids = self._samples["dynamics_id"].index_select(0, active)
-        if self.grouped_dynamics:
-            if bool(((dynamics_ids < 0) | (dynamics_ids >= self.dynamics_classes)).any()):
-                raise RuntimeError("Replay dynamics IDs must index the fixed dynamics classes")
-            group_ids = dynamics_ids
-        else:
-            _, group_ids = torch.unique(dynamics_ids, sorted=True, return_inverse=True)
-        if self._pair_order is None or self._pair_order.numel() != active.numel():
-            self._pair_order = torch.argsort(group_ids)
-            self._pair_inverse = torch.empty_like(self._pair_order)
-            self._pair_inverse[self._pair_order] = torch.arange(active.numel(), device=self.device)
-            self._pair_counts = torch.bincount(group_ids, minlength=self.dynamics_classes)
-            self._pair_starts = self._pair_counts.cumsum(0) - self._pair_counts
-        assert self._pair_inverse is not None
-        assert self._pair_counts is not None
-        assert self._pair_starts is not None
-        return (
-            active,
-            group_ids,
-            self._pair_order,
-            self._pair_inverse,
-            self._pair_counts,
-            self._pair_starts,
-        )
-
     def can_sample_dynamics_pairs(
         self,
         batch_size: int,
         *,
         contrastive_block_size: int | None = None,
+        contrastive_ready_only: bool = False,
     ) -> bool:
         """Return whether replay can build the requested contrastive batch layout."""
 
@@ -699,69 +616,186 @@ class ForwardPredictorReplayBuffer:
             block_size = contrastive_block_size or batch_size
             if block_size % self.dynamics_classes or block_size // self.dynamics_classes < 2:
                 return False
-            _, inverse, counts = torch.unique(
-                self._samples["cohort_id"].index_select(0, self._active_sample_indices()),
-                sorted=True,
-                return_inverse=True,
-                return_counts=True,
+            views = block_size // self.dynamics_classes
+            if (views - 1) * self.horizon > self.positive_max_offset_steps:
+                return False
+            runs, _ = self._grouped_temporal_runs(
+                views,
+                contrastive_ready_only=contrastive_ready_only,
             )
-            del inverse
-            return int((counts == self.dynamics_classes).sum()) >= (
-                block_size // self.dynamics_classes
-            )
-        _, dynamics_ids, _, _, counts, _ = self._dynamics_pair_tables()
-        eligible = counts.index_select(0, dynamics_ids) >= 2
+            return runs.size(0) >= batch_size // block_size
+        anchors, candidates, candidate_valid = self._local_positive_candidates()
+        if contrastive_ready_only and anchors.numel():
+            anchor_full = self._samples["context_full"].index_select(0, anchors)
+            candidate_full = self._samples["context_full"][candidates]
+            candidate_valid = candidate_valid & anchor_full[:, None] & candidate_full
+        eligible = candidate_valid.any(dim=1)
         return int(eligible.sum()) >= batch_size // 2
 
-    def _dynamics_motion_pair_tables(
+    def _local_positive_candidates(
         self,
-    ) -> tuple[
-        torch.Tensor,
-        torch.Tensor,
-        torch.Tensor,
-        torch.Tensor,
-        torch.Tensor,
-        torch.Tensor,
-    ]:
-        """Group replay windows by (fixed dynamics world, motion) on the device."""
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Return same-world, same-episode local temporal neighbors for each sample."""
 
-        active, dynamics_ids, _, _, _, _ = self._dynamics_pair_tables()
-        if self._motion_pair_order is None or self._motion_pair_order.numel() != active.numel():
-            dynamics_motion = torch.stack(
-                (dynamics_ids, self._samples["motion_id"].index_select(0, active)),
-                dim=1,
-            )
-            unique_pairs, inverse, counts = torch.unique(
-                dynamics_motion,
-                dim=0,
-                sorted=True,
-                return_inverse=True,
-                return_counts=True,
-            )
-            self._motion_pair_order = torch.argsort(inverse)
-            self._motion_pair_inverse = inverse
-            self._motion_pair_counts = counts
-            self._motion_pair_starts = counts.cumsum(0) - counts
-            self._motion_pair_world_counts = torch.bincount(
-                unique_pairs[:, 0],
-                minlength=self.dynamics_classes,
-            )
-            self._motion_pair_world_starts = (
-                self._motion_pair_world_counts.cumsum(0) - self._motion_pair_world_counts
-            )
-        assert self._motion_pair_inverse is not None
-        assert self._motion_pair_counts is not None
-        assert self._motion_pair_starts is not None
-        assert self._motion_pair_world_counts is not None
-        assert self._motion_pair_world_starts is not None
-        return (
-            self._motion_pair_order,
-            self._motion_pair_inverse,
-            self._motion_pair_counts,
-            self._motion_pair_starts,
-            self._motion_pair_world_counts,
-            self._motion_pair_world_starts,
+        if self._local_positive_cache is not None:
+            return self._local_positive_cache
+        active = self._active_sample_indices()
+        neighbor_count = self.positive_max_offset_steps // self.horizon
+        if active.numel() == 0:
+            anchors = active
+            candidates = torch.empty((0, 2 * neighbor_count), dtype=torch.long, device=self.device)
+            valid = torch.empty_like(candidates, dtype=torch.bool)
+            self._local_positive_cache = (anchors, candidates, valid)
+            return self._local_positive_cache
+
+        identity = torch.stack(
+            (
+                self._samples["world_id"].index_select(0, active),
+                self._samples["episode_id"].index_select(0, active),
+                self._samples["motion_id"].index_select(0, active),
+            ),
+            dim=1,
         )
+        _, group_id = torch.unique(identity, dim=0, sorted=True, return_inverse=True)
+        episode_step = self._samples["episode_step"].index_select(0, active)
+        order = torch.argsort(episode_step, stable=True)
+        order = order.index_select(0, torch.argsort(group_id.index_select(0, order), stable=True))
+        anchors = active.index_select(0, order)
+        sorted_group = group_id.index_select(0, order)
+        sorted_step = episode_step.index_select(0, order)
+
+        negative_offsets = -torch.arange(
+            neighbor_count, 0, -1, dtype=torch.long, device=self.device
+        )
+        positive_offsets = torch.arange(1, neighbor_count + 1, dtype=torch.long, device=self.device)
+        offsets = torch.cat((negative_offsets, positive_offsets))
+        row = torch.arange(active.numel(), device=self.device)[:, None]
+        candidate_row = row + offsets[None]
+        in_bounds = (candidate_row >= 0) & (candidate_row < active.numel())
+        safe_row = candidate_row.clamp(0, active.numel() - 1)
+        candidate_step = sorted_step[safe_row]
+        gap = (candidate_step - sorted_step[:, None]).abs()
+        candidate_valid = (
+            in_bounds
+            & (sorted_group[safe_row] == sorted_group[:, None])
+            & (gap > 0)
+            & (gap <= self.positive_max_offset_steps)
+        )
+        candidates = anchors[safe_row]
+        self._local_positive_cache = (anchors, candidates, candidate_valid)
+        return self._local_positive_cache
+
+    def _grouped_temporal_runs(
+        self,
+        views: int,
+        *,
+        contrastive_ready_only: bool,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Build non-overlapping runs of nearby complete motion/phase cohorts."""
+
+        key = (views, contrastive_ready_only)
+        cached = self._temporal_run_cache.get(key)
+        if cached is not None:
+            return cached
+        empty_runs = torch.empty(
+            (0, views, self.dynamics_classes), dtype=torch.long, device=self.device
+        )
+        empty_motion = torch.empty(0, dtype=torch.long, device=self.device)
+        if views < 2 or (views - 1) * self.horizon > self.positive_max_offset_steps:
+            result = (empty_runs, empty_motion)
+            self._temporal_run_cache[key] = result
+            return result
+
+        active = self._active_sample_indices()
+        if active.numel() == 0:
+            result = (empty_runs, empty_motion)
+            self._temporal_run_cache[key] = result
+            return result
+        cohort_ids = self._samples["cohort_id"].index_select(0, active)
+        unique_cohorts, inverse, counts = torch.unique(
+            cohort_ids,
+            sorted=True,
+            return_inverse=True,
+            return_counts=True,
+        )
+        complete = (counts == self.dynamics_classes).nonzero(as_tuple=False).flatten()
+        if complete.numel() == 0:
+            result = (empty_runs, empty_motion)
+            self._temporal_run_cache[key] = result
+            return result
+
+        order = torch.argsort(inverse)
+        starts = counts.cumsum(0) - counts
+        class_offsets = torch.arange(self.dynamics_classes, device=self.device)
+        complete_ranks = order[starts.index_select(0, complete)[:, None] + class_offsets[None]]
+        cohort_positions = active.index_select(0, complete_ranks.flatten()).view(
+            -1, self.dynamics_classes
+        )
+        cohort_dynamics = self._samples["dynamics_id"][cohort_positions]
+        dynamics_order = torch.argsort(cohort_dynamics, dim=1)
+        cohort_positions = torch.gather(cohort_positions, 1, dynamics_order)
+        cohort_dynamics = torch.gather(cohort_dynamics, 1, dynamics_order)
+        expected_dynamics = torch.arange(self.dynamics_classes, device=self.device).expand_as(
+            cohort_dynamics
+        )
+        if not torch.equal(cohort_dynamics, expected_dynamics):
+            raise RuntimeError("A motion/phase cohort does not contain each dynamics class once")
+
+        complete_ids = unique_cohorts.index_select(0, complete)
+        max_offset_units = self.positive_max_offset_steps // self.horizon
+        offset_units = torch.arange(views, device=self.device)
+        use_sparse_max_offset = views >= 4 and max_offset_units >= views
+        if use_sparse_max_offset:
+            offset_units[-1] = max_offset_units
+        temporal_offsets = self.horizon * offset_units
+        desired_ids = complete_ids[:, None] + (temporal_offsets[None] << 32)
+        located = torch.searchsorted(complete_ids, desired_ids)
+        present = located < complete_ids.numel()
+        safe_located = located.clamp(max=complete_ids.numel() - 1)
+        present &= complete_ids[safe_located] == desired_ids
+
+        collector_step = self._samples["collector_step"][cohort_positions[:, 0]]
+        # Partition stored cohorts into disjoint runs.  Rotating the partition
+        # phase after each newly collected cohort avoids permanently dropping
+        # the slots not selected by a sparse offset pattern (default: 0/5/10/20).
+        partition_width = (max_offset_units if use_sparse_max_offset else views - 1) + 1
+        partition_phase = (self._collector_step // self.horizon) % partition_width
+        aligned_start = (collector_step // self.horizon - partition_phase).remainder(
+            partition_width
+        ) == 0
+        run_positions = cohort_positions[safe_located]
+        run_valid = present.all(dim=1) & aligned_start
+
+        run_collector = self._samples["collector_step"][run_positions]
+        expected_collector = collector_step[:, None, None] + temporal_offsets[None, :, None]
+        run_valid &= (run_collector == expected_collector).all(dim=(1, 2))
+        run_world = self._samples["world_id"][run_positions]
+        run_valid &= (run_world == run_world[:, :1]).all(dim=(1, 2))
+        run_episode = self._samples["episode_id"][run_positions]
+        run_valid &= (run_episode == run_episode[:, :1]).all(dim=(1, 2))
+        run_valid &= (run_episode == run_episode[:, :, :1]).all(dim=(1, 2))
+        run_motion = self._samples["motion_id"][run_positions]
+        run_valid &= (run_motion == run_motion[:, :1]).all(dim=(1, 2))
+        run_valid &= (run_motion == run_motion[:, :, :1]).all(dim=(1, 2))
+        run_episode_step = self._samples["episode_step"][run_positions]
+        expected_episode_step = run_episode_step[:, :1] + temporal_offsets[None, :, None]
+        run_valid &= (run_episode_step == expected_episode_step).all(dim=(1, 2))
+        run_valid &= (run_episode_step == run_episode_step[:, :, :1]).all(dim=(1, 2))
+        run_motion_step = self._samples["motion_step"][run_positions]
+        expected_motion_step = run_motion_step[:, :1] + temporal_offsets[None, :, None]
+        run_valid &= (run_motion_step == expected_motion_step).all(dim=(1, 2))
+        run_valid &= (run_motion_step == run_motion_step[:, :, :1]).all(dim=(1, 2))
+        if contrastive_ready_only:
+            full_context = self._samples["context_full"][run_positions]
+            has_positive = full_context.sum(dim=1)[:, None, :] > 1
+            has_negative = full_context.sum(dim=2)[:, :, None] > 1
+            run_valid &= (full_context & has_positive & has_negative).any(dim=(1, 2))
+
+        runs = run_positions[run_valid]
+        motions = run_motion[run_valid, 0, 0]
+        result = (runs, motions)
+        self._temporal_run_cache[key] = result
+        return result
 
     def _sample_indices(self, batch_size: int) -> torch.Tensor:
         active = self._active_sample_indices()
@@ -778,101 +812,62 @@ class ForwardPredictorReplayBuffer:
             )
         return active.index_select(0, ranks)
 
-    def _sample_paired_dynamics_indices(self, batch_size: int) -> torch.Tensor:
+    def _sample_paired_dynamics_indices(
+        self,
+        batch_size: int,
+        *,
+        contrastive_ready_only: bool,
+    ) -> torch.Tensor:
         if batch_size % 2:
             raise ValueError("Dynamics-paired batch_size must be even")
-        active, dynamics_ids, order, inverse, counts, starts = self._dynamics_pair_tables()
-        eligible = counts.index_select(0, dynamics_ids) >= 2
+        anchors, candidates, candidate_valid = self._local_positive_candidates()
+        if contrastive_ready_only and anchors.numel():
+            anchor_full = self._samples["context_full"].index_select(0, anchors)
+            candidate_full = self._samples["context_full"][candidates]
+            candidate_valid = candidate_valid & anchor_full[:, None] & candidate_full
+        eligible = candidate_valid.any(dim=1)
         pair_count = batch_size // 2
         if int(eligible.sum()) < pair_count:
             raise RuntimeError(
-                "Forward Predictor replay cannot form enough distinct same-world history "
+                "Forward Predictor replay cannot form enough local same-world history "
                 f"pairs for batch_size={batch_size}"
             )
         if self.sampling_mode == "uniform":
             anchor_weights = eligible.float()
         else:
-            anchor_weights = self._motion_sampling_weights() * eligible
-        anchor_ranks = torch.multinomial(
+            active = self._active_sample_indices()
+            anchor_weights = (
+                self._motion_sampling_weights().index_select(0, torch.searchsorted(active, anchors))
+                * eligible
+            )
+        chosen_rows = torch.multinomial(
             anchor_weights,
             pair_count,
             replacement=False,
             generator=self._generator,
         )
-        anchors = active.index_select(0, anchor_ranks)
-        anchor_dynamics = dynamics_ids.index_select(0, anchor_ranks)
-        group_counts = counts.index_select(0, anchor_dynamics)
-        group_starts = starts.index_select(0, anchor_dynamics)
-        anchor_group_rank = inverse.index_select(0, anchor_ranks) - group_starts
-        other_group_rank = (
-            (
-                torch.rand(pair_count, generator=self._generator, device=self.device)
-                * (group_counts - 1).float()
-            )
-            .floor()
-            .long()
-        )
-        other_group_rank += (other_group_rank >= anchor_group_rank).long()
-        fallback_positive_ranks = order.index_select(0, group_starts + other_group_rank)
-        fallback_positives = active.index_select(0, fallback_positive_ranks)
-
-        (
-            motion_order,
-            motion_inverse,
-            motion_counts,
-            motion_starts,
-            motion_world_counts,
-            motion_world_starts,
-        ) = self._dynamics_motion_pair_tables()
-        anchor_motion_group = motion_inverse.index_select(0, anchor_ranks)
-        world_motion_counts = motion_world_counts.index_select(0, anchor_dynamics)
-        world_motion_starts = motion_world_starts.index_select(0, anchor_dynamics)
-        anchor_motion_rank = anchor_motion_group - world_motion_starts
-        has_cross_motion = world_motion_counts >= 2
-        other_motion_rank = (
-            (
-                torch.rand(pair_count, generator=self._generator, device=self.device)
-                * (world_motion_counts - 1).clamp_min(1).float()
-            )
-            .floor()
-            .long()
-        )
-        other_motion_rank += ((other_motion_rank >= anchor_motion_rank) & has_cross_motion).long()
-        other_motion_rank = torch.where(
-            has_cross_motion,
-            other_motion_rank,
-            anchor_motion_rank,
-        )
-        other_motion_group = world_motion_starts + other_motion_rank
-        other_motion_count = motion_counts.index_select(0, other_motion_group)
-        other_motion_offset = (
-            (
-                torch.rand(pair_count, generator=self._generator, device=self.device)
-                * other_motion_count.float()
-            )
-            .floor()
-            .long()
-        )
-        cross_motion_positive_ranks = motion_order.index_select(
-            0,
-            motion_starts.index_select(0, other_motion_group) + other_motion_offset,
-        )
-        cross_motion_positives = active.index_select(0, cross_motion_positive_ranks)
-        positives = torch.where(
-            has_cross_motion,
-            cross_motion_positives,
-            fallback_positives,
-        )
-        if bool(torch.eq(anchors, positives).any()):
+        chosen_candidates = candidates.index_select(0, chosen_rows)
+        chosen_valid = candidate_valid.index_select(0, chosen_rows)
+        random_score = torch.rand(
+            chosen_valid.shape,
+            generator=self._generator,
+            device=self.device,
+        ).masked_fill(~chosen_valid, -1.0)
+        positive_column = random_score.argmax(dim=1)
+        positives = chosen_candidates.gather(1, positive_column[:, None]).squeeze(1)
+        selected_anchors = anchors.index_select(0, chosen_rows)
+        if bool(torch.eq(selected_anchors, positives).any()):
             raise RuntimeError("Dynamics pair sampler selected the same replay window twice")
-        return torch.stack((anchors, positives), dim=1).flatten()
+        return torch.stack((selected_anchors, positives), dim=1).flatten()
 
     def _sample_grouped_dynamics_indices(
         self,
         batch_size: int,
         block_size: int,
+        *,
+        contrastive_ready_only: bool,
     ) -> torch.Tensor:
-        """Build each micro-batch from complete 128-class motion/phase cohorts."""
+        """Build each block from nearby views of one synchronized environment family."""
 
         if batch_size % block_size:
             raise ValueError("batch_size must be divisible by contrastive_block_size")
@@ -881,65 +876,38 @@ class ForwardPredictorReplayBuffer:
         views = block_size // self.dynamics_classes
         if views < 2:
             raise ValueError("Each contrastive block needs at least two cohort views")
-        active = self._active_sample_indices()
-        cohort_ids = self._samples["cohort_id"].index_select(0, active)
-        unique_cohorts, inverse, counts = torch.unique(
-            cohort_ids,
-            sorted=True,
-            return_inverse=True,
-            return_counts=True,
+        if (views - 1) * self.horizon > self.positive_max_offset_steps:
+            raise ValueError("contrastive block spans more steps than positive_max_offset_steps")
+        runs, run_motion = self._grouped_temporal_runs(
+            views,
+            contrastive_ready_only=contrastive_ready_only,
         )
-        eligible = (counts == self.dynamics_classes).nonzero(as_tuple=False).flatten()
-        needed = (batch_size // block_size) * views
-        if eligible.numel() < views:
+        needed_runs = batch_size // block_size
+        if runs.size(0) < needed_runs:
             raise RuntimeError(
-                "Replay does not yet contain enough complete 128-class motion/phase cohorts"
+                "Replay does not yet contain enough complete local temporal cohort runs"
             )
-        cohort_motion = torch.empty_like(unique_cohorts)
-        first_by_cohort = torch.argsort(inverse)[counts.cumsum(0) - counts]
-        cohort_motion.copy_(
-            self._samples["motion_id"].index_select(0, active.index_select(0, first_by_cohort))
-        )
         if self.sampling_mode == "motion_balanced":
-            eligible_motion = cohort_motion.index_select(0, eligible)
             _, motion_inverse, motion_counts = torch.unique(
-                eligible_motion,
+                run_motion,
                 return_inverse=True,
                 return_counts=True,
             )
             weights = motion_counts[motion_inverse].float().reciprocal()
         else:
-            weights = torch.ones(eligible.numel(), device=self.device)
-        chosen_ranks = torch.stack(
-            tuple(
-                torch.multinomial(
-                    weights,
-                    views,
-                    replacement=False,
-                    generator=self._generator,
-                )
-                for _ in range(batch_size // block_size)
-            )
-        ).flatten()
-        chosen_groups = eligible.index_select(0, chosen_ranks)
-        order = torch.argsort(inverse)
-        starts = counts.cumsum(0) - counts
-        offsets = torch.arange(self.dynamics_classes, device=self.device)
-        grouped_ranks = order[starts.index_select(0, chosen_groups)[:, None] + offsets[None]]
-        grouped_positions = active.index_select(0, grouped_ranks.flatten()).view(
-            needed,
-            self.dynamics_classes,
+            weights = torch.ones(runs.size(0), device=self.device)
+        if contrastive_ready_only:
+            full_context = self._samples["context_full"][runs]
+            has_positive = full_context.sum(dim=1)[:, None, :] > 1
+            has_negative = full_context.sum(dim=2)[:, :, None] > 1
+            weights = weights * (full_context & has_positive & has_negative).sum(dim=(1, 2)).float()
+        chosen = torch.multinomial(
+            weights,
+            needed_runs,
+            replacement=False,
+            generator=self._generator,
         )
-        grouped_dynamics = self._samples["dynamics_id"][grouped_positions]
-        dynamics_order = torch.argsort(grouped_dynamics, dim=1)
-        grouped_positions = torch.gather(grouped_positions, 1, dynamics_order)
-        grouped_dynamics = torch.gather(grouped_dynamics, 1, dynamics_order)
-        expected = torch.arange(self.dynamics_classes, device=self.device).expand_as(
-            grouped_dynamics
-        )
-        if not torch.equal(grouped_dynamics, expected):
-            raise RuntimeError("A motion/phase cohort does not contain each dynamics class once")
-        return grouped_positions.view(batch_size // block_size, views, -1).reshape(-1)
+        return runs.index_select(0, chosen).reshape(-1)
 
     def sample_batch(
         self,
@@ -948,6 +916,7 @@ class ForwardPredictorReplayBuffer:
         *,
         paired_dynamics: bool = False,
         contrastive_block_size: int | None = None,
+        contrastive_ready_only: bool = False,
     ) -> dict[str, torch.Tensor]:
         active_count = len(self)
         if batch_size < 1 or active_count < batch_size:
@@ -958,9 +927,15 @@ class ForwardPredictorReplayBuffer:
             indices = self._sample_grouped_dynamics_indices(
                 batch_size,
                 contrastive_block_size or batch_size,
+                contrastive_ready_only=contrastive_ready_only,
             )
         elif paired_dynamics:
-            indices = self._sample_paired_dynamics_indices(batch_size)
+            indices = self._sample_paired_dynamics_indices(
+                batch_size,
+                contrastive_ready_only=contrastive_ready_only,
+            )
+        elif contrastive_ready_only:
+            raise ValueError("contrastive_ready_only requires paired_dynamics=True")
         else:
             indices = self._sample_indices(batch_size)
         selected = {name: value.index_select(0, indices) for name, value in self._samples.items()}
@@ -1005,8 +980,6 @@ class ForwardPredictorReplayBuffer:
             contact_force_std,
             delta_mean,
             delta_std,
-            privileged_mean,
-            privileged_std,
         ) = self._normalization_tensors(normalization, self.device)
         normalized_history_state = (history_state - state_mean) / state_std
         normalized_history_action = (history_action - action_mean) / action_std
@@ -1040,10 +1013,6 @@ class ForwardPredictorReplayBuffer:
             "contact_force_std": contact_force_std,
             "delta_mean": delta_mean,
             "delta_std": delta_std,
-            "privileged_dynamics": (selected["privileged_dynamics"] - privileged_mean)
-            / privileged_std,
-            "privileged_mean": privileged_mean,
-            "privileged_std": privileged_std,
             "world_id": selected["world_id"],
             "dynamics_id": selected["dynamics_id"],
             "motion_group_id": selected["motion_group_id"],

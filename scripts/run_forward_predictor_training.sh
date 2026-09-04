@@ -6,7 +6,7 @@ usage() {
   printf '%s\n' \
     "Usage: $0 CHECKPOINT MOTION_SOURCE OUTPUT_DIR [PREDICTOR_OPTIONS...]" \
     "" \
-    "Train the cross-motion hard-negative dynamics-context Forward Predictor." \
+    "Train the local-contrastive dynamics-context Forward Predictor." \
     "" \
     "Fixed contract:" \
     "  physics          128 fixed startup-DR prototypes; never resampled" \
@@ -17,9 +17,10 @@ usage() {
     "  predictor input  10 historical full-state/PD-target tokens + 1 current token" \
     "  output           70-D robot delta + 8-D foot state + 6-D contact force + 2-D logits" \
     "  rollout          shared one-step model recursively applied 5 times" \
-    "  supervision      dynamics prediction + matched contrastive representation learning" \
-    "  positive pairs   same dynamics class across motion/phase contexts" \
-    "  negative pairs   theta-far; exact shared-motion/shared-phase cohort first" \
+    "  supervision      dynamics prediction + local contrastive representation learning" \
+    "  positive pairs   same world/episode/motion, nearby context windows" \
+    "  negative pairs   every other world at the exact same motion and phase" \
+    "  ignored pairs    different motion/phase; no theta or response-distance threshold" \
     "  disabled         Residual Policy, Backward, gradient clipping" \
     "" \
     "Production defaults (override with PREDICTOR_OPTIONS):" \
@@ -28,7 +29,7 @@ usage() {
     "  --gradient-steps-per-update 4 --updates 100000" \
     "  --contrastive-weight 0.01 --contrastive-temperature 0.1" \
     "  --dynamics-classes 128 --context-history-steps 100" \
-    "  --contrastive-hard-negative-count 255 --contrastive-phase-distance-scale 50" \
+    "  --contrastive-positive-max-offset-steps 20" \
     "" \
     "Use --fixed-batch-overfit for the mandatory model-capacity diagnostic." \
     "" \
@@ -173,19 +174,20 @@ command+=(
 )
 
 printf '%s\n' \
-  "Training contract: grouped-dynamics Context Forward Predictor v10" \
+  "Training contract: local-contrastive Context Forward Predictor v11" \
   "  model: Context Encoder sees robot state/action only; privileged features stay in predictor" \
   "  rollout: predicted robot/foot/contact state recurs 5 steps; no articulated FK in model" \
   "  disturbance: checkpoint step/interval random pushes are removed" \
-  "  loss: dynamics + matched hard-negative contrastive (0.01); no theta decoder" \
+  "  loss: dynamics + local exact-cohort contrastive (0.01); no theta decoder" \
   "  context: 100 proprioceptive frames; reset-padded contexts predict but do not contrast" \
-  "  pairs: same-class positives; 128-class synchronized motion/phase cohorts as hard negatives" \
+  "  positives: same-world windows shifted 5/10/15/20 steps within one episode and motion" \
+  "  negatives: all other worlds in the same 128-class motion/phase cohort" \
   "  replay: motion-balanced, 262144 samples per rank by default" \
   "  optimizer: effective batch 4096, micro-batch 512, BF16 autocast, fused AdamW" \
   "  diagnostics: full metric/probe evaluation every --log-interval updates" \
-  "  normalization: robot/target/foot/contact/delta/DR-label stats frozen after warmup" \
+  "  normalization: robot/target/foot/contact/delta/DR-provenance stats frozen after warmup" \
   "  inference: history-only; theta is never a model input or prediction target" \
-  "  negatives: theta-far exact-cohort negatives first, then cross-motion/phase negatives" \
+  "  pair filter: cross-motion/phase pairs ignored; no dynamics-distance threshold" \
   "  policy/backward: disabled" \
   "  distributed ranks: ${NPROC}"
 printf 'Launching:'

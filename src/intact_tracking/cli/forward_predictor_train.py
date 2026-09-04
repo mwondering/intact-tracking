@@ -143,27 +143,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--contrastive-weight", type=float, default=0.01)
     parser.add_argument("--contrastive-temperature", type=float, default=0.1)
     parser.add_argument(
-        "--contrastive-negative-distance",
-        type=float,
-        default=1.25,
-        help=(
-            "Minimum RMS distance between normalized dynamics parameters for two "
-            "different worlds to be treated as negatives."
-        ),
-    )
-    parser.add_argument(
-        "--contrastive-hard-negative-count",
+        "--contrastive-positive-max-offset-steps",
         type=int,
-        default=255,
-        help="Maximum theta-far negatives; exact motion/phase cohorts are selected first.",
-    )
-    parser.add_argument(
-        "--contrastive-phase-distance-scale",
-        type=float,
-        default=50.0,
+        default=20,
         help=(
-            "Motion-step difference equivalent to one unit of normalized state/action "
-            "distance during hard-negative ranking."
+            "Largest control-step offset between same-world context windows used as "
+            "positives; negatives never use a dynamics-distance threshold."
         ),
     )
 
@@ -206,7 +191,7 @@ def _validate_arguments(args: argparse.Namespace) -> None:
         "context_depth",
         "context_heads",
         "dynamics_latent_dim",
-        "contrastive_hard_negative_count",
+        "contrastive_positive_max_offset_steps",
     )
     invalid = {name: getattr(args, name) for name in positive if getattr(args, name) < 1}
     if invalid:
@@ -235,7 +220,6 @@ def _validate_arguments(args: argparse.Namespace) -> None:
         "model_learning_rate",
         "huber_delta",
         "contrastive_temperature",
-        "contrastive_phase_distance_scale",
     ):
         if getattr(args, name) <= 0.0:
             raise ValueError(f"{name.replace('_', '-')} must be positive")
@@ -253,7 +237,6 @@ def _validate_arguments(args: argparse.Namespace) -> None:
         "contact_force_weight",
         "contact_binary_weight",
         "contrastive_weight",
-        "contrastive_negative_distance",
         "recursive_weight",
     ):
         if getattr(args, name) < 0.0:
@@ -276,6 +259,13 @@ def _validate_arguments(args: argparse.Namespace) -> None:
             raise ValueError(
                 "Contrastive training requires complete micro-batches with at least two "
                 f"views of every dynamics class: {invalid_blocks}"
+            )
+        temporal_span = (args.micro_batch_size // args.dynamics_classes - 1) * 5
+        if temporal_span > args.contrastive_positive_max_offset_steps:
+            raise ValueError(
+                "A contrastive micro-batch spans "
+                f"{temporal_span} steps, exceeding "
+                "--contrastive-positive-max-offset-steps"
             )
 
 
@@ -376,7 +366,6 @@ _BATCH_FIELDS = frozenset(
         "motion_group_id",
         "cohort_id",
         "context_full",
-        "privileged_dynamics",
     }
 )
 
@@ -455,9 +444,10 @@ def _save_checkpoint(
         "privileged_dynamics": {
             "names": list(rollout.privileged_dynamics_names),
             "ignored_startup_events": list(rollout.ignored_privileged_startup_events),
+            "prototype_sha256": rollout.dynamics_prototype_sha256,
             "inference_contract": (
-                "history_only; simulator parameters are used only to mine theta-far training "
-                "negatives and are never model inputs or prediction targets"
+                "history_only; simulator parameters are retained only as DR provenance and "
+                "are never model inputs, prediction targets, or contrastive-pair filters"
             ),
         },
         "tracker": {
@@ -532,10 +522,10 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
     replay = ForwardPredictorReplayBuffer(
         num_worlds=args.num_envs,
         dimensions=dimensions,
-        privileged_dim=len(rollout.privileged_dynamics_names),
         capacity=args.replay_capacity,
         history_steps=args.history_steps,
         context_history_steps=args.context_history_steps,
+        positive_max_offset_steps=args.contrastive_positive_max_offset_steps,
         dynamics_classes=args.dynamics_classes,
         sampling_mode=args.replay_sampling,
         seed=rank_seed,
@@ -571,9 +561,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         contact_binary_weight=args.contact_binary_weight,
         contrastive_weight=args.contrastive_weight,
         contrastive_temperature=args.contrastive_temperature,
-        contrastive_negative_distance=args.contrastive_negative_distance,
-        contrastive_hard_negative_count=args.contrastive_hard_negative_count,
-        contrastive_phase_distance_scale=args.contrastive_phase_distance_scale,
+        contrastive_positive_max_offset_steps=args.contrastive_positive_max_offset_steps,
         huber_delta=args.huber_delta,
     )
     contrastive_enabled = loss_config.contrastive_weight > 0.0
@@ -605,7 +593,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
     )
     parameter_count = sum(parameter.numel() for parameter in model.parameters())
     run_config = {
-        "method": "100-frame grouped-dynamics Context Forward Predictor v10",
+        "method": "100-frame local-contrastive Context Forward Predictor v11",
         "architecture": {
             "controller": "frozen tracker",
             "physics": (
@@ -623,8 +611,9 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             ),
             "context": (
                 "a separate encoder maps 100 completed (state, physical PD target, next-state) "
-                "interactions to z; same-dynamics contexts are positives; each motion/phase "
-                "cohort supplies one context from every fixed dynamics class as hard negatives; "
+                "interactions to z; nearby windows from the same physical world, episode and "
+                "motion are positives; every other world in the exact same motion/phase cohort "
+                "is a negative without any theta or response-distance threshold; "
                 "reset-padded contexts train prediction but are excluded from contrastive pairs; "
                 "there is no theta encoder or theta decoder"
             ),
@@ -634,8 +623,8 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             ),
             "excluded": ["residual_policy", "backward"],
             "normalization": (
-                "robot state, physical target, simulator foot, contact force, robot delta and "
-                "training-only theta mining statistics frozen immediately after warmup"
+                "robot state, physical target, simulator foot, contact force and robot delta "
+                "statistics frozen immediately after warmup; theta is not normalized or replayed"
             ),
         },
         "arguments": vars(args),
@@ -665,21 +654,25 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             "horizon": 5,
             "history_steps": args.history_steps,
             "context_history_steps": args.context_history_steps,
+            "positive_max_offset_steps": args.contrastive_positive_max_offset_steps,
             "dynamics_classes": args.dynamics_classes,
             "history_storage": "time archive reconstructed at sample time",
             "sampling": args.replay_sampling,
             "dynamics_paired_batches": args.contrastive_weight > 0.0,
-            "positive_pair_preference": "same dynamics across motion/phase cohorts",
-            "negative_pair_preference": "theta-far exact motion/phase cohort first",
+            "positive_pairs": (
+                "same world/episode/motion, shifted by at most "
+                f"{args.contrastive_positive_max_offset_steps} steps"
+            ),
+            "negative_pairs": "all other worlds in the exact same motion/phase cohort",
+            "cross_motion_or_phase_pairs": "ignored",
+            "dynamics_distance_threshold": None,
         },
         "objective_weights": {
             "teacher_forced_weight": 1.0,
             "recursive_weight": args.recursive_weight,
             "contrastive_weight": args.contrastive_weight,
             "contrastive_temperature": args.contrastive_temperature,
-            "contrastive_negative_distance": args.contrastive_negative_distance,
-            "contrastive_hard_negative_count": args.contrastive_hard_negative_count,
-            "contrastive_phase_distance_scale": args.contrastive_phase_distance_scale,
+            "contrastive_positive_max_offset_steps": (args.contrastive_positive_max_offset_steps),
         },
     }
     _main_process_call(distributed, lambda: _write_json(output_dir / "run_config.json", run_config))
@@ -743,6 +736,15 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                     required_batch,
                     contrastive_block_size=args.micro_batch_size,
                 )
+            if ready and contrastive_enabled:
+                full_context_batch = (
+                    args.batch_size if args.fixed_batch_overfit else args.fixed_probe_batch_size
+                )
+                ready = replay.can_sample_dynamics_pairs(
+                    full_context_batch,
+                    contrastive_block_size=args.micro_batch_size,
+                    contrastive_ready_only=True,
+                )
             if distributed.all_true(ready):
                 break
             if rollout.collector_step >= args.max_warmup_steps:
@@ -776,6 +778,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             normalization,
             paired_dynamics=contrastive_enabled,
             contrastive_block_size=args.micro_batch_size,
+            contrastive_ready_only=contrastive_enabled,
         )
         fixed_train_batch = (
             replay.sample_batch(
@@ -783,6 +786,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                 normalization,
                 paired_dynamics=contrastive_enabled,
                 contrastive_block_size=args.micro_batch_size,
+                contrastive_ready_only=contrastive_enabled,
             )
             if args.fixed_batch_overfit
             else None

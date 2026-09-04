@@ -33,7 +33,7 @@ from intact_tracking.forward_predictor_inputs import (
 from intact_tracking.forward_predictor_objective import (
     ForwardPredictorLossConfig,
     ForwardPredictorObjective,
-    _matched_hard_negative_contrastive_loss,
+    _local_dynamics_contrastive_loss,
 )
 from intact_tracking.rollout.online import _verify_predictor_action_target
 
@@ -103,6 +103,7 @@ def _dynamics_target(batch_size: int, width: int = 1) -> torch.Tensor:
 
 def _contrastive_metadata(batch_size: int) -> dict[str, torch.Tensor]:
     return {
+        "world_id": torch.arange(batch_size),
         "dynamics_id": torch.arange(batch_size),
         "motion_group_id": torch.arange(batch_size),
         "cohort_id": torch.arange(batch_size),
@@ -141,7 +142,8 @@ def test_default_forward_predictor_has_a_separate_dynamics_context_encoder() -> 
 
     assert sum(parameter.numel() for parameter in model.parameters()) == 19_500_310
     assert (
-        model.config.architecture_version == "long_context_grouped_dynamics_causal_transformer_v10"
+        model.config.architecture_version
+        == "local_contrastive_grouped_dynamics_causal_transformer_v11"
     )
     assert model.config.history_steps == 10
     assert model.config.context_history_steps == 100
@@ -255,7 +257,7 @@ def test_dynamics_latent_uses_only_completed_proprioceptive_interactions() -> No
     assert not torch.equal(first[0], privileged_changed[0])
 
 
-def test_matched_contrastive_loss_uses_cross_motion_positives_and_hard_negatives() -> None:
+def test_local_contrastive_loss_uses_shifted_windows_and_exact_cohort_negatives() -> None:
     latent = torch.tensor(
         [
             [[1.0, 0.0, 0.0, 0.0]],
@@ -267,49 +269,67 @@ def test_matched_contrastive_loss_uses_cross_motion_positives_and_hard_negatives
         ],
         requires_grad=True,
     )
-    dynamics_id = torch.tensor([0, 0, 1, 1, 2, 2])
-    cohort_id = torch.tensor([0, 1, 0, 1, 0, 1])
-    theta = torch.tensor([[0.0], [0.0], [0.1], [0.1], [2.0], [2.0]])
-    motion_id = torch.tensor([10, 11, 10, 11, 10, 11])
-    motion_step = torch.tensor([100, 200, 101, 202, 103, 204])
-    episode_id = torch.tensor([0, 1, 0, 1, 0, 1])
-    episode_step = torch.tensor([100, 200, 101, 202, 103, 204])
-    state = torch.zeros(6, 71)
-    action = torch.zeros(6, 29)
-    contact = torch.zeros(6, 2, dtype=torch.bool)
+    world_id = torch.tensor([10, 11, 10, 11, 10, 11])
+    dynamics_id = torch.tensor([0, 1, 0, 1, 0, 1])
+    cohort_id = torch.tensor([100, 100, 200, 200, 300, 300])
+    motion_id = torch.full((6,), 10)
+    motion_step = torch.tensor([100, 100, 105, 105, 110, 110])
+    episode_id = torch.zeros(6, dtype=torch.long)
+    episode_step = torch.tensor([100, 100, 105, 105, 110, 110])
 
-    loss, metrics = _matched_hard_negative_contrastive_loss(
+    loss, metrics = _local_dynamics_contrastive_loss(
         latent,
         torch.ones(6, 1, dtype=torch.bool),
+        world_id,
         dynamics_id,
         cohort_id,
-        theta,
         motion_id,
         motion_step,
         episode_id,
         episode_step,
-        state,
-        action,
-        contact,
         temperature=0.1,
-        negative_distance=1.0,
-        hard_negative_count=1,
-        phase_distance_scale=50.0,
-        positive_nonoverlap_steps=15,
+        positive_max_offset_steps=20,
     )
     loss.backward()
 
     assert torch.isfinite(loss)
     assert latent.grad is not None
     assert metrics["contrastive_valid_anchor_fraction"].item() == 1.0
-    assert metrics["contrastive_positive_pair_count"].item() == 6.0
+    assert metrics["contrastive_positive_pair_count"].item() == 12.0
     assert metrics["contrastive_negative_pair_count"].item() == 6.0
-    assert metrics["contrastive_cross_motion_positive_fraction"].item() == 1.0
-    assert metrics["contrastive_nonoverlap_positive_fraction"].item() == 1.0
-    assert metrics["contrastive_matched_negative_fraction"].item() == 1.0
+    assert metrics["contrastive_negatives_per_valid_anchor"].item() == 1.0
+    assert metrics["contrastive_exact_cohort_negative_fraction"].item() == 1.0
     torch.testing.assert_close(
-        metrics["contrastive_ignored_near_pair_fraction"], torch.tensor(1.0 / 3.0)
+        metrics["contrastive_positive_episode_step_gap"], torch.tensor(20.0 / 3.0)
     )
+
+
+def test_every_world_in_a_128_environment_cohort_is_a_negative() -> None:
+    dynamics_classes = 128
+    temporal_offsets = torch.tensor([0, 5, 10, 20])
+    batch_size = dynamics_classes * temporal_offsets.numel()
+    world_id = torch.arange(dynamics_classes).repeat(temporal_offsets.numel())
+    motion_step = (100 + temporal_offsets).repeat_interleave(dynamics_classes)
+
+    loss, metrics = _local_dynamics_contrastive_loss(
+        torch.randn(batch_size, 1, 8),
+        torch.ones(batch_size, 1, dtype=torch.bool),
+        world_id,
+        world_id,
+        torch.arange(temporal_offsets.numel()).repeat_interleave(dynamics_classes),
+        torch.full((batch_size,), 7),
+        motion_step,
+        torch.zeros(batch_size, dtype=torch.long),
+        motion_step,
+        temperature=0.1,
+        positive_max_offset_steps=20,
+    )
+
+    assert torch.isfinite(loss)
+    assert metrics["contrastive_valid_anchor_fraction"].item() == 1.0
+    assert metrics["contrastive_positive_pair_count"].item() == batch_size * 3
+    assert metrics["contrastive_negative_pair_count"].item() == batch_size * 127
+    assert metrics["contrastive_negatives_per_valid_anchor"].item() == 127.0
 
 
 def test_incomplete_long_context_trains_predictor_but_not_representation_pairs() -> None:
@@ -363,28 +383,24 @@ def test_incomplete_context_is_not_a_negative_for_complete_contexts() -> None:
     context_valid = torch.ones(6, 1, dtype=torch.bool)
     context_valid[-1] = False
 
-    loss, metrics = _matched_hard_negative_contrastive_loss(
+    world_id = torch.tensor([10, 11, 10, 11, 10, 11])
+    loss, metrics = _local_dynamics_contrastive_loss(
         latent,
         context_valid,
-        torch.tensor([0, 0, 1, 1, 2, 2]),
+        world_id,
         torch.tensor([0, 1, 0, 1, 0, 1]),
-        torch.tensor([[0.0], [0.0], [2.0], [2.0], [4.0], [4.0]]),
-        torch.tensor([10, 11, 10, 11, 10, 11]),
-        torch.tensor([100, 200, 100, 200, 100, 200]),
+        torch.tensor([100, 100, 200, 200, 300, 300]),
+        torch.full((6,), 10),
+        torch.tensor([100, 100, 105, 105, 110, 110]),
         torch.zeros(6, dtype=torch.long),
-        torch.tensor([100, 200, 100, 200, 100, 200]),
-        torch.zeros(6, 71),
-        torch.zeros(6, 29),
-        torch.zeros(6, 2, dtype=torch.bool),
+        torch.tensor([100, 100, 105, 105, 110, 110]),
         temperature=0.1,
-        negative_distance=1.0,
-        hard_negative_count=2,
-        phase_distance_scale=50.0,
-        positive_nonoverlap_steps=105,
+        positive_max_offset_steps=20,
     )
     loss.backward()
 
-    assert metrics["contrastive_positive_pair_count"].item() == 4.0
+    assert metrics["contrastive_positive_pair_count"].item() == 8.0
+    assert metrics["contrastive_negative_pair_count"].item() == 4.0
     assert latent.grad is not None
     torch.testing.assert_close(latent.grad[-1], torch.zeros_like(latent.grad[-1]))
 
@@ -731,6 +747,7 @@ def test_five_step_objective_is_zero_for_exact_recursive_trajectory() -> None:
         "foot": foot,
         "contact_force": contact_force,
         "contact_binary": contact_binary,
+        "world_id": torch.tensor([0, 1]),
         "dynamics_id": torch.tensor([0, 0]),
         "motion_group_id": torch.tensor([0, 1]),
         "cohort_id": torch.tensor([100, 200]),
@@ -779,6 +796,7 @@ def test_teacher_only_stage_updates_every_transformer_parameter() -> None:
         "foot": foot,
         "contact_force": contact_force,
         "contact_binary": contact_binary,
+        "world_id": torch.tensor([0, 1, 2]),
         "dynamics_id": torch.tensor([0, 1, 2]),
         "motion_group_id": torch.tensor([0, 1, 2]),
         "cohort_id": torch.tensor([100, 200, 300]),
@@ -957,10 +975,12 @@ def test_grouped_replay_builds_motion_phase_matched_dynamics_cohorts() -> None:
     assert sampled["cohort_id"][:4].unique().numel() == 1
     assert sampled["cohort_id"][4:].unique().numel() == 1
     assert sampled["cohort_id"][0] != sampled["cohort_id"][4]
+    torch.testing.assert_close(sampled["world_id"][:4], sampled["world_id"][4:])
     assert sampled["motion_id"][:4].unique().numel() == 1
     assert sampled["motion_id"][4:].unique().numel() == 1
     assert sampled["motion_step"][:4].unique().numel() == 1
     assert sampled["motion_step"][4:].unique().numel() == 1
+    assert (sampled["motion_step"][4] - sampled["motion_step"][0]).abs().item() == 5
 
 
 def test_grouped_replay_uses_cohorts_when_one_family_spans_all_worlds() -> None:
@@ -992,6 +1012,35 @@ def test_grouped_replay_uses_cohorts_when_one_family_spans_all_worlds() -> None:
     assert sampled["cohort_id"][:8].unique().numel() == 1
     assert sampled["cohort_id"][8:].unique().numel() == 1
     assert sampled["cohort_id"][0] != sampled["cohort_id"][8]
+    torch.testing.assert_close(sampled["world_id"][:8], sampled["world_id"][8:])
+
+
+def test_grouped_replay_four_views_cover_all_local_positive_offsets() -> None:
+    replay = ForwardPredictorReplayBuffer(
+        num_worlds=4,
+        capacity=32,
+        context_history_steps=10,
+        dynamics_classes=4,
+        sampling_mode="uniform",
+        seed=11,
+    )
+    for step in range(25):
+        replay.add_step(_grouped_transition_batch(step, num_worlds=4, dynamics_classes=4))
+    stats = replay.normalizer.snapshot_from_packed(
+        replay.normalizer.packed_statistics(), replay.world_ids
+    )
+
+    assert replay.can_sample_dynamics_pairs(16, contrastive_block_size=16)
+    sampled = replay.sample_batch(
+        16,
+        stats,
+        paired_dynamics=True,
+        contrastive_block_size=16,
+    )
+
+    view_steps = sampled["motion_step"].view(4, 4)[:, 0]
+    torch.testing.assert_close(view_steps - view_steps[0], torch.tensor([0, 5, 10, 20]))
+    assert torch.equal(sampled["world_id"].view(4, 4), torch.arange(4).expand(4, 4))
 
 
 def test_predictor_replay_supplies_ten_causal_history_frames() -> None:
@@ -1049,7 +1098,7 @@ def test_predictor_replay_samples_distinct_same_world_history_pairs() -> None:
     assert torch.all(sampled["motion_step"][0::2] != sampled["motion_step"][1::2])
 
 
-def test_predictor_replay_prefers_cross_motion_positive_pairs() -> None:
+def test_predictor_replay_uses_only_local_same_episode_positive_pairs() -> None:
     replay = ForwardPredictorReplayBuffer(
         num_worlds=1,
         capacity=16,
@@ -1084,8 +1133,49 @@ def test_predictor_replay_prefers_cross_motion_positive_pairs() -> None:
     sampled = replay.sample_batch(6, stats, paired_dynamics=True)
 
     assert torch.equal(sampled["dynamics_id"][0::2], sampled["dynamics_id"][1::2])
-    assert torch.all(sampled["motion_id"][0::2] != sampled["motion_id"][1::2])
-    assert torch.all(sampled["episode_id"][0::2] != sampled["episode_id"][1::2])
+    assert torch.equal(sampled["world_id"][0::2], sampled["world_id"][1::2])
+    assert torch.equal(sampled["motion_id"][0::2], sampled["motion_id"][1::2])
+    assert torch.equal(sampled["episode_id"][0::2], sampled["episode_id"][1::2])
+    gap = (sampled["episode_step"][0::2] - sampled["episode_step"][1::2]).abs()
+    assert torch.all((gap > 0) & (gap <= 20))
+
+
+def test_grouped_replay_can_reserve_a_contrastive_ready_fixed_probe() -> None:
+    replay = ForwardPredictorReplayBuffer(
+        num_worlds=8,
+        capacity=64,
+        context_history_steps=10,
+        dynamics_classes=4,
+        sampling_mode="uniform",
+        seed=17,
+    )
+    for step in range(10):
+        replay.add_step(_grouped_transition_batch(step))
+    assert replay.can_sample_dynamics_pairs(8, contrastive_block_size=8)
+    assert not replay.can_sample_dynamics_pairs(
+        8,
+        contrastive_block_size=8,
+        contrastive_ready_only=True,
+    )
+
+    for step in range(10, 20):
+        replay.add_step(_grouped_transition_batch(step))
+    stats = replay.normalizer.snapshot_from_packed(
+        replay.normalizer.packed_statistics(), replay.world_ids
+    )
+    assert replay.can_sample_dynamics_pairs(
+        8,
+        contrastive_block_size=8,
+        contrastive_ready_only=True,
+    )
+    sampled = replay.sample_batch(
+        8,
+        stats,
+        paired_dynamics=True,
+        contrastive_block_size=8,
+        contrastive_ready_only=True,
+    )
+    assert sampled["history_valid"].all()
 
 
 def test_reset_state_can_start_target_with_masked_old_history() -> None:
@@ -1125,7 +1215,6 @@ def test_reset_state_can_start_target_with_masked_old_history() -> None:
     assert sampled["history_valid"].sum().item() == 2
     assert not sampled["context_full"].item()
     assert sampled["dynamics_id"].item() == 0
-    assert sampled["privileged_dynamics"].shape == (1, 1)
 
 
 def test_motion_balanced_sampling_uses_inverse_motion_frequency() -> None:
@@ -1167,7 +1256,7 @@ def test_motion_balanced_sampling_uses_inverse_motion_frequency() -> None:
     assert torch.equal(weights[motion_ids == 101], torch.ones(1))
 
 
-def test_forward_predictor_cli_defaults_to_matched_contrastive_context_training() -> None:
+def test_forward_predictor_cli_defaults_to_local_contrastive_context_training() -> None:
     args = build_parser().parse_args(
         [
             "--checkpoint-file",
@@ -1207,9 +1296,10 @@ def test_forward_predictor_cli_defaults_to_matched_contrastive_context_training(
     assert not hasattr(args, "privileged_dynamics_weight")
     assert args.contrastive_weight == 0.01
     assert args.contrastive_temperature == 0.1
-    assert args.contrastive_negative_distance == 1.25
-    assert args.contrastive_hard_negative_count == 255
-    assert args.contrastive_phase_distance_scale == 50.0
+    assert args.contrastive_positive_max_offset_steps == 20
+    assert not hasattr(args, "contrastive_negative_distance")
+    assert not hasattr(args, "contrastive_hard_negative_count")
+    assert not hasattr(args, "contrastive_phase_distance_scale")
 
 
 def test_micro_batch_slice_preserves_global_normalization_tensors() -> None:

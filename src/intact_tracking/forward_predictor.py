@@ -138,7 +138,7 @@ def apply_physical_state_delta(state: torch.Tensor, delta: torch.Tensor) -> torc
 class ForwardPredictorConfig:
     """Capacity and shape contract for the causal one-step transition model."""
 
-    architecture_version: str = "long_context_grouped_dynamics_causal_transformer_v10"
+    architecture_version: str = "local_contrastive_grouped_dynamics_causal_transformer_v11"
     state_dim: int = ROBOT_STATE_DIM
     action_dim: int = ACTION_DIM
     delta_dim: int = 70
