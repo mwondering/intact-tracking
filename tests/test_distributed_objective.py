@@ -12,6 +12,7 @@ from torch.nn.parallel import DistributedDataParallel
 from intact_tracking.distributed import DistributedContext
 from intact_tracking.model import SIGReg, TrackingINTACT, TrackingINTACTConfig
 from intact_tracking.objective import INTACTLossConfig, TrackingINTACTObjective
+from intact_tracking.residual_policy import ResidualPPO
 
 
 def _batch(rank: int) -> dict[str, torch.Tensor]:
@@ -160,3 +161,73 @@ def test_distributed_context_uses_torchrun_environment_and_collectives(
     assert all(result["all_true"] is False for result in results)
     assert all(result["broadcast"] == "rank-zero" for result in results)
     assert all(result["device"] == "cpu" for result in results)
+
+
+def _residual_parameter_broadcast_worker(
+    rank: int,
+    world_size: int,
+    store_path: str,
+    result_path: str,
+) -> None:
+    dist.init_process_group(
+        backend="gloo",
+        init_method=f"file://{store_path}",
+        rank=rank,
+        world_size=world_size,
+    )
+    try:
+        actor = torch.nn.Module()
+        actor.register_parameter(
+            "residual",
+            torch.nn.Parameter(torch.full((3,), float(rank + 1))),
+        )
+        actor.register_parameter(
+            "frozen_tracker",
+            torch.nn.Parameter(torch.tensor([20.0 + rank]), requires_grad=False),
+        )
+        critic = torch.nn.Linear(2, 1, bias=False)
+        with torch.no_grad():
+            critic.weight.fill_(10.0 + rank)
+
+        algorithm = ResidualPPO.__new__(ResidualPPO)
+        algorithm._raw_actor = actor
+        algorithm._raw_critic = critic
+        algorithm.broadcast_parameters()
+
+        trainable = torch.cat((actor.residual.detach(), critic.weight.detach().reshape(-1)))
+        gathered_trainable = [torch.empty_like(trainable) for _ in range(world_size)]
+        gathered_frozen = [torch.empty_like(actor.frozen_tracker) for _ in range(world_size)]
+        dist.all_gather(gathered_trainable, trainable)
+        dist.all_gather(gathered_frozen, actor.frozen_tracker.detach())
+        if rank == 0:
+            torch.save(
+                {
+                    "maximum_trainable_difference": max(
+                        float((candidate - gathered_trainable[0]).abs().max())
+                        for candidate in gathered_trainable[1:]
+                    ),
+                    "frozen_values": [float(value.item()) for value in gathered_frozen],
+                    "tensor_count": algorithm.last_parameter_broadcast_tensor_count,
+                },
+                result_path,
+            )
+    finally:
+        dist.destroy_process_group()
+
+
+def test_residual_parameter_sync_uses_tensor_collective_and_skips_frozen_tracker(
+    tmp_path: Path,
+) -> None:
+    world_size = 2
+    store_path = str(tmp_path / "residual_broadcast_store")
+    result_path = str(tmp_path / "residual_broadcast_result.pt")
+    mp.spawn(
+        _residual_parameter_broadcast_worker,
+        args=(world_size, store_path, result_path),
+        nprocs=world_size,
+        join=True,
+    )
+    result = torch.load(result_path, map_location="cpu", weights_only=True)
+    assert result["maximum_trainable_difference"] == 0.0
+    assert result["frozen_values"] == [20.0, 21.0]
+    assert result["tensor_count"] == 2

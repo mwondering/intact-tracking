@@ -110,9 +110,31 @@ class ResidualOnPolicyRunner(MjlabOnPolicyRunner):
         obs = self.env.get_observations().to(self.device)
         self.alg.train_mode()
         if self.is_distributed:
-            print(f"Synchronizing parameters for rank {self.gpu_global_rank}...")
+            print(
+                f"Synchronizing trainable parameters for rank {self.gpu_global_rank}...",
+                flush=True,
+            )
+            synchronization_start = time.perf_counter()
             self.alg.broadcast_parameters()
+            if torch.device(self.device).type == "cuda":
+                torch.cuda.synchronize(torch.device(self.device))
+            synchronization_seconds = time.perf_counter() - synchronization_start
+            synchronized_mib = int(getattr(self.alg, "last_parameter_broadcast_bytes", 0)) / 2**20
+            synchronized_tensors = int(
+                getattr(self.alg, "last_parameter_broadcast_tensor_count", 0)
+            )
+            print(
+                "Synchronized "
+                f"{synchronized_tensors} trainable tensors "
+                f"({synchronized_mib:.2f} MiB) on rank {self.gpu_global_rank} "
+                f"in {synchronization_seconds:.3f}s.",
+                flush=True,
+            )
+        if self.gpu_global_rank == 0:
+            print("Initializing logging writer...", flush=True)
         self.logger.init_logging_writer()
+        if self.gpu_global_rank == 0:
+            print("Logging writer initialized.", flush=True)
 
         start_iteration = self.current_learning_iteration
         final_iteration = start_iteration + num_learning_iterations

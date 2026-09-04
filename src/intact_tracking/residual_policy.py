@@ -435,6 +435,50 @@ class ResidualPPO(PPO):
                 {"params": critic_parameters, "lr": self.critic_learning_rate},
             ]
         )
+        self.last_parameter_broadcast_bytes = 0
+        self.last_parameter_broadcast_tensor_count = 0
+
+    @torch.no_grad()
+    def broadcast_parameters(self) -> None:
+        """Synchronize trainable tensors without pickling CUDA state dicts.
+
+        The base RSL-RL implementation uses ``broadcast_object_list`` on the
+        complete actor and critic state dicts.  That needlessly serializes the
+        large frozen tracker through CPU memory.  Frozen modules are loaded
+        strictly from the same checkpoint on every rank, so only trainable
+        actor/critic parameters need an initial broadcast.
+        """
+
+        actor = getattr(self, "_raw_actor", None)
+        critic = getattr(self, "_raw_critic", None)
+        if actor is None:
+            actor = self.actor
+        if critic is None:
+            critic = self.critic
+        parameters = [
+            parameter
+            for parameter in chain(actor.parameters(), critic.parameters())
+            if parameter.requires_grad
+        ]
+        self.last_parameter_broadcast_bytes = sum(
+            parameter.numel() * parameter.element_size() for parameter in parameters
+        )
+        self.last_parameter_broadcast_tensor_count = len(parameters)
+        if not parameters:
+            return
+
+        grouped: dict[tuple[torch.device, torch.dtype], list[torch.Tensor]] = {}
+        for parameter in parameters:
+            grouped.setdefault((parameter.device, parameter.dtype), []).append(parameter)
+
+        for tensors in grouped.values():
+            flat = torch.cat([tensor.detach().reshape(-1) for tensor in tensors])
+            torch.distributed.broadcast(flat, src=0)
+            offset = 0
+            for tensor in tensors:
+                count = tensor.numel()
+                tensor.copy_(flat[offset : offset + count].view_as(tensor))
+                offset += count
 
     def _set_adaptive_learning_rate(self, kl_mean: torch.Tensor) -> None:
         if self.gpu_global_rank == 0:

@@ -22,7 +22,7 @@ from intact_tracking.residual_context import (
     FrozenContextCheckpoint,
     load_frozen_context_checkpoint,
 )
-from intact_tracking.residual_policy import FrozenTrackerResidualActor
+from intact_tracking.residual_policy import FrozenTrackerResidualActor, ResidualPPO
 
 
 class _FakeTracker(nn.Module):
@@ -139,6 +139,44 @@ def test_residual_actor_moves_tracker_before_populating_initial_cache(
     )
 
     assert actor.tracker.was_moved
+
+
+def test_residual_ppo_broadcasts_only_trainable_tensors_without_object_pickle(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    actor = nn.Module()
+    actor.register_parameter("residual", nn.Parameter(torch.tensor([1.0, 2.0])))
+    actor.register_parameter(
+        "frozen_tracker",
+        nn.Parameter(torch.tensor([3.0]), requires_grad=False),
+    )
+    critic = nn.Linear(2, 1, bias=False)
+    algorithm = ResidualPPO.__new__(ResidualPPO)
+    algorithm._raw_actor = actor
+    algorithm._raw_critic = critic
+
+    broadcast_calls: list[torch.Tensor] = []
+
+    def fake_broadcast(value: torch.Tensor, src: int) -> None:
+        assert src == 0
+        broadcast_calls.append(value.detach().clone())
+        value.fill_(7.0)
+
+    def reject_object_broadcast(*args, **kwargs) -> None:
+        del args, kwargs
+        raise AssertionError("broadcast_object_list must not be used for model tensors")
+
+    monkeypatch.setattr(torch.distributed, "broadcast", fake_broadcast)
+    monkeypatch.setattr(torch.distributed, "broadcast_object_list", reject_object_broadcast)
+
+    algorithm.broadcast_parameters()
+
+    assert len(broadcast_calls) == 1
+    torch.testing.assert_close(actor.residual, torch.full_like(actor.residual, 7.0))
+    torch.testing.assert_close(critic.weight, torch.full_like(critic.weight, 7.0))
+    torch.testing.assert_close(actor.frozen_tracker, torch.tensor([3.0]))
+    assert algorithm.last_parameter_broadcast_tensor_count == 2
+    assert algorithm.last_parameter_broadcast_bytes == 4 * torch.tensor(0.0).element_size()
 
 
 class _CaptureEncoder(nn.Module):
