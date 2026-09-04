@@ -116,8 +116,6 @@ class ResidualOnPolicyRunner(MjlabOnPolicyRunner):
             )
             synchronization_start = time.perf_counter()
             self.alg.broadcast_parameters()
-            if torch.device(self.device).type == "cuda":
-                torch.cuda.synchronize(torch.device(self.device))
             synchronization_seconds = time.perf_counter() - synchronization_start
             synchronized_mib = int(getattr(self.alg, "last_parameter_broadcast_bytes", 0)) / 2**20
             synchronized_tensors = int(
@@ -127,7 +125,7 @@ class ResidualOnPolicyRunner(MjlabOnPolicyRunner):
                 "Synchronized "
                 f"{synchronized_tensors} trainable tensors "
                 f"({synchronized_mib:.2f} MiB) on rank {self.gpu_global_rank} "
-                f"in {synchronization_seconds:.3f}s.",
+                f"in {synchronization_seconds:.3f}s without a device-wide barrier.",
                 flush=True,
             )
         if self.gpu_global_rank == 0:
