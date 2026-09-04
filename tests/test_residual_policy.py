@@ -41,6 +41,21 @@ class _FakeTracker(nn.Module):
         return obs["features"]
 
 
+class _DeviceOrderCheckingTracker(_FakeTracker):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.was_moved = False
+
+    def to(self, *args, **kwargs):
+        self.was_moved = True
+        return super().to(*args, **kwargs)
+
+    def populate_policy_context_cache(self, obs):
+        del obs
+        if not self.was_moved:
+            raise RuntimeError("tracker cache populated before device migration")
+
+
 def _fake_actor_checkpoint(path: Path) -> None:
     tracker = _FakeTracker(None, {"actor": ["features"]}, "actor", 2)
     tracker.distribution.std_param.data.copy_(torch.tensor([0.2, 0.4]))
@@ -87,6 +102,43 @@ def test_residual_actor_starts_as_the_exact_frozen_tracker(
     torch.testing.assert_close(actor.distribution.std_param, torch.tensor([0.2, 0.4]))
     assert not any(parameter.requires_grad for parameter in actor.tracker.parameters())
     assert actor.policy_metrics(obs)["residual_action_rms"] == 0.0
+
+
+def test_residual_actor_moves_tracker_before_populating_initial_cache(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        residual_policy_module,
+        "SPV52HeightContactEstimatorActor",
+        _DeviceOrderCheckingTracker,
+    )
+    checkpoint = tmp_path / "tracker.pt"
+    tracker = _DeviceOrderCheckingTracker(
+        None,
+        {"actor": ["features"]},
+        "actor",
+        2,
+    )
+    torch.save({"actor_state_dict": tracker.state_dict()}, checkpoint)
+    obs = TensorDict(
+        {"features": torch.randn(4, 3)},
+        batch_size=[4],
+    )
+
+    actor = FrozenTrackerResidualActor(
+        obs,
+        {"actor": ["features"]},
+        "actor",
+        2,
+        tracker_checkpoint=str(checkpoint),
+        tracker_actor_kwargs={},
+        tracker_obs_groups={"actor": ["features"]},
+        use_dynamics_latent=False,
+        residual_hidden_dims=(8, 4),
+    )
+
+    assert actor.tracker.was_moved
 
 
 class _CaptureEncoder(nn.Module):

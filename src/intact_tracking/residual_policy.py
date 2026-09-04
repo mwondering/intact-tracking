@@ -146,6 +146,16 @@ class FrozenTrackerResidualActor(nn.Module):
         self.last_base_action: torch.Tensor | None = None
         self.last_residual_mean: torch.Tensor | None = None
         self.last_dynamics_latent: torch.Tensor | None = None
+
+        # RSL-RL moves the complete actor to ``device`` only after this
+        # constructor returns.  The initial cache must nevertheless be added
+        # here, before RolloutStorage derives its TensorDict schema.  Move the
+        # frozen tracker (including all normalizer buffers) to the observation
+        # device before running that first preprocessing forward pass.
+        tracker_observation = obs[expected_groups[0]]
+        if not isinstance(tracker_observation, torch.Tensor):
+            raise TypeError(f"Tracker observation {expected_groups[0]!r} must be a tensor")
+        self.tracker.to(device=tracker_observation.device)
         self.populate_tracker_cache(obs)
 
     @torch.no_grad()
