@@ -152,6 +152,57 @@ def test_no_latent_residual_launcher_has_no_context_checkpoint(tmp_path: Path) -
     assert _last_option_value(arguments, "--device") == "cuda:3"
 
 
+def test_model_gradient_residual_launcher_passes_both_checkpoints_and_multigpu(
+    tmp_path: Path,
+) -> None:
+    tracker, motion = _launcher_inputs(tmp_path)
+    forward = tmp_path / "forward.pt"
+    forward.touch()
+    output = tmp_path / "model-gradient-output"
+    captured_args = tmp_path / "model-gradient-args"
+    captured_env = tmp_path / "model-gradient-environment"
+    environment = {
+        **os.environ,
+        "PYTHON_BIN": str(_fake_python(tmp_path)),
+        "GPUS": "4,7",
+        "CAPTURE_ARGS": str(captured_args),
+        "CAPTURE_ENV": str(captured_env),
+    }
+
+    subprocess.run(
+        [
+            str(REPOSITORY / "scripts/run_model_gradient_residual_training.sh"),
+            str(tracker),
+            str(forward),
+            str(motion),
+            str(output),
+            "--updates",
+            "1",
+        ],
+        cwd=REPOSITORY,
+        env=environment,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    arguments = captured_args.read_text().splitlines()
+    assert captured_env.read_text().strip() == "4,7"
+    assert arguments[:7] == [
+        "-m",
+        "torch.distributed.run",
+        "--standalone",
+        "--nproc-per-node",
+        "2",
+        "-m",
+        "intact_tracking.cli.model_gradient_residual_train",
+    ]
+    assert _last_option_value(arguments, "--tracker-checkpoint") == str(tracker.resolve())
+    assert _last_option_value(arguments, "--forward-checkpoint") == str(forward.resolve())
+    assert _last_option_value(arguments, "--num-envs") == "2048"
+    assert _last_option_value(arguments, "--nominal-fraction") == "0"
+
+
 def test_training_launcher_builds_multigpu_torchrun_command(tmp_path: Path) -> None:
     checkpoint, motion = _launcher_inputs(tmp_path)
     output = tmp_path / "output"

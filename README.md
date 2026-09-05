@@ -263,6 +263,36 @@ step/interval disturbance。两次实验应保持 tracker、motion、seed、GPU 
 “residual 本身有效”和“residual 确实利用了 latent”。完整契约和判据见
 [Frozen-tracker residual PPO](docs/residual_policy_training.md)。
 
+## Frozen-predictor model-gradient residual baseline
+
+除了 PPO，还提供一个直接利用已训练 Forward Predictor 梯度的 baseline。它在线采集冻结
+SPV5-2A tracker 在固定 startup-DR 环境中的连续五步数据，冻结 tracker、Context Encoder 和
+Forward Predictor，只更新 bounded residual MLP：
+
+```text
+tracker feature + history latent z -> residual MLP -> tracker action + residual
+                                              -> exact applied PD target transform
+                                              -> frozen predictor 5-step rollout
+                                              -> tracking surrogate -> residual MLP gradient
+```
+
+```bash
+GPUS=0,1 ./scripts/run_model_gradient_residual_training.sh \
+  /path/to/SPV5-2A/checkpoint_72000.pt \
+  /path/to/forward_predictor_v12/update_007000.pt \
+  /path/to/motion_directory \
+  ./runs/model_gradient_residual \
+  --wandb-name model-gradient-residual-v1
+```
+
+launcher 固定全局 4096 个 DR 环境并按 rank 均分，默认不使用随机推力。未来五步 simulator
+state 在 predictor 内递推；由于 71 维预测状态不能精确重建 SPV5-2A 的 reference encoder 与
+长观测历史，未来 residual action 使用同一段真实 rollout 中冻结的 tracker feature 作为条件。
+因此这是 receding-horizon、teacher-forced policy observation 的 model-gradient baseline，不是
+完全闭环的 learned-simulator policy rollout。应同时观察真实环境 reward、预测 tracking 改善和
+latent shuffle loss ratio，防止 residual 利用 predictor 误差。完整契约见
+[Model-gradient residual baseline](docs/model_gradient_residual_training.md)。
+
 ## 旧版 Context-conditioned Forward-only 训练
 
 旧实验入口已经移除 Backward Predictor、Residual Policy 与 Tracking loss，只训练一个统一的

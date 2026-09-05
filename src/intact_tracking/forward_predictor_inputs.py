@@ -407,7 +407,42 @@ class JointPositionTargetTransform(nn.Module):
             metadata=metadata,
         )
 
-    def forward(self, policy_action: torch.Tensor) -> torch.Tensor:
+    @staticmethod
+    def _select_world_rows(
+        value: torch.Tensor,
+        env_ids: torch.Tensor | None,
+        batch_size: int,
+        name: str,
+    ) -> torch.Tensor:
+        if value.ndim < 2:
+            return value
+        if env_ids is None:
+            if value.size(0) not in (1, batch_size):
+                raise ValueError(
+                    f"Per-world action-transform {name} has {value.size(0)} rows but "
+                    f"the action batch has {batch_size}; pass env_ids when sub-sampling worlds"
+                )
+            return value
+        env_ids = env_ids.to(device=value.device, dtype=torch.long)
+        if env_ids.shape != (batch_size,):
+            raise ValueError(f"env_ids must have shape [{batch_size}], got {tuple(env_ids.shape)}")
+        if value.size(0) == 1:
+            return value
+        if env_ids.numel() and (
+            bool((env_ids < 0).any()) or bool((env_ids >= value.size(0)).any())
+        ):
+            raise IndexError(
+                f"env_ids must index [0,{value.size(0)}), got range "
+                f"[{int(env_ids.min())},{int(env_ids.max())}]"
+            )
+        return value.index_select(0, env_ids)
+
+    def forward(
+        self,
+        policy_action: torch.Tensor,
+        *,
+        env_ids: torch.Tensor | None = None,
+    ) -> torch.Tensor:
         if policy_action.size(-1) != ACTION_DIM:
             raise ValueError(
                 f"Policy action must end in {ACTION_DIM} values, got {tuple(policy_action.shape)}"
@@ -415,8 +450,20 @@ class JointPositionTargetTransform(nn.Module):
         action = policy_action
         if self.raw_action_clip is not None:
             action = action.clamp(-self.raw_action_clip, self.raw_action_clip)
-        target = action * self.scale + self.offset
+        batch_size = policy_action.numel() // ACTION_DIM
+        if policy_action.ndim != 2:
+            if env_ids is not None:
+                raise ValueError("env_ids sub-sampling requires a two-dimensional action batch")
+            batch_size = policy_action.size(0)
+        scale = self._select_world_rows(self.scale, env_ids, batch_size, "scale")
+        offset = self._select_world_rows(self.offset, env_ids, batch_size, "offset")
+        encoder_bias = self._select_world_rows(
+            self.encoder_bias, env_ids, batch_size, "encoder_bias"
+        )
+        target = action * scale + offset
         if self.clip_lower is not None and self.clip_upper is not None:
-            target = torch.clamp(target, min=self.clip_lower, max=self.clip_upper)
-        target = target - self.encoder_bias
+            clip_lower = self._select_world_rows(self.clip_lower, env_ids, batch_size, "clip_lower")
+            clip_upper = self._select_world_rows(self.clip_upper, env_ids, batch_size, "clip_upper")
+            target = torch.clamp(target, min=clip_lower, max=clip_upper)
+        target = target - encoder_bias
         return target.index_select(-1, self.target_reindex)
