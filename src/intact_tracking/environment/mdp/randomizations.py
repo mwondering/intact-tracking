@@ -10,6 +10,10 @@ try:
 except Exception:  # pragma: no cover - warp is present in training envs.
     wp = None
 
+from mjlab.envs.mdp.dr.body import (
+    _decompose_pseudo_inertia_J,
+    _reconstruct_pseudo_inertia_J,
+)
 from mjlab.managers.event_manager import EventTermCfg, RecomputeLevel
 from mjlab.utils.lab_api.string import resolve_matching_names_values
 
@@ -58,6 +62,132 @@ def _expand_model_fields(env: "ManagerBasedRlEnv", *fields: str) -> None:
     missing = tuple(field for field in fields if field not in env.sim.expanded_fields)
     if missing:
         env.sim.expand_model_fields(missing)
+
+
+class rigid_body_payload:
+    """Attach a sampled cuboid payload to one body through exact composite inertia.
+
+    The payload is rigidly fixed in the selected body's frame.  Its mass, first
+    moment, and rotational inertia are added through the 4x4 pseudo-inertia
+    representation, then decomposed back into MuJoCo's inertial fields.  This
+    models the dynamics of a grasped object without introducing payload contact
+    geometry into the Forward Predictor experiment.
+    """
+
+    model_fields = (
+        "body_mass",
+        "body_ipos",
+        "body_inertia",
+        "body_iquat",
+        "body_subtreemass",
+        "dof_invweight0",
+        "body_invweight0",
+        "tendon_length0",
+        "tendon_invweight0",
+    )
+    recompute = RecomputeLevel.set_const
+
+    def __init__(self, cfg: EventTermCfg, env: "ManagerBasedRlEnv"):
+        _expand_model_fields(env, *self.model_fields)
+        self.env = env
+        self.asset = env.scene["robot"]
+        params = cfg.params
+        self.body_name = str(params["body_name"])
+        body_ids, body_names = self.asset.find_bodies(self.body_name)
+        if len(body_ids) != 1:
+            raise ValueError(
+                "rigid_body_payload requires exactly one body match for "
+                f"{self.body_name!r}, got {list(body_names)}"
+            )
+        self.body_id = int(body_ids[0])
+        self.global_body_ids = self.asset.indexing.body_ids[
+            torch.as_tensor(body_ids, device=env.device, dtype=torch.long)
+        ].to(dtype=torch.long)
+
+        self.mass_range_kg = tuple(float(value) for value in params["mass_range_kg"])
+        self.position_body_m = tuple(float(value) for value in params["position_body_m"])
+        self.size_m = tuple(float(value) for value in params["size_m"])
+        if len(self.mass_range_kg) != 2 or not (
+            0.0 < self.mass_range_kg[0] <= self.mass_range_kg[1]
+        ):
+            raise ValueError("payload mass_range_kg must satisfy 0 < low <= high")
+        if len(self.position_body_m) != 3:
+            raise ValueError("payload position_body_m must contain three values")
+        if len(self.size_m) != 3 or any(value <= 0.0 for value in self.size_m):
+            raise ValueError("payload size_m must contain three positive values")
+        self.sampled_mass_kg = torch.zeros((env.num_envs, 1), device=env.device)
+
+    def __call__(self, env: "ManagerBasedRlEnv", env_ids, **_: Any) -> None:
+        ids = _as_env_ids(env, env_ids)
+        if ids.numel() == 0:
+            return
+        body_ids = self.global_body_ids
+        env_grid, body_grid = torch.meshgrid(ids, body_ids, indexing="ij")
+
+        current_mass = env.sim.model.body_mass.clone()[env_grid, body_grid]
+        current_ipos = env.sim.model.body_ipos.clone()[env_grid, body_grid]
+        current_inertia = env.sim.model.body_inertia.clone()[env_grid, body_grid]
+        current_iquat = env.sim.model.body_iquat.clone()[env_grid, body_grid]
+        current_J = _reconstruct_pseudo_inertia_J(
+            current_mass,
+            current_ipos,
+            current_inertia,
+            current_iquat,
+        )
+
+        payload_mass = _uniform(
+            (ids.numel(), body_ids.numel()),
+            self.mass_range_kg[0],
+            self.mass_range_kg[1],
+            env.device,
+        ).to(dtype=current_mass.dtype)
+        payload_position = (
+            torch.as_tensor(
+                self.position_body_m,
+                device=env.device,
+                dtype=current_mass.dtype,
+            )
+            .view(1, 1, 3)
+            .expand(ids.numel(), body_ids.numel(), -1)
+        )
+        sx, sy, sz = self.size_m
+        payload_inertia = (
+            payload_mass.unsqueeze(-1)
+            * torch.as_tensor(
+                (sy * sy + sz * sz, sx * sx + sz * sz, sx * sx + sy * sy),
+                device=env.device,
+                dtype=current_mass.dtype,
+            ).view(1, 1, 3)
+            / 12.0
+        )
+        payload_iquat = torch.zeros(
+            (*payload_mass.shape, 4),
+            device=env.device,
+            dtype=current_mass.dtype,
+        )
+        payload_iquat[..., 0] = 1.0
+        payload_J = _reconstruct_pseudo_inertia_J(
+            payload_mass,
+            payload_position,
+            payload_inertia,
+            payload_iquat,
+        )
+        mass, ipos, inertia, iquat = _decompose_pseudo_inertia_J(current_J + payload_J)
+
+        env.sim.model.body_mass[env_grid, body_grid] = mass
+        env.sim.model.body_ipos[env_grid, body_grid] = ipos
+        env.sim.model.body_inertia[env_grid, body_grid] = inertia
+        env.sim.model.body_iquat[env_grid, body_grid] = iquat
+        self.sampled_mass_kg[ids] = payload_mass
+
+    def observe(self, **_: Any) -> torch.Tensor:
+        """Return the actual added mass after any nominal-slot restoration."""
+        actual = self.env.sim.model.body_mass.clone()[:, self.global_body_ids]
+        default = self.env.sim.get_default_field("body_mass").to(
+            device=actual.device,
+            dtype=actual.dtype,
+        )[self.global_body_ids]
+        return (actual - default.unsqueeze(0)).to(dtype=torch.float32)
 
 
 class perturb_body_com:

@@ -988,6 +988,11 @@ def test_forward_predictor_cli_defaults_to_nominal_counterfactual_training() -> 
     assert args.dynamics_latent_dim == 64
     assert args.dropout == 0.0
     assert args.nominal_fraction == 0.5
+    assert args.payload is True
+    assert args.payload_body_name == "right_wrist_yaw_link"
+    assert tuple(args.payload_mass_range_kg) == (1.0, 3.0)
+    assert tuple(args.payload_position_body_m) == (0.12, 0.0, 0.0)
+    assert tuple(args.payload_size_m) == (0.10, 0.08, 0.08)
     assert not hasattr(args, "gradient_clip")
     assert args.rollout_steps_per_update == 5
     assert args.recursive_weight == 0.5

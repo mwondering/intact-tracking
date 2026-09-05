@@ -69,6 +69,36 @@ def build_parser() -> argparse.ArgumentParser:
         help="Batch-A fraction restored to nominal physics; fixed to one half for this task.",
     )
     parser.add_argument("--nominal-restore-atol", type=float, default=1.0e-5)
+    parser.add_argument(
+        "--payload",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Add a fixed per-world rigid hand payload on top of checkpoint startup DR.",
+    )
+    parser.add_argument("--payload-body-name", default="right_wrist_yaw_link")
+    parser.add_argument(
+        "--payload-mass-range-kg",
+        type=float,
+        nargs=2,
+        metavar=("MIN", "MAX"),
+        default=(1.0, 3.0),
+    )
+    parser.add_argument(
+        "--payload-position-body-m",
+        type=float,
+        nargs=3,
+        metavar=("X", "Y", "Z"),
+        default=(0.12, 0.0, 0.0),
+        help="Payload COM in the selected body frame.",
+    )
+    parser.add_argument(
+        "--payload-size-m",
+        type=float,
+        nargs=3,
+        metavar=("X", "Y", "Z"),
+        default=(0.10, 0.08, 0.08),
+        help="Cuboid side lengths used to compute payload rotational inertia.",
+    )
 
     parser.add_argument("--warmup-steps", type=int, default=100)
     parser.add_argument("--max-warmup-steps", type=int, default=10_000)
@@ -237,6 +267,16 @@ def _validate_arguments(args: argparse.Namespace) -> None:
             raise ValueError(f"{name.replace('_', '-')} must be non-negative")
     if args.representation_weight > 0.0 and args.num_envs < 2:
         raise ValueError("Representation training requires at least two vector worlds")
+    if args.payload:
+        payload_min, payload_max = args.payload_mass_range_kg
+        if not 0.0 < payload_min <= payload_max:
+            raise ValueError("payload-mass-range-kg must satisfy 0 < MIN <= MAX")
+        if not args.payload_body_name.strip():
+            raise ValueError("payload-body-name must not be empty")
+        if not all(np.isfinite(value) for value in args.payload_position_body_m):
+            raise ValueError("payload-position-body-m values must be finite")
+        if not all(np.isfinite(value) and value > 0.0 for value in args.payload_size_m):
+            raise ValueError("payload-size-m values must be positive and finite")
 
 
 def _seed_everything(seed: int) -> None:
@@ -496,6 +536,11 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             stochastic_policy=args.stochastic_policy,
             randomize_initial_episode_phase=args.randomize_initial_episode_phase,
             nominal_fraction=args.nominal_fraction,
+            payload_enabled=args.payload,
+            payload_body_name=args.payload_body_name,
+            payload_mass_range_kg=tuple(args.payload_mass_range_kg),
+            payload_position_body_m=tuple(args.payload_position_body_m),
+            payload_size_m=tuple(args.payload_size_m),
         )
     )
     if rollout.predictor_action_transform is None:
@@ -592,14 +637,24 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         T_max=optimizer_steps_target,
     )
     parameter_count = sum(parameter.numel() for parameter in model.parameters())
+    payload_contract = (
+        f"DR worlds additionally carry one fixed rigid payload on {args.payload_body_name}, "
+        f"sampled from {args.payload_mass_range_kg[0]:g}-{args.payload_mass_range_kg[1]:g} kg"
+        if args.payload
+        else "the payload ablation is disabled"
+    )
     run_config = {
-        "method": "nominal-counterfactual dynamics-context Forward Predictor v12",
+        "method": (
+            "payload nominal-counterfactual dynamics-context Forward Predictor v13"
+            if args.payload
+            else "nominal-counterfactual dynamics-context Forward Predictor v12 ablation"
+        ),
         "architecture": {
             "controller": "frozen tracker",
             "physics": (
                 "batch A is an independent-motion 50/50 mixture of compiled nominal and "
-                "fixed startup-DR worlds; batch B restores every A start state into nominal "
-                "physics and replays the exact five physical PD targets"
+                f"fixed startup-DR worlds; {payload_contract}; batch B restores every A start "
+                "state into nominal physics and replays the exact five physical PD targets"
             ),
             "input": (
                 "ten historical and one current predictor token; each contains 71-D robot state, "

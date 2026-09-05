@@ -201,11 +201,12 @@ motion 计数。每条记录还在 `window` 中保存最近 `metric-window` 轮�
 - `history.json`：所有 update 的结构化记录；
 - `train.log`：正式脚本捕获的完整终端输出。
 
-## Nominal-counterfactual Context Forward Predictor v12 训练
+## Payload nominal-counterfactual Context Forward Predictor v13 训练
 
 当前主实验使用两个严格配对的数据批次。批次 A 在全局 4096 个独立采样 motion/phase 的环境中
 正常运行冻结 tracker，其中一半是 compiled nominal physics，另一半是一次采样后永久固定的
-startup DR。批次 B 从每段 A 轨迹的起始物理状态出发，在纯 nominal simulator 中直接重放 A
+startup DR，并在右手刚性附加 1–3 kg payload。payload 通过 composite inertia 同时改变质量、质心
+与转动惯量，不增加碰撞几何。批次 B 从每段 A 轨迹的起始物理状态出发，在纯 nominal simulator 中直接重放 A
 真正执行的五个 PD joint target。由此得到的五步 A-B 响应，是 latent 学习所使用的可观察动力学
 监督；真实 θ 不进入模型、loss 或样本筛选。
 
@@ -224,7 +225,7 @@ GPUS=0,1 ./scripts/run_forward_predictor_training.sh \
   /path/to/checkpoint.pt \
   /path/to/motion_directory \
   /path/to/runs/forward_predictor \
-  --wandb-name forward-predictor-v12
+  --wandb-name forward-predictor-payload-v13
 ```
 
 脚本固定全局 4096 个 A 环境并按 GPU 均分，默认有效 batch 4096、BF16 micro-batch 512、
@@ -236,7 +237,7 @@ recursive prediction，以及默认权重 0.01 的 response-geometry representat
 
 ## Frozen-tracker residual PPO
 
-Forward Predictor v12 训练完成后，可以冻结原 SPV5-2A tracker 与 Context Encoder，只训练一个
+Forward Predictor v13 训练完成后，可以冻结原 SPV5-2A tracker 与 Context Encoder，只训练一个
 bounded residual policy，并与完全不运行 Context Encoder 的 residual baseline 做直接 A/B 对比。
 两个基线复用 checkpoint 中的 SPV5-2A reward、critic observation、HEFT critic 权重与 PPO
 超参数；初始 residual 为零，初始动作分布与原 tracker 完全一致。latent 版本只执行 100 帧

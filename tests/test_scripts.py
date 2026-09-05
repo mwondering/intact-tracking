@@ -440,6 +440,14 @@ def test_forward_predictor_launcher_builds_locked_causal_transformer_command(
     ]
     assert _last_option_value(arguments, "--num-envs") == "2048"
     assert _last_option_value(arguments, "--nominal-fraction") == "0.5"
+    assert "--payload" in arguments
+    assert _last_option_value(arguments, "--payload-body-name") == "right_wrist_yaw_link"
+    assert arguments[arguments.index("--payload-mass-range-kg") + 1 :][:2] == ["1", "3"]
+    assert arguments[arguments.index("--payload-position-body-m") + 1 :][:3] == [
+        "0.12",
+        "0",
+        "0",
+    ]
     assert _last_option_value(arguments, "--batch-size") == "4096"
     assert _last_option_value(arguments, "--micro-batch-size") == "512"
     assert _last_option_value(arguments, "--amp-dtype") == "bfloat16"

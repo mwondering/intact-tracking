@@ -1,15 +1,16 @@
-# Nominal-counterfactual Context Forward Predictor v12
+# Payload nominal-counterfactual Context Forward Predictor v13
 
 该任务训练一个由历史推断 dynamics latent 的可微分五步仿真器。控制器始终是冻结的 tracker；
 Residual Policy、Backward Predictor、theta encoder/decoder 和梯度裁剪均不参与训练。
+v13 沿用 v12 的模型结构和 checkpoint 格式，变化只在物理数据分布：DR 环境额外加入手部负载。
 
 ## 数据契约
 
 每次数据采集包含两个批次：
 
-- 批次 A：全局 4096 个环境，其中一半恢复为 compiled nominal physics，另一半保留 checkpoint
-  定义的 startup DR。每个 vector slot 的动力学在整个训练期间固定，但 motion、phase 和 reset
-  相互独立。
+- 批次 A：全局 4096 个环境，其中一半恢复为 compiled nominal physics；另一半保留 checkpoint
+  定义的 startup DR，并在 `right_wrist_yaw_link` 上刚性附加一个 1–3 kg 长方体负载。每个
+  vector slot 的原 DR 与负载质量在整个训练期间固定，但 motion、phase 和 reset 相互独立。
 - 批次 B：与 A 数量相同的纯 nominal simulator。每收集一段 A 的五步轨迹，就把各 A 环境的
   起始 71 维物理状态恢复到 B，并直接重放 A 实际进入 simulator 的五个 29 维 PD joint target。
   B 不运行 policy，也不重复 action scale、offset、delay 或 smoothing。
@@ -19,7 +20,9 @@ Residual Policy、Backward Predictor、theta encoder/decoder 和梯度裁剪均�
 状态，且 nominal 与 DR 数据共用同一个网络。
 
 checkpoint 中的 step/interval 随机推力不会复现。startup DR 只在构造 A 时采样一次，之后 reset
-不会重采样动力学。
+不会重采样动力学。负载不是简单增加 `body_mass`：实现通过 composite pseudo-inertia 同时更新
+质量、质心、主惯量和惯性坐标系。默认负载质心位于手部 body frame 的 `(0.12, 0, 0)` m，尺寸为
+`(0.10, 0.08, 0.08)` m；本实验不添加负载碰撞几何。
 
 ## 模型与表征目标
 
@@ -65,8 +68,8 @@ applied target、foot、contact force 与 state delta 的 normalization 在 warm
 GPUS=0,1 ./scripts/run_forward_predictor_training.sh \
   /path/to/tracker.pt \
   /path/to/motions \
-  /path/to/runs/forward_predictor_v12 \
-  --wandb-name forward-predictor-v12
+  /path/to/runs/forward_predictor_payload_v13 \
+  --wandb-name forward-predictor-payload-v13
 ~~~
 
 启动脚本固定全局 A 为 4096 个环境，并按 rank 均分；每个 rank 内严格保持 50% nominal / 50% DR。
@@ -82,6 +85,10 @@ Context Encoder 默认 100 帧，局部视图固定偏移 5 帧。
   明显大于 1 才能直接证明 predictor 在利用 latent，接近 1 表示基本忽略 latent。
 - `dr_counterfactual_rms`：A-B 中实际存在的 DR 响应信号强度。
 - `nominal_counterfactual_rms`：nominal A 与 nominal B 的配对误差，应接近 0；它用于检查反事实数据链路。
+
+对本次 payload 实验，首先同时检查 `dr_five_step_nmse` 足够低且
+`latent_shuffle_dr_error_ratio` 明显大于 1；前者证明 DR+payload 可预测，后者证明准确率确实依赖
+Context Encoder 输出，而不是共享 predictor 独自吸收平均动力学。
 
 训练日志除此之外只保留三个优化 loss、学习率、update、样本数和 replay 大小，不再输出组件误差、
 分位数、梯度范数或滚动窗口统计。

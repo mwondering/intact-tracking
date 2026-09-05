@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import math
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -10,6 +11,7 @@ from typing import Any
 
 import torch
 
+from intact_tracking.environment.mdp.randomizations import rigid_body_payload
 from intact_tracking.environment.runtime import create_runtime, prepare_rollout
 from intact_tracking.forward_predictor_inputs import JointPositionTargetTransform
 
@@ -31,6 +33,12 @@ TRACKING_ERROR_NAMES = (
     "error_joint_pos",
     "error_joint_vel",
 )
+
+PAYLOAD_EVENT_NAME = "right_hand_payload"
+DEFAULT_PAYLOAD_BODY_NAME = "right_wrist_yaw_link"
+DEFAULT_PAYLOAD_MASS_RANGE_KG = (1.0, 3.0)
+DEFAULT_PAYLOAD_POSITION_BODY_M = (0.12, 0.0, 0.0)
+DEFAULT_PAYLOAD_SIZE_M = (0.10, 0.08, 0.08)
 
 
 def _quaternion_error(first: torch.Tensor, second: torch.Tensor) -> torch.Tensor:
@@ -88,6 +96,11 @@ class FixedDRRolloutConfig:
     randomize_initial_episode_phase: bool = True
     nominal_fraction: float = 0.0
     dynamics_classes: int | None = None
+    payload_enabled: bool = False
+    payload_body_name: str = DEFAULT_PAYLOAD_BODY_NAME
+    payload_mass_range_kg: tuple[float, float] = DEFAULT_PAYLOAD_MASS_RANGE_KG
+    payload_position_body_m: tuple[float, float, float] = DEFAULT_PAYLOAD_POSITION_BODY_M
+    payload_size_m: tuple[float, float, float] = DEFAULT_PAYLOAD_SIZE_M
 
     def __post_init__(self) -> None:
         if self.num_envs < 1:
@@ -111,6 +124,22 @@ class FixedDRRolloutConfig:
             )
         if bool(self.motion_path) == bool(self.motion_file):
             raise ValueError("Provide exactly one of motion_path or motion_file")
+        if not self.payload_enabled:
+            return
+        if not self.payload_body_name.strip():
+            raise ValueError("payload_body_name must not be empty")
+        if len(self.payload_mass_range_kg) != 2 or not (
+            0.0 < self.payload_mass_range_kg[0] <= self.payload_mass_range_kg[1]
+        ):
+            raise ValueError("payload_mass_range_kg must satisfy 0 < low <= high")
+        if len(self.payload_position_body_m) != 3 or not all(
+            math.isfinite(value) for value in self.payload_position_body_m
+        ):
+            raise ValueError("payload_position_body_m must contain three finite values")
+        if len(self.payload_size_m) != 3 or not all(
+            math.isfinite(value) and value > 0.0 for value in self.payload_size_m
+        ):
+            raise ValueError("payload_size_m must contain three positive finite values")
 
 
 @dataclass(frozen=True)
@@ -326,6 +355,14 @@ def _capture_privileged_dynamics_targets(env: Any) -> PrivilegedDynamicsTargets:
             append(event_name, ["gravity/x", "gravity/y", "gravity/z"], gravity)
             continue
 
+        if func_name == "rigid_body_payload":
+            append(
+                event_name,
+                [f"added_mass_kg/{func.body_name}"],
+                func.observe(),
+            )
+            continue
+
         # These affect the policy-to-target or observation chain, not dynamics
         # after the physical PD target used by this predictor has been formed.
         if func_name in {"encoder_bias", "random_joint_offset"}:
@@ -360,6 +397,94 @@ def _keep_startup_events(env_cfg: Any) -> tuple[list[str], list[str]]:
         )
     env_cfg.events = startup
     return sorted(str(name) for name in startup), sorted(removed)
+
+
+def _add_payload_startup_event(
+    env_cfg: Any,
+    config: FixedDRRolloutConfig,
+) -> dict[str, Any]:
+    """Append the payload after checkpoint events so it composes with original DR."""
+    if not config.payload_enabled:
+        return {"enabled": False}
+    from mjlab.managers.event_manager import EventTermCfg
+
+    events = dict(env_cfg.events)
+    if PAYLOAD_EVENT_NAME in events:
+        raise RuntimeError(
+            f"Checkpoint already defines the reserved payload event {PAYLOAD_EVENT_NAME!r}"
+        )
+    events[PAYLOAD_EVENT_NAME] = EventTermCfg(
+        mode="startup",
+        func=rigid_body_payload,
+        params={
+            "body_name": config.payload_body_name,
+            "mass_range_kg": tuple(config.payload_mass_range_kg),
+            "position_body_m": tuple(config.payload_position_body_m),
+            "size_m": tuple(config.payload_size_m),
+        },
+    )
+    env_cfg.events = events
+    return {
+        "enabled": True,
+        "event_name": PAYLOAD_EVENT_NAME,
+        "body_name": config.payload_body_name,
+        "mass_range_kg": list(config.payload_mass_range_kg),
+        "position_body_frame_m": list(config.payload_position_body_m),
+        "cuboid_size_m": list(config.payload_size_m),
+        "physics_model": (
+            "rigid cuboid composite inertia (mass, COM, principal inertia and inertial frame); "
+            "no payload collision geometry"
+        ),
+    }
+
+
+def _payload_mass_summary(
+    env: Any,
+    is_nominal: torch.Tensor,
+    mass_range_kg: tuple[float, float],
+) -> dict[str, float | int]:
+    cfg = env.event_manager.get_term_cfg(PAYLOAD_EVENT_NAME)
+    func = cfg.func
+    if type(func).__name__ != "rigid_body_payload":
+        raise RuntimeError("Configured payload event did not resolve to rigid_body_payload")
+    added_mass = func.observe().flatten()
+    if added_mass.shape != is_nominal.shape:
+        raise RuntimeError(
+            f"Payload mass observation has shape {tuple(added_mass.shape)}, expected "
+            f"{tuple(is_nominal.shape)}"
+        )
+    nominal_mass = added_mass[is_nominal]
+    dr_mass = added_mass[~is_nominal]
+    tolerance = 1.0e-4
+    nominal_abs_max = float(nominal_mass.abs().max()) if nominal_mass.numel() else 0.0
+    if nominal_abs_max > tolerance:
+        raise RuntimeError(
+            "Nominal payload restoration left nonzero added mass; "
+            f"max_abs_error={nominal_abs_max:.6g}"
+        )
+    if dr_mass.numel():
+        observed_min = float(dr_mass.min())
+        observed_max = float(dr_mass.max())
+        if (
+            observed_min < mass_range_kg[0] - tolerance
+            or observed_max > mass_range_kg[1] + tolerance
+        ):
+            raise RuntimeError(
+                "DR payload mass lies outside the configured range; "
+                f"observed=[{observed_min:.6g}, {observed_max:.6g}], "
+                f"configured={mass_range_kg}"
+            )
+        observed_mean = float(dr_mass.mean())
+    else:
+        observed_min = observed_max = observed_mean = 0.0
+    return {
+        "nominal_world_count": int(is_nominal.sum()),
+        "dr_world_count": int((~is_nominal).sum()),
+        "nominal_added_mass_abs_max_kg": nominal_abs_max,
+        "dr_added_mass_min_kg": observed_min,
+        "dr_added_mass_max_kg": observed_max,
+        "dr_added_mass_mean_kg": observed_mean,
+    }
 
 
 def _disable_startup_reset_callbacks(env: Any) -> list[str]:
@@ -775,6 +900,7 @@ class FixedDRTrackerRollout:
             rewind_cfg = getattr(motion_cfg, "rewind", None)
             if rewind_cfg is not None:
                 rewind_cfg.enabled = False
+        self.payload_configuration = _add_payload_startup_event(prepared.env, config)
         self.cleared_motion_exclusions = _clear_missing_motion_exclusions(prepared.env)
         self.startup_events, self.removed_non_startup_events = _keep_startup_events(prepared.env)
         self.device = config.device or ("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -827,6 +953,13 @@ class FixedDRTrackerRollout:
             if self.nominal_count:
                 self.nominal_restore_metrics = _restore_nominal_physics(
                     self.env, self.nominal_env_ids
+                )
+            self.payload_mass_summary: dict[str, float | int] | None = None
+            if config.payload_enabled:
+                self.payload_mass_summary = _payload_mass_summary(
+                    self.env,
+                    self.is_nominal,
+                    config.payload_mass_range_kg,
                 )
             action_term = self.env.action_manager.get_term("joint_pos")
             self.predictor_action_transform: JointPositionTargetTransform | None = None
@@ -959,6 +1092,10 @@ class FixedDRTrackerRollout:
             "privileged_dynamics_dim": len(self.privileged_dynamics_names),
             "privileged_dynamics_names": list(self.privileged_dynamics_names),
             "ignored_privileged_startup_events": list(self.ignored_privileged_startup_events),
+            "payload": {
+                **self.payload_configuration,
+                "observed": self.payload_mass_summary,
+            },
             "nominal_fraction": self.config.nominal_fraction,
             "nominal_world_count_per_rank": self.nominal_count,
             "dr_world_count_per_rank": self.num_envs - self.nominal_count,

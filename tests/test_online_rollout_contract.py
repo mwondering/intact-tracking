@@ -4,8 +4,11 @@ from types import SimpleNamespace
 
 import torch
 
+from intact_tracking.environment.mdp.randomizations import rigid_body_payload
 from intact_tracking.rollout.online import (
+    PAYLOAD_EVENT_NAME,
     FixedDRRolloutConfig,
+    _add_payload_startup_event,
     _capture_privileged_dynamics_targets,
     _capture_randomized_model_fields,
     _disable_startup_reset_callbacks,
@@ -26,6 +29,80 @@ class _TensorProxy:
 
     def __setitem__(self, index, value: torch.Tensor) -> None:
         self.tensor[index] = value
+
+
+def test_rigid_payload_adds_exact_composite_mass_and_first_moment() -> None:
+    num_envs = 3
+    default_mass = torch.tensor([5.0, 0.25])
+    default_ipos = torch.tensor([[0.0, 0.0, 0.0], [0.07, 0.0, 0.0]])
+    default_inertia = torch.tensor([[0.2, 0.2, 0.2], [0.10, 0.12, 0.14]])
+    default_iquat = torch.tensor([[1.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0]])
+    defaults = {
+        "body_mass": default_mass,
+        "body_ipos": default_ipos,
+        "body_inertia": default_inertia,
+        "body_iquat": default_iquat,
+    }
+    model = SimpleNamespace(
+        body_mass=default_mass.repeat(num_envs, 1),
+        body_ipos=default_ipos.repeat(num_envs, 1, 1),
+        body_inertia=default_inertia.repeat(num_envs, 1, 1),
+        body_iquat=default_iquat.repeat(num_envs, 1, 1),
+    )
+    asset = SimpleNamespace(
+        indexing=SimpleNamespace(body_ids=torch.tensor([0, 1], dtype=torch.int32)),
+        find_bodies=lambda name: ([1], [name]),
+    )
+    sim = SimpleNamespace(
+        expanded_fields=set(rigid_body_payload.model_fields),
+        model=model,
+        get_default_field=defaults.__getitem__,
+        expand_model_fields=lambda _fields: None,
+    )
+    env = SimpleNamespace(num_envs=num_envs, device="cpu", scene={"robot": asset}, sim=sim)
+    term = rigid_body_payload(
+        SimpleNamespace(
+            params={
+                "body_name": "right_wrist_yaw_link",
+                "mass_range_kg": (2.0, 2.0),
+                "position_body_m": (0.12, 0.0, 0.0),
+                "size_m": (0.10, 0.08, 0.08),
+            }
+        ),
+        env,
+    )
+
+    term(env, None)
+
+    torch.testing.assert_close(model.body_mass[:, 1], torch.full((num_envs,), 2.25))
+    expected_com_x = (0.25 * 0.07 + 2.0 * 0.12) / 2.25
+    torch.testing.assert_close(
+        model.body_ipos[:, 1, 0],
+        torch.full((num_envs,), expected_com_x),
+    )
+    torch.testing.assert_close(term.observe(), torch.full((num_envs, 1), 2.0))
+    assert bool(torch.isfinite(model.body_inertia[:, 1]).all())
+    assert bool((model.body_inertia[:, 1] > 0.0).all())
+    torch.testing.assert_close(model.body_mass[:, 0], torch.full((num_envs,), 5.0))
+
+
+def test_online_rollout_appends_payload_after_checkpoint_dr() -> None:
+    startup = SimpleNamespace(mode="startup")
+    env_cfg = SimpleNamespace(events={"base_mass": startup})
+    config = FixedDRRolloutConfig(
+        checkpoint_file="tracker.pt",
+        motion_file="motion.npz",
+        payload_enabled=True,
+    )
+
+    metadata = _add_payload_startup_event(env_cfg, config)
+
+    assert list(env_cfg.events) == ["base_mass", PAYLOAD_EVENT_NAME]
+    payload = env_cfg.events[PAYLOAD_EVENT_NAME]
+    assert payload.mode == "startup"
+    assert payload.func is rigid_body_payload
+    assert payload.params["mass_range_kg"] == (1.0, 3.0)
+    assert metadata["body_name"] == "right_wrist_yaw_link"
 
 
 def test_online_rollout_removes_every_non_startup_event() -> None:

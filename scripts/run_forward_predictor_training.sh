@@ -6,10 +6,11 @@ usage() {
   printf '%s\n' \
     "Usage: $0 CHECKPOINT MOTION_SOURCE OUTPUT_DIR [PREDICTOR_OPTIONS...]" \
     "" \
-    "Train the nominal-counterfactual dynamics-context Forward Predictor." \
+    "Train the payload nominal-counterfactual dynamics-context Forward Predictor." \
     "" \
     "Fixed contract:" \
-    "  batch A          4096 global worlds: 50% nominal + 50% fixed startup DR" \
+    "  batch A          4096 global worlds: 50% nominal + 50% fixed startup DR + payload" \
+    "  payload          rigid 1-3 kg cuboid at the right hand; mass, COM and inertia updated" \
     "  batch A motion   every world samples motion and phase independently" \
     "  batch B          clone every A start state into nominal physics and replay 5 PD targets" \
     "  disturbance      checkpoint step/interval random pushes are not reproduced" \
@@ -62,6 +63,12 @@ shift 3
 managed_options=(
   --num-envs
   --nominal-fraction
+  --payload
+  --no-payload
+  --payload-body-name
+  --payload-mass-range-kg
+  --payload-position-body-m
+  --payload-size-m
   --history-steps
   --context-history-steps
   --positive-offset-steps
@@ -159,6 +166,11 @@ command+=(
   --output-dir "${OUTPUT_DIR}"
   --num-envs "${LOCAL_ENVS}"
   --nominal-fraction 0.5
+  --payload
+  --payload-body-name right_wrist_yaw_link
+  --payload-mass-range-kg 1 3
+  --payload-position-body-m 0.12 0 0
+  --payload-size-m 0.10 0.08 0.08
   --batch-size 4096
   --micro-batch-size 512
   --amp-dtype bfloat16
@@ -188,11 +200,12 @@ command+=(
 )
 
 printf '%s\n' \
-  "Training contract: nominal-counterfactual Context Forward Predictor v12" \
+  "Training contract: payload nominal-counterfactual Context Forward Predictor v13" \
   "  model: Context Encoder sees robot state/action only; privileged features stay in predictor" \
   "  rollout: predicted robot/foot/contact state recurs 5 steps; no articulated FK in model" \
   "  disturbance: checkpoint step/interval random pushes are removed" \
-  "  batch A: ${GLOBAL_ENVS} global independent-motion worlds, half nominal and half fixed DR" \
+  "  payload: DR worlds add a fixed 1-3 kg rigid cuboid at right_wrist_yaw_link" \
+  "  batch A: ${GLOBAL_ENVS} global independent-motion worlds, half nominal and half original DR + payload" \
   "  batch B: nominal counterfactual from each A start state and exact applied PD targets" \
   "  loss: shared nominal/DR prediction + continuous response-geometry representation" \
   "  context: 100 proprioceptive frames; reset-padded contexts predict but do not contrast" \
