@@ -23,6 +23,11 @@ final mean = base action + 0.25 × tanh(residual)  ←─┘
 tracker feature。两者使用相同的 SPV5-2A task、reward、termination、critic observation、PPO
 超参数、startup DR、motion sampling 和 residual action bound。
 
+对 payload 实验，两组命令都必须显式传入 `--payload --payload-mass-range-kg 1 3`。这会在
+checkpoint 原有 startup DR 之上，给每个 residual-PPO world 独立均匀采样一个 1–3 kg 右手刚性
+负载；负载在 simulator 构造时采样一次，episode reset 不会重采样。与 Forward Predictor 的
+nominal-counterfactual 采样不同，residual PPO 不需要 nominal 批次，因此这里所有 world 都带负载。
+
 Forward Predictor 的 transition Transformer、prediction heads 和 simulator 参数 θ 都不会在
 residual PPO 中执行或暴露。latent 路径只严格加载 checkpoint 中的 `context_encoder.*` 以及
 `state/action` normalization，并检查 Forward checkpoint 记录的 tracker SHA-256（如果存在）。
@@ -69,6 +74,8 @@ GPUS=0,1,2,3 ./scripts/run_residual_policy_latent.sh \
   /path/to/forward_predictor_v12/last.pt \
   /path/to/motion_directory \
   ./runs/residual_policy_latent \
+  --payload \
+  --payload-mass-range-kg 1 3 \
   --seed 42
 ```
 
@@ -79,6 +86,8 @@ GPUS=0,1,2,3 ./scripts/run_residual_policy_no_latent.sh \
   /path/to/SPV5-2A/checkpoint_72000.pt \
   /path/to/motion_directory \
   ./runs/residual_policy_no_latent \
+  --payload \
+  --payload-mass-range-kg 1 3 \
   --seed 42
 ```
 

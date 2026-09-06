@@ -7,7 +7,7 @@ import math
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 import torch
 
@@ -39,6 +39,14 @@ DEFAULT_PAYLOAD_BODY_NAME = "right_wrist_yaw_link"
 DEFAULT_PAYLOAD_MASS_RANGE_KG = (1.0, 3.0)
 DEFAULT_PAYLOAD_POSITION_BODY_M = (0.12, 0.0, 0.0)
 DEFAULT_PAYLOAD_SIZE_M = (0.10, 0.08, 0.08)
+
+
+class _PayloadStartupConfig(Protocol):
+    payload_enabled: bool
+    payload_body_name: str
+    payload_mass_range_kg: tuple[float, float]
+    payload_position_body_m: tuple[float, float, float]
+    payload_size_m: tuple[float, float, float]
 
 
 def _quaternion_error(first: torch.Tensor, second: torch.Tensor) -> torch.Tensor:
@@ -401,7 +409,7 @@ def _keep_startup_events(env_cfg: Any) -> tuple[list[str], list[str]]:
 
 def _add_payload_startup_event(
     env_cfg: Any,
-    config: FixedDRRolloutConfig,
+    config: _PayloadStartupConfig,
 ) -> dict[str, Any]:
     """Append the payload after checkpoint events so it composes with original DR."""
     if not config.payload_enabled:

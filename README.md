@@ -249,17 +249,23 @@ GPUS=0,1,2,3 ./scripts/run_residual_policy_latent.sh \
   /path/to/forward_predictor_v12/last.pt \
   /path/to/motion_directory \
   ./runs/residual_policy_latent \
+  --payload \
+  --payload-mass-range-kg 1 3 \
   --seed 42
 
 GPUS=0,1,2,3 ./scripts/run_residual_policy_no_latent.sh \
   /path/to/SPV5-2A/checkpoint.pt \
   /path/to/motion_directory \
   ./runs/residual_policy_no_latent \
+  --payload \
+  --payload-mass-range-kg 1 3 \
   --seed 42
 ```
 
 launcher 固定全局 4096 个环境并按 rank 均分；默认保留 startup DR、移除随机推力等
-step/interval disturbance。两次实验应保持 tracker、motion、seed、GPU 数和 PPO 参数一致。
+step/interval disturbance。传入 `--payload` 时，所有 residual-PPO world 都会在原 startup DR
+之上独立采样并固定一个 1–3 kg 右手刚性负载。两次实验应保持 tracker、motion、seed、GPU 数和
+PPO 参数一致。
 训练日志额外提供 residual 幅度、latent shuffle/zero action delta 与 context 填充率，用于区分
 “residual 本身有效”和“residual 确实利用了 latent”。完整契约和判据见
 [Frozen-tracker residual PPO](docs/residual_policy_training.md)。

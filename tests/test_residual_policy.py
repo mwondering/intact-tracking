@@ -312,6 +312,25 @@ def test_residual_cli_enforces_two_unambiguous_baselines() -> None:
             )
         )
 
+    no_payload = parser.parse_args([*common, "--baseline", "no-latent"])
+    _validate_arguments(no_payload)
+    assert no_payload.payload_enabled is False
+
+    payload = parser.parse_args(
+        [
+            *common,
+            "--baseline",
+            "no-latent",
+            "--payload",
+            "--payload-mass-range-kg",
+            "1",
+            "3",
+        ]
+    )
+    _validate_arguments(payload)
+    assert payload.payload_enabled is True
+    assert tuple(payload.payload_mass_range_kg) == (1.0, 3.0)
+
 
 def test_train_configuration_reuses_spv52_observations_and_ppo_hyperparameters() -> None:
     source = OmegaConf.create(

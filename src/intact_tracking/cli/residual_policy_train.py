@@ -29,6 +29,13 @@ from intact_tracking.rollout.mjlab_adapter import (
     _filter_disturbance_events,
     _sha256,
 )
+from intact_tracking.rollout.online import (
+    DEFAULT_PAYLOAD_BODY_NAME,
+    DEFAULT_PAYLOAD_MASS_RANGE_KG,
+    DEFAULT_PAYLOAD_POSITION_BODY_M,
+    DEFAULT_PAYLOAD_SIZE_M,
+    _add_payload_startup_event,
+)
 
 SPV52A_TASK_ID = "SPTracking-G1-BFM-SPV5-2AActor-HEFTCritic-HEFTReward"
 
@@ -67,6 +74,38 @@ def build_parser() -> argparse.ArgumentParser:
         help="Re-enable checkpoint step/interval events such as random pushes.",
     )
     parser.add_argument(
+        "--payload",
+        dest="payload_enabled",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help=(
+            "Add one independently sampled, fixed-per-world rigid hand payload on top of "
+            "the tracker checkpoint's startup DR."
+        ),
+    )
+    parser.add_argument("--payload-body-name", default=DEFAULT_PAYLOAD_BODY_NAME)
+    parser.add_argument(
+        "--payload-mass-range-kg",
+        type=float,
+        nargs=2,
+        metavar=("MIN", "MAX"),
+        default=DEFAULT_PAYLOAD_MASS_RANGE_KG,
+    )
+    parser.add_argument(
+        "--payload-position-body-m",
+        type=float,
+        nargs=3,
+        metavar=("X", "Y", "Z"),
+        default=DEFAULT_PAYLOAD_POSITION_BODY_M,
+    )
+    parser.add_argument(
+        "--payload-size-m",
+        type=float,
+        nargs=3,
+        metavar=("X", "Y", "Z"),
+        default=DEFAULT_PAYLOAD_SIZE_M,
+    )
+    parser.add_argument(
         "--randomize-initial-episode-length",
         action=argparse.BooleanOptionalAction,
         default=True,
@@ -95,6 +134,16 @@ def _validate_arguments(args: argparse.Namespace) -> None:
         raise ValueError("residual-hidden-dims must contain positive widths")
     if args.residual_scale <= 0.0:
         raise ValueError("residual-scale must be positive")
+    if args.payload_enabled:
+        payload_min, payload_max = args.payload_mass_range_kg
+        if not 0.0 < payload_min <= payload_max:
+            raise ValueError("payload-mass-range-kg must satisfy 0 < MIN <= MAX")
+        if not args.payload_body_name.strip():
+            raise ValueError("payload-body-name must not be empty")
+        if not all(np.isfinite(value) for value in args.payload_position_body_m):
+            raise ValueError("payload-position-body-m values must be finite")
+        if not all(np.isfinite(value) and value > 0.0 for value in args.payload_size_m):
+            raise ValueError("payload-size-m values must be positive and finite")
     for name in ("actor_learning_rate", "critic_learning_rate"):
         value = getattr(args, name)
         if value is not None and value <= 0.0:
@@ -299,6 +348,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             f"Residual PPO is fixed to {SPV52A_TASK_ID!r}, got {prepared.checkpoint_task_id!r}"
         )
     prepared.env.seed = rank_seed
+    payload_configuration = _add_payload_startup_event(prepared.env, args)
     cleared_exclusions = _clear_missing_motion_exclusions(prepared.env)
     removed_disturbances = (
         [] if args.include_disturbances else _filter_disturbance_events(prepared.env)
@@ -350,6 +400,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         "residual_hidden_dims": list(args.residual_hidden_dims),
         "removed_step_interval_events": removed_disturbances,
         "cleared_missing_motion_exclusions": cleared_exclusions,
+        "payload": payload_configuration,
         "contract": (
             "base action and base feature extractor are frozen SPV5-2A; PPO samples the final "
             "base-plus-residual Gaussian; the latent baseline executes only the frozen "
