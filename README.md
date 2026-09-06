@@ -266,6 +266,12 @@ launcher 固定全局 4096 个环境并按 rank 均分；默认保留 startup DR
 step/interval disturbance。传入 `--payload` 时，所有 residual-PPO world 都会在原 startup DR
 之上独立采样并固定一个 1–3 kg 右手刚性负载。两次实验应保持 tracker、motion、seed、GPU 数和
 PPO 参数一致。
+
+若要直接检验 DR 本身是否造成性能下降，两组都运行 latent launcher：名义组传
+`--nominal-physics --no-payload`，处理组传
+`--no-nominal-physics --payload --payload-mass-range-kg 1 3`。名义模式会在 simulator 构造前
+移除持久 physics/sensor/control DR，并关闭逐环境随机的 action delay 与 alpha smoothing；固定的
+boot delay、全局 torque-limit curriculum、motion/state reset、reward 与 actor 观测噪声不变。
 训练日志额外提供 residual 幅度、latent shuffle/zero action delta 与 context 填充率，用于区分
 “residual 本身有效”和“residual 确实利用了 latent”。完整契约和判据见
 [Frozen-tracker residual PPO](docs/residual_policy_training.md)。

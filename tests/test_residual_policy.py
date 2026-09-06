@@ -13,6 +13,7 @@ from tensordict import TensorDict
 import intact_tracking.residual_policy as residual_policy_module
 from intact_tracking.cli.residual_policy_train import (
     _build_train_configuration,
+    _configure_nominal_physics,
     _validate_arguments,
     build_parser,
 )
@@ -315,6 +316,7 @@ def test_residual_cli_enforces_two_unambiguous_baselines() -> None:
     no_payload = parser.parse_args([*common, "--baseline", "no-latent"])
     _validate_arguments(no_payload)
     assert no_payload.payload_enabled is False
+    assert no_payload.nominal_physics is False
 
     payload = parser.parse_args(
         [
@@ -330,6 +332,82 @@ def test_residual_cli_enforces_two_unambiguous_baselines() -> None:
     _validate_arguments(payload)
     assert payload.payload_enabled is True
     assert tuple(payload.payload_mass_range_kg) == (1.0, 3.0)
+
+    nominal = parser.parse_args([*common, "--baseline", "no-latent", "--nominal-physics"])
+    _validate_arguments(nominal)
+    assert nominal.nominal_physics is True
+    with pytest.raises(ValueError, match="cannot be combined with payload"):
+        _validate_arguments(
+            parser.parse_args(
+                [
+                    *common,
+                    "--baseline",
+                    "no-latent",
+                    "--nominal-physics",
+                    "--payload",
+                ]
+            )
+        )
+    with pytest.raises(ValueError, match="cannot be combined with include-disturbances"):
+        _validate_arguments(
+            parser.parse_args(
+                [
+                    *common,
+                    "--baseline",
+                    "no-latent",
+                    "--nominal-physics",
+                    "--include-disturbances",
+                ]
+            )
+        )
+
+
+def test_nominal_physics_removes_persistent_dr_but_preserves_task_resets() -> None:
+    class StartupRandomizer:
+        model_fields = ("body_mass",)
+
+    class random_joint_offset:
+        pass
+
+    def reset_robot_state() -> None:
+        pass
+
+    action_cfg = type(
+        "ActionCfg",
+        (),
+        {
+            "max_delay": 2,
+            "alpha": (0.8, 1.0),
+            "torque_limit_scale_range": (0.7, 1.0),
+            "boot_delay_steps": 4,
+        },
+    )()
+    env_cfg = type(
+        "EnvCfg",
+        (),
+        {
+            "events": {
+                "startup_dr": type("Event", (), {"mode": "startup", "func": StartupRandomizer})(),
+                "joint_offset": type("Event", (), {"mode": "reset", "func": random_joint_offset})(),
+                "reset_state": type("Event", (), {"mode": "reset", "func": reset_robot_state})(),
+            },
+            "actions": {"joint_pos": action_cfg},
+        },
+    )()
+
+    result = _configure_nominal_physics(env_cfg)
+
+    assert list(env_cfg.events) == ["reset_state"]
+    assert action_cfg.max_delay == 0
+    assert action_cfg.alpha == (1.0, 1.0)
+    assert action_cfg.torque_limit_scale_range == (0.7, 1.0)
+    assert action_cfg.boot_delay_steps == 4
+    assert [event["name"] for event in result["removed_events"]] == [
+        "startup_dr",
+        "joint_offset",
+    ]
+    assert result["removed_model_fields"] == ["body_mass"]
+    assert result["motion_and_state_resets_preserved"] is True
 
 
 def test_train_configuration_reuses_spv52_observations_and_ppo_hyperparameters() -> None:

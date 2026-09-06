@@ -39,6 +39,25 @@ from intact_tracking.rollout.online import (
 
 SPV52A_TASK_ID = "SPTracking-G1-BFM-SPV5-2AActor-HEFTCritic-HEFTReward"
 
+_PERSISTENT_DR_FUNCTION_NAMES = frozenset(
+    {
+        "body_com_offset",
+        "body_mass",
+        "encoder_bias",
+        "geom_friction",
+        "motor_params_implicit",
+        "perturb_body_com",
+        "perturb_body_materials",
+        "perturb_gravity",
+        "random_joint_offset",
+        "rigid_body_payload",
+    }
+)
+_NOMINAL_ACTION_VALUES = {
+    "max_delay": 0,
+    "alpha": (1.0, 1.0),
+}
+
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -72,6 +91,15 @@ def build_parser() -> argparse.ArgumentParser:
         action=argparse.BooleanOptionalAction,
         default=False,
         help="Re-enable checkpoint step/interval events such as random pushes.",
+    )
+    parser.add_argument(
+        "--nominal-physics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help=(
+            "Construct a true no-DR control group: remove persistent physics/sensor/control "
+            "randomization and disable randomized action delay/smoothing."
+        ),
     )
     parser.add_argument(
         "--payload",
@@ -134,6 +162,10 @@ def _validate_arguments(args: argparse.Namespace) -> None:
         raise ValueError("residual-hidden-dims must contain positive widths")
     if args.residual_scale <= 0.0:
         raise ValueError("residual-scale must be positive")
+    if args.nominal_physics and args.payload_enabled:
+        raise ValueError("nominal-physics cannot be combined with payload")
+    if args.nominal_physics and args.include_disturbances:
+        raise ValueError("nominal-physics cannot be combined with include-disturbances")
     if args.payload_enabled:
         payload_min, payload_max = args.payload_mass_range_kg
         if not 0.0 < payload_min <= payload_max:
@@ -148,6 +180,125 @@ def _validate_arguments(args: argparse.Namespace) -> None:
         value = getattr(args, name)
         if value is not None and value <= 0.0:
             raise ValueError(f"{name.replace('_', '-')} must be positive")
+
+
+def _event_function_name(term: Any) -> str:
+    function = getattr(term, "func", None)
+    return str(getattr(function, "__name__", type(function).__name__))
+
+
+def _is_persistent_domain_randomization(term: Any) -> bool:
+    """Identify events that can change a world's persistent dynamics contract."""
+
+    function = getattr(term, "func", None)
+    # In the checkpoint-backed SPV5-2A task, construction-time events are all
+    # domain randomizers. Removing every startup term also catches future DR
+    # additions whose function names are not yet known here.
+    if getattr(term, "mode", None) == "startup":
+        return True
+    if getattr(function, "model_fields", None):
+        return True
+    return _event_function_name(term) in _PERSISTENT_DR_FUNCTION_NAMES
+
+
+def _configure_nominal_physics(env_cfg: Any) -> dict[str, Any]:
+    """Turn the checkpoint task into a stable no-DR experimental control.
+
+    This is done before simulator construction. In particular, merely writing
+    nominal values once after construction is insufficient because the
+    checkpoint's ``random_joint_offset`` is a reset-mode event and class-based
+    startup terms can also receive ``reset()`` callbacks on later episodes.
+    Motion/state reset events, rewards, observations and observation corruption
+    remain untouched.
+    """
+
+    kept_events: dict[str, Any] = {}
+    removed_events: list[dict[str, str]] = []
+    removed_model_fields: set[str] = set()
+    for event_name, term in env_cfg.events.items():
+        if not _is_persistent_domain_randomization(term):
+            kept_events[event_name] = term
+            continue
+        function = getattr(term, "func", None)
+        removed_events.append(
+            {
+                "name": str(event_name),
+                "mode": str(getattr(term, "mode", "unknown")),
+                "function": _event_function_name(term),
+            }
+        )
+        removed_model_fields.update(str(name) for name in getattr(function, "model_fields", ()))
+    env_cfg.events = kept_events
+
+    action_overrides: dict[str, dict[str, dict[str, Any]]] = {}
+    for term_name, term_cfg in env_cfg.actions.items():
+        overrides: dict[str, dict[str, Any]] = {}
+        for field_name, desired in _NOMINAL_ACTION_VALUES.items():
+            if not hasattr(term_cfg, field_name):
+                continue
+            previous = getattr(term_cfg, field_name)
+            if previous == desired:
+                continue
+            setattr(term_cfg, field_name, desired)
+            overrides[field_name] = {"from": previous, "to": desired}
+        if overrides:
+            action_overrides[str(term_name)] = overrides
+
+    return {
+        "enabled": True,
+        "contract": "compiled nominal model with persistent DR and stochastic action DR disabled",
+        "removed_events": removed_events,
+        "removed_model_fields": sorted(removed_model_fields),
+        "action_randomization_overrides": action_overrides,
+        "observation_corruption_preserved": True,
+        "motion_and_state_resets_preserved": True,
+    }
+
+
+def _audit_nominal_runtime(env: Any) -> dict[str, float | int]:
+    """Fail before PPO if a persistent DR path survived nominal configuration."""
+
+    residual_events: list[str] = []
+    for mode, names in env.event_manager.active_terms.items():
+        for name in names:
+            term = env.event_manager.get_term_cfg(name)
+            if _is_persistent_domain_randomization(term):
+                residual_events.append(f"{mode}:{name}:{_event_function_name(term)}")
+    if residual_events:
+        raise RuntimeError(
+            "Nominal physics still contains persistent domain-randomization events: "
+            f"{residual_events}"
+        )
+    randomized_fields = tuple(env.event_manager.domain_randomization_fields)
+    if randomized_fields:
+        raise RuntimeError(
+            "Nominal physics unexpectedly expanded domain-randomization fields: "
+            f"{randomized_fields}"
+        )
+
+    action_term = env.action_manager.get_term("joint_pos")
+    max_delay = int(getattr(action_term, "max_delay", 0))
+    alpha = getattr(action_term, "alpha", None)
+    joint_offset = getattr(action_term, "joint_offset", None)
+    if max_delay != 0:
+        raise RuntimeError(f"Nominal action chain retained max_delay={max_delay}")
+    if isinstance(alpha, torch.Tensor) and not torch.equal(alpha, torch.ones_like(alpha)):
+        raise RuntimeError("Nominal action chain retained alpha smoothing")
+    if isinstance(joint_offset, torch.Tensor) and bool(torch.count_nonzero(joint_offset)):
+        raise RuntimeError("Nominal action chain retained a random joint offset")
+    return {
+        "persistent_event_count": 0,
+        "domain_randomization_field_count": 0,
+        "max_delay": max_delay,
+        "alpha_max_abs_error": (
+            float((alpha - 1.0).abs().max()) if isinstance(alpha, torch.Tensor) else 0.0
+        ),
+        "joint_offset_abs_max": (
+            float(joint_offset.abs().max())
+            if isinstance(joint_offset, torch.Tensor) and joint_offset.numel()
+            else 0.0
+        ),
+    }
 
 
 def _seed_everything(seed: int) -> None:
@@ -353,6 +504,14 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
     removed_disturbances = (
         [] if args.include_disturbances else _filter_disturbance_events(prepared.env)
     )
+    nominal_configuration = (
+        _configure_nominal_physics(prepared.env)
+        if args.nominal_physics
+        else {
+            "enabled": False,
+            "contract": "checkpoint domain randomization retained",
+        }
+    )
     tracker_sha256 = _sha256(tracker_path)
 
     context_checkpoint = None
@@ -400,6 +559,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         "residual_hidden_dims": list(args.residual_hidden_dims),
         "removed_step_interval_events": removed_disturbances,
         "cleared_missing_motion_exclusions": cleared_exclusions,
+        "nominal_physics": nominal_configuration,
         "payload": payload_configuration,
         "contract": (
             "base action and base feature extractor are frozen SPV5-2A; PPO samples the final "
@@ -441,6 +601,16 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         # the same startup DR samples for the same user seed.
         _seed_everything(rank_seed)
         env = ManagerBasedRlEnv(cfg=copy.deepcopy(prepared.env), device=str(device))
+        if args.nominal_physics:
+            nominal_runtime_audit = _audit_nominal_runtime(env)
+            if distributed.is_main:
+                print(
+                    json.dumps(
+                        {"nominal_physics_runtime_audit": nominal_runtime_audit},
+                        sort_keys=True,
+                    ),
+                    flush=True,
+                )
         if context_checkpoint is None:
             wrapped = RslRlVecEnvWrapper(env, clip_actions=prepared.clip_actions)
         else:

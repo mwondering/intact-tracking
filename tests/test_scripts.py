@@ -92,6 +92,7 @@ def test_latent_residual_launcher_uses_context_checkpoint_and_multigpu(tmp_path:
             str(output),
             "--iterations",
             "1",
+            "--nominal-physics",
         ],
         cwd=REPOSITORY,
         env=environment,
@@ -116,6 +117,7 @@ def test_latent_residual_launcher_uses_context_checkpoint_and_multigpu(tmp_path:
     assert _last_option_value(arguments, "--num-envs") == "2048"
     assert _last_option_value(arguments, "--iterations") == "1"
     assert "--no-include-disturbances" in arguments
+    assert "--nominal-physics" in arguments
 
 
 def test_no_latent_residual_launcher_has_no_context_checkpoint(tmp_path: Path) -> None:

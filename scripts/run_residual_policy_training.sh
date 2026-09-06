@@ -14,6 +14,8 @@ usage() {
     "The frozen tracker supplies the base action. The trainable actor outputs only" \
     "a bounded residual; the latent variant runs only the frozen Context Encoder." \
     "Checkpoint step/interval disturbances (including random pushes) remain disabled." \
+    "Use --nominal-physics for the no-DR control, or --no-nominal-physics with" \
+    "--payload for the checkpoint-DR + payload treatment." \
     "" \
     "Environment:" \
     "  PYTHON_BIN  Python executable (default: repository .venv)" \
@@ -78,9 +80,15 @@ else
 fi
 
 resume_requested=false
+physics_mode="checkpoint startup/reset DR"
 for argument in "$@"; do
   if [[ "${argument}" == "--resume" || "${argument}" == --resume=* ]]; then
     resume_requested=true
+  fi
+  if [[ "${argument}" == "--nominal-physics" ]]; then
+    physics_mode="compiled nominal (persistent DR disabled)"
+  elif [[ "${argument}" == "--no-nominal-physics" ]]; then
+    physics_mode="checkpoint startup/reset DR"
   fi
 done
 if [[ -e "${OUTPUT_DIR}" && ! -d "${OUTPUT_DIR}" ]]; then
@@ -155,6 +163,7 @@ printf '%s\n' \
   "  actor observations: exact frozen-tracker processed observation" \
   "  latent: $([[ "${BASELINE}" == "latent" ]] && echo 'frozen 100-frame Context Encoder' || echo 'disabled')" \
   "  Forward Predictor/theta: never executed or exposed to the residual actor" \
+  "  physics: ${physics_mode}" \
   "  disturbances: checkpoint random pushes removed" \
   "  environments: ${GLOBAL_ENVS} global (${LOCAL_ENVS} per rank, ${NPROC} ranks)"
 printf 'Launching:'
@@ -173,4 +182,3 @@ if [[ ! -s "${OUTPUT_DIR}/checkpoint_final.pt" ]]; then
   exit 1
 fi
 echo "Residual PPO training completed: ${OUTPUT_DIR}/checkpoint_final.pt"
-

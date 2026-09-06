@@ -48,6 +48,12 @@ residual PPO 中执行或暴露。latent 路径只严格加载 checkpoint 中的
 - 默认移除 checkpoint 的 step/interval event（包括随机推力），保留 startup DR。只有显式传入
   `--include-disturbances` 才恢复这些扰动。
 
+`--nominal-physics` 提供严格的 no-DR 对照：在 simulator 构造前移除所有 startup DR，以及
+`random_joint_offset` 等 reset-mode 持久随机化；同时固定 `max_delay=0`、`alpha=1`、
+即关闭逐环境随机的 action delay/smoothing。全局 torque-limit curriculum 与固定 boot delay 保持
+checkpoint 原样；motion/state reset、reward、termination 和 actor 观测噪声也保持不变。该选项
+禁止与 `--payload` 或 `--include-disturbances` 联用，避免产生名义组中暗含扰动的歧义。
+
 residual 最后一层以零初始化，Gaussian 标准差从 frozen tracker 精确复制。因此两个新策略在第一个
 PPO update 前都与原 tracker 具有相同的动作均值和标准差，不会从随机补偿开始破坏已有能力。
 
@@ -98,6 +104,36 @@ launcher 固定全局 4096 个环境并均分到 `GPUS`，默认每个 rollout i
 为了让 A/B 对比有效，两次运行应使用相同 tracker、motion 集、seed、GPU 数量和所有 PPO 参数。
 同一 seed 下，Context Encoder 构造造成的 RNG 消耗会在创建环境前被重置，因此两条路径从相同的
 startup DR 随机流开始；不同 distributed rank 使用 `seed + rank`，避免各卡重复同一批 world。
+
+## DR 是否真的降低 frozen tracker 表现
+
+以下实验的两组都使用 `latent` actor，即相同的 1645 维 frozen-tracker feature 与同一个 dynamics
+latent。唯一处理变量是环境动力学：
+
+```bash
+GPUS=4,5 ./scripts/run_residual_policy_latent.sh \
+  /path/to/SPV5-2A/checkpoint.pt \
+  /path/to/forward_predictor_payload_v13/checkpoint.pt \
+  /path/to/motion_directory \
+  ./runs/residual_latent_nominal \
+  --nominal-physics \
+  --no-payload \
+  --seed 42
+
+GPUS=6,7 ./scripts/run_residual_policy_latent.sh \
+  /path/to/SPV5-2A/checkpoint.pt \
+  /path/to/forward_predictor_payload_v13/checkpoint.pt \
+  /path/to/motion_directory \
+  ./runs/residual_latent_dr_payload \
+  --no-nominal-physics \
+  --payload \
+  --payload-mass-range-kg 1 3 \
+  --seed 42
+```
+
+第一组为 compiled nominal physics；第二组保留 checkpoint startup/reset DR，并额外给每个 world
+固定采样 1–3 kg 右手 payload。两组都不含随机推力。应同时比较 reward、root/joint tracking error
+和 early-training 曲线，而不能只比较最终 PPO reward。
 
 ## 判断 latent 是否被 residual policy 使用
 
