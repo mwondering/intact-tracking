@@ -19,9 +19,14 @@ from omegaconf import DictConfig, OmegaConf
 
 from intact_tracking.distributed import DistributedContext
 from intact_tracking.environment.runtime import _load_saved_config, prepare_rollout
+from intact_tracking.forward_predictor_inputs import ACTION_DIM, ROBOT_STATE_DIM
 from intact_tracking.residual_context import (
     ResidualLatentVecEnvWrapper,
     load_frozen_context_checkpoint,
+)
+from intact_tracking.residual_policy import (
+    TRACKER_FEATURES_INPUT,
+    TRACKER_OUTPUT_LATENT_STATE_REFERENCE_INPUT,
 )
 from intact_tracking.residual_runner import ResidualOnPolicyRunner
 from intact_tracking.rollout.mjlab_adapter import (
@@ -413,6 +418,11 @@ def _build_train_configuration(
         "tracker_obs_groups": copy.deepcopy(dict(tracker_obs_groups)),
         "use_dynamics_latent": baseline == "latent",
         "dynamics_latent_dim": int(dynamics_latent_dim),
+        "residual_input_mode": (
+            TRACKER_OUTPUT_LATENT_STATE_REFERENCE_INPUT
+            if baseline == "latent"
+            else TRACKER_FEATURES_INPUT
+        ),
         "residual_hidden_dims": list(residual_hidden_dims),
         "residual_activation": "elu",
         "residual_scale": float(residual_scale),
@@ -542,7 +552,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         check_for_nan=args.check_for_nan,
     )
     residual_metadata = {
-        "version": "spv52a_frozen_tracker_residual_v1",
+        "version": "spv52a_frozen_tracker_residual_v2",
         "baseline": args.baseline,
         "tracker_checkpoint": str(tracker_path),
         "tracker_sha256": tracker_sha256,
@@ -555,6 +565,21 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             context_checkpoint.config.context_history_steps if context_checkpoint else 0
         ),
         "dynamics_latent_dim": latent_dim,
+        "residual_input_mode": (
+            TRACKER_OUTPUT_LATENT_STATE_REFERENCE_INPUT
+            if args.baseline == "latent"
+            else TRACKER_FEATURES_INPUT
+        ),
+        "residual_input_dim": (
+            ACTION_DIM + latent_dim + 2 * ROBOT_STATE_DIM if args.baseline == "latent" else 1645
+        ),
+        "residual_state_contract": (
+            "frozen tracker 29-D deterministic action output plus frozen history latent, "
+            "normalized current 71-D robot state, and normalized current 71-D reference state; "
+            "the tracker 1645-D processed feature is excluded"
+            if args.baseline == "latent"
+            else "frozen tracker 1645-D processed feature"
+        ),
         "residual_scale": float(args.residual_scale),
         "residual_hidden_dims": list(args.residual_hidden_dims),
         "removed_step_interval_events": removed_disturbances,
@@ -563,8 +588,9 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         "payload": payload_configuration,
         "contract": (
             "base action and base feature extractor are frozen SPV5-2A; PPO samples the final "
-            "base-plus-residual Gaussian; the latent baseline executes only the frozen "
-            "history Context Encoder, never Forward Predictor or simulator theta"
+            "base-plus-residual Gaussian; the latent baseline residual sees the frozen tracker "
+            "action output, frozen history latent, and current robot/reference state, but never "
+            "the tracker processed feature, Forward Predictor, or simulator theta"
         ),
     }
     checkpoint_config = _checkpoint_configuration(

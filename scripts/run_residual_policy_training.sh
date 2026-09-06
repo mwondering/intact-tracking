@@ -12,7 +12,8 @@ usage() {
     "no-latent rejects: --forward-checkpoint" \
     "" \
     "The frozen tracker supplies the base action. The trainable actor outputs only" \
-    "a bounded residual; the latent variant runs only the frozen Context Encoder." \
+    "a bounded residual. The latent variant consumes that 29-D tracker output + latent +" \
+    "current 71-D robot state + current 71-D target reference; its 1645-D feature is excluded." \
     "Checkpoint step/interval disturbances (including random pushes) remain disabled." \
     "Use --nominal-physics for the no-DR control, or --no-nominal-physics with" \
     "--payload for the checkpoint-DR + payload treatment." \
@@ -160,7 +161,7 @@ printf '%s\n' \
   "  task/reward/critic: restored from the tracker checkpoint" \
   "  base policy: frozen; final PPO Gaussian is base mean + bounded residual" \
   "  initialization: zero residual and tracker checkpoint action std" \
-  "  actor observations: exact frozen-tracker processed observation" \
+  "  residual input: $([[ "${BASELINE}" == "latent" ]] && echo 'tracker 29-D output + latent + current 71-D robot state + current 71-D target reference' || echo 'frozen tracker 1645-D feature')" \
   "  latent: $([[ "${BASELINE}" == "latent" ]] && echo 'frozen 100-frame Context Encoder' || echo 'disabled')" \
   "  Forward Predictor/theta: never executed or exposed to the residual actor" \
   "  physics: ${physics_mode}" \

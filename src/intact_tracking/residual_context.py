@@ -14,10 +14,14 @@ from tensordict import TensorDict
 
 from intact_tracking.forward_predictor import DynamicsContextEncoder, ForwardPredictorConfig
 from intact_tracking.forward_predictor_inputs import ACTION_DIM, ROBOT_STATE_DIM
-from intact_tracking.rollout.mjlab_adapter import _robot_raw_state, _sha256
+from intact_tracking.rollout.mjlab_adapter import _reference_snapshot, _robot_raw_state, _sha256
 from intact_tracking.rollout.online import _read_motion_resample_boundary
 
-from .residual_policy import DYNAMICS_LATENT_GROUP
+from .residual_policy import (
+    DYNAMICS_LATENT_GROUP,
+    RESIDUAL_REFERENCE_STATE_GROUP,
+    RESIDUAL_ROBOT_STATE_GROUP,
+)
 
 
 @dataclass(frozen=True)
@@ -247,7 +251,7 @@ class DynamicsContextInference:
 
 
 class ResidualLatentVecEnvWrapper(RslRlVecEnvWrapper):
-    """RSL wrapper that appends a frozen, history-only dynamics latent."""
+    """Append a frozen latent and compact current-state/reference observations."""
 
     def __init__(
         self,
@@ -266,11 +270,28 @@ class ResidualLatentVecEnvWrapper(RslRlVecEnvWrapper):
         )
         self.motion_command = self.unwrapped.command_manager.get_term("motion")
         self._current_state = _robot_raw_state(self.unwrapped).detach().clone()
+        self._current_reference_state = self._read_reference_state()
         self._current_latent = self.context.encode(self._current_state)
         self._latent_rms = float(self._current_latent.square().mean().sqrt().item())
 
+    @torch.no_grad()
+    def _read_reference_state(self) -> torch.Tensor:
+        _, reference_state = _reference_snapshot(self.unwrapped)
+        return reference_state.detach().clone()
+
+    def _normalize_state(self, value: torch.Tensor) -> torch.Tensor:
+        return (value - self.context.checkpoint.state_mean) / self.context.checkpoint.state_std
+
     def _attach_latent(self, observations: TensorDict) -> TensorDict:
         observations.set(DYNAMICS_LATENT_GROUP, self._current_latent)
+        observations.set(
+            RESIDUAL_ROBOT_STATE_GROUP,
+            self._normalize_state(self._current_state),
+        )
+        observations.set(
+            RESIDUAL_REFERENCE_STATE_GROUP,
+            self._normalize_state(self._current_reference_state),
+        )
         return observations
 
     def get_observations(self) -> TensorDict:
@@ -280,6 +301,7 @@ class ResidualLatentVecEnvWrapper(RslRlVecEnvWrapper):
         observations, extras = super().reset()
         self.context.clear()
         self._current_state = _robot_raw_state(self.unwrapped).detach().clone()
+        self._current_reference_state = self._read_reference_state()
         self._current_latent = self.context.encode(self._current_state)
         return self._attach_latent(observations), extras
 
@@ -302,6 +324,7 @@ class ResidualLatentVecEnvWrapper(RslRlVecEnvWrapper):
         next_state = _robot_raw_state(self.unwrapped).detach().clone()
         self.context.append(state, target.detach(), boundary)
         self._current_state = next_state
+        self._current_reference_state = self._read_reference_state()
         self._current_latent = self.context.encode(next_state)
         self._latent_rms = float(self._current_latent.square().mean().sqrt().item())
         return self._attach_latent(observations), rewards, dones, extras

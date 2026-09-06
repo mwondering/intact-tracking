@@ -23,7 +23,11 @@ from intact_tracking.residual_context import (
     FrozenContextCheckpoint,
     load_frozen_context_checkpoint,
 )
-from intact_tracking.residual_policy import FrozenTrackerResidualActor, ResidualPPO
+from intact_tracking.residual_policy import (
+    TRACKER_OUTPUT_LATENT_STATE_REFERENCE_INPUT,
+    FrozenTrackerResidualActor,
+    ResidualPPO,
+)
 from intact_tracking.residual_runner import _initialize_logging_writer_collectively
 from intact_tracking.wandb_logger import RslWandbLogWriter
 
@@ -142,6 +146,65 @@ def test_residual_actor_moves_tracker_before_populating_initial_cache(
     )
 
     assert actor.tracker.was_moved
+
+
+def test_latent_residual_input_includes_tracker_output_and_current_state_reference(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        residual_policy_module,
+        "SPV52HeightContactEstimatorActor",
+        _FakeTracker,
+    )
+    checkpoint = tmp_path / "tracker.pt"
+    _fake_actor_checkpoint(checkpoint)
+    latent = torch.randn(4, 5)
+    robot_state = torch.randn(4, 7)
+    reference_state = torch.randn(4, 7)
+    obs = TensorDict(
+        {
+            "features": torch.randn(4, 3),
+            "dynamics_latent": latent,
+            "residual_robot_state": robot_state,
+            "residual_reference_state": reference_state,
+        },
+        batch_size=[4],
+    )
+    actor = FrozenTrackerResidualActor(
+        obs,
+        {"actor": ["features"]},
+        "actor",
+        2,
+        tracker_checkpoint=str(checkpoint),
+        tracker_actor_kwargs={},
+        tracker_obs_groups={"actor": ["features"]},
+        use_dynamics_latent=True,
+        dynamics_latent_dim=5,
+        residual_input_mode=TRACKER_OUTPUT_LATENT_STATE_REFERENCE_INPUT,
+        residual_state_dim=7,
+        residual_hidden_dims=(8, 4),
+    )
+
+    tracker_features, base_action = actor._base_features_and_action(obs)
+    compact = actor._residual_input(obs, tracker_features, base_action)
+
+    assert actor.residual_input_dim == 21
+    torch.testing.assert_close(
+        compact,
+        torch.cat((latent, robot_state, reference_state, base_action), dim=-1),
+    )
+    obs["features"].fill_(1234.0)
+    changed_tracker_features, _ = actor._base_features_and_action(obs)
+    torch.testing.assert_close(
+        actor._residual_input(obs, changed_tracker_features, base_action),
+        compact,
+    )
+    changed_base_action = base_action + 1.0
+    assert not torch.equal(
+        actor._residual_input(obs, tracker_features, changed_base_action),
+        compact,
+    )
 
 
 def test_residual_ppo_broadcasts_only_trainable_tensors_without_object_pickle(
@@ -464,6 +527,7 @@ def test_train_configuration_reuses_spv52_observations_and_ppo_hyperparameters()
         "critic": ["policy", "priv"],
     }
     assert train["actor"]["use_dynamics_latent"] is True
+    assert train["actor"]["residual_input_mode"] == TRACKER_OUTPUT_LATENT_STATE_REFERENCE_INPUT
     assert train["critic"]["initial_checkpoint"] == "tracker.pt"
     assert train["algorithm"]["clip_param"] == 0.2
     assert train["algorithm"]["actor_learning_rate"] == 1.0e-3

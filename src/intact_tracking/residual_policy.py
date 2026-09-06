@@ -19,8 +19,17 @@ from rsl_rl.utils import resolve_optimizer, unpad_trajectories
 from tensordict import TensorDict
 
 from intact_tracking.environment.policy import SPV52HeightContactEstimatorActor
+from intact_tracking.forward_predictor_inputs import ROBOT_STATE_DIM
 
 DYNAMICS_LATENT_GROUP = "dynamics_latent"
+RESIDUAL_ROBOT_STATE_GROUP = "residual_robot_state"
+RESIDUAL_REFERENCE_STATE_GROUP = "residual_reference_state"
+
+TRACKER_FEATURES_INPUT = "tracker_features"
+TRACKER_OUTPUT_LATENT_STATE_REFERENCE_INPUT = "tracker_output_latent_state_reference"
+_RESIDUAL_INPUT_MODES = frozenset(
+    (TRACKER_FEATURES_INPUT, TRACKER_OUTPUT_LATENT_STATE_REFERENCE_INPUT)
+)
 
 
 def _checkpoint_state(checkpoint: Mapping[str, Any], name: str) -> Mapping[str, torch.Tensor]:
@@ -62,6 +71,10 @@ class FrozenTrackerResidualActor(nn.Module):
         use_dynamics_latent: bool,
         dynamics_latent_group: str = DYNAMICS_LATENT_GROUP,
         dynamics_latent_dim: int = 64,
+        residual_input_mode: str = TRACKER_FEATURES_INPUT,
+        residual_robot_state_group: str = RESIDUAL_ROBOT_STATE_GROUP,
+        residual_reference_state_group: str = RESIDUAL_REFERENCE_STATE_GROUP,
+        residual_state_dim: int = ROBOT_STATE_DIM,
         residual_hidden_dims: Sequence[int] = (512, 256, 128),
         residual_activation: str = "elu",
         residual_scale: float = 0.25,
@@ -87,7 +100,25 @@ class FrozenTrackerResidualActor(nn.Module):
         self.use_dynamics_latent = bool(use_dynamics_latent)
         self.dynamics_latent_group = str(dynamics_latent_group)
         self.dynamics_latent_dim = int(dynamics_latent_dim)
+        self.residual_input_mode = str(residual_input_mode)
+        self.residual_robot_state_group = str(residual_robot_state_group)
+        self.residual_reference_state_group = str(residual_reference_state_group)
+        self.residual_state_dim = int(residual_state_dim)
         self.residual_scale = float(residual_scale)
+        if self.residual_input_mode not in _RESIDUAL_INPUT_MODES:
+            raise ValueError(
+                f"Unsupported residual_input_mode={self.residual_input_mode!r}; "
+                f"expected one of {sorted(_RESIDUAL_INPUT_MODES)}"
+            )
+        if self.residual_state_dim < 1:
+            raise ValueError("residual_state_dim must be positive")
+        if (
+            self.residual_input_mode == TRACKER_OUTPUT_LATENT_STATE_REFERENCE_INPUT
+            and not self.use_dynamics_latent
+        ):
+            raise ValueError(
+                "tracker_output_latent_state_reference input requires use_dynamics_latent=True"
+            )
 
         actor_kwargs = copy.deepcopy(dict(tracker_actor_kwargs))
         self.tracker = SPV52HeightContactEstimatorActor(
@@ -116,9 +147,25 @@ class FrozenTrackerResidualActor(nn.Module):
                 )
 
         tracker_feature_dim = int(self.tracker.policy_input_dim)
-        residual_input_dim = tracker_feature_dim + (
-            self.dynamics_latent_dim if self.use_dynamics_latent else 0
-        )
+        if self.residual_input_mode == TRACKER_OUTPUT_LATENT_STATE_REFERENCE_INPUT:
+            for group in (
+                self.residual_robot_state_group,
+                self.residual_reference_state_group,
+            ):
+                value = obs.get(group)
+                if not isinstance(value, torch.Tensor):
+                    raise KeyError(f"Compact latent residual policy requires observation {group!r}")
+                if value.ndim != 2 or value.size(-1) != self.residual_state_dim:
+                    raise ValueError(
+                        f"Residual state observation {group!r} must be "
+                        f"[N,{self.residual_state_dim}], got {tuple(value.shape)}"
+                    )
+            residual_input_dim = output_dim + self.dynamics_latent_dim + 2 * self.residual_state_dim
+        else:
+            residual_input_dim = tracker_feature_dim + (
+                self.dynamics_latent_dim if self.use_dynamics_latent else 0
+            )
+        self.residual_input_dim = residual_input_dim
         widths = tuple(int(width) for width in residual_hidden_dims)
         if not widths or any(width < 1 for width in widths):
             raise ValueError("residual_hidden_dims must contain positive widths")
@@ -175,12 +222,32 @@ class FrozenTrackerResidualActor(nn.Module):
             base_action = self.tracker.distribution.deterministic_output(tracker_output).detach()
         return features, base_action
 
-    def _residual_input(self, obs: TensorDict, tracker_features: torch.Tensor) -> torch.Tensor:
+    def _residual_input(
+        self,
+        obs: TensorDict,
+        tracker_features: torch.Tensor,
+        base_action: torch.Tensor,
+        *,
+        latent_override: torch.Tensor | None = None,
+    ) -> torch.Tensor:
         if not self.use_dynamics_latent:
             self.last_dynamics_latent = None
             return tracker_features
-        latent = obs[self.dynamics_latent_group].to(dtype=tracker_features.dtype).detach()
-        self.last_dynamics_latent = latent
+        latent_source = (
+            obs[self.dynamics_latent_group] if latent_override is None else latent_override
+        )
+        latent = latent_source.to(dtype=tracker_features.dtype).detach()
+        if latent_override is None:
+            self.last_dynamics_latent = latent
+        if self.residual_input_mode == TRACKER_OUTPUT_LATENT_STATE_REFERENCE_INPUT:
+            robot_state = (
+                obs[self.residual_robot_state_group].to(dtype=tracker_features.dtype).detach()
+            )
+            reference_state = (
+                obs[self.residual_reference_state_group].to(dtype=tracker_features.dtype).detach()
+            )
+            tracker_output = base_action.to(dtype=tracker_features.dtype).detach()
+            return torch.cat((latent, robot_state, reference_state, tracker_output), dim=-1)
         return torch.cat((tracker_features, latent), dim=-1)
 
     def _residual(self, value: torch.Tensor) -> torch.Tensor:
@@ -196,7 +263,7 @@ class FrozenTrackerResidualActor(nn.Module):
         del hidden_state
         obs = unpad_trajectories(obs, masks) if masks is not None else obs
         tracker_features, base_action = self._base_features_and_action(obs)
-        residual = self._residual(self._residual_input(obs, tracker_features))
+        residual = self._residual(self._residual_input(obs, tracker_features, base_action))
         mean = base_action + residual
         self.last_base_action = base_action
         self.last_residual_mean = residual.detach()
@@ -208,7 +275,7 @@ class FrozenTrackerResidualActor(nn.Module):
     @torch.no_grad()
     def policy_metrics(self, obs: TensorDict) -> dict[str, float]:
         tracker_features, base_action = self._base_features_and_action(obs)
-        normal = self._residual(self._residual_input(obs, tracker_features))
+        normal = self._residual(self._residual_input(obs, tracker_features, base_action))
         metrics = {
             "base_action_rms": float(base_action.square().mean().sqrt().item()),
             "residual_action_rms": float(normal.square().mean().sqrt().item()),
@@ -223,8 +290,22 @@ class FrozenTrackerResidualActor(nn.Module):
             )
             return metrics
         latent = obs[self.dynamics_latent_group].to(dtype=tracker_features.dtype)
-        shuffled = self._residual(torch.cat((tracker_features, latent.roll(1, dims=0)), dim=-1))
-        zeroed = self._residual(torch.cat((tracker_features, torch.zeros_like(latent)), dim=-1))
+        shuffled = self._residual(
+            self._residual_input(
+                obs,
+                tracker_features,
+                base_action,
+                latent_override=latent.roll(1, dims=0),
+            )
+        )
+        zeroed = self._residual(
+            self._residual_input(
+                obs,
+                tracker_features,
+                base_action,
+                latent_override=torch.zeros_like(latent),
+            )
+        )
         metrics.update(
             {
                 "latent_shuffle_action_delta_rms": float(
