@@ -1,0 +1,21 @@
+{
+  "version": "residual_uniform_wrist10_hand2p5_unbounded_v1",
+  "training_module": "intact_tracking.cli.residual_uniform_train",
+  "evaluation_module": "intact_tracking.cli.residual_uniform_eval",
+  "motion_sampling": "uniform",
+  "wrist_pitch_yaw_effort_limit_nm": 10.0,
+  "limb_max_masses_kg": [
+    2.5,
+    2.5,
+    4.0,
+    4.0
+  ],
+  "residual_output_bounded": false,
+  "residual_output_formula": "frozen_tracker_action + residual_mlp(inputs)",
+  "training_terminations": "original",
+  "policy_precision": "fp32",
+  "frozen_tracker_action_scale": "preserve",
+  "pd_gains": "preserve",
+  "config_file": "/data_zcy/wxy/intact-tracking/configs/experiments/residual_uniform_wrist10_hand2p5.json",
+  "run_root": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260914_fixed_dr_specialists8_uniform_unbounded_wrist10"
+}

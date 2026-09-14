@@ -1,0 +1,181 @@
+{
+  "passed": true,
+  "version": "residual_uniform_wrist10_hand2p5_unbounded_v1",
+  "all_eight_training": true,
+  "physics_contract": {
+    "version": "residual_uniform_wrist10_hand2p5_unbounded_v1",
+    "motion_sampling": "uniform",
+    "limb_max_masses_kg": [
+      2.5,
+      2.5,
+      4.0,
+      4.0
+    ],
+    "wrist_pitch_yaw_effort_limit_nm": 10.0,
+    "tracker_action_scale": "preserved from frozen tracker",
+    "pd_gains": "preserved"
+  },
+  "dr_bank_sha256": "0343a7b60f763492ec14a543d3481b94411496f5c7da4b3bf67a99d1b83e4a38",
+  "runs": [
+    {
+      "id": 0,
+      "profile": "all_0kg",
+      "gpu": 0,
+      "pid": 57386,
+      "completed_updates": 17,
+      "num_envs": 8192,
+      "loaded_motions": 129827,
+      "loaded_frames": 48085337,
+      "fixed_dr_fingerprint": "89e4a46065df96b2d29b34b90b3261c33f486554f3a2331f56153ff4fd1a96ae",
+      "residual_output_bounded": false,
+      "motion_sampling": "uniform",
+      "seconds_per_update": 4.510648012161255,
+      "wandb": {
+        "id": "uniform-specialist-79e87ef35ab1",
+        "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/uniform-specialist-79e87ef35ab1",
+        "project": "intact-preview-v2",
+        "group": "limb_context_20260914_fixed_dr_specialists8_uniform_unbounded_wrist10"
+      }
+    },
+    {
+      "id": 1,
+      "profile": "all_1kg",
+      "gpu": 1,
+      "pid": 57387,
+      "completed_updates": 15,
+      "num_envs": 8192,
+      "loaded_motions": 129827,
+      "loaded_frames": 48085337,
+      "fixed_dr_fingerprint": "301ea1a2e783aa98554318a4d27b0fff8bef0c0d258d508a4673d9c177fa270e",
+      "residual_output_bounded": false,
+      "motion_sampling": "uniform",
+      "seconds_per_update": 4.815515518188477,
+      "wandb": {
+        "id": "uniform-specialist-11ba765e613b",
+        "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/uniform-specialist-11ba765e613b",
+        "project": "intact-preview-v2",
+        "group": "limb_context_20260914_fixed_dr_specialists8_uniform_unbounded_wrist10"
+      }
+    },
+    {
+      "id": 2,
+      "profile": "all_2kg",
+      "gpu": 2,
+      "pid": 57388,
+      "completed_updates": 16,
+      "num_envs": 8192,
+      "loaded_motions": 129827,
+      "loaded_frames": 48085337,
+      "fixed_dr_fingerprint": "be4aa13f3ab76784e6e575e93f22eb7e5d112cb0497e0fbc55bce528d60989cd",
+      "residual_output_bounded": false,
+      "motion_sampling": "uniform",
+      "seconds_per_update": 4.556267023086548,
+      "wandb": {
+        "id": "uniform-specialist-6b53bcac06c3",
+        "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/uniform-specialist-6b53bcac06c3",
+        "project": "intact-preview-v2",
+        "group": "limb_context_20260914_fixed_dr_specialists8_uniform_unbounded_wrist10"
+      }
+    },
+    {
+      "id": 3,
+      "profile": "hands_2p5_shins_4kg",
+      "gpu": 3,
+      "pid": 57389,
+      "completed_updates": 16,
+      "num_envs": 8192,
+      "loaded_motions": 129827,
+      "loaded_frames": 48085337,
+      "fixed_dr_fingerprint": "e1a6736cafb2b1668829a5a368825eaae369d9f2a1cfe27a970019239e50ceb7",
+      "residual_output_bounded": false,
+      "motion_sampling": "uniform",
+      "seconds_per_update": 4.491359233856201,
+      "wandb": {
+        "id": "uniform-specialist-79c51abab88e",
+        "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/uniform-specialist-79c51abab88e",
+        "project": "intact-preview-v2",
+        "group": "limb_context_20260914_fixed_dr_specialists8_uniform_unbounded_wrist10"
+      }
+    },
+    {
+      "id": 4,
+      "profile": "hands_2p5kg",
+      "gpu": 4,
+      "pid": 57390,
+      "completed_updates": 16,
+      "num_envs": 8192,
+      "loaded_motions": 129827,
+      "loaded_frames": 48085337,
+      "fixed_dr_fingerprint": "febd16e79c169239a103fec5b2147c7662bb2a4ee8d55b55c0c47b51803f0f2d",
+      "residual_output_bounded": false,
+      "motion_sampling": "uniform",
+      "seconds_per_update": 4.654608726501465,
+      "wandb": {
+        "id": "uniform-specialist-b7b225c3df5f",
+        "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/uniform-specialist-b7b225c3df5f",
+        "project": "intact-preview-v2",
+        "group": "limb_context_20260914_fixed_dr_specialists8_uniform_unbounded_wrist10"
+      }
+    },
+    {
+      "id": 5,
+      "profile": "shins_4kg",
+      "gpu": 5,
+      "pid": 57391,
+      "completed_updates": 15,
+      "num_envs": 8192,
+      "loaded_motions": 129827,
+      "loaded_frames": 48085337,
+      "fixed_dr_fingerprint": "77d3d1c9a607d786913cdd3c6241205ffcc3502680319cf5e6c431895eeeee5d",
+      "residual_output_bounded": false,
+      "motion_sampling": "uniform",
+      "seconds_per_update": 4.829757452011108,
+      "wandb": {
+        "id": "uniform-specialist-6d97d8ba03ad",
+        "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/uniform-specialist-6d97d8ba03ad",
+        "project": "intact-preview-v2",
+        "group": "limb_context_20260914_fixed_dr_specialists8_uniform_unbounded_wrist10"
+      }
+    },
+    {
+      "id": 6,
+      "profile": "left_hand_2p5_shin_4kg",
+      "gpu": 6,
+      "pid": 57392,
+      "completed_updates": 17,
+      "num_envs": 8192,
+      "loaded_motions": 129827,
+      "loaded_frames": 48085337,
+      "fixed_dr_fingerprint": "1cafe8ce924d113b7b689602635e37859cbafdc9b66d9bae125daa0735920c20",
+      "residual_output_bounded": false,
+      "motion_sampling": "uniform",
+      "seconds_per_update": 4.399174690246582,
+      "wandb": {
+        "id": "uniform-specialist-1a8b8772894c",
+        "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/uniform-specialist-1a8b8772894c",
+        "project": "intact-preview-v2",
+        "group": "limb_context_20260914_fixed_dr_specialists8_uniform_unbounded_wrist10"
+      }
+    },
+    {
+      "id": 7,
+      "profile": "right_hand_2p5_shin_4kg",
+      "gpu": 7,
+      "pid": 57393,
+      "completed_updates": 17,
+      "num_envs": 8192,
+      "loaded_motions": 129827,
+      "loaded_frames": 48085337,
+      "fixed_dr_fingerprint": "32ec66fe131812ed2d314ea70ec3cd949865abd2f47322516c6ed2176d764117",
+      "residual_output_bounded": false,
+      "motion_sampling": "uniform",
+      "seconds_per_update": 4.425135850906372,
+      "wandb": {
+        "id": "uniform-specialist-1faebc352d7f",
+        "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/uniform-specialist-1faebc352d7f",
+        "project": "intact-preview-v2",
+        "group": "limb_context_20260914_fixed_dr_specialists8_uniform_unbounded_wrist10"
+      }
+    }
+  ]
+}

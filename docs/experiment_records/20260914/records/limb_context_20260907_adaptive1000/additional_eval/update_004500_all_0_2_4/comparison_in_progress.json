@@ -1,0 +1,352 @@
+{
+  "completed_training_updates": 4500,
+  "training_seed": 121,
+  "loads_kg": [
+    0,
+    2,
+    4
+  ],
+  "motions_per_policy_per_load": 4096,
+  "seed": 20001,
+  "steps": 500,
+  "source_request": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907_adaptive1000/additional_eval/update_004500_all_0_2_4/request.json",
+  "cases": {
+    "all_0": {
+      "mass_per_limb_kg": 0,
+      "policies": {
+        "baseline_121": {
+          "mean": {
+            "error_body_pos": 0.042977716998929626,
+            "error_joint_pos": 0.5913099176460661,
+            "error_anchor_pos": 0.17465888893981127,
+            "error_anchor_rot": 0.08373250650097655,
+            "error_body_rot": 0.1851261915201662,
+            "error_joint_vel": 3.3498641685511257,
+            "error_anchor_lin_vel": 0.1529744038624915,
+            "error_anchor_ang_vel": 0.4168615236744636,
+            "error_body_lin_vel": 0.19530012796237095,
+            "error_body_ang_vel": 0.8529952999338142
+          },
+          "failure_rate": 0.000732421875,
+          "coverage_fraction": 0.999600887298584,
+          "mean_episode_return": 83.24749852737835,
+          "residual_saturation_fraction": 0.6140970240189547,
+          "checkpoint_sha256": "fa7c6c4fa1a3a66a0361769a60305db88173932bf3d967e301952fce26316389",
+          "failure_count": 3
+        },
+        "film_121": {
+          "mean": {
+            "error_body_pos": 0.03808456288443836,
+            "error_joint_pos": 0.5655460927066696,
+            "error_anchor_pos": 0.14344878889932502,
+            "error_anchor_rot": 0.08430722067019104,
+            "error_body_rot": 0.17845213479042066,
+            "error_joint_vel": 3.4030413680499967,
+            "error_anchor_lin_vel": 0.14267340252542837,
+            "error_anchor_ang_vel": 0.4148760658480335,
+            "error_body_lin_vel": 0.18905488106546042,
+            "error_body_ang_vel": 0.8635990312904783
+          },
+          "failure_rate": 0.001220703125,
+          "coverage_fraction": 0.9993329644203186,
+          "mean_episode_return": 84.1428938276207,
+          "residual_saturation_fraction": 0.5428176536490316,
+          "checkpoint_sha256": "865ba758b28a53d1f22e9b1edc3f5f91dc2eeaba219940673a60acb1e552a957",
+          "failure_count": 5
+        }
+      },
+      "comparison": {
+        "motions": 4096,
+        "means": {
+          "reference_body": 0.04297771699892966,
+          "reference_joint": 0.5913099176460647,
+          "candidate_body": 0.03808456288443834,
+          "candidate_joint": 0.5655460927066698,
+          "reference_failure": 0.000732421875,
+          "candidate_failure": 0.001220703125,
+          "reference_coverage": 0.999600895798627,
+          "candidate_coverage": 0.9993329850281997,
+          "reference_return": 83.24749852737835,
+          "candidate_return": 84.1428938276207,
+          "reference_common_body": 0.04297462339056395,
+          "reference_common_joint": 0.5912724649753708,
+          "candidate_common_body": 0.03808894721870171,
+          "candidate_common_joint": 0.5655764589745714
+        },
+        "candidate_over_reference_body_joint": [
+          0.8861467184352025,
+          0.9564292358870664
+        ],
+        "body_joint_ratio_ci95": [
+          [
+            0.8829332955017364,
+            0.8892691084408434
+          ],
+          [
+            0.9543675998113264,
+            0.9585666613562641
+          ]
+        ],
+        "failure_rate_delta": 0.00048828125,
+        "failure_rate_delta_ci95": [
+          -0.00048828125,
+          0.00146484375
+        ],
+        "coverage_delta": -0.00026791077042731537,
+        "coverage_delta_ci95": [
+          -0.000884846257869204,
+          0.00019494396254104984
+        ],
+        "episode_return_delta": 0.8953953002423418,
+        "episode_return_delta_ci95": [
+          0.8324871482948651,
+          0.9461098824536562
+        ],
+        "common_prefix_body_joint_ratio": [
+          0.8863125308287167,
+          0.9565411759841215
+        ],
+        "common_prefix_body_joint_ratio_ci95": [
+          [
+            0.8831172015289123,
+            0.8894298144062828
+          ],
+          [
+            0.9544472439750256,
+            0.9586457340908965
+          ]
+        ],
+        "new_failure_episodes": 3,
+        "rescued_failure_episodes": 1,
+        "uncertainty": "paired motion bootstrap conditional on this training seed; not training-seed uncertainty",
+        "scope": "new starts and loads on the training motion catalog; not unseen-motion generalization"
+      },
+      "source": "verified scheduled evaluation"
+    },
+    "all_4": {
+      "mass_per_limb_kg": 4,
+      "policies": {
+        "baseline_121": {
+          "mean": {
+            "error_body_pos": 0.07079299416812618,
+            "error_joint_pos": 0.9853210824891756,
+            "error_anchor_pos": 0.41874919250226345,
+            "error_anchor_rot": 0.12449109658522851,
+            "error_body_rot": 0.31059437982489635,
+            "error_joint_vel": 6.58707247991723,
+            "error_anchor_lin_vel": 0.3024716213214285,
+            "error_anchor_ang_vel": 0.7742559811234543,
+            "error_body_lin_vel": 0.4076309867424329,
+            "error_body_ang_vel": 1.8255587397307043
+          },
+          "failure_rate": 0.101806640625,
+          "coverage_fraction": 0.9391509294509888,
+          "mean_episode_return": 67.52175935566976,
+          "residual_saturation_fraction": 0.6960392494873648,
+          "checkpoint_sha256": "fa7c6c4fa1a3a66a0361769a60305db88173932bf3d967e301952fce26316389",
+          "failure_count": 417
+        },
+        "film_121": {
+          "mean": {
+            "error_body_pos": 0.06948172242753091,
+            "error_joint_pos": 0.9716856414984659,
+            "error_anchor_pos": 0.40586512186116375,
+            "error_anchor_rot": 0.11654238666308846,
+            "error_body_rot": 0.3066462902045587,
+            "error_joint_vel": 6.606080111376052,
+            "error_anchor_lin_vel": 0.29390943317437557,
+            "error_anchor_ang_vel": 0.7747245690001916,
+            "error_body_lin_vel": 0.39942859141746845,
+            "error_body_ang_vel": 1.804761766231132
+          },
+          "failure_rate": 0.091552734375,
+          "coverage_fraction": 0.9457379579544067,
+          "mean_episode_return": 68.32851068784599,
+          "residual_saturation_fraction": 0.6928360593020118,
+          "checkpoint_sha256": "865ba758b28a53d1f22e9b1edc3f5f91dc2eeaba219940673a60acb1e552a957",
+          "failure_count": 375
+        }
+      },
+      "comparison": {
+        "motions": 4096,
+        "means": {
+          "reference_body": 0.0707929941681262,
+          "reference_joint": 0.9853210824891769,
+          "candidate_body": 0.0694817224275309,
+          "candidate_joint": 0.9716856414984658,
+          "reference_failure": 0.101806640625,
+          "candidate_failure": 0.091552734375,
+          "reference_coverage": 0.9391508659950712,
+          "candidate_coverage": 0.9457379397982535,
+          "reference_return": 67.52175935566976,
+          "candidate_return": 68.32851068784599,
+          "reference_common_body": 0.07039655884628752,
+          "reference_common_joint": 0.9820040863153011,
+          "candidate_common_body": 0.0688739441579099,
+          "candidate_common_joint": 0.9673432074954746
+        },
+        "candidate_over_reference_body_joint": [
+          0.9814773798452263,
+          0.9861614236891547
+        ],
+        "body_joint_ratio_ci95": [
+          [
+            0.9759774161445063,
+            0.987057214223342
+          ],
+          [
+            0.9824706897474854,
+            0.9896570242732602
+          ]
+        ],
+        "failure_rate_delta": -0.01025390625,
+        "failure_rate_delta_ci95": [
+          -0.016845703125,
+          -0.003662109375
+        ],
+        "coverage_delta": 0.006587073803182242,
+        "coverage_delta_ci95": [
+          0.0030141799823379194,
+          0.010372461690594473
+        ],
+        "episode_return_delta": 0.8067513321762334,
+        "episode_return_delta_ci95": [
+          0.5255553828256992,
+          1.0736272530917585
+        ],
+        "common_prefix_body_joint_ratio": [
+          0.9783708932179158,
+          0.985070450292282
+        ],
+        "common_prefix_body_joint_ratio_ci95": [
+          [
+            0.9737249888093248,
+            0.9830930976305623
+          ],
+          [
+            0.9820253407431673,
+            0.9880755847398087
+          ]
+        ],
+        "new_failure_episodes": 72,
+        "rescued_failure_episodes": 114,
+        "uncertainty": "paired motion bootstrap conditional on this training seed; not training-seed uncertainty",
+        "scope": "new starts and loads on the training motion catalog; not unseen-motion generalization"
+      },
+      "source": "verified scheduled evaluation"
+    },
+    "all_2": {
+      "mass_per_limb_kg": 2,
+      "policies": {
+        "baseline_121": {
+          "mean": {
+            "error_body_pos": 0.04507336414002229,
+            "error_joint_pos": 0.6885142172444959,
+            "error_anchor_pos": 0.2074465521421706,
+            "error_anchor_rot": 0.0900320378084923,
+            "error_body_rot": 0.21467994882146138,
+            "error_joint_vel": 4.453230038515856,
+            "error_anchor_lin_vel": 0.18962957432943542,
+            "error_anchor_ang_vel": 0.5110389386608333,
+            "error_body_lin_vel": 0.2709788022072379,
+            "error_body_ang_vel": 1.2708184390605202
+          },
+          "failure_rate": 0.00830078125,
+          "coverage_fraction": 0.9952167272567749,
+          "mean_episode_return": 80.09507745348014,
+          "residual_saturation_fraction": 0.6559943929787591,
+          "checkpoint_sha256": "fa7c6c4fa1a3a66a0361769a60305db88173932bf3d967e301952fce26316389",
+          "failure_count": 34
+        },
+        "film_121": {
+          "mean": {
+            "error_body_pos": 0.04312947680865949,
+            "error_joint_pos": 0.674833259971624,
+            "error_anchor_pos": 0.19840414251747013,
+            "error_anchor_rot": 0.08404231026766462,
+            "error_body_rot": 0.20938114493800958,
+            "error_joint_vel": 4.53925649567406,
+            "error_anchor_lin_vel": 0.18494406422632423,
+            "error_anchor_ang_vel": 0.515740445210455,
+            "error_body_lin_vel": 0.2671257647716163,
+            "error_body_ang_vel": 1.2736019225325141
+          },
+          "failure_rate": 0.007568359375,
+          "coverage_fraction": 0.9959312081336975,
+          "mean_episode_return": 80.61684221764577,
+          "residual_saturation_fraction": 0.6479135703985901,
+          "checkpoint_sha256": "865ba758b28a53d1f22e9b1edc3f5f91dc2eeaba219940673a60acb1e552a957",
+          "failure_count": 31
+        }
+      },
+      "comparison": {
+        "motions": 4096,
+        "means": {
+          "reference_body": 0.045073364140022346,
+          "reference_joint": 0.6885142172444957,
+          "candidate_body": 0.04312947680865943,
+          "candidate_joint": 0.6748332599716256,
+          "reference_failure": 0.00830078125,
+          "candidate_failure": 0.007568359375,
+          "reference_coverage": 0.9952166879285632,
+          "candidate_coverage": 0.9959312224078452,
+          "reference_return": 80.09507745348014,
+          "candidate_return": 80.61684221764577,
+          "reference_common_body": 0.04506258686260707,
+          "reference_common_joint": 0.6883927096169714,
+          "candidate_common_body": 0.04313710887517221,
+          "candidate_common_joint": 0.6750087021610744
+        },
+        "candidate_over_reference_body_joint": [
+          0.956872814611216,
+          0.9801297388925058
+        ],
+        "body_joint_ratio_ci95": [
+          [
+            0.9533964616482913,
+            0.9605403578626642
+          ],
+          [
+            0.9779126624698634,
+            0.9823745217756794
+          ]
+        ],
+        "failure_rate_delta": -0.000732421875,
+        "failure_rate_delta_ci95": [
+          -0.0029296875,
+          0.001708984375
+        ],
+        "coverage_delta": 0.0007145344792819364,
+        "coverage_delta_ci95": [
+          -0.0006117973938661619,
+          0.002066737290812126
+        ],
+        "episode_return_delta": 0.5217647641656242,
+        "episode_return_delta_ci95": [
+          0.40392543503430645,
+          0.6417591988704622
+        ],
+        "common_prefix_body_joint_ratio": [
+          0.9572710285517891,
+          0.9805575984915006
+        ],
+        "common_prefix_body_joint_ratio_ci95": [
+          [
+            0.9540731496651385,
+            0.9605099703891042
+          ],
+          [
+            0.9786041146793409,
+            0.982509773738222
+          ]
+        ],
+        "new_failure_episodes": 11,
+        "rescued_failure_episodes": 14,
+        "uncertainty": "paired motion bootstrap conditional on this training seed; not training-seed uncertainty",
+        "scope": "new starts and loads on the training motion catalog; not unseen-motion generalization"
+      },
+      "source": "new supplementary evaluation"
+    }
+  },
+  "complete": false
+}

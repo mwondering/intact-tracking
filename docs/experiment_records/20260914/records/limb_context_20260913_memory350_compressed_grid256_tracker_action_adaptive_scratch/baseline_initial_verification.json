@@ -1,0 +1,50 @@
+{
+  "passed": true,
+  "checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260913_memory350_compressed_grid256_tracker_action_adaptive_scratch/ppo/baseline_121/checkpoint_update_000000.pt",
+  "checkpoint_sha256": "adde9c60653dc739bfb85868c9646eff5f70acd4d18de43108597ce4483fae05",
+  "completed_updates": 0,
+  "optimizer_state_empty": true,
+  "all_initial_tensors_finite": true,
+  "adaptive_from_start": true,
+  "ee_height_threshold_m": 0.5,
+  "ee_enabled_all_four_ranks": true,
+  "sampling_checkpoint_ranks": 4,
+  "context_frozen": true,
+  "input_audit": {
+    "action_std_initialization": 0.25,
+    "actor_common_trunk_sha256": "dc26bcad880aa567f0cf1143856e78f7ccb9870ab1a7554a04b9ef77a8be3e9e",
+    "actor_compression": [
+      1645,
+      512,
+      256,
+      128
+    ],
+    "actor_fusion_input_dim": 221,
+    "actor_initialization_seed": 10128,
+    "actor_original_features": 1645,
+    "actor_trainable_parameters": 1100474,
+    "baseline_latent_slot": "zeros before the common residual/value heads",
+    "critic_common_trunk_sha256": "87bbb196b38335d55c02dcfc59896d973adf93fe35cefc17d7dd22bdd077e76b",
+    "critic_compression": [
+      6330,
+      1024,
+      512,
+      256,
+      128
+    ],
+    "critic_fusion_input_dim": 192,
+    "critic_initial_normalizer_count": 32768.0,
+    "critic_initial_normalizer_sha256": "4fec41c020679bf79f38e0185904eef03c0195105d63f604b33ab511b72bda25",
+    "critic_initialization_seed": 20124,
+    "critic_original_features": 6330,
+    "critic_trainable_parameters": 7254401,
+    "fusion_input_dim": 221,
+    "identical_initial_action": true,
+    "initial_value_independent_of_latent": true,
+    "latent_dimensions": 0,
+    "latent_slot_dim": 64,
+    "tracker_action_input": "current deterministic raw tracker mean; exact same tensor values as additive base action",
+    "tracker_action_input_dim": 29
+  },
+  "verified_at": 1789305240.1467195
+}

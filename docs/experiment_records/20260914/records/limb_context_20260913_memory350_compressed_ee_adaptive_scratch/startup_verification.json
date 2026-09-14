@@ -1,0 +1,58 @@
+{
+  "passed": true,
+  "initialization": "scratch",
+  "adaptive_after_update": 0,
+  "maximum_updates": null,
+  "original_ee_height_termination": true,
+  "actor_initial_weights_identical": true,
+  "critic_initial_trainable_weights_identical": true,
+  "critic_initial_normalizer_max_abs_difference": {
+    "obs_normalizer.sum": 93.66650390625,
+    "obs_normalizer.ssq": 12649.0,
+    "obs_normalizer.count": 0.0
+  },
+  "optimizer_states_initially_empty": true,
+  "context_encoder_and_normalization_frozen": true,
+  "critic_normalizers_fresh_independent_first_batches": true,
+  "critic_normalizers_bitwise_equal": false,
+  "arms": {
+    "baseline": {
+      "progress": {
+        "completed_updates": 53,
+        "unix_time": 1789267390.1643522
+      },
+      "first_six_updates_finite_and_adaptive": true,
+      "initial_endpoint_training_state_preserved": true,
+      "initial_endpoint_wall_seconds": 240.13347770646214,
+      "wandb": {
+        "id": "m350compressed-43cb8d622e96",
+        "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/m350compressed-43cb8d622e96",
+        "project": "intact-preview-v2",
+        "group": "limb_context_20260913_memory350_compressed_ee_adaptive_scratch"
+      }
+    },
+    "concat": {
+      "progress": {
+        "completed_updates": 29,
+        "unix_time": 1789267390.1874816
+      },
+      "first_six_updates_finite_and_adaptive": true,
+      "initial_endpoint_training_state_preserved": true,
+      "initial_endpoint_wall_seconds": 267.8329732641578,
+      "wandb": {
+        "id": "m350compressed-a71787775410",
+        "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/m350compressed-a71787775410",
+        "project": "intact-preview-v2",
+        "group": "limb_context_20260913_memory350_compressed_ee_adaptive_scratch"
+      }
+    }
+  },
+  "verified_at": 1789267395.0931082,
+  "critic_initial_normalizer_comparison": {
+    "max_mean_difference_in_std_units": 0.0020870340522378683,
+    "max_relative_std_difference": 0.013825601898133755,
+    "mean_relative_std_difference": 0.00043597453623078763,
+    "fresh_count_per_arm": 32768,
+    "note": "Fresh independently observed moments are not bitwise identical; trainable initial weights are identical."
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "passed": true,
+  "checks": {
+    "four_gpus_4567": true,
+    "same_normalization_and_validation": true,
+    "physics_matched": true,
+    "nominal50": true,
+    "independent_5000_cap": true,
+    "positive_loss_active": true,
+    "negative_loss_active": true,
+    "finite_metrics": true,
+    "old_2x_workers_stopped": true,
+    "reference_checkpoint_unchanged": true,
+    "reviewed_sources_unchanged": true
+  },
+  "progress": {
+    "completed_updates": 111,
+    "optimizer_steps": 444,
+    "stop_after_updates": 5000,
+    "unbounded": false,
+    "unix_time": 1789186916.4131567
+  },
+  "last_validation_update": 100,
+  "optimization_train": {
+    "gradient_norm": 5.141185760498047,
+    "loss": 2.021940231323242,
+    "prediction_loss": 2.0073056519031525,
+    "representation_loss": 1.3717842996120453,
+    "weak_negative_active_fraction": 0.9756136834621429,
+    "weak_negative_loss": 0.31797491759061813,
+    "weak_negative_pairs": 2458.453125,
+    "weak_negative_unit_distance": 0.4870029091835022,
+    "weak_pair_weighted_loss": 0.0009167775569949299,
+    "weak_positive_age_steps": 503.24058532714844,
+    "weak_positive_fraction_of_full_dr": 0.9641477763652802,
+    "weak_positive_loss": 0.14041383937001228,
+    "weak_positive_pairs": 67.75,
+    "weak_positive_unit_distance": 0.4768194109201431
+  },
+  "dr_five_step_nmse": 0.2939952611923218,
+  "weak_pair_contract": {
+    "additional_sampling_rng_independent_of_base_replay": true,
+    "archive_dtype": "float32 raw interactions; re-encoded with current weights",
+    "archive_interval_control_steps": 200,
+    "archive_slots_per_dr_world": 4,
+    "negative": "all distinct DR world pairs in a microbatch, full histories, no motion/phase matching",
+    "negative_loss": "mean(relu(margin - unit_L2_distance)^2) over unordered distinct DR pairs",
+    "nominal_worlds_are_not_negative_classes": true,
+    "positive": "same fixed-physics world and session, different motion, disjoint full 350-step raw histories",
+    "positive_loss": "mean(1 - cosine(unit_anchor, unit_positive)) over valid DR positives",
+    "weights_are_total_loss_coefficients": true
+  },
+  "wandb": {
+    "id": "m350weak-5ecc3182e543",
+    "url": "https://wandb.ai/2486344338-zhejiang-university/intact-forward-predictor/runs/m350weak-5ecc3182e543"
+  },
+  "unix_time": 1789186918.3936274
+}

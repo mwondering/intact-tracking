@@ -1,0 +1,10 @@
+{
+  "passed": true,
+  "verified_at": 1788848115.0904946,
+  "reporter_pid": 24478,
+  "reported_count": 6,
+  "live_new_test_verified": "baseline_121/update_000400",
+  "reported_once_in_summary_and_training_log": true,
+  "training_processes_unchanged": true,
+  "no_additional_resume": true
+}

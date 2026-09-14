@@ -1,0 +1,16 @@
+{
+  "common": {
+    "passed": true,
+    "models_per_pair": 4,
+    "click_pairs": 3,
+    "total_samples": 492,
+    "method": "Execute actual HTML click handler in V8 with DOM/event mock; compare against independent NumPy distances"
+  },
+  "memory_training": {
+    "passed": true,
+    "models_per_pair": 4,
+    "click_pairs": 3,
+    "total_samples": 416,
+    "method": "Execute actual HTML click handler in V8 with DOM/event mock; compare against independent NumPy distances"
+  }
+}

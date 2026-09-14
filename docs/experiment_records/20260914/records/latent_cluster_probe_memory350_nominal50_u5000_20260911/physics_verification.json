@@ -1,0 +1,18 @@
+{
+  "common": {
+    "same_as_previous_probe": true,
+    "shape": [
+      1024,
+      34
+    ],
+    "max_abs_difference": 0.0
+  },
+  "memory_training": {
+    "same_as_previous_probe": true,
+    "shape": [
+      512,
+      38
+    ],
+    "max_abs_difference": 0.0
+  }
+}

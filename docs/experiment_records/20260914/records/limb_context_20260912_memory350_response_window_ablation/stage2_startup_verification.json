@@ -1,0 +1,311 @@
+{
+  "passed": true,
+  "verified_at": 1789240289.273785,
+  "stage1_updates": 15000,
+  "selected_context": {
+    "checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260912_memory350_response_window_ablation/response10/stage1_8192/update_015000.pt",
+    "sha256": "db5d7bd7df026db163b9eedf588d37dcc81b55551d28afe3744f67a8ab2642ac",
+    "update": 15000,
+    "selected_arm": "response10",
+    "scores": {
+      "baseline": {
+        "dr_payload_top1": 0.8102136906917783,
+        "ordinary_dr_top1": 0.29378172588832485,
+        "dr_payload_top5": 0.9366171676928648
+      },
+      "memory350": {
+        "dr_payload_top1": 0.8160086925027165,
+        "ordinary_dr_top1": 0.2645939086294416,
+        "dr_payload_top5": 0.939514668598334
+      }
+    },
+    "decision_rule": "maximum DR+payload strict cross-motion Top1; ties use ordinary DR Top1, then DR+payload Top5, then response5",
+    "fixed_diagnostic_known_environments_only": true,
+    "comparison_summary": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260912_memory350_response_window_ablation/comparison_015000/summary.json",
+    "comparison_sha256": "4c6ddce3426f0b157babfc6d19e930424f5220e93561dff088bbaba6edd08eef",
+    "prediction_diagnostic": {
+      "validation_sha256": {
+        "validation_broad_rank_0.pt": "e8634bbc798de938f55a624d0f5c2d66692ab2e6ad8a955eb6346827d14afe72",
+        "validation_broad_rank_1.pt": "46a747186d0b2fa5d1b55b376de48990db8d106d3ccf4273c534f158854bb253",
+        "validation_broad_rank_2.pt": "4f2dee0be52c526090c428463e7e8408b42b7e7c73bb5f2775f57db7874d39e1",
+        "validation_broad_rank_3.pt": "06dce4566ea216e57f4637f09e335745be846304038ab0fd756ad924a1ea7920"
+      },
+      "groups": {
+        "nominal": {
+          "samples": 1018,
+          "worlds": 246,
+          "baseline_nmse": 0.006343027576804161,
+          "candidate_nmse": 0.006310279946774244,
+          "candidate_to_baseline_error_ratio": 0.9948372840881348,
+          "paired_world_ratio_ci95": [
+            0.9707379769470168,
+            1.0155782183469746
+          ]
+        },
+        "dr": {
+          "samples": 1030,
+          "worlds": 249,
+          "baseline_nmse": 0.043991006910800934,
+          "candidate_nmse": 0.04319748654961586,
+          "candidate_to_baseline_error_ratio": 0.981961727142334,
+          "paired_world_ratio_ci95": [
+            0.9670907245276962,
+            0.9966809521469772
+          ]
+        }
+      },
+      "history_groups": {
+        "dr_full350": {
+          "samples": 157,
+          "worlds": 113,
+          "baseline_nmse": 0.018300598487257957,
+          "candidate_nmse": 0.018683042377233505,
+          "candidate_to_baseline_error_ratio": 1.0208978652954102,
+          "paired_world_ratio_ci95": [
+            0.9888895256907375,
+            1.0594154499385406
+          ]
+        },
+        "dr_full_long_incomplete_short": {
+          "samples": 226,
+          "worlds": 129,
+          "baseline_nmse": 0.021242408081889153,
+          "candidate_nmse": 0.021280886605381966,
+          "candidate_to_baseline_error_ratio": 1.0018113851547241,
+          "paired_world_ratio_ci95": [
+            0.9492118453438325,
+            1.0465235108819628
+          ]
+        },
+        "dr_partial_long": {
+          "samples": 494,
+          "worlds": 207,
+          "baseline_nmse": 0.0199178047478199,
+          "candidate_nmse": 0.019766313955187798,
+          "candidate_to_baseline_error_ratio": 0.992394208908081,
+          "paired_world_ratio_ci95": [
+            0.9668048733478728,
+            1.0162210110300955
+          ]
+        },
+        "dr_no_long": {
+          "samples": 153,
+          "worlds": 118,
+          "baseline_nmse": 0.16409450769424438,
+          "candidate_nmse": 0.1593673974275589,
+          "candidate_to_baseline_error_ratio": 0.9711927771568298,
+          "paired_world_ratio_ci95": [
+            0.9531033526976553,
+            0.9878831608061629
+          ]
+        }
+      }
+    },
+    "selected_at": 1789238944.222227
+  },
+  "source_files_verified": 152,
+  "supervisor_pid": 59204,
+  "maximum_updates": null,
+  "arms": {
+    "baseline": {
+      "job_pid": 59220,
+      "process_start_ticks": 1442787901,
+      "workers": [
+        {
+          "pid": 59289,
+          "rank": 0,
+          "physical_gpu": 0
+        },
+        {
+          "pid": 59290,
+          "rank": 1,
+          "physical_gpu": 1
+        },
+        {
+          "pid": 59291,
+          "rank": 2,
+          "physical_gpu": 2
+        },
+        {
+          "pid": 59292,
+          "rank": 3,
+          "physical_gpu": 3
+        }
+      ],
+      "progress": {
+        "completed_updates": 152,
+        "unix_time": 1789240287.447141
+      },
+      "latest_metrics_update": 152,
+      "recent_metrics_finite": true,
+      "latest_loss": {
+        "value": 0.27963550500571727,
+        "surrogate": -0.0031152126374763608,
+        "entropy": -14.238268709182739,
+        "base_action_rms": 1.522266298532486,
+        "residual_action_rms": 0.13796239346265793,
+        "residual_action_abs_max": 0.2499999925494194,
+        "latent_shuffle_action_delta_rms": 0.0,
+        "latent_zero_action_delta_rms": 0.0,
+        "residual_saturation_fraction": 0.11447020806372166
+      },
+      "input_audit": {
+        "action_std_initialization": 0.25,
+        "actor_common_trunk_sha256": "eb449f3c5663ed8ba7dd14ebc8c8b695730f3122cedcd0a8677da46dbeda08ec",
+        "actor_compression": [
+          1645,
+          512,
+          256,
+          128
+        ],
+        "actor_initialization_seed": 10128,
+        "actor_original_features": 1645,
+        "actor_trainable_parameters": 1093050,
+        "baseline_latent_slot": "zeros before the common residual/value heads",
+        "critic_common_trunk_sha256": "87bbb196b38335d55c02dcfc59896d973adf93fe35cefc17d7dd22bdd077e76b",
+        "critic_compression": [
+          6330,
+          1024,
+          512,
+          256,
+          128
+        ],
+        "critic_initial_normalizer_count": 32768.0,
+        "critic_initial_normalizer_sha256": "40bb636d9ff38b7fee43b23eb6d9f924f360f211d6e9699113bab7e864d78544",
+        "critic_initialization_seed": 20124,
+        "critic_original_features": 6330,
+        "critic_trainable_parameters": 7254401,
+        "fusion_input_dim": 192,
+        "identical_initial_action": true,
+        "initial_value_independent_of_latent": true,
+        "latent_dimensions": 0,
+        "latent_slot_dim": 64
+      },
+      "wandb": {
+        "id": "m350compressed-e2e02bc8edf0",
+        "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/m350compressed-e2e02bc8edf0",
+        "project": "intact-preview-v2",
+        "group": "limb_context_20260912_memory350_response_window_ablation"
+      }
+    },
+    "concat": {
+      "job_pid": 59221,
+      "process_start_ticks": 1442787902,
+      "workers": [
+        {
+          "pid": 59301,
+          "rank": 0,
+          "physical_gpu": 4
+        },
+        {
+          "pid": 59302,
+          "rank": 1,
+          "physical_gpu": 5
+        },
+        {
+          "pid": 59303,
+          "rank": 2,
+          "physical_gpu": 6
+        },
+        {
+          "pid": 59304,
+          "rank": 3,
+          "physical_gpu": 7
+        }
+      ],
+      "progress": {
+        "completed_updates": 17,
+        "unix_time": 1789240280.6528773
+      },
+      "latest_metrics_update": 17,
+      "recent_metrics_finite": true,
+      "latest_loss": {
+        "value": 2.119696408510208,
+        "surrogate": -0.001663111417565233,
+        "entropy": -0.41783567517995834,
+        "base_action_rms": 1.5599070191383362,
+        "residual_action_rms": 0.025446755345910788,
+        "residual_action_abs_max": 0.10907446220517159,
+        "latent_shuffle_action_delta_rms": 0.004917004378512502,
+        "latent_zero_action_delta_rms": 0.004153417074121535,
+        "residual_saturation_fraction": 0.0,
+        "short_valid_steps_mean": 42.19873046875,
+        "short_full_fraction": 0.70635986328125,
+        "long_valid_chunks_mean": 30.0,
+        "long_available_fraction": 1.0,
+        "long_full_fraction": 1.0,
+        "pending_steps_mean": 3.3111572265625,
+        "flushed_chunks": 87720.0,
+        "discarded_tail_transitions": 96186.0,
+        "reset_boundaries": 21545.5,
+        "parameter_invalidations": 0.0,
+        "cached_chunks_encoded_last_step": 744.5,
+        "cached_memories_encoded_last_step": 558.5,
+        "memory_cache_storage_gib": 0.123046875,
+        "dynamics_latent_rms": 0.899348720908165
+      },
+      "input_audit": {
+        "action_std_initialization": 0.25,
+        "actor_common_trunk_sha256": "eb449f3c5663ed8ba7dd14ebc8c8b695730f3122cedcd0a8677da46dbeda08ec",
+        "actor_compression": [
+          1645,
+          512,
+          256,
+          128
+        ],
+        "actor_initialization_seed": 10128,
+        "actor_original_features": 1645,
+        "actor_trainable_parameters": 1093050,
+        "baseline_latent_slot": "zeros before the common residual/value heads",
+        "critic_common_trunk_sha256": "87bbb196b38335d55c02dcfc59896d973adf93fe35cefc17d7dd22bdd077e76b",
+        "critic_compression": [
+          6330,
+          1024,
+          512,
+          256,
+          128
+        ],
+        "critic_initial_normalizer_count": 32768.0,
+        "critic_initial_normalizer_sha256": "7555e2f76c68d5fde6d6c6e237b6f0cbc2f84f3deef18c9f17287913f1b655b7",
+        "critic_initialization_seed": 20124,
+        "critic_original_features": 6330,
+        "critic_trainable_parameters": 7254401,
+        "fusion_input_dim": 192,
+        "identical_initial_action": true,
+        "initial_value_independent_of_latent": true,
+        "latent_dimensions": 64,
+        "latent_slot_dim": 64
+      },
+      "wandb": {
+        "id": "m350compressed-d329819a51f7",
+        "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/m350compressed-d329819a51f7",
+        "project": "intact-preview-v2",
+        "group": "limb_context_20260912_memory350_response_window_ablation"
+      }
+    }
+  },
+  "other_gpu_processes": [
+    {
+      "gpu": 4,
+      "pid": 43088,
+      "used_mib": 6762
+    },
+    {
+      "gpu": 5,
+      "pid": 43248,
+      "used_mib": 6762
+    },
+    {
+      "gpu": 6,
+      "pid": 43398,
+      "used_mib": 6762
+    },
+    {
+      "gpu": 7,
+      "pid": 44598,
+      "used_mib": 6762
+    }
+  ],
+  "fixed_comparison_interval_updates": 100,
+  "initial_evaluations_complete": true
+}

@@ -1,0 +1,20 @@
+{
+  "readme_links_exist": true,
+  "plots": {
+    "common": {
+      "standalone_html": true,
+      "plot_samples": 494
+    },
+    "memory_training": {
+      "standalone_html": true,
+      "plot_samples": 414
+    }
+  },
+  "visually_inspected": [
+    "common/plots/tsne_comparison.png",
+    "memory_training/plots/tsne_comparison.png",
+    "memory_training/plots/tsne_memory350.png",
+    "memory_training/plots/unit_distance_heatmaps.png",
+    "memory_training/plots/distance_distributions.png"
+  ]
+}

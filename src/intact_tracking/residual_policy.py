@@ -420,7 +420,7 @@ class WarmStartedHeftCritic(nn.Module):
         obs_set: str,
         output_dim: int,
         *,
-        initial_checkpoint: str,
+        initial_checkpoint: str | None,
         hidden_dims: Sequence[int] = (1024, 512, 512),
         activation: str = "mish",
         obs_normalization: bool = True,
@@ -440,10 +440,11 @@ class WarmStartedHeftCritic(nn.Module):
             else nn.Identity()
         )
         self.mlp = _make_heft_mlp(self.obs_dim, hidden_dims, output_dim)
-        checkpoint_path = Path(initial_checkpoint).expanduser().resolve()
-        checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
-        self.load_state_dict(_checkpoint_state(checkpoint, "critic_state_dict"), strict=True)
-        del checkpoint
+        if initial_checkpoint is not None:
+            checkpoint_path = Path(initial_checkpoint).expanduser().resolve()
+            checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+            self.load_state_dict(_checkpoint_state(checkpoint, "critic_state_dict"), strict=True)
+            del checkpoint
 
     def _flat_obs(self, obs: TensorDict) -> torch.Tensor:
         return torch.cat([obs[name] for name in self.obs_groups], dim=-1)

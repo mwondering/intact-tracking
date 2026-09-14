@@ -399,6 +399,21 @@ GPUS=0,1 OUTPUT_ROOT=/data/smoke \
 至少 105 个因果环境步、固定 16-token context、有限 loss、精确一个 optimizer step、在线
 normalization 及非空 `last.pt`。
 
+## 实验记录与当前 residual PPO
+
+[2026-09-14 实验归档](docs/experiment_records/20260914/README.md) 收录 memory350
+表征、弱正负样本、响应标签窗口、latent/no-latent PPO、MoE 和固定 DR 独立策略的
+配置、汇总指标与验证记录。每份归档的服务器来源和 SHA256 见归档 manifest。
+
+最新实验使用 [不限幅 residual 协议](docs/residual_uniform_unbounded_20260914.md)：
+residual 直接输出，左右 wrist pitch/yaw 为 ±10 N·m，手部负载最高 2.5 kg、
+小腿最高 4 kg，全程 uniform。新训练/评测入口分别为
+`intact_tracking.cli.residual_uniform_train` 和 `intact_tracking.cli.residual_uniform_eval`；
+配置见 [residual_uniform_wrist10_hand2p5.json](configs/experiments/residual_uniform_wrist10_hand2p5.json)。
+历史入口保留各自的实验协议。
+
+权重、原始 motion/轨迹、运行缓存和完整训练日志保留在实验服务器，未纳入 Git。
+
 ## 开发验证
 
 ```bash

@@ -1,0 +1,926 @@
+{
+  "passed": true,
+  "source_sha256": {
+    "src/intact_tracking/__init__.py": "41ff87b1d9be35f133a5c00307f42e46fe5ba2d120bdb69ad70fcfa628b077c8",
+    "src/intact_tracking/adaptation_context_memory.py": "e1d5b8378096e212828793eaae76a917d3a390cfdb751305ae79bcde5b59e8eb",
+    "src/intact_tracking/adaptation_correction.py": "d314fb29ef393db090511a0ea3eaf85b10d37374bc39425ed932225562e973e5",
+    "src/intact_tracking/adaptation_critic.py": "f990e4f1265e381e25a3e51ef6f922888a4327aeb47f84e9c21770d7baf49ca3",
+    "src/intact_tracking/adaptation_curriculum.py": "85b4b9b8239bf89fc4aa228b3721bcc3039a5f78e55c4955c2c1dd714d7bc22d",
+    "src/intact_tracking/adaptation_filters.py": "776d7aca75d84827435fb10bb7b14de531255cce73c378e841c79bc5f1d45c28",
+    "src/intact_tracking/adaptation_identification.py": "470a90783ca871f8574074765f725b2af77523c9814621c8a3de36e6e89dd208",
+    "src/intact_tracking/adaptation_modulation.py": "c5d3e73c159a49f033aaaad20c227beabea8e657ca0c7b8afbd6ac9d402d0e3e",
+    "src/intact_tracking/adaptation_policy.py": "bd27ff5a3e2ec95ed01bbc5cb62e8bb81775cef152a140ace3a03e92be80ccb7",
+    "src/intact_tracking/adaptation_ppo.py": "4b423e1dbe711c0fb5741bb9df02f0237cffa48bbd66144611aca23f3ced37ce",
+    "src/intact_tracking/adaptation_prior.py": "dd84910d1b6a345fe237c913bef23277ec4c0f848e1055b2f9952c06248220fb",
+    "src/intact_tracking/adaptation_reward_contract.py": "622976b549446eb05876aef25969dfe31fe57ef8432bd4f24dccc39c48c3535d",
+    "src/intact_tracking/adaptation_rewards.py": "06b45f350bdaa00ab2d16d608ee74381214f40fa46ea103a326352365919a381",
+    "src/intact_tracking/adaptation_sensors.py": "52fc1c2b333feae0b3e113d4aa3943cd5d2dbd544de5c137678a3b437344f08d",
+    "src/intact_tracking/cli/__init__.py": "43f6efaf2af9d4be27de51f5c62be2c152aee0e4951f31aa4042af21846bc2d1",
+    "src/intact_tracking/cli/adaptation_distill.py": "25da5b1ea64a1ac094dc2fca2311fd379ade980cd06b169f69cad8bcfc8b699e",
+    "src/intact_tracking/cli/adaptation_eval.py": "fa81f9f8fa754db23fb07dcd0210213da6be60f2dff98818940bff67e7699ae4",
+    "src/intact_tracking/cli/adaptation_train.py": "1f41848d16e8642d2acce27598960686aff8bf6dda2543a799c87f79d108f293",
+    "src/intact_tracking/cli/collect.py": "ddc53a9e62ce08c6d210db3224298982975b09e1d45d6a1fc824b4bcf85624c6",
+    "src/intact_tracking/cli/context_export.py": "6fdd92cf3ce07557ee7aad1e2c95c78fa8200ef699c6c3e7e2c1010fe64e195c",
+    "src/intact_tracking/cli/context_probe.py": "fbfcf290183024cd0866966a2601ae6f7402516ec6a4eef1d0c06f94fb64919a",
+    "src/intact_tracking/cli/forward_memory_nominal_train.py": "a1cce4c89f8d65b1be64bbed0db1da3e16d58b21b054ccc508c46fe640d537c9",
+    "src/intact_tracking/cli/forward_memory_response_window_train.py": "017f03d1c2304473f27e7431da1891b93aeb19363fd3545fbe8eb068f6db9daa",
+    "src/intact_tracking/cli/forward_memory_scale_nominal_train.py": "158766640d615606626a005200e11be753a9b902bb51fe7b2b7984e083afed60",
+    "src/intact_tracking/cli/forward_memory_scale_train.py": "4e652955b1928bbba72dac8f173d27dbe62682a6fcf8f12946daffd4cc3cb77c",
+    "src/intact_tracking/cli/forward_memory_train.py": "94214e1a17c0e9dc0aefc4d64e3fcd6db95f23f5540910ae8feb1eafb5dee411",
+    "src/intact_tracking/cli/forward_memory_weak_margin_train.py": "ea1f495c7bef3de53131cb944b08974a7d1dc7e3ef85ec293e21712adda68e4e",
+    "src/intact_tracking/cli/forward_memory_weak_pairs_train.py": "2f3b9854db4d74a034e42b8930d8c9277670fa7485a25fafe4e13ca07b7a2ca1",
+    "src/intact_tracking/cli/forward_memory_weak_tune_train.py": "caf5c12173d8877b6609701eb8179d9c9cfc34c6c7f368f5bb68cce6d39f3cc0",
+    "src/intact_tracking/cli/forward_predictor_train.py": "0c8c3269c85348643c7a98c3a1edb1c9817057998581bbda55524812a9a7c535",
+    "src/intact_tracking/cli/forward_short50_train.py": "2f62a8fb424a5f0a9aa4d5e3953565cc302cfa1680823be7fe46cdc2dd0fbfa2",
+    "src/intact_tracking/cli/limb_context_eval.py": "85638a0fae28085a8b69034a6845bf1aa264c0e568ce12621f84e4cbac856c22",
+    "src/intact_tracking/cli/limb_context_nominal_audit.py": "204c8f6c60868c6dc530dfeb9f0890975561bc507557844276cc5957386d5df1",
+    "src/intact_tracking/cli/limb_context_train.py": "9cd6c2d3d7a7412796bc30dbafa2e973cf4f9202beae097e9f47c0f7038b97af",
+    "src/intact_tracking/cli/memory350_compressed_policy_eval.py": "7f0a34f8d45bb479164507fbefc44f678e8b05f3486be1d9d54312fa7a444aeb",
+    "src/intact_tracking/cli/memory350_compressed_policy_train.py": "6acb61eae8d0aeb2488f4c40d57989e3b152e2ebc84a73d3a907d54a0d4331e5",
+    "src/intact_tracking/cli/memory350_policy_eval.py": "76741e575cf06d93c16adab726f61db540ecb29bb36d7b3fca79b52c51383136",
+    "src/intact_tracking/cli/memory350_policy_train.py": "6c3aaffbf91e528211335004c82b58100d6cc72404f17790fad6687a1458bd8e",
+    "src/intact_tracking/cli/model_gradient_residual_train.py": "397cf044ee589cd5bca6a044081d20275e9c77e33d057c84e656d734be4c5665",
+    "src/intact_tracking/cli/online_train.py": "fb6954f037c828bb04d3e38dd02a3a5307e2d9c0e2e45d7702aacc94fb212dca",
+    "src/intact_tracking/cli/residual_policy_train.py": "c08b72e34cfa12dc265d6f6af8ab4ea3c549589c2edf8a04a3a22efcf7a93f29",
+    "src/intact_tracking/cli/residual_train.py": "88ede38d1ff5c5fbc3729cd6f2390e8e0587475335c86e8571ef263c75fe6ca0",
+    "src/intact_tracking/cli/simulator_preview_audit.py": "e212b1c8af572b5704e3afee2f8ac3e445855e0180493b397f3fdac2dafb05e3",
+    "src/intact_tracking/cli/simulator_preview_probe.py": "a1425a1066c7386901095c15e657da9f98fd5e01f114dab31583ceb092b2ad03",
+    "src/intact_tracking/cli/simulator_preview_train.py": "35bcec6e540489e86f0b641209d73df7dd125a3b90d74b9849eedd3c5492f74b",
+    "src/intact_tracking/cli/tracker_finetune_train.py": "76daa65dac8df9eeab09a74047cab7994cd04ad405c9de3303fc93c789b34622",
+    "src/intact_tracking/cli/train.py": "a034e371f1e9ca52fe4b80e84fb62e2e2f0e05913612dc82eeaa8d528bae653f",
+    "src/intact_tracking/context_export.py": "311e0499a2344eae2a19acee23f6c7acf60962f5e9a7f2f2648ea0870d5eacde",
+    "src/intact_tracking/data/__init__.py": "8944d8d121eeb37fd2d9b7f1c9e59e488ecd4e2923df87b1847781ce434c1273",
+    "src/intact_tracking/data/dataset.py": "66f1b87e013a75611f5f76a3a51d7300365d964ef180f081f5d1681c1feb0356",
+    "src/intact_tracking/data/online.py": "f0bbc5b934dadaf9adea9dc467623bfb670e3b5e4154f2867e680e69256a5834",
+    "src/intact_tracking/data/predictor_online.py": "ef1b41ab8a2c8e1acbecc07232e04800b289990f130df92c647c7ee57fe64bdd",
+    "src/intact_tracking/data/residual_online.py": "6624e3b33473eac57d41b38e6671dd337035bad748a422f265d411e87dbb808a",
+    "src/intact_tracking/data/schema.py": "7c27454de10b6aeae07e5383f4654b066b617c14d49f9ffeb5863912c08b4587",
+    "src/intact_tracking/data/writer.py": "551dbd60a2295e0c44bfcaffb545eff21cbafe0010ffe97a382a5e0574012739",
+    "src/intact_tracking/distributed.py": "50e59dc0d34601bc520637238b1d6f4103339c3ac6c67d6514dcde4a72c1f348",
+    "src/intact_tracking/environment/__init__.py": "04bea03cef7d9c57bb630054716baa3d2a6e7b3562e7106f48340da438b0a800",
+    "src/intact_tracking/environment/assets/__init__.py": "b1a1a936a6d711d28ee67dad6b6729790fa4f0dd39794dd43414d637a1810fd3",
+    "src/intact_tracking/environment/assets/robots/__init__.py": "bce5ed9684f382b3103b7bd9f288c4a38083575852ab0a4a35c987ccc068bd2f",
+    "src/intact_tracking/environment/assets/robots/g1_tracking_bfm/__init__.py": "700ff08814c8410f4407ea831d4971bf610eab1a17eb528a46c9c7cf2838a39e",
+    "src/intact_tracking/environment/assets/robots/safety.py": "51f02aaab7de73a8285ca31354da2f3ef863d6f7242196cc418dd70ebf9b3592",
+    "src/intact_tracking/environment/config.py": "97f5cc1c3db48c82d9532f4a7c78e1a60d447e4ca0c809c4fca7828a9311caa7",
+    "src/intact_tracking/environment/mdp/__init__.py": "9509e2c58a9b3fb8d56bed81a428db1b62b40ca440c1485ed47f0a4a5cc606e9",
+    "src/intact_tracking/environment/mdp/actions.py": "596974b2612d6026eb1f9a759c1b15eb5279de988534153f6be64838cdf95a33",
+    "src/intact_tracking/environment/mdp/keypoints.py": "340311689273b63788d3a3e53a9c2c161a3da809e2cf6c79053e05163116a224",
+    "src/intact_tracking/environment/mdp/metrics.py": "b3dee8afc2a57ed58da4c31eff99387ce78217380f64974e6febcd0fdab6fa73",
+    "src/intact_tracking/environment/mdp/motion_fk.py": "c89f935a9e3d38f10f67f199a8c82ef963d56668b6c92c031399fb619e83c250",
+    "src/intact_tracking/environment/mdp/multi_command_largedataset.py": "0fe0e0fb56d4d2b9d73271dae13b80dd58e5f1470d7799deb266c346fec83237",
+    "src/intact_tracking/environment/mdp/multi_commands.py": "28dc0a8b3ffcd3005ef9b5b1c126ba88cd232588365546ae772785d0db28cda9",
+    "src/intact_tracking/environment/mdp/observations.py": "9e77c67c888dbd1000ab67f30dbcb7fa83fa0181f8d1b86b0590ac30c86461e1",
+    "src/intact_tracking/environment/mdp/randomizations.py": "018922d4b8e4ce8d4fddfc52ffa1c961e856a6de442bd3a4d42df7267af23023",
+    "src/intact_tracking/environment/mdp/rewards.py": "279a1abe986e838b852379f727f25876fe75885ba2ea09432250de9a1dab0079",
+    "src/intact_tracking/environment/mdp/shared_motion.py": "5a9280e487534f1b593fa8fbc22959b5f1dc79b37f6850c025bc243ee3cc5e57",
+    "src/intact_tracking/environment/mdp/sp.py": "b6bebaf8aea3ea93e31312da818fa6c3ac22324a7920c147acaa83acce7c0fb9",
+    "src/intact_tracking/environment/mdp/spv1.py": "145bc58fd8756f04dd49f80c29cd7a8b89b77d998aceed63fea6ee2d4bba81b7",
+    "src/intact_tracking/environment/mdp/spv2.py": "0dd134a0d15af147b284909a62c6235356ed28a0a9cf7c4c40ca93fe87b022a4",
+    "src/intact_tracking/environment/mdp/spv3.py": "e096e90d12ae59ee517213de9db6aa35b69b561f23dc3e6d594bb31bdc1dca47",
+    "src/intact_tracking/environment/mdp/spv4.py": "457d751228648916d6e63d2c51313f22accc44cb3b9ce4a65d405474f128c393",
+    "src/intact_tracking/environment/mdp/spv5.py": "b44002fa9fe5d8d1db2d1852e6da8d5b371c9e0361c728d7c97a093aeb26a5fd",
+    "src/intact_tracking/environment/mdp/spv5_2.py": "1626b5c3a57b25eebe6d430dfbed3b87c2383ba0bd40b0ec5f8e3cf5d0cde76f",
+    "src/intact_tracking/environment/mdp/spv6.py": "e27fe43c0ebb51177ff1caad6ba8f7cdcb988afa2b914f27de0a68c1d0e8ceef",
+    "src/intact_tracking/environment/mdp/spv7.py": "c8a838759d2e9eb68c3d3a9cbec92e91ccae4801e6c3d82fb780501f9ba9586c",
+    "src/intact_tracking/environment/mdp/spv8.py": "db52e1d2160169aa13db68ba90642226af6b9e8c1ac059b88d3eca4b4593db40",
+    "src/intact_tracking/environment/mdp/terminations.py": "7c80c61d23ec0e7ef3bbd2ef9f88b7a94c0958fe0b051e34488f2beb3b3b595b",
+    "src/intact_tracking/environment/policy/__init__.py": "b07f6de531344d81cf85b359eb11fc2e04a19c5491d447ea57a50c5e7fec0726",
+    "src/intact_tracking/environment/policy/residual_moe.py": "08cb2835d426e158b25e5ce87f90ed9278971834b17d95e2d6ff1de282fdcb00",
+    "src/intact_tracking/environment/policy/spv3_models.py": "ffa1b232d86474030a766be358c3509279e8a873976cf9ef9c52adf6d9394913",
+    "src/intact_tracking/environment/policy/spv4_models.py": "8e1282b342e90953336aab1c6d36d9b457ffee89d8ef9b80c5b559704051eb75",
+    "src/intact_tracking/environment/policy/spv5_1_models.py": "5b789c9b5427a4b00a0a9c6a21c05a4bfa9f76fd83ef0a03ab2658346acad289",
+    "src/intact_tracking/environment/policy/spv5_2_models.py": "0541a2ee3c150efa09a79c66834a4e5e5e914ef2eb7bfc066038516fb168449e",
+    "src/intact_tracking/environment/policy/spv5_models.py": "13d57f4997e4f072f38e4aa6aac004da51dc6428fc7e091863132862b9db6292",
+    "src/intact_tracking/environment/runtime.py": "cf654b7b0d205addf0a9b5004483ddd27ab198dcc703dd131a34f9157ba8d3e3",
+    "src/intact_tracking/environment/snapshot.py": "3f580ad2ecff94617c80be29db2a49e7653778a16295b6b58073ca9f74861985",
+    "src/intact_tracking/forward_predictor.py": "390ffb8efc745b39b0e5772d482627bb6ae92a305883a9a540512bd10e45ffc3",
+    "src/intact_tracking/forward_predictor_inputs.py": "dd7f756dca54097b0fdad66a28c993b61f2e1cb84fc6764509cf7719275c3b5e",
+    "src/intact_tracking/forward_predictor_objective.py": "20ab18a58f9acdfd2f1c02623a36b89937ab9a1178dd477c5289e260c39164c4",
+    "src/intact_tracking/forward_predictor_schedule.py": "edc598bbde6bb10dddf2118b6cfd91eff5a21349600abcdde1a1b331ccff9116",
+    "src/intact_tracking/limb_context_checkpoint_eval.py": "50e6f9bfd3bb00c51d05e7d40bbca10fd553dbef239836751c44a1436672f46e",
+    "src/intact_tracking/limb_context_distributed.py": "7aa08fe83dd60f33d0ab94199c4d8227934fca34e1938f628f97c3850449cb2f",
+    "src/intact_tracking/limb_context_dr.py": "c89a758bd9fbd193f8c5d1c23ad0f6b2cda7aec4ff296025055cfe1212ec7f58",
+    "src/intact_tracking/limb_context_env.py": "5ac109d3b27bfa44d1b0994dad0227b9e03b7ba15022822f0b11ff127c58c506",
+    "src/intact_tracking/limb_context_policy.py": "349eaeb2a32b3cb4ce6a104708deed6c83f7f8793077fdd783663d7e88e60f35",
+    "src/intact_tracking/limb_context_protocol.py": "7267526fd490c8dd815aa1513461e97280b22226b378367f000a6ac2d34c0c3c",
+    "src/intact_tracking/limb_context_results.py": "0b46f757377852bdd81ba31160d26c25f1d05df8105eb1fb5e2a1f699c7241f6",
+    "src/intact_tracking/limb_context_sampling.py": "75d7bd063238782316b21e9484c084093dc09f2731096ce301e8c2e29b6e2588",
+    "src/intact_tracking/limb_context_terminations.py": "f23169b44694935b9c07247ae4c8ad634d12a3b05d63c5075434727c36aa54fb",
+    "src/intact_tracking/limb_context_validation.py": "6a9680dd473e3510d185fb42f6510666020c7d3bd99d15c422162a6cf28dbfcc",
+    "src/intact_tracking/memory350_bank.py": "426279ef3cb9f788cc598264b0b9f6d5c33758a50436b7612c7daf1b85907d26",
+    "src/intact_tracking/memory350_compressed_policy.py": "c8505cc095f9bdb4118b6c761a36245ef0878872fde936aada3bcd1481a7dc0d",
+    "src/intact_tracking/memory350_inference.py": "b9da5dafef0ca6c54517c98986a406ba459fb465722c4bd3e9956c06cfd3fdd6",
+    "src/intact_tracking/memory350_model.py": "fe78c63753d0c79ffdc52a977ca77ccf72002c3a70f72a9735dbb30313e11645",
+    "src/intact_tracking/memory350_nominal_rollout.py": "30591e9e75d6a2ba07750937dda3312b7684e8ef2e2393d1fcff5589e04f9b63",
+    "src/intact_tracking/memory350_objective.py": "1c50bf41fd1047c7496a4da9155228a55d099752af9d29a7f58b53902da43228",
+    "src/intact_tracking/memory350_policy_checkpoint_eval.py": "30fa08ff93b9ef8c341bc363d7c63c36d9cf845d25a0a2843ef6c3ccff72b815",
+    "src/intact_tracking/memory350_policy_env.py": "db5cae24651249ce706aa385401c767b46830fdba10a199e7a5da0c3c5f9985c",
+    "src/intact_tracking/memory350_policy_inference.py": "8b58cf9b974e792bcb0fc818734a830bd95dd43472e6fd7b0ff197a344c58fdc",
+    "src/intact_tracking/memory350_policy_protocol.py": "7f3033fd8c414f25a6d0bd71323a3d22d45ecba9c69ea6656a95ccaf74a7fcb7",
+    "src/intact_tracking/memory350_policy_results.py": "0e4b86a90fee13c255e192c995a67341049c0d9210556374665cff8be92eb84e",
+    "src/intact_tracking/memory350_replay.py": "d2f06d09e8e745e8519ce498dd3cf2fa41c3dcfb9dad84b1bc0b6243ed138fb0",
+    "src/intact_tracking/memory350_response_window.py": "a504ee54bb82ecc83cb05ef616355a863e75979ad96930454c8cfcd20c8091e9",
+    "src/intact_tracking/memory350_rollout.py": "fef3d9d6e5ef722865ad1dcf22f7bbb43964188a23e7327a76134d7ba8c5e6d9",
+    "src/intact_tracking/memory350_scale_comparison.py": "6a9e689a4374d8a176bdfb6d35e76eb53b102449d03ebded83e7129f7fdfba19",
+    "src/intact_tracking/memory350_scale_model.py": "0d295de4fe351dede549ae6efc1753de8e14b3e1be0537a4fc3b61cfcb12f096",
+    "src/intact_tracking/memory350_scale_nominal_comparison.py": "b3ec342f263f3846c4be785d51c7ae76c79fd5c679f6e76255bb4525a048e42e",
+    "src/intact_tracking/memory350_weak_margin_tuning.py": "ad735a154e3fb930bf68bb980ceba13108fd55670c60f04fcf7a6ed0ccdc7609",
+    "src/intact_tracking/memory350_weak_pairs.py": "0495b6f3c869ccdd00d90d38b2fd89644187293f3cab1c8d2cc9a852cb77a7ad",
+    "src/intact_tracking/memory350_weak_tuning.py": "f51ded26be2b229e6031a7d610d322c27019e4f7493b64431599692100839351",
+    "src/intact_tracking/model.py": "12560b01d08f352264349332feec926361b15b82fe61a48df98a148280fccee0",
+    "src/intact_tracking/model_gradient_residual.py": "8bebff8b4c168a4e706863e7db21b7cd70289209c3f778d57055545c3254c808",
+    "src/intact_tracking/objective.py": "f011d9a454fbb3b69231a9698382713310173a98f974df4610ac741bbed58dc2",
+    "src/intact_tracking/oracle_compensation.py": "da7c07a2db018408afecee5cdff37fb4bf819fe9fd96211238147a90e0406571",
+    "src/intact_tracking/preview_protocol.py": "a3c83e0d648c1773c2ed94578ab013dd80b9ecd63c3a725588bbf68af1a994fc",
+    "src/intact_tracking/residual_context.py": "e0726446fc0fc95e987a2dec44786cb1150f9bb03fe3d2a04c2aba35a19c8e51",
+    "src/intact_tracking/residual_model.py": "0262a2dc293d70d5e79081f8496c109ec7f4469643b8dab46f3c72ecbe70e1fa",
+    "src/intact_tracking/residual_objective.py": "ea6a00f1ebf167a56cff01a440a410ef26afe0b2a8babfb79340d5ef22e67552",
+    "src/intact_tracking/residual_policy.py": "47ea7173d327a2443fe89882f92f81642bb2193521700f9b08f53151429a5862",
+    "src/intact_tracking/residual_runner.py": "14059f465351fcf3912a6076081a9b5d7613b97762c6aee4f13a29cafc5bdfa9",
+    "src/intact_tracking/rollout/__init__.py": "a8200006c9d4cdae5ad43cb2d0036ef986b089f6a224207979a8fbcd14378571",
+    "src/intact_tracking/rollout/mjlab_adapter.py": "94173ca8c20c9fb2abaa4939f6757ac5dc1e0e7cc144abd636a0309364ac7e7b",
+    "src/intact_tracking/rollout/nominal.py": "be2c173372405c8758e988b2abe63b4ae6271d6d1cec337c99c010387f11c989",
+    "src/intact_tracking/rollout/online.py": "7bac8a35788b46355c640be2fe1368bb5c05c649499a046c1b165e01bc70d1bd",
+    "src/intact_tracking/short50_comparison.py": "54e1072fe5ece5aad20bd071587bf165e86db0d342ae41f7d0a2a64910a6ef9e",
+    "src/intact_tracking/short50_model.py": "500489621ee885cf261f8b09257454d972606f7422328adda9b72e0b1f9baa3d",
+    "src/intact_tracking/simulator_preview.py": "5a20b3160eb3d4aada8603cb43cd0d52cb553f513977bb532423b2547a8fcf05",
+    "src/intact_tracking/simulator_preview_experiment.py": "56cbe183ace9f19249896e7a830410044d65b92726dfacfb3d7eaf40cec6cfad",
+    "src/intact_tracking/tracker_finetune.py": "86f78588caa5cc564fa232413e3a17730093f9baf6f681d988d8051cfac1f1ae",
+    "src/intact_tracking/wandb_logger.py": "92c5273cd0f6d5bc192dd6c44ecb1fa33fc7769d724309a9e5dde3ae46dbd542",
+    "scripts/run_memory350_compressed_ppo.py": "c4c44581bf70799581812ad419292b347e06ed1267d2bf9331171294042b6b71",
+    "scripts/verify_memory350_response_pipeline.py": "589c8b810b95c46d043358cf03f02008b8cd6939888c112fc06c0420ad0b03f3",
+    "scripts/run_limb_context_experiment.py": "865f9b8c0842c11e7d6b337745f900d1c18985cc2d057e239112572a464924b6",
+    "scripts/resume_memory350_weak_pairs.py": "f5a60507bbe2392324eecd4e0e6bde6189db37c3369eb383ec36daf391bc8c44",
+    "scripts/run_memory350_scale_nominal_stage1.py": "501426291086ea463475720bbe164672fa63d4a5a00913cc295c7711214088e2"
+  },
+  "smoke": {
+    "baseline": {
+      "unbounded_completion": {
+        "target_updates": null,
+        "completed_updates": 15,
+        "complete": false,
+        "stopped": true,
+        "distributed_parameter_agreement": {
+          "passed": true,
+          "world_size": 4,
+          "ranks": [
+            {
+              "rank": 0,
+              "completed_updates": 15,
+              "actor_trainable_sha256": "e24d72a7c72949198064100caaedaa09647216fc47d2f4b3b027cc8691044a91",
+              "critic_trainable_sha256": "07673d07df9c35d42bbc83b4f232abb421a48cef8d36cac381c05a6ffa3b4f0a",
+              "critic_normalizer_sha256": "8a33bc128caf78995f08798b4e69077fe0f0ef0ce4fa00b82172f9985109a8b2",
+              "finite": true
+            },
+            {
+              "rank": 1,
+              "completed_updates": 15,
+              "actor_trainable_sha256": "e24d72a7c72949198064100caaedaa09647216fc47d2f4b3b027cc8691044a91",
+              "critic_trainable_sha256": "07673d07df9c35d42bbc83b4f232abb421a48cef8d36cac381c05a6ffa3b4f0a",
+              "critic_normalizer_sha256": "8a33bc128caf78995f08798b4e69077fe0f0ef0ce4fa00b82172f9985109a8b2",
+              "finite": true
+            },
+            {
+              "rank": 2,
+              "completed_updates": 15,
+              "actor_trainable_sha256": "e24d72a7c72949198064100caaedaa09647216fc47d2f4b3b027cc8691044a91",
+              "critic_trainable_sha256": "07673d07df9c35d42bbc83b4f232abb421a48cef8d36cac381c05a6ffa3b4f0a",
+              "critic_normalizer_sha256": "8a33bc128caf78995f08798b4e69077fe0f0ef0ce4fa00b82172f9985109a8b2",
+              "finite": true
+            },
+            {
+              "rank": 3,
+              "completed_updates": 15,
+              "actor_trainable_sha256": "e24d72a7c72949198064100caaedaa09647216fc47d2f4b3b027cc8691044a91",
+              "critic_trainable_sha256": "07673d07df9c35d42bbc83b4f232abb421a48cef8d36cac381c05a6ffa3b4f0a",
+              "critic_normalizer_sha256": "8a33bc128caf78995f08798b4e69077fe0f0ef0ce4fa00b82172f9985109a8b2",
+              "finite": true
+            }
+          ]
+        },
+        "planned_sampling_transition": false,
+        "motion_sampling": {
+          "version": "limb_motion_sampling_curriculum_v1",
+          "requested_mode": "uniform",
+          "adaptive_after_update": 1000,
+          "active_mode": "uniform",
+          "failure_rewind_enabled": false,
+          "adaptive_bin_snapshot_interval_iterations": 0,
+          "adaptive_sampling": {
+            "random_probability": 0.5,
+            "strategy": "branch",
+            "temperature": 0.25
+          },
+          "parameters": {
+            "adaptive_uniform_ratio": 0.1,
+            "adaptive_bin_width_s": 1.0,
+            "adaptive_bin_width_steps": null,
+            "adaptive_prior_visit_count": 1.0,
+            "adaptive_prior_failure_count": 0.0,
+            "adaptive_failure_rate_ema_iterations": 1000,
+            "adaptive_failure_rate_window_iterations": null,
+            "adaptive_probability_max_over_mean": 500.0,
+            "adaptive_sequence_length_agnostic": false,
+            "adaptive_max_prob_per_bin": "auto",
+            "adaptive_max_prob_per_motion": "auto",
+            "adaptive_pre_failure_sample_window_steps": 100
+          },
+          "scope": "motion/bin sampling only; per-world independent limb payloads remain U(0,4)",
+          "statistics": "rank-local motion shards; adaptive statistics begin from priors at the phase boundary"
+        },
+        "training_terminations": {
+          "version": "limb_training_terminations_v1",
+          "profile": "no_ee_body_pos",
+          "disabled_terms": [
+            "ee_body_pos"
+          ],
+          "original_terms": [
+            {
+              "name": "time_out",
+              "term": "time_out",
+              "time_out": true
+            },
+            {
+              "name": "anchor_pos",
+              "term": "bad_anchor_pos_z_only",
+              "params": {
+                "command_name": "motion",
+                "threshold": 0.5,
+                "anchor_body_name": "pelvis"
+              }
+            },
+            {
+              "name": "anchor_ori",
+              "term": "bad_anchor_ori",
+              "params": {
+                "command_name": "motion",
+                "threshold": 0.8,
+                "anchor_body_name": "pelvis",
+                "asset_cfg": {
+                  "entity_name": "robot"
+                }
+              }
+            },
+            {
+              "name": "ee_body_pos",
+              "term": "bad_motion_body_pos_z_only",
+              "params": {
+                "command_name": "motion",
+                "threshold": 0.5,
+                "body_names": [
+                  "left_ankle_roll_link",
+                  "right_ankle_roll_link",
+                  "left_wrist_yaw_link",
+                  "right_wrist_yaw_link"
+                ],
+                "anchor_body_name": "pelvis"
+              }
+            }
+          ],
+          "active_terms": [
+            {
+              "name": "time_out",
+              "term": "time_out",
+              "time_out": true
+            },
+            {
+              "name": "anchor_pos",
+              "term": "bad_anchor_pos_z_only",
+              "params": {
+                "command_name": "motion",
+                "threshold": 0.5,
+                "anchor_body_name": "pelvis"
+              }
+            },
+            {
+              "name": "anchor_ori",
+              "term": "bad_anchor_ori",
+              "params": {
+                "command_name": "motion",
+                "threshold": 0.8,
+                "anchor_body_name": "pelvis",
+                "asset_cfg": {
+                  "entity_name": "robot"
+                }
+              }
+            }
+          ],
+          "evaluation_profile": "original"
+        },
+        "initialization_protocol": "residual_actor_and_critic_from_scratch_v3",
+        "distributed": {
+          "world_size": 4,
+          "num_envs_per_rank": 128,
+          "global_num_envs": 512,
+          "rank_seed_formula": "seed + 1000003 * rank",
+          "gradient_synchronization": "mean across all ranks at each optimizer step",
+          "advantage_normalization": "global rollout mean and sample standard deviation",
+          "critic_normalization": "global pooled sums, squared sums and count at every environment step"
+        },
+        "unix_time": 1789228232.8346133
+      },
+      "endpoint_completion": {
+        "target_updates": 16,
+        "completed_updates": 16,
+        "complete": true,
+        "stopped": false,
+        "distributed_parameter_agreement": {
+          "passed": true,
+          "world_size": 4,
+          "ranks": [
+            {
+              "rank": 0,
+              "completed_updates": 16,
+              "actor_trainable_sha256": "a6bb6e3179d0598f1fa586a40a5e7ecd1d875db030c46bd9427f929e0d8458cb",
+              "critic_trainable_sha256": "a59994e17fc24a54c4ed8505c3fa87cc62f3735aef405d360fd2f7aff12783b2",
+              "critic_normalizer_sha256": "1407e0f95e17c45b2f157cc452ceaa366eb2943ea2c68a711a5b5cda59290383",
+              "finite": true
+            },
+            {
+              "rank": 1,
+              "completed_updates": 16,
+              "actor_trainable_sha256": "a6bb6e3179d0598f1fa586a40a5e7ecd1d875db030c46bd9427f929e0d8458cb",
+              "critic_trainable_sha256": "a59994e17fc24a54c4ed8505c3fa87cc62f3735aef405d360fd2f7aff12783b2",
+              "critic_normalizer_sha256": "1407e0f95e17c45b2f157cc452ceaa366eb2943ea2c68a711a5b5cda59290383",
+              "finite": true
+            },
+            {
+              "rank": 2,
+              "completed_updates": 16,
+              "actor_trainable_sha256": "a6bb6e3179d0598f1fa586a40a5e7ecd1d875db030c46bd9427f929e0d8458cb",
+              "critic_trainable_sha256": "a59994e17fc24a54c4ed8505c3fa87cc62f3735aef405d360fd2f7aff12783b2",
+              "critic_normalizer_sha256": "1407e0f95e17c45b2f157cc452ceaa366eb2943ea2c68a711a5b5cda59290383",
+              "finite": true
+            },
+            {
+              "rank": 3,
+              "completed_updates": 16,
+              "actor_trainable_sha256": "a6bb6e3179d0598f1fa586a40a5e7ecd1d875db030c46bd9427f929e0d8458cb",
+              "critic_trainable_sha256": "a59994e17fc24a54c4ed8505c3fa87cc62f3735aef405d360fd2f7aff12783b2",
+              "critic_normalizer_sha256": "1407e0f95e17c45b2f157cc452ceaa366eb2943ea2c68a711a5b5cda59290383",
+              "finite": true
+            }
+          ]
+        },
+        "planned_sampling_transition": false,
+        "motion_sampling": {
+          "version": "limb_motion_sampling_curriculum_v1",
+          "requested_mode": "uniform",
+          "adaptive_after_update": 1000,
+          "active_mode": "uniform",
+          "failure_rewind_enabled": false,
+          "adaptive_bin_snapshot_interval_iterations": 0,
+          "adaptive_sampling": {
+            "random_probability": 0.5,
+            "strategy": "branch",
+            "temperature": 0.25
+          },
+          "parameters": {
+            "adaptive_uniform_ratio": 0.1,
+            "adaptive_bin_width_s": 1.0,
+            "adaptive_bin_width_steps": null,
+            "adaptive_prior_visit_count": 1.0,
+            "adaptive_prior_failure_count": 0.0,
+            "adaptive_failure_rate_ema_iterations": 1000,
+            "adaptive_failure_rate_window_iterations": null,
+            "adaptive_probability_max_over_mean": 500.0,
+            "adaptive_sequence_length_agnostic": false,
+            "adaptive_max_prob_per_bin": "auto",
+            "adaptive_max_prob_per_motion": "auto",
+            "adaptive_pre_failure_sample_window_steps": 100
+          },
+          "scope": "motion/bin sampling only; per-world independent limb payloads remain U(0,4)",
+          "statistics": "rank-local motion shards; adaptive statistics begin from priors at the phase boundary"
+        },
+        "training_terminations": {
+          "version": "limb_training_terminations_v1",
+          "profile": "no_ee_body_pos",
+          "disabled_terms": [
+            "ee_body_pos"
+          ],
+          "original_terms": [
+            {
+              "name": "time_out",
+              "term": "time_out",
+              "time_out": true
+            },
+            {
+              "name": "anchor_pos",
+              "term": "bad_anchor_pos_z_only",
+              "params": {
+                "command_name": "motion",
+                "threshold": 0.5,
+                "anchor_body_name": "pelvis"
+              }
+            },
+            {
+              "name": "anchor_ori",
+              "term": "bad_anchor_ori",
+              "params": {
+                "command_name": "motion",
+                "threshold": 0.8,
+                "anchor_body_name": "pelvis",
+                "asset_cfg": {
+                  "entity_name": "robot"
+                }
+              }
+            },
+            {
+              "name": "ee_body_pos",
+              "term": "bad_motion_body_pos_z_only",
+              "params": {
+                "command_name": "motion",
+                "threshold": 0.5,
+                "body_names": [
+                  "left_ankle_roll_link",
+                  "right_ankle_roll_link",
+                  "left_wrist_yaw_link",
+                  "right_wrist_yaw_link"
+                ],
+                "anchor_body_name": "pelvis"
+              }
+            }
+          ],
+          "active_terms": [
+            {
+              "name": "time_out",
+              "term": "time_out",
+              "time_out": true
+            },
+            {
+              "name": "anchor_pos",
+              "term": "bad_anchor_pos_z_only",
+              "params": {
+                "command_name": "motion",
+                "threshold": 0.5,
+                "anchor_body_name": "pelvis"
+              }
+            },
+            {
+              "name": "anchor_ori",
+              "term": "bad_anchor_ori",
+              "params": {
+                "command_name": "motion",
+                "threshold": 0.8,
+                "anchor_body_name": "pelvis",
+                "asset_cfg": {
+                  "entity_name": "robot"
+                }
+              }
+            }
+          ],
+          "evaluation_profile": "original"
+        },
+        "initialization_protocol": "residual_actor_and_critic_from_scratch_v3",
+        "distributed": {
+          "world_size": 4,
+          "num_envs_per_rank": 128,
+          "global_num_envs": 512,
+          "rank_seed_formula": "seed + 1000003 * rank",
+          "gradient_synchronization": "mean across all ranks at each optimizer step",
+          "advantage_normalization": "global rollout mean and sample standard deviation",
+          "critic_normalization": "global pooled sums, squared sums and count at every environment step"
+        },
+        "unix_time": 1789228528.167844
+      },
+      "initial_checkpoint_sha256": "2d14f192af46f070f9385bd016eddc2cfdbff3724438d8023265e8a9adc886b2",
+      "endpoint_checkpoint_sha256": "e62cc06e644d960c66eafc1e3fa0e40baf1ecfc6492634393ca5e73d12160b8d",
+      "training_state_preserved": true,
+      "formal_command": [
+        "/data_zcy/wxy/intact-tracking/.venv/bin/python",
+        "-B",
+        "-u",
+        "-m",
+        "torch.distributed.run",
+        "--standalone",
+        "--nproc-per-node=4",
+        "--max-restarts=0",
+        "-m",
+        "intact_tracking.cli.memory350_compressed_policy_train",
+        "--fusion",
+        "baseline",
+        "--output-dir",
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260912_memory350_response_window_ablation/ppo/baseline_121",
+        "--training-ranks",
+        "4",
+        "--num-envs",
+        "8192",
+        "--seed",
+        "121",
+        "--episode-steps",
+        "1000",
+        "--motion-sampling",
+        "adaptive",
+        "--adaptive-after-update",
+        "1000",
+        "--training-terminations",
+        "no_ee_body_pos",
+        "--dr-profile",
+        "tracker_dr_plus_limb_payload",
+        "--save-interval",
+        "100",
+        "--wandb-group",
+        "limb_context_20260912_memory350_response_window_ablation",
+        "--wandb-name",
+        "limb_context_20260912_memory350_response_window_ablation-baseline-ppo",
+        "--motion-path",
+        "/data_zcy/wxy/motion_data_correct/motion_data_full",
+        "--until-user-stop",
+        "--endpoint-eval-protocol",
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260912_memory350_response_window_ablation/protocols/periodic.json"
+      ]
+    },
+    "concat": {
+      "unbounded_completion": {
+        "target_updates": null,
+        "completed_updates": 13,
+        "complete": false,
+        "stopped": true,
+        "distributed_parameter_agreement": {
+          "passed": true,
+          "world_size": 4,
+          "ranks": [
+            {
+              "rank": 0,
+              "completed_updates": 13,
+              "actor_trainable_sha256": "0cbc766779b07434bbbdf7c1af5b52f6b631fc205066d1c2c16bc3ce79634a57",
+              "critic_trainable_sha256": "f7081457e30ffba4f0b07f6eb536f90767f51957bd664ce8b16f3534f8eb363b",
+              "critic_normalizer_sha256": "7d7c0addd45d6eab3cc060df1436d03530f807836b82800b8acd621df9e1f359",
+              "finite": true
+            },
+            {
+              "rank": 1,
+              "completed_updates": 13,
+              "actor_trainable_sha256": "0cbc766779b07434bbbdf7c1af5b52f6b631fc205066d1c2c16bc3ce79634a57",
+              "critic_trainable_sha256": "f7081457e30ffba4f0b07f6eb536f90767f51957bd664ce8b16f3534f8eb363b",
+              "critic_normalizer_sha256": "7d7c0addd45d6eab3cc060df1436d03530f807836b82800b8acd621df9e1f359",
+              "finite": true
+            },
+            {
+              "rank": 2,
+              "completed_updates": 13,
+              "actor_trainable_sha256": "0cbc766779b07434bbbdf7c1af5b52f6b631fc205066d1c2c16bc3ce79634a57",
+              "critic_trainable_sha256": "f7081457e30ffba4f0b07f6eb536f90767f51957bd664ce8b16f3534f8eb363b",
+              "critic_normalizer_sha256": "7d7c0addd45d6eab3cc060df1436d03530f807836b82800b8acd621df9e1f359",
+              "finite": true
+            },
+            {
+              "rank": 3,
+              "completed_updates": 13,
+              "actor_trainable_sha256": "0cbc766779b07434bbbdf7c1af5b52f6b631fc205066d1c2c16bc3ce79634a57",
+              "critic_trainable_sha256": "f7081457e30ffba4f0b07f6eb536f90767f51957bd664ce8b16f3534f8eb363b",
+              "critic_normalizer_sha256": "7d7c0addd45d6eab3cc060df1436d03530f807836b82800b8acd621df9e1f359",
+              "finite": true
+            }
+          ]
+        },
+        "planned_sampling_transition": false,
+        "motion_sampling": {
+          "version": "limb_motion_sampling_curriculum_v1",
+          "requested_mode": "uniform",
+          "adaptive_after_update": 1000,
+          "active_mode": "uniform",
+          "failure_rewind_enabled": false,
+          "adaptive_bin_snapshot_interval_iterations": 0,
+          "adaptive_sampling": {
+            "random_probability": 0.5,
+            "strategy": "branch",
+            "temperature": 0.25
+          },
+          "parameters": {
+            "adaptive_uniform_ratio": 0.1,
+            "adaptive_bin_width_s": 1.0,
+            "adaptive_bin_width_steps": null,
+            "adaptive_prior_visit_count": 1.0,
+            "adaptive_prior_failure_count": 0.0,
+            "adaptive_failure_rate_ema_iterations": 1000,
+            "adaptive_failure_rate_window_iterations": null,
+            "adaptive_probability_max_over_mean": 500.0,
+            "adaptive_sequence_length_agnostic": false,
+            "adaptive_max_prob_per_bin": "auto",
+            "adaptive_max_prob_per_motion": "auto",
+            "adaptive_pre_failure_sample_window_steps": 100
+          },
+          "scope": "motion/bin sampling only; per-world independent limb payloads remain U(0,4)",
+          "statistics": "rank-local motion shards; adaptive statistics begin from priors at the phase boundary"
+        },
+        "training_terminations": {
+          "version": "limb_training_terminations_v1",
+          "profile": "no_ee_body_pos",
+          "disabled_terms": [
+            "ee_body_pos"
+          ],
+          "original_terms": [
+            {
+              "name": "time_out",
+              "term": "time_out",
+              "time_out": true
+            },
+            {
+              "name": "anchor_pos",
+              "term": "bad_anchor_pos_z_only",
+              "params": {
+                "command_name": "motion",
+                "threshold": 0.5,
+                "anchor_body_name": "pelvis"
+              }
+            },
+            {
+              "name": "anchor_ori",
+              "term": "bad_anchor_ori",
+              "params": {
+                "command_name": "motion",
+                "threshold": 0.8,
+                "anchor_body_name": "pelvis",
+                "asset_cfg": {
+                  "entity_name": "robot"
+                }
+              }
+            },
+            {
+              "name": "ee_body_pos",
+              "term": "bad_motion_body_pos_z_only",
+              "params": {
+                "command_name": "motion",
+                "threshold": 0.5,
+                "body_names": [
+                  "left_ankle_roll_link",
+                  "right_ankle_roll_link",
+                  "left_wrist_yaw_link",
+                  "right_wrist_yaw_link"
+                ],
+                "anchor_body_name": "pelvis"
+              }
+            }
+          ],
+          "active_terms": [
+            {
+              "name": "time_out",
+              "term": "time_out",
+              "time_out": true
+            },
+            {
+              "name": "anchor_pos",
+              "term": "bad_anchor_pos_z_only",
+              "params": {
+                "command_name": "motion",
+                "threshold": 0.5,
+                "anchor_body_name": "pelvis"
+              }
+            },
+            {
+              "name": "anchor_ori",
+              "term": "bad_anchor_ori",
+              "params": {
+                "command_name": "motion",
+                "threshold": 0.8,
+                "anchor_body_name": "pelvis",
+                "asset_cfg": {
+                  "entity_name": "robot"
+                }
+              }
+            }
+          ],
+          "evaluation_profile": "original"
+        },
+        "initialization_protocol": "residual_actor_and_critic_from_scratch_v3",
+        "distributed": {
+          "world_size": 4,
+          "num_envs_per_rank": 128,
+          "global_num_envs": 512,
+          "rank_seed_formula": "seed + 1000003 * rank",
+          "gradient_synchronization": "mean across all ranks at each optimizer step",
+          "advantage_normalization": "global rollout mean and sample standard deviation",
+          "critic_normalization": "global pooled sums, squared sums and count at every environment step"
+        },
+        "unix_time": 1789228232.0661335
+      },
+      "endpoint_completion": {
+        "target_updates": 14,
+        "completed_updates": 14,
+        "complete": true,
+        "stopped": false,
+        "distributed_parameter_agreement": {
+          "passed": true,
+          "world_size": 4,
+          "ranks": [
+            {
+              "rank": 0,
+              "completed_updates": 14,
+              "actor_trainable_sha256": "cddeec17fb80d88aab8384c1c30e1cab8471965e85ca6ca3c9fad8948c2ede18",
+              "critic_trainable_sha256": "27bf544f8acc67dd84517bc092f1f7957a0c254a6cab914d29c55ac417035dd0",
+              "critic_normalizer_sha256": "75a88ca8533f0647d89d798a564cad56a8ebf0f2a1912261f54af6966f7ef548",
+              "finite": true
+            },
+            {
+              "rank": 1,
+              "completed_updates": 14,
+              "actor_trainable_sha256": "cddeec17fb80d88aab8384c1c30e1cab8471965e85ca6ca3c9fad8948c2ede18",
+              "critic_trainable_sha256": "27bf544f8acc67dd84517bc092f1f7957a0c254a6cab914d29c55ac417035dd0",
+              "critic_normalizer_sha256": "75a88ca8533f0647d89d798a564cad56a8ebf0f2a1912261f54af6966f7ef548",
+              "finite": true
+            },
+            {
+              "rank": 2,
+              "completed_updates": 14,
+              "actor_trainable_sha256": "cddeec17fb80d88aab8384c1c30e1cab8471965e85ca6ca3c9fad8948c2ede18",
+              "critic_trainable_sha256": "27bf544f8acc67dd84517bc092f1f7957a0c254a6cab914d29c55ac417035dd0",
+              "critic_normalizer_sha256": "75a88ca8533f0647d89d798a564cad56a8ebf0f2a1912261f54af6966f7ef548",
+              "finite": true
+            },
+            {
+              "rank": 3,
+              "completed_updates": 14,
+              "actor_trainable_sha256": "cddeec17fb80d88aab8384c1c30e1cab8471965e85ca6ca3c9fad8948c2ede18",
+              "critic_trainable_sha256": "27bf544f8acc67dd84517bc092f1f7957a0c254a6cab914d29c55ac417035dd0",
+              "critic_normalizer_sha256": "75a88ca8533f0647d89d798a564cad56a8ebf0f2a1912261f54af6966f7ef548",
+              "finite": true
+            }
+          ]
+        },
+        "planned_sampling_transition": false,
+        "motion_sampling": {
+          "version": "limb_motion_sampling_curriculum_v1",
+          "requested_mode": "uniform",
+          "adaptive_after_update": 1000,
+          "active_mode": "uniform",
+          "failure_rewind_enabled": false,
+          "adaptive_bin_snapshot_interval_iterations": 0,
+          "adaptive_sampling": {
+            "random_probability": 0.5,
+            "strategy": "branch",
+            "temperature": 0.25
+          },
+          "parameters": {
+            "adaptive_uniform_ratio": 0.1,
+            "adaptive_bin_width_s": 1.0,
+            "adaptive_bin_width_steps": null,
+            "adaptive_prior_visit_count": 1.0,
+            "adaptive_prior_failure_count": 0.0,
+            "adaptive_failure_rate_ema_iterations": 1000,
+            "adaptive_failure_rate_window_iterations": null,
+            "adaptive_probability_max_over_mean": 500.0,
+            "adaptive_sequence_length_agnostic": false,
+            "adaptive_max_prob_per_bin": "auto",
+            "adaptive_max_prob_per_motion": "auto",
+            "adaptive_pre_failure_sample_window_steps": 100
+          },
+          "scope": "motion/bin sampling only; per-world independent limb payloads remain U(0,4)",
+          "statistics": "rank-local motion shards; adaptive statistics begin from priors at the phase boundary"
+        },
+        "training_terminations": {
+          "version": "limb_training_terminations_v1",
+          "profile": "no_ee_body_pos",
+          "disabled_terms": [
+            "ee_body_pos"
+          ],
+          "original_terms": [
+            {
+              "name": "time_out",
+              "term": "time_out",
+              "time_out": true
+            },
+            {
+              "name": "anchor_pos",
+              "term": "bad_anchor_pos_z_only",
+              "params": {
+                "command_name": "motion",
+                "threshold": 0.5,
+                "anchor_body_name": "pelvis"
+              }
+            },
+            {
+              "name": "anchor_ori",
+              "term": "bad_anchor_ori",
+              "params": {
+                "command_name": "motion",
+                "threshold": 0.8,
+                "anchor_body_name": "pelvis",
+                "asset_cfg": {
+                  "entity_name": "robot"
+                }
+              }
+            },
+            {
+              "name": "ee_body_pos",
+              "term": "bad_motion_body_pos_z_only",
+              "params": {
+                "command_name": "motion",
+                "threshold": 0.5,
+                "body_names": [
+                  "left_ankle_roll_link",
+                  "right_ankle_roll_link",
+                  "left_wrist_yaw_link",
+                  "right_wrist_yaw_link"
+                ],
+                "anchor_body_name": "pelvis"
+              }
+            }
+          ],
+          "active_terms": [
+            {
+              "name": "time_out",
+              "term": "time_out",
+              "time_out": true
+            },
+            {
+              "name": "anchor_pos",
+              "term": "bad_anchor_pos_z_only",
+              "params": {
+                "command_name": "motion",
+                "threshold": 0.5,
+                "anchor_body_name": "pelvis"
+              }
+            },
+            {
+              "name": "anchor_ori",
+              "term": "bad_anchor_ori",
+              "params": {
+                "command_name": "motion",
+                "threshold": 0.8,
+                "anchor_body_name": "pelvis",
+                "asset_cfg": {
+                  "entity_name": "robot"
+                }
+              }
+            }
+          ],
+          "evaluation_profile": "original"
+        },
+        "initialization_protocol": "residual_actor_and_critic_from_scratch_v3",
+        "distributed": {
+          "world_size": 4,
+          "num_envs_per_rank": 128,
+          "global_num_envs": 512,
+          "rank_seed_formula": "seed + 1000003 * rank",
+          "gradient_synchronization": "mean across all ranks at each optimizer step",
+          "advantage_normalization": "global rollout mean and sample standard deviation",
+          "critic_normalization": "global pooled sums, squared sums and count at every environment step"
+        },
+        "unix_time": 1789228533.3739812
+      },
+      "initial_checkpoint_sha256": "b502da6ad190d1225db9ff2c9f4d14b9865b150b058e9468a4d65f225616aa8e",
+      "endpoint_checkpoint_sha256": "5bac76aef7e15b9da78dbcb2dd68f0d83c4ab9b8de5e28e7a6458a70f28276e6",
+      "training_state_preserved": true,
+      "formal_command": [
+        "/data_zcy/wxy/intact-tracking/.venv/bin/python",
+        "-B",
+        "-u",
+        "-m",
+        "torch.distributed.run",
+        "--standalone",
+        "--nproc-per-node=4",
+        "--max-restarts=0",
+        "-m",
+        "intact_tracking.cli.memory350_compressed_policy_train",
+        "--fusion",
+        "concat",
+        "--output-dir",
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260912_memory350_response_window_ablation/ppo/concat_121",
+        "--training-ranks",
+        "4",
+        "--num-envs",
+        "8192",
+        "--seed",
+        "121",
+        "--episode-steps",
+        "1000",
+        "--motion-sampling",
+        "adaptive",
+        "--adaptive-after-update",
+        "1000",
+        "--training-terminations",
+        "no_ee_body_pos",
+        "--dr-profile",
+        "tracker_dr_plus_limb_payload",
+        "--save-interval",
+        "100",
+        "--wandb-group",
+        "limb_context_20260912_memory350_response_window_ablation",
+        "--wandb-name",
+        "limb_context_20260912_memory350_response_window_ablation-concat-ppo",
+        "--motion-path",
+        "/data_zcy/wxy/motion_data_correct/motion_data_full",
+        "--until-user-stop",
+        "--endpoint-eval-protocol",
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260912_memory350_response_window_ablation/protocols/periodic.json",
+        "--context-checkpoint",
+        "/selected/u15000.pt"
+      ]
+    }
+  },
+  "formal_num_envs_per_rank": 8192,
+  "smoke_num_envs_per_rank": 128,
+  "formal_maximum_updates": null,
+  "formal_launch_requires_both_u15000_endpoints_and_selection": true,
+  "actor_compression": [
+    1645,
+    512,
+    256,
+    128
+  ],
+  "latent_dim": 64,
+  "verification_scope": "four-rank update/resume/stop and cold/warm evaluation; full-scale formal run starts after selection",
+  "verified_at": 1789228955.7350507
+}

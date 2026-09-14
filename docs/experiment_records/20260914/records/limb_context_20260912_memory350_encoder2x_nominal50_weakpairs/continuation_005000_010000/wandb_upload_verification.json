@@ -1,0 +1,48 @@
+{
+  "checked_at_utc": "2026-09-12T09:16:12.847087+00:00",
+  "run_id": "m350weak-5ecc3182e543",
+  "url": "https://wandb.ai/2486344338-zhejiang-university/intact-forward-predictor/runs/m350weak-5ecc3182e543",
+  "remote_state": "running",
+  "local_update_at_query": 5082,
+  "remote_summary": {
+    "update": 5060,
+    "_step": 5060,
+    "_timestamp": 1789204505.923763,
+    "optimizer_steps": 20240,
+    "optimization/learning_rate_model": 9.254306857612689e-05,
+    "optimization_rank0/loss": 0.20602896809577945,
+    "optimization_train/loss": 0.21018647775053975,
+    "fixed_probe/dr_five_step_nmse": 0.045419820584356785
+  },
+  "remote_history_after_resume": [
+    {
+      "_step": 5001,
+      "update": 5001
+    },
+    {
+      "_step": 5010,
+      "update": 5010
+    },
+    {
+      "_step": 5020,
+      "update": 5020
+    },
+    {
+      "_step": 5030,
+      "update": 5030
+    },
+    {
+      "_step": 5040,
+      "update": 5040
+    },
+    {
+      "_step": 5050,
+      "update": 5050
+    },
+    {
+      "_step": 5060,
+      "update": 5060
+    }
+  ],
+  "remote_upload_verified": true
+}

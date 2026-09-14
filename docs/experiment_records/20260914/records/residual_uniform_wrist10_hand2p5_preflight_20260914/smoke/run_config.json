@@ -1,0 +1,1779 @@
+{
+  "actor_initialization": "fresh residual MLP; random hidden layers, zero output layer, fresh scalar action std 0.25",
+  "arguments": {
+    "actor_lr": 0.0001,
+    "adaptive_after_update": 0,
+    "context_checkpoint": null,
+    "critic_lr": 0.0005,
+    "device": null,
+    "distributed_backend": null,
+    "dr_bank": null,
+    "dr_profile": "tracker_dr_plus_limb_payload",
+    "dr_sampling": "independent_uniform",
+    "endpoint_eval_protocol": null,
+    "entropy_coef": 0.0002,
+    "episode_steps": 1000,
+    "epochs": 1,
+    "fusion": "baseline",
+    "iterations": 2,
+    "mini_batches": 1,
+    "motion_file": "/data_zcy/wxy/motion_data_correct/motion_data_full/sonic_filtered/230124/no_hear_002__A144.motion.npz",
+    "motion_path": null,
+    "motion_sampling": "uniform",
+    "num_envs": 128,
+    "num_experts": 16,
+    "output_dir": "/data_zcy/wxy/intact-tracking/runs/residual_uniform_wrist10_hand2p5_preflight_20260914/smoke",
+    "policy_precision": "fp32",
+    "residual_scale": 1.0,
+    "residual_torque_limit_nm": 20.0,
+    "resume": null,
+    "rollout_steps": 24,
+    "router_bootstrap_steps": 500,
+    "router_center_rate": 0.01,
+    "router_max_switch_fraction": 0.02,
+    "save_interval": 1,
+    "seed": 121,
+    "specialist_id": null,
+    "tracker_checkpoint": "/data_zcy/wxy/SP_Tracking/logs/rsl_rl/g1_tracking/2026-09-02_04-48-42_SPTracking-G1-BFM-SPV5-2AActor-HEFTCritic-HEFTReward_8gpu_12288env_motion_data_correct/checkpoint_72000.pt",
+    "training_ranks": 1,
+    "training_terminations": "original",
+    "until_user_stop": false,
+    "wandb_entity": "2486344338-zhejiang-university",
+    "wandb_group": "residual-uniform-wrist10-hand2p5",
+    "wandb_name": "residual-uniform-wrist10-hand2p5-preflight",
+    "wandb_project": "intact-preview-v2"
+  },
+  "context_checkpoint": null,
+  "context_normalization_frozen": true,
+  "context_protocol": "short50_disjoint_chunk10_long30_cross_reset_v1",
+  "context_sha256": null,
+  "critic_initialization": "fresh random MLP; no source critic weights",
+  "critic_normalization_initialization": "fresh moments from one pooled initial observation batch; then updated online",
+  "dataset": {
+    "archive_bytes": 401410,
+    "coverage": "all recursive *.npz files; no exclusions or active subset",
+    "groups": {
+      "(root)": 1
+    },
+    "loaded_frames": 223,
+    "loaded_motion_count": 1,
+    "loaded_motion_counts_per_rank": [
+      1
+    ],
+    "manifest_hash_kind": "relative-path,size,mtime_ns",
+    "manifest_sha256": "ef8a56672c7e97401ddfbeef77ed6ac1bf4d8d86f4ec03ecf15f1dbdefe00243",
+    "motion_count": 1,
+    "rank_partition": "sorted files [rank::world_size]; single-file smoke replicated",
+    "reference_storage_mode": "qpos_only_actor_fk",
+    "root": "/data_zcy/wxy/motion_data_correct/motion_data_full/sonic_filtered/230124"
+  },
+  "distributed": {
+    "advantage_normalization": "global rollout mean and sample standard deviation",
+    "critic_normalization": "global pooled sums, squared sums and count at every environment step",
+    "global_num_envs": 128,
+    "gradient_synchronization": "mean across all ranks at each optimizer step",
+    "num_envs_per_rank": 128,
+    "rank_seed_formula": "seed + 1000003 * rank",
+    "world_size": 1
+  },
+  "dr_profile": "tracker_dr_plus_limb_payload",
+  "dr_sampling": "independent_uniform",
+  "encoder_frozen": true,
+  "episode_length_control_steps": 1000,
+  "evaluation_module": "intact_tracking.cli.residual_uniform_eval",
+  "execution_protocol": "memory350_1_gpu_scratch_v1",
+  "extra_current_state_physics_privilege": false,
+  "frozen_inference": "cached chunk and long summaries; final short-context attention every control step",
+  "frozen_tracker_role": "pretrained base action and original 1645-dimensional preprocessing",
+  "fusion": "baseline",
+  "initialization_protocol": "residual_actor_and_critic_from_scratch_v3",
+  "initialization_seeds": {
+    "actor": 10128,
+    "critic": 20124
+  },
+  "input_audit": {
+    "action_std_initialization": 0.25,
+    "actor_compression": [
+      1645,
+      512,
+      256,
+      128
+    ],
+    "actor_compressor_sha256": "79577949de8dabd8042d78d2bdc63a574f34a2c81a784b6868bcbbeffdba9662",
+    "actor_critic_parameters_shared": false,
+    "actor_experts": 1,
+    "actor_head": [
+      157,
+      256,
+      128,
+      29
+    ],
+    "actor_initialization_seed": 10128,
+    "actor_original_features": 1645,
+    "actor_trainable_parameters": 1084090,
+    "critic_bootstrap_tracker_action": "recomputed on final next-state observation",
+    "critic_compression": [
+      6330,
+      1024,
+      512,
+      256,
+      128
+    ],
+    "critic_compressor_sha256": "dfadf550f769ad9c09076ffbfadbc97a2b1c1b6099c3847c0befef2d37e40603",
+    "critic_experts": 1,
+    "critic_head": [
+      157,
+      256,
+      128,
+      1
+    ],
+    "critic_initial_normalizer_sha256": "f39f36448e40c24a0086c3ea963fe48d6ffb33ec63d35a434a9c4fd4d153993c",
+    "critic_initialization_seed": 20124,
+    "critic_original_features": 6330,
+    "critic_tracker_action_input_dim": 29,
+    "critic_tracker_action_matches_actor": true,
+    "critic_tracker_action_normalization": "unmodified raw action; appended after obs compression",
+    "critic_tracker_action_source": "same current raw deterministic tracker mean used by actor; stored in rollout observations",
+    "critic_trainable_parameters": 7245441,
+    "each_side_shares_one_obs_encoder_across_its_experts": true,
+    "identical_initial_action": true,
+    "initial_value_independent_of_latent": true,
+    "latent_dimensions": 0,
+    "latent_use": "absent",
+    "router_has_trainable_parameters": false,
+    "routing_bootstrap": {
+      "policy": "deterministic frozen tracker",
+      "ppo_updates": 0,
+      "rank_seed": 2300121,
+      "same_bootstrap_in_baseline": true,
+      "steps": 500,
+      "trajectory_sha256": "c3e1c26148eae2b0afeeab4e1a2a97130e9e751321c10b61b6526fbc394ef808"
+    },
+    "tracker_action_input_dim": 29
+  },
+  "maximum_updates": 2,
+  "motion_count": 1,
+  "motion_file": "/data_zcy/wxy/motion_data_correct/motion_data_full/sonic_filtered/230124/no_hear_002__A144.motion.npz",
+  "motion_path": null,
+  "motion_sampling": {
+    "active_mode": "uniform",
+    "adaptive_after_update": 0,
+    "adaptive_bin_snapshot_interval_iterations": 0,
+    "adaptive_sampling": {
+      "random_probability": 0.5,
+      "strategy": "branch",
+      "temperature": 0.25
+    },
+    "failure_rewind_enabled": false,
+    "parameters": {
+      "adaptive_bin_width_s": 1.0,
+      "adaptive_bin_width_steps": null,
+      "adaptive_failure_rate_ema_iterations": 1000,
+      "adaptive_failure_rate_window_iterations": null,
+      "adaptive_max_prob_per_bin": "auto",
+      "adaptive_max_prob_per_motion": "auto",
+      "adaptive_pre_failure_sample_window_steps": 100,
+      "adaptive_prior_failure_count": 0.0,
+      "adaptive_prior_visit_count": 1.0,
+      "adaptive_probability_max_over_mean": 500.0,
+      "adaptive_sequence_length_agnostic": false,
+      "adaptive_uniform_ratio": 0.1
+    },
+    "requested_mode": "uniform",
+    "scope": "Uniform motion sampling; independent hand [0,2.5] / shin [0,4] kg or the selected complete fixed DR",
+    "statistics": "Uniform throughout; no adaptive curriculum or failure rewind",
+    "version": "limb_motion_sampling_curriculum_v1"
+  },
+  "physics": {
+    "dr_profile": "tracker_dr_plus_limb_payload",
+    "fixed_masses": null,
+    "limbs": {
+      "left_hand": {
+        "body": "left_wrist_yaw_link",
+        "position": [
+          0.12,
+          0.0,
+          0.0
+        ],
+        "size": [
+          0.1,
+          0.08,
+          0.08
+        ]
+      },
+      "left_shin": {
+        "body": "left_knee_link",
+        "position": [
+          0.0,
+          0.0,
+          -0.15
+        ],
+        "size": [
+          0.1,
+          0.08,
+          0.1
+        ]
+      },
+      "right_hand": {
+        "body": "right_wrist_yaw_link",
+        "position": [
+          0.12,
+          0.0,
+          0.0
+        ],
+        "size": [
+          0.1,
+          0.08,
+          0.08
+        ]
+      },
+      "right_shin": {
+        "body": "right_knee_link",
+        "position": [
+          0.0,
+          0.0,
+          -0.15
+        ],
+        "size": [
+          0.1,
+          0.08,
+          0.1
+        ]
+      }
+    },
+    "observation_corruption": {
+      "estimator_history": true,
+      "estimator_target": false,
+      "foot_contact_target": false,
+      "policy": true,
+      "priv": false,
+      "reference_encoder_input": false,
+      "reference_encoder_target": false,
+      "robot_key_body": false,
+      "robot_root_quat": false
+    },
+    "original_events": {
+      "base_com": {
+        "function": "mjlab.envs.mdp.dr.body.body_com_offset",
+        "interval_range_s": null,
+        "is_global_time": false,
+        "min_step_count_between_reset": 0,
+        "mode": "startup",
+        "params": {
+          "asset_cfg": {
+            "actuator_names": null,
+            "body_names": [
+              "torso_link"
+            ],
+            "geom_names": null,
+            "joint_names": null,
+            "name": "robot",
+            "preserve_order": false,
+            "site_names": null
+          },
+          "operation": "add",
+          "ranges": {
+            "0": [
+              -0.075,
+              0.075
+            ],
+            "1": [
+              -0.075,
+              0.075
+            ],
+            "2": [
+              -0.075,
+              0.075
+            ]
+          }
+        }
+      },
+      "base_mass": {
+        "function": "mjlab.envs.mdp.dr.body.body_mass",
+        "interval_range_s": null,
+        "is_global_time": false,
+        "min_step_count_between_reset": 0,
+        "mode": "startup",
+        "params": {
+          "asset_cfg": {
+            "actuator_names": null,
+            "body_names": [
+              "torso_link"
+            ],
+            "geom_names": null,
+            "joint_names": null,
+            "name": "robot",
+            "preserve_order": false,
+            "site_names": null
+          },
+          "operation": "add",
+          "ranges": [
+            -1.0,
+            1.0
+          ]
+        }
+      },
+      "encoder_bias": {
+        "function": "mjlab.envs.mdp.dr.joint.encoder_bias",
+        "interval_range_s": null,
+        "is_global_time": false,
+        "min_step_count_between_reset": 0,
+        "mode": "startup",
+        "params": {
+          "asset_cfg": {
+            "actuator_names": null,
+            "body_names": null,
+            "geom_names": null,
+            "joint_names": null,
+            "name": "robot",
+            "preserve_order": false,
+            "site_names": null
+          },
+          "bias_range": [
+            -0.01,
+            0.01
+          ]
+        }
+      },
+      "foot_friction": {
+        "function": "mjlab.envs.mdp.dr.geom.geom_friction",
+        "interval_range_s": null,
+        "is_global_time": false,
+        "min_step_count_between_reset": 0,
+        "mode": "startup",
+        "params": {
+          "asset_cfg": {
+            "actuator_names": null,
+            "body_names": null,
+            "geom_names": "^(left|right)_foot[1-7]_collision$",
+            "joint_names": null,
+            "name": "robot",
+            "preserve_order": false,
+            "site_names": null
+          },
+          "operation": "abs",
+          "ranges": [
+            0.3,
+            2.0
+          ],
+          "shared_random": true
+        }
+      },
+      "motor_params_implicit": {
+        "function": "intact_tracking.environment.mdp.randomizations.motor_params_implicit",
+        "interval_range_s": null,
+        "is_global_time": false,
+        "min_step_count_between_reset": 0,
+        "mode": "startup",
+        "params": {
+          "armature_range": {
+            ".*": [
+              0.8,
+              1.2
+            ]
+          },
+          "mode": "uniform"
+        }
+      },
+      "push_robot": {
+        "function": "intact_tracking.environment.mdp.randomizations.body_force_pulse",
+        "interval_range_s": null,
+        "is_global_time": false,
+        "min_step_count_between_reset": 0,
+        "mode": "step",
+        "params": {
+          "body_name": "torso_link",
+          "duration_range_s": [
+            0.3,
+            0.5
+          ],
+          "force_abs_range_n": [
+            0.0,
+            10.0
+          ],
+          "interval_range_s": [
+            3.0,
+            6.0
+          ]
+        }
+      }
+    },
+    "original_reset_callbacks": "preserved, including force-pulse timer resets",
+    "profile": "residual_uniform_wrist10_hand2p5_v1",
+    "removed_disturbances": [],
+    "residual_physics_contract": {
+      "limb_max_masses_kg": [
+        2.5,
+        2.5,
+        4.0,
+        4.0
+      ],
+      "motion_sampling": "uniform",
+      "pd_gains": "preserved",
+      "tracker_action_scale": "preserved from frozen tracker",
+      "version": "residual_uniform_wrist10_hand2p5_v1",
+      "wrist_pitch_yaw_effort_limit_nm": 10.0
+    },
+    "runtime_audits_by_rank": [
+      {
+        "episode_length_control_steps": 1000,
+        "loaded_frames": 223,
+        "motion_count": 1,
+        "physics": {
+          "action_order": [
+            "left_hip_pitch_joint",
+            "left_hip_roll_joint",
+            "left_hip_yaw_joint",
+            "left_knee_joint",
+            "left_ankle_pitch_joint",
+            "left_ankle_roll_joint",
+            "right_hip_pitch_joint",
+            "right_hip_roll_joint",
+            "right_hip_yaw_joint",
+            "right_knee_joint",
+            "right_ankle_pitch_joint",
+            "right_ankle_roll_joint",
+            "waist_yaw_joint",
+            "waist_roll_joint",
+            "waist_pitch_joint",
+            "left_shoulder_pitch_joint",
+            "left_shoulder_roll_joint",
+            "left_shoulder_yaw_joint",
+            "left_elbow_joint",
+            "left_wrist_roll_joint",
+            "left_wrist_pitch_joint",
+            "left_wrist_yaw_joint",
+            "right_shoulder_pitch_joint",
+            "right_shoulder_roll_joint",
+            "right_shoulder_yaw_joint",
+            "right_elbow_joint",
+            "right_wrist_roll_joint",
+            "right_wrist_pitch_joint",
+            "right_wrist_yaw_joint"
+          ],
+          "actual_mass_sha256": "8bf96636d0a61f663527865a8fc85d57a1db65eafd3741125caf89522b2c2b2d",
+          "correlation": [
+            [
+              1.0,
+              -0.03787648677825928,
+              0.020482424646615982,
+              0.0839361697435379
+            ],
+            [
+              -0.03787648677825928,
+              0.9999999403953552,
+              -0.0041252318769693375,
+              -0.009996871463954449
+            ],
+            [
+              0.020482424646615982,
+              -0.00412523141130805,
+              1.0,
+              0.19005711376667023
+            ],
+            [
+              0.0839361697435379,
+              -0.009996871463954449,
+              0.19005711376667023,
+              1.0
+            ]
+          ],
+          "hardest_worlds": 0,
+          "max_kg": 3.9749436378479004,
+          "min_kg": 0.0017569959163665771,
+          "nominal_worlds": 0,
+          "observation_corruption": {
+            "estimator_history": true,
+            "estimator_target": false,
+            "foot_contact_target": false,
+            "policy": true,
+            "priv": false,
+            "reference_encoder_input": false,
+            "reference_encoder_target": false,
+            "robot_key_body": false,
+            "robot_root_quat": false
+          },
+          "original_events": {
+            "base_com": {
+              "function": "mjlab.envs.mdp.dr.body.body_com_offset",
+              "interval_range_s": null,
+              "is_global_time": false,
+              "min_step_count_between_reset": 0,
+              "mode": "startup",
+              "params": {
+                "asset_cfg": {
+                  "actuator_names": null,
+                  "body_names": [
+                    "torso_link"
+                  ],
+                  "geom_names": null,
+                  "joint_names": null,
+                  "name": "robot",
+                  "preserve_order": false,
+                  "site_names": null
+                },
+                "operation": "add",
+                "ranges": {
+                  "0": [
+                    -0.075,
+                    0.075
+                  ],
+                  "1": [
+                    -0.075,
+                    0.075
+                  ],
+                  "2": [
+                    -0.075,
+                    0.075
+                  ]
+                }
+              }
+            },
+            "base_mass": {
+              "function": "mjlab.envs.mdp.dr.body.body_mass",
+              "interval_range_s": null,
+              "is_global_time": false,
+              "min_step_count_between_reset": 0,
+              "mode": "startup",
+              "params": {
+                "asset_cfg": {
+                  "actuator_names": null,
+                  "body_names": [
+                    "torso_link"
+                  ],
+                  "geom_names": null,
+                  "joint_names": null,
+                  "name": "robot",
+                  "preserve_order": false,
+                  "site_names": null
+                },
+                "operation": "add",
+                "ranges": [
+                  -1.0,
+                  1.0
+                ]
+              }
+            },
+            "encoder_bias": {
+              "function": "mjlab.envs.mdp.dr.joint.encoder_bias",
+              "interval_range_s": null,
+              "is_global_time": false,
+              "min_step_count_between_reset": 0,
+              "mode": "startup",
+              "params": {
+                "asset_cfg": {
+                  "actuator_names": null,
+                  "body_names": null,
+                  "geom_names": null,
+                  "joint_names": null,
+                  "name": "robot",
+                  "preserve_order": false,
+                  "site_names": null
+                },
+                "bias_range": [
+                  -0.01,
+                  0.01
+                ]
+              }
+            },
+            "foot_friction": {
+              "function": "mjlab.envs.mdp.dr.geom.geom_friction",
+              "interval_range_s": null,
+              "is_global_time": false,
+              "min_step_count_between_reset": 0,
+              "mode": "startup",
+              "params": {
+                "asset_cfg": {
+                  "actuator_names": null,
+                  "body_names": null,
+                  "geom_names": "^(left|right)_foot[1-7]_collision$",
+                  "joint_names": null,
+                  "name": "robot",
+                  "preserve_order": false,
+                  "site_names": null
+                },
+                "operation": "abs",
+                "ranges": [
+                  0.3,
+                  2.0
+                ],
+                "shared_random": true
+              }
+            },
+            "motor_params_implicit": {
+              "function": "intact_tracking.environment.mdp.randomizations.motor_params_implicit",
+              "interval_range_s": null,
+              "is_global_time": false,
+              "min_step_count_between_reset": 0,
+              "mode": "startup",
+              "params": {
+                "armature_range": {
+                  ".*": [
+                    0.8,
+                    1.2
+                  ]
+                },
+                "mode": "uniform"
+              }
+            },
+            "push_robot": {
+              "function": "intact_tracking.environment.mdp.randomizations.body_force_pulse",
+              "interval_range_s": null,
+              "is_global_time": false,
+              "min_step_count_between_reset": 0,
+              "mode": "step",
+              "params": {
+                "body_name": "torso_link",
+                "duration_range_s": [
+                  0.3,
+                  0.5
+                ],
+                "force_abs_range_n": [
+                  0.0,
+                  10.0
+                ],
+                "interval_range_s": [
+                  3.0,
+                  6.0
+                ]
+              }
+            }
+          },
+          "pd_gains_and_tracker_action_scale_verified": true,
+          "per_limb_max_kg": [
+            2.4945502281188965,
+            2.484614610671997,
+            3.9661216735839844,
+            3.9749436378479004
+          ],
+          "per_limb_mean_kg": [
+            1.2932764291763306,
+            1.2717065811157227,
+            1.8780850172042847,
+            1.9106940031051636
+          ],
+          "per_limb_min_kg": [
+            0.018213987350463867,
+            0.0017569959163665771,
+            0.022952795028686523,
+            0.016311168670654297
+          ],
+          "residual_physics_contract": {
+            "limb_max_masses_kg": [
+              2.5,
+              2.5,
+              4.0,
+              4.0
+            ],
+            "motion_sampling": "uniform",
+            "pd_gains": "preserved",
+            "tracker_action_scale": "preserved from frozen tracker",
+            "version": "residual_uniform_wrist10_hand2p5_v1",
+            "wrist_pitch_yaw_effort_limit_nm": 10.0
+          },
+          "sampled_mass_sha256": "31b323680171ea9ef6deef6ed1fabb2c6dac7bd4e4acce23bcfd13ffe284f844",
+          "wrist_force_ranges_nm": [
+            [
+              -10.0,
+              10.0
+            ],
+            [
+              -10.0,
+              10.0
+            ],
+            [
+              -10.0,
+              10.0
+            ],
+            [
+              -10.0,
+              10.0
+            ]
+          ]
+        },
+        "rank": 0,
+        "seed": 121
+      }
+    ],
+    "sampling": "Independent hand U(0,2.5) and shin U(0,4) kg per world; fixed at startup",
+    "total_added_mass_range_kg": [
+      0,
+      13.0
+    ]
+  },
+  "policy_precision": "fp32",
+  "policy_precision_audit": {
+    "collection_update_and_evaluation_use_same_setting": true,
+    "context_inference_autocast": "bfloat16 on CUDA; frozen context stored in float32",
+    "policy_matmul_precision": "ieee",
+    "policy_parameter_dtype": "float32",
+    "policy_precision": "fp32",
+    "torch_version": "2.13.0+cu130"
+  },
+  "predictor_executed_in_ppo": false,
+  "research_source_sha256": {
+    "src/intact_tracking/cli/memory350_policy_train.py": "daa22e8251e2ec4febf4cba0d27f62d5e8af07b02adf2e5c2179fe7673b50947",
+    "src/intact_tracking/cli/residual_uniform_eval.py": "c1be7698e59378c9923e89db75c1e003f22e605bc39b94dcd092420ada86ee75",
+    "src/intact_tracking/cli/residual_uniform_train.py": "29e89d1701bb429949b9da55b8bd588041da01fb6961a23518a5d2835842cba8",
+    "src/intact_tracking/limb_context_checkpoint_eval.py": "50e6f9bfd3bb00c51d05e7d40bbca10fd553dbef239836751c44a1436672f46e",
+    "src/intact_tracking/limb_context_distributed.py": "7aa08fe83dd60f33d0ab94199c4d8227934fca34e1938f628f97c3850449cb2f",
+    "src/intact_tracking/limb_context_dr.py": "d5e853de7f16dc01dd9e42d87dac0727058ce3392f6c478eea2adb689668267c",
+    "src/intact_tracking/limb_context_env.py": "5ac109d3b27bfa44d1b0994dad0227b9e03b7ba15022822f0b11ff127c58c506",
+    "src/intact_tracking/limb_context_grouped_dr.py": "8e1c667eec3fa60d27ddd8f15af3b6b425fdc1fddf86c046d42bcee0b1236c23",
+    "src/intact_tracking/limb_context_policy.py": "349eaeb2a32b3cb4ce6a104708deed6c83f7f8793077fdd783663d7e88e60f35",
+    "src/intact_tracking/limb_context_protocol.py": "7267526fd490c8dd815aa1513461e97280b22226b378367f000a6ac2d34c0c3c",
+    "src/intact_tracking/limb_context_results.py": "0b46f757377852bdd81ba31160d26c25f1d05df8105eb1fb5e2a1f699c7241f6",
+    "src/intact_tracking/limb_context_sampling.py": "75d7bd063238782316b21e9484c084093dc09f2731096ce301e8c2e29b6e2588",
+    "src/intact_tracking/limb_context_terminations.py": "f23169b44694935b9c07247ae4c8ad634d12a3b05d63c5075434727c36aa54fb",
+    "src/intact_tracking/limb_context_validation.py": "6a9680dd473e3510d185fb42f6510666020c7d3bd99d15c422162a6cf28dbfcc",
+    "src/intact_tracking/memory350_bank.py": "426279ef3cb9f788cc598264b0b9f6d5c33758a50436b7612c7daf1b85907d26",
+    "src/intact_tracking/memory350_compressed_policy.py": "f5b7a78d45c4b04c2a11f190f5f721313c8c614722e226e89381aa1163ac70f0",
+    "src/intact_tracking/memory350_inference.py": "b9da5dafef0ca6c54517c98986a406ba459fb465722c4bd3e9956c06cfd3fdd6",
+    "src/intact_tracking/memory350_latent_usage_eval.py": "7ee9a996c3c7cf257f36435f88f53d55eca31b379854380fcd682f6ecad397db",
+    "src/intact_tracking/memory350_model.py": "fe78c63753d0c79ffdc52a977ca77ccf72002c3a70f72a9735dbb30313e11645",
+    "src/intact_tracking/memory350_moe_critic_action.py": "fd94818aa40378856ccd36efe4d7140ba7bba653b46526bad86a9336a487e4ea",
+    "src/intact_tracking/memory350_moe_policy.py": "ce8e5b2307dba498041ae0a1c78271745c5aade89ca01637cfc62956b4252577",
+    "src/intact_tracking/memory350_moe_training.py": "9f0da11ce792a7ec753044fd7617309436f57e9dd379d412e8f9f17d8a666dcc",
+    "src/intact_tracking/memory350_nominal_rollout.py": "30591e9e75d6a2ba07750937dda3312b7684e8ef2e2393d1fcff5589e04f9b63",
+    "src/intact_tracking/memory350_objective.py": "1c50bf41fd1047c7496a4da9155228a55d099752af9d29a7f58b53902da43228",
+    "src/intact_tracking/memory350_online_kmeans.py": "1616317242be5199609dbd6e20d5086ba1c164a5927615af09532e08714e9ee2",
+    "src/intact_tracking/memory350_policy_checkpoint_eval.py": "ca3261319f74b89084e1de8ea68eb42cc12f063270c3564a74c0bf0c7589d8ea",
+    "src/intact_tracking/memory350_policy_env.py": "db5cae24651249ce706aa385401c767b46830fdba10a199e7a5da0c3c5f9985c",
+    "src/intact_tracking/memory350_policy_inference.py": "8b58cf9b974e792bcb0fc818734a830bd95dd43472e6fd7b0ff197a344c58fdc",
+    "src/intact_tracking/memory350_policy_precision.py": "fc3b9a4314efe669984699adcc6e8402bcef4246e31429137790bb72b0c6645e",
+    "src/intact_tracking/memory350_policy_protocol.py": "7f3033fd8c414f25a6d0bd71323a3d22d45ecba9c69ea6656a95ccaf74a7fcb7",
+    "src/intact_tracking/memory350_policy_results.py": "0e4b86a90fee13c255e192c995a67341049c0d9210556374665cff8be92eb84e",
+    "src/intact_tracking/memory350_replay.py": "d2f06d09e8e745e8519ce498dd3cf2fa41c3dcfb9dad84b1bc0b6243ed138fb0",
+    "src/intact_tracking/memory350_response_window.py": "a504ee54bb82ecc83cb05ef616355a863e75979ad96930454c8cfcd20c8091e9",
+    "src/intact_tracking/memory350_rollout.py": "fef3d9d6e5ef722865ad1dcf22f7bbb43964188a23e7327a76134d7ba8c5e6d9",
+    "src/intact_tracking/memory350_scale_comparison.py": "6a9e689a4374d8a176bdfb6d35e76eb53b102449d03ebded83e7129f7fdfba19",
+    "src/intact_tracking/memory350_scale_model.py": "0d295de4fe351dede549ae6efc1753de8e14b3e1be0537a4fc3b61cfcb12f096",
+    "src/intact_tracking/memory350_scale_nominal_comparison.py": "b3ec342f263f3846c4be785d51c7ae76c79fd5c679f6e76255bb4525a048e42e",
+    "src/intact_tracking/memory350_weak_margin_tuning.py": "ad735a154e3fb930bf68bb980ceba13108fd55670c60f04fcf7a6ed0ccdc7609",
+    "src/intact_tracking/memory350_weak_pairs.py": "0495b6f3c869ccdd00d90d38b2fd89644187293f3cab1c8d2cc9a852cb77a7ad",
+    "src/intact_tracking/memory350_weak_tuning.py": "f51ded26be2b229e6031a7d610d322c27019e4f7493b64431599692100839351",
+    "src/intact_tracking/residual_policy.py": "47ea7173d327a2443fe89882f92f81642bb2193521700f9b08f53151429a5862",
+    "src/intact_tracking/residual_runner.py": "14059f465351fcf3912a6076081a9b5d7613b97762c6aee4f13a29cafc5bdfa9",
+    "src/intact_tracking/residual_uniform_protocol.py": "f16adca5bb1fe1501a18fff031d63661666d89c2a69fac3a111a8838a79d49f4"
+  },
+  "residual_bounds": {
+    "equivalent_p_torque_nm": 20.0,
+    "formula": "delta_action_i = torque_limit_nm / (Kp_i * action_scale_i) * tanh(head_i)",
+    "raw_limits_by_joint": {
+      "left_ankle_pitch_joint": 1.5999999046325684,
+      "left_ankle_roll_joint": 1.5999999046325684,
+      "left_elbow_joint": 3.1999998092651367,
+      "left_hip_pitch_joint": 0.9090909957885742,
+      "left_hip_roll_joint": 0.5755395889282227,
+      "left_hip_yaw_joint": 0.9090909957885742,
+      "left_knee_joint": 0.5755395889282227,
+      "left_shoulder_pitch_joint": 3.1999998092651367,
+      "left_shoulder_roll_joint": 3.1999998092651367,
+      "left_shoulder_yaw_joint": 3.1999998092651367,
+      "left_wrist_pitch_joint": 15.999999046325684,
+      "left_wrist_roll_joint": 3.1999998092651367,
+      "left_wrist_yaw_joint": 15.999999046325684,
+      "right_ankle_pitch_joint": 1.5999999046325684,
+      "right_ankle_roll_joint": 1.5999999046325684,
+      "right_elbow_joint": 3.1999998092651367,
+      "right_hip_pitch_joint": 0.9090909957885742,
+      "right_hip_roll_joint": 0.5755395889282227,
+      "right_hip_yaw_joint": 0.9090909957885742,
+      "right_knee_joint": 0.5755395889282227,
+      "right_shoulder_pitch_joint": 3.1999998092651367,
+      "right_shoulder_roll_joint": 3.1999998092651367,
+      "right_shoulder_yaw_joint": 3.1999998092651367,
+      "right_wrist_pitch_joint": 15.999999046325684,
+      "right_wrist_roll_joint": 3.1999998092651367,
+      "right_wrist_yaw_joint": 15.999999046325684,
+      "waist_pitch_joint": 1.5999999046325684,
+      "waist_roll_joint": 1.5999999046325684,
+      "waist_yaw_joint": 0.9090909957885742
+    },
+    "semantics": "Correction at the same state before physical actuator clipping; not guaranteed delivered torque"
+  },
+  "resume_contract": "restore model optimizer normalizers and update count; restart simulator episodes",
+  "reward_changes": {},
+  "reward_contract": {
+    "definition": {
+      "decimation": 4,
+      "simulation_dt": 0.005,
+      "terms": {
+        "action_rate_l2": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:action_rate_l2",
+              "source_sha256": "635165f8a9cb725ccc1d517761f4efea67bc9d71dbb187e63eb304d0c0bd775d"
+            },
+            "params": {},
+            "weight": 0.2
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "feet_air_time_ref": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:feet_air_time_ref",
+              "source_sha256": "d01ed891a498a14a128c02a48a2d00fec4376ef870d3d226f9a3b2ce03893483"
+            },
+            "params": {
+              "command_name": "motion",
+              "sensor_name": "contact_forces",
+              "thres": 0.25
+            },
+            "weight": 2.5
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "feet_air_time_ref_dense": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:feet_air_time_ref_dense",
+              "source_sha256": "aa14392ccb551602e30a2a7864f00db66134f1652c1272abae5600d22772d4cf"
+            },
+            "params": {
+              "air_h_high": 0.155,
+              "air_h_low": 0.035,
+              "command_name": "motion",
+              "contact_h_high": 0.125,
+              "contact_h_low": 0.035,
+              "sensor_name": "contact_forces",
+              "toe_specs": [
+                {
+                  "body_name": "left_ankle_roll_link",
+                  "local_pos": [
+                    0.1,
+                    0.0,
+                    0.0
+                  ],
+                  "name": "left_toe"
+                },
+                {
+                  "body_name": "right_ankle_roll_link",
+                  "local_pos": [
+                    0.1,
+                    0.0,
+                    0.0
+                  ],
+                  "name": "right_toe"
+                }
+              ]
+            },
+            "weight": 1.0
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "feet_link_height_tracking": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:global_link_height_tracking",
+              "source_sha256": "ff396ac4e311a68876f542b5426b95cc50b670a7c54a70fa0e2cf7eb709a7307"
+            },
+            "params": {
+              "body_names": [
+                "left_ankle_roll_link",
+                "right_ankle_roll_link"
+              ],
+              "command_name": "motion",
+              "sigma": [
+                0.3
+              ]
+            },
+            "weight": 1.0
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "joint_pos_limits": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:joint_pos_limits",
+              "source_sha256": "63c45b1279c9dffc0de984ea3c2cc146c2da532ad475d51ffd525bb65135be89"
+            },
+            "params": {
+              "joint_names": ".*",
+              "soft_factor": 0.9
+            },
+            "weight": 1.0
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "joint_pos_tracking": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:joint_pos_tracking",
+              "source_sha256": "fec9d489699442aa7aa22ff5020def9b2765a4a68885c1b98e32bdca1ffa122b"
+            },
+            "params": {
+              "command_name": "motion",
+              "sigma": [
+                0.5
+              ]
+            },
+            "weight": 1.0
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "joint_torque_limits": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:joint_torque_limits",
+              "source_sha256": "fe9153eefc1893c551cb63f4f5a3bd443bee90dce7dcaaa70ce119ba016a67d0"
+            },
+            "params": {
+              "joint_names": ".*",
+              "soft_factor": 0.75
+            },
+            "weight": 0.01
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "joint_vel_l2": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:joint_vel_l2",
+              "source_sha256": "c23d85af78e7464e1e8f63588436a80309d0fd65d3386f69c7b25b30fd55984e"
+            },
+            "params": {},
+            "weight": 0.00025
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "joint_vel_tracking": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:joint_vel_tracking",
+              "source_sha256": "a538aa05599e7b8a053b9237a33a9e28d31a0680b81161576e674e6a9fab47e2"
+            },
+            "params": {
+              "command_name": "motion",
+              "sigma": [
+                3.0
+              ]
+            },
+            "weight": 0.5
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "keypoint_angvel_tracking": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:keypoint_angvel_tracking",
+              "source_sha256": "2da1a517db6e66a0a8d99a5979a6ceaa66ad85c7b890bc30f78a40f9b55c7a6a"
+            },
+            "params": {
+              "command_name": "motion",
+              "keypoint_specs": [
+                {
+                  "body_name": "left_hip_yaw_link",
+                  "name": "left_hip"
+                },
+                {
+                  "body_name": "left_knee_link",
+                  "name": "left_knee"
+                },
+                {
+                  "body_name": "left_ankle_roll_link",
+                  "name": "left_foot"
+                },
+                {
+                  "body_name": "right_hip_yaw_link",
+                  "name": "right_hip"
+                },
+                {
+                  "body_name": "right_knee_link",
+                  "name": "right_knee"
+                },
+                {
+                  "body_name": "right_ankle_roll_link",
+                  "name": "right_foot"
+                },
+                {
+                  "body_name": "torso_link",
+                  "local_pos": [
+                    0.01,
+                    0.0,
+                    0.41
+                  ],
+                  "name": "head"
+                },
+                {
+                  "body_name": "left_shoulder_yaw_link",
+                  "name": "left_shoulder"
+                },
+                {
+                  "body_name": "left_wrist_roll_link",
+                  "name": "left_wrist"
+                },
+                {
+                  "body_name": "left_wrist_yaw_link",
+                  "correction_body_name": "left_wrist_pitch_link",
+                  "correction_local_pos": [
+                    0.005,
+                    0.0,
+                    0.0
+                  ],
+                  "local_pos": [
+                    0.116,
+                    0.0,
+                    0.0
+                  ],
+                  "name": "left_hand"
+                },
+                {
+                  "body_name": "right_shoulder_yaw_link",
+                  "name": "right_shoulder"
+                },
+                {
+                  "body_name": "right_wrist_roll_link",
+                  "name": "right_wrist"
+                },
+                {
+                  "body_name": "right_wrist_yaw_link",
+                  "correction_body_name": "right_wrist_pitch_link",
+                  "correction_local_pos": [
+                    0.005,
+                    0.0,
+                    0.0
+                  ],
+                  "local_pos": [
+                    0.116,
+                    0.0,
+                    0.0
+                  ],
+                  "name": "right_hand"
+                }
+              ],
+              "sigma": [
+                3.0
+              ]
+            },
+            "weight": 1.0
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "keypoint_pos_tracking": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:keypoint_pos_tracking",
+              "source_sha256": "f61653e9ae9a095b0e71bc9e0cd7af9463e3d697494a9f3f72c7583b26775e1f"
+            },
+            "params": {
+              "command_name": "motion",
+              "keypoint_specs": [
+                {
+                  "body_name": "left_hip_yaw_link",
+                  "name": "left_hip"
+                },
+                {
+                  "body_name": "left_knee_link",
+                  "name": "left_knee"
+                },
+                {
+                  "body_name": "left_ankle_roll_link",
+                  "name": "left_foot"
+                },
+                {
+                  "body_name": "right_hip_yaw_link",
+                  "name": "right_hip"
+                },
+                {
+                  "body_name": "right_knee_link",
+                  "name": "right_knee"
+                },
+                {
+                  "body_name": "right_ankle_roll_link",
+                  "name": "right_foot"
+                },
+                {
+                  "body_name": "torso_link",
+                  "local_pos": [
+                    0.01,
+                    0.0,
+                    0.41
+                  ],
+                  "name": "head"
+                },
+                {
+                  "body_name": "left_shoulder_yaw_link",
+                  "name": "left_shoulder"
+                },
+                {
+                  "body_name": "left_wrist_roll_link",
+                  "name": "left_wrist"
+                },
+                {
+                  "body_name": "left_wrist_yaw_link",
+                  "correction_body_name": "left_wrist_pitch_link",
+                  "correction_local_pos": [
+                    0.005,
+                    0.0,
+                    0.0
+                  ],
+                  "local_pos": [
+                    0.116,
+                    0.0,
+                    0.0
+                  ],
+                  "name": "left_hand"
+                },
+                {
+                  "body_name": "right_shoulder_yaw_link",
+                  "name": "right_shoulder"
+                },
+                {
+                  "body_name": "right_wrist_roll_link",
+                  "name": "right_wrist"
+                },
+                {
+                  "body_name": "right_wrist_yaw_link",
+                  "correction_body_name": "right_wrist_pitch_link",
+                  "correction_local_pos": [
+                    0.005,
+                    0.0,
+                    0.0
+                  ],
+                  "local_pos": [
+                    0.116,
+                    0.0,
+                    0.0
+                  ],
+                  "name": "right_hand"
+                }
+              ],
+              "sigma": [
+                0.3
+              ]
+            },
+            "weight": 2.0
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "keypoint_rot_tracking": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:keypoint_rot_tracking",
+              "source_sha256": "d59392c1bda5e5872d655db7e3fa0580856c11f92fb022de2a69418d79e523d7"
+            },
+            "params": {
+              "command_name": "motion",
+              "keypoint_specs": [
+                {
+                  "body_name": "left_hip_yaw_link",
+                  "name": "left_hip"
+                },
+                {
+                  "body_name": "left_knee_link",
+                  "name": "left_knee"
+                },
+                {
+                  "body_name": "left_ankle_roll_link",
+                  "name": "left_foot"
+                },
+                {
+                  "body_name": "right_hip_yaw_link",
+                  "name": "right_hip"
+                },
+                {
+                  "body_name": "right_knee_link",
+                  "name": "right_knee"
+                },
+                {
+                  "body_name": "right_ankle_roll_link",
+                  "name": "right_foot"
+                },
+                {
+                  "body_name": "torso_link",
+                  "local_pos": [
+                    0.01,
+                    0.0,
+                    0.41
+                  ],
+                  "name": "head"
+                },
+                {
+                  "body_name": "left_shoulder_yaw_link",
+                  "name": "left_shoulder"
+                },
+                {
+                  "body_name": "left_wrist_roll_link",
+                  "name": "left_wrist"
+                },
+                {
+                  "body_name": "left_wrist_yaw_link",
+                  "correction_body_name": "left_wrist_pitch_link",
+                  "correction_local_pos": [
+                    0.005,
+                    0.0,
+                    0.0
+                  ],
+                  "local_pos": [
+                    0.116,
+                    0.0,
+                    0.0
+                  ],
+                  "name": "left_hand"
+                },
+                {
+                  "body_name": "right_shoulder_yaw_link",
+                  "name": "right_shoulder"
+                },
+                {
+                  "body_name": "right_wrist_roll_link",
+                  "name": "right_wrist"
+                },
+                {
+                  "body_name": "right_wrist_yaw_link",
+                  "correction_body_name": "right_wrist_pitch_link",
+                  "correction_local_pos": [
+                    0.005,
+                    0.0,
+                    0.0
+                  ],
+                  "local_pos": [
+                    0.116,
+                    0.0,
+                    0.0
+                  ],
+                  "name": "right_hand"
+                }
+              ],
+              "sigma": [
+                0.4
+              ]
+            },
+            "weight": 2.0
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "keypoint_vel_tracking": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:keypoint_vel_tracking",
+              "source_sha256": "dd2587621326b8d377bbd315d9906cf2da1904c361642f84412398ebcdf6c58b"
+            },
+            "params": {
+              "command_name": "motion",
+              "keypoint_specs": [
+                {
+                  "body_name": "left_hip_yaw_link",
+                  "name": "left_hip"
+                },
+                {
+                  "body_name": "left_knee_link",
+                  "name": "left_knee"
+                },
+                {
+                  "body_name": "left_ankle_roll_link",
+                  "name": "left_foot"
+                },
+                {
+                  "body_name": "right_hip_yaw_link",
+                  "name": "right_hip"
+                },
+                {
+                  "body_name": "right_knee_link",
+                  "name": "right_knee"
+                },
+                {
+                  "body_name": "right_ankle_roll_link",
+                  "name": "right_foot"
+                },
+                {
+                  "body_name": "torso_link",
+                  "local_pos": [
+                    0.01,
+                    0.0,
+                    0.41
+                  ],
+                  "name": "head"
+                },
+                {
+                  "body_name": "left_shoulder_yaw_link",
+                  "name": "left_shoulder"
+                },
+                {
+                  "body_name": "left_wrist_roll_link",
+                  "name": "left_wrist"
+                },
+                {
+                  "body_name": "left_wrist_yaw_link",
+                  "correction_body_name": "left_wrist_pitch_link",
+                  "correction_local_pos": [
+                    0.005,
+                    0.0,
+                    0.0
+                  ],
+                  "local_pos": [
+                    0.116,
+                    0.0,
+                    0.0
+                  ],
+                  "name": "left_hand"
+                },
+                {
+                  "body_name": "right_shoulder_yaw_link",
+                  "name": "right_shoulder"
+                },
+                {
+                  "body_name": "right_wrist_roll_link",
+                  "name": "right_wrist"
+                },
+                {
+                  "body_name": "right_wrist_yaw_link",
+                  "correction_body_name": "right_wrist_pitch_link",
+                  "correction_local_pos": [
+                    0.005,
+                    0.0,
+                    0.0
+                  ],
+                  "local_pos": [
+                    0.116,
+                    0.0,
+                    0.0
+                  ],
+                  "name": "right_hand"
+                }
+              ],
+              "sigma": [
+                1.0
+              ]
+            },
+            "weight": 1.0
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "root_ang_vel_tracking": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:root_ang_vel_tracking",
+              "source_sha256": "dc92ed590abe95d9a8e63a5db90e180dffe2aa1a11d3d06e9500db181e15010e"
+            },
+            "params": {
+              "command_name": "motion",
+              "sigma": [
+                3.0
+              ]
+            },
+            "weight": 1.0
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "root_pos_tracking": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:root_pos_tracking",
+              "source_sha256": "e357a36bcae77384efebc9fda1fa9681b2e7035441de980c2abc0f4ad8da04e1"
+            },
+            "params": {
+              "command_name": "motion",
+              "sigma": [
+                0.3
+              ]
+            },
+            "weight": 1.0
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "root_rot_tracking": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:root_rot_tracking",
+              "source_sha256": "d89c22f13b7a1380d930bf4d74d58993be509bd81d630d80196f965419d7d179"
+            },
+            "params": {
+              "command_name": "motion",
+              "sigma": [
+                0.4
+              ]
+            },
+            "weight": 1.0
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "root_vel_tracking": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:root_vel_tracking",
+              "source_sha256": "213bd6b98275afff2f9cf189b1bb9c1c2439be4deec030e87094dac3ecc0d585"
+            },
+            "params": {
+              "command_name": "motion",
+              "sigma": [
+                1.0
+              ]
+            },
+            "weight": 1.0
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "survival": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:survival",
+              "source_sha256": "5d509a90834d083da9f334025aba2b76710e0b0d538ea7dc2d69737dafb9ff89"
+            },
+            "params": {},
+            "weight": 3.0
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "waist_action_rate_l2": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.rewards:joint_action_rate_l2",
+              "source_sha256": "5459bf83fd6d5b6926afb9363866bf521e4e8b7d38b8dabe43d4e6ab8862aad1"
+            },
+            "params": {
+              "action_name": "joint_pos",
+              "asset_cfg": {
+                "fields": {
+                  "actuator_ids": {
+                    "slice": [
+                      null,
+                      null,
+                      null
+                    ]
+                  },
+                  "actuator_names": null,
+                  "body_ids": {
+                    "slice": [
+                      null,
+                      null,
+                      null
+                    ]
+                  },
+                  "body_names": null,
+                  "camera_ids": {
+                    "slice": [
+                      null,
+                      null,
+                      null
+                    ]
+                  },
+                  "camera_names": null,
+                  "geom_ids": {
+                    "slice": [
+                      null,
+                      null,
+                      null
+                    ]
+                  },
+                  "geom_names": null,
+                  "joint_ids": {
+                    "slice": [
+                      null,
+                      null,
+                      null
+                    ]
+                  },
+                  "joint_names": [
+                    "waist_yaw_joint",
+                    "waist_roll_joint",
+                    "waist_pitch_joint"
+                  ],
+                  "light_ids": {
+                    "slice": [
+                      null,
+                      null,
+                      null
+                    ]
+                  },
+                  "light_names": null,
+                  "material_ids": {
+                    "slice": [
+                      null,
+                      null,
+                      null
+                    ]
+                  },
+                  "material_names": null,
+                  "name": "robot",
+                  "pair_ids": {
+                    "slice": [
+                      null,
+                      null,
+                      null
+                    ]
+                  },
+                  "pair_names": null,
+                  "preserve_order": false,
+                  "site_ids": {
+                    "slice": [
+                      null,
+                      null,
+                      null
+                    ]
+                  },
+                  "site_names": null,
+                  "tendon_ids": {
+                    "slice": [
+                      null,
+                      null,
+                      null
+                    ]
+                  },
+                  "tendon_names": null
+                },
+                "type": "mjlab.managers.scene_entity_config:SceneEntityCfg"
+              }
+            },
+            "weight": -0.5
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "wrist_link_height_tracking": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:global_link_height_tracking",
+              "source_sha256": "ff396ac4e311a68876f542b5426b95cc50b670a7c54a70fa0e2cf7eb709a7307"
+            },
+            "params": {
+              "body_names": [
+                "left_wrist_yaw_link",
+                "right_wrist_yaw_link"
+              ],
+              "command_name": "motion",
+              "sigma": [
+                0.3
+              ]
+            },
+            "weight": 1.0
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        }
+      }
+    },
+    "sha256": "abee73632d079f08c160584b04ace15532ecf6bd9dfa8139979af518d8a1553c",
+    "version": "original_task_reward_locked_v1"
+  },
+  "stop_contract": "finish current update and save; total completed count is authoritative",
+  "tracker_checkpoint": "/data_zcy/wxy/SP_Tracking/logs/rsl_rl/g1_tracking/2026-09-02_04-48-42_SPTracking-G1-BFM-SPV5-2AActor-HEFTCritic-HEFTReward_8gpu_12288env_motion_data_correct/checkpoint_72000.pt",
+  "tracker_sha256": "fd7bd90d5552e573bbbce1417e9b415c64bb487a76b683ba3c20503b5ec77635",
+  "training_starts": {
+    "after": {
+      "init_noise": {},
+      "joint_position_range": [
+        -0.1,
+        0.1
+      ],
+      "pose_range": {
+        "pitch": [
+          -0.1,
+          0.1
+        ],
+        "roll": [
+          -0.1,
+          0.1
+        ],
+        "x": [
+          -0.05,
+          0.05
+        ],
+        "y": [
+          -0.05,
+          0.05
+        ],
+        "yaw": [
+          -0.2,
+          0.2
+        ],
+        "z": [
+          -0.01,
+          0.01
+        ]
+      },
+      "velocity_range": {
+        "pitch": [
+          -0.52,
+          0.52
+        ],
+        "roll": [
+          -0.52,
+          0.52
+        ],
+        "x": [
+          -0.5,
+          0.5
+        ],
+        "y": [
+          -0.5,
+          0.5
+        ],
+        "yaw": [
+          -0.78,
+          0.78
+        ],
+        "z": [
+          -0.2,
+          0.2
+        ]
+      }
+    },
+    "before": {
+      "init_noise": {},
+      "joint_position_range": [
+        -0.1,
+        0.1
+      ],
+      "pose_range": {
+        "pitch": [
+          -0.1,
+          0.1
+        ],
+        "roll": [
+          -0.1,
+          0.1
+        ],
+        "x": [
+          -0.05,
+          0.05
+        ],
+        "y": [
+          -0.05,
+          0.05
+        ],
+        "yaw": [
+          -0.2,
+          0.2
+        ],
+        "z": [
+          -0.01,
+          0.01
+        ]
+      },
+      "velocity_range": {
+        "pitch": [
+          -0.52,
+          0.52
+        ],
+        "roll": [
+          -0.52,
+          0.52
+        ],
+        "x": [
+          -0.5,
+          0.5
+        ],
+        "y": [
+          -0.5,
+          0.5
+        ],
+        "yaw": [
+          -0.78,
+          0.78
+        ],
+        "z": [
+          -0.2,
+          0.2
+        ]
+      }
+    },
+    "contract": "Training reset curriculum only; no changes to physical DR, sensors, motions, terminations, or evaluation",
+    "mode": "original"
+  },
+  "training_termination_runtime_audits": [
+    {
+      "active_terms": [
+        "time_out",
+        "anchor_pos",
+        "anchor_ori",
+        "ee_body_pos"
+      ],
+      "ee_body_pos_enabled": true,
+      "passed": true
+    }
+  ],
+  "training_terminations": {
+    "active_terms": [
+      {
+        "name": "time_out",
+        "term": "time_out",
+        "time_out": true
+      },
+      {
+        "name": "anchor_pos",
+        "params": {
+          "anchor_body_name": "pelvis",
+          "command_name": "motion",
+          "threshold": 0.5
+        },
+        "term": "bad_anchor_pos_z_only"
+      },
+      {
+        "name": "anchor_ori",
+        "params": {
+          "anchor_body_name": "pelvis",
+          "asset_cfg": {
+            "entity_name": "robot"
+          },
+          "command_name": "motion",
+          "threshold": 0.8
+        },
+        "term": "bad_anchor_ori"
+      },
+      {
+        "name": "ee_body_pos",
+        "params": {
+          "anchor_body_name": "pelvis",
+          "body_names": [
+            "left_ankle_roll_link",
+            "right_ankle_roll_link",
+            "left_wrist_yaw_link",
+            "right_wrist_yaw_link"
+          ],
+          "command_name": "motion",
+          "threshold": 0.5
+        },
+        "term": "bad_motion_body_pos_z_only"
+      }
+    ],
+    "disabled_terms": [],
+    "evaluation_profile": "original",
+    "original_terms": [
+      {
+        "name": "time_out",
+        "term": "time_out",
+        "time_out": true
+      },
+      {
+        "name": "anchor_pos",
+        "params": {
+          "anchor_body_name": "pelvis",
+          "command_name": "motion",
+          "threshold": 0.5
+        },
+        "term": "bad_anchor_pos_z_only"
+      },
+      {
+        "name": "anchor_ori",
+        "params": {
+          "anchor_body_name": "pelvis",
+          "asset_cfg": {
+            "entity_name": "robot"
+          },
+          "command_name": "motion",
+          "threshold": 0.8
+        },
+        "term": "bad_anchor_ori"
+      },
+      {
+        "name": "ee_body_pos",
+        "params": {
+          "anchor_body_name": "pelvis",
+          "body_names": [
+            "left_ankle_roll_link",
+            "right_ankle_roll_link",
+            "left_wrist_yaw_link",
+            "right_wrist_yaw_link"
+          ],
+          "command_name": "motion",
+          "threshold": 0.5
+        },
+        "term": "bad_motion_body_pos_z_only"
+      }
+    ],
+    "profile": "original",
+    "version": "limb_training_terminations_v1"
+  },
+  "version": "residual_uniform_wrist10_hand2p5_v1"
+}

@@ -1,0 +1,152 @@
+{
+  "passed": true,
+  "from_update": 7000,
+  "to_update": 8000,
+  "readout": {
+    "common": {
+      "worlds": 409,
+      "test_samples": 3152,
+      "uniform_chance": 0.0024449877750611247,
+      "disjoint_history": true,
+      "models": {
+        "baseline": {
+          "top1_accuracy": 0.24048223350253808,
+          "top5_accuracy": 0.4663705583756345
+        },
+        "memory350": {
+          "top1_accuracy": 0.25761421319796957,
+          "top5_accuracy": 0.5158629441624365
+        }
+      },
+      "train_motion_families": [
+        "run1",
+        "fight1",
+        "fightAndSports1",
+        "run2",
+        "jumps1",
+        "walk4",
+        "sprint1"
+      ],
+      "test_motion_families": [
+        "walk1",
+        "fallAndGetUp1",
+        "walk2",
+        "dance1",
+        "walk3",
+        "fallAndGetUp2",
+        "dance2",
+        "fallAndGetUp3"
+      ],
+      "top1_gain_percentage_points": 1.7131979695431472,
+      "top1_gain_query_world_ci95_pp": [
+        0.35011864372596985,
+        3.1601019666498855
+      ]
+    },
+    "memory_training": {
+      "worlds": 292,
+      "test_samples": 2761,
+      "uniform_chance": 0.003424657534246575,
+      "disjoint_history": true,
+      "models": {
+        "baseline": {
+          "top1_accuracy": 0.6392611372691054,
+          "top5_accuracy": 0.8384643245201014
+        },
+        "memory350": {
+          "top1_accuracy": 0.6519377037305324,
+          "top5_accuracy": 0.8500543281419776
+        }
+      },
+      "train_motion_families": [
+        "run1",
+        "fight1",
+        "fightAndSports1",
+        "run2",
+        "jumps1",
+        "walk4",
+        "sprint1"
+      ],
+      "test_motion_families": [
+        "walk1",
+        "fallAndGetUp1",
+        "walk2",
+        "dance1",
+        "walk3",
+        "fallAndGetUp2",
+        "dance2",
+        "fallAndGetUp3"
+      ],
+      "top1_gain_percentage_points": 1.267656646142702,
+      "top1_gain_query_world_ci95_pp": [
+        0.33133019804197644,
+        2.2997068166713834
+      ]
+    }
+  },
+  "prediction": {
+    "dr": {
+      "samples": 1030,
+      "u7000_nmse": 0.043614812195301056,
+      "u8000_nmse": 0.04369307681918144,
+      "relative_change_percent": 0.17944574356079102,
+      "paired_world_ratio_ci95": [
+        0.9876707891866815,
+        1.0151930482122449
+      ]
+    },
+    "nominal": {
+      "samples": 1018,
+      "u7000_nmse": 0.00710804620757699,
+      "u8000_nmse": 0.007022541482001543,
+      "relative_change_percent": -1.202923059463501,
+      "paired_world_ratio_ci95": [
+        0.9711445127169788,
+        1.005567404607887
+      ]
+    },
+    "dr_full350": {
+      "samples": 157,
+      "u7000_nmse": 0.02009756863117218,
+      "u8000_nmse": 0.02036866545677185,
+      "relative_change_percent": 1.3489007949829102,
+      "paired_world_ratio_ci95": [
+        0.9804573145939248,
+        1.0427648478239853
+      ]
+    },
+    "dr_full_long_incomplete_short": {
+      "samples": 226,
+      "u7000_nmse": 0.02382628060877323,
+      "u8000_nmse": 0.023421511054039,
+      "relative_change_percent": -1.6988396644592285,
+      "paired_world_ratio_ci95": [
+        0.9663283093208863,
+        1.0002858685386005
+      ]
+    },
+    "dr_partial_long": {
+      "samples": 494,
+      "u7000_nmse": 0.022634349763393402,
+      "u8000_nmse": 0.02220924198627472,
+      "relative_change_percent": -1.8781542778015137,
+      "paired_world_ratio_ci95": [
+        0.939970446170125,
+        1.0191570307030584
+      ]
+    },
+    "dr_no_long": {
+      "samples": 153,
+      "u7000_nmse": 0.1488567441701889,
+      "u8000_nmse": 0.15104447305202484,
+      "relative_change_percent": 1.4696836471557617,
+      "paired_world_ratio_ci95": [
+        0.9983289100221991,
+        1.028942446439563
+      ]
+    }
+  },
+  "checkpoint_sha256": "8394031ffa61c228edea488a4a011d85b42b338113123ae041300a2f846bf96b",
+  "learning_rate": 1e-05,
+  "fixed_queries_and_u5000_calibration_bitwise_identical": true
+}

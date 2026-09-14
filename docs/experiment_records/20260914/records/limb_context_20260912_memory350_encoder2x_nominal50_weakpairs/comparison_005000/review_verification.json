@@ -1,0 +1,49 @@
+{
+  "passed": true,
+  "pair_model_categories_recomputed": 60,
+  "scalar_distance_statistics_recomputed": 300,
+  "checks": [
+    {
+      "checkpoint": "baseline",
+      "sha256": "885b0b5964153f050f0bae2f535a3838410c146f3829bf8c5045fa184b234bf2"
+    },
+    {
+      "checkpoint": "memory350",
+      "sha256": "ec34427d1e3e38c2c7711bd2120f0fc7e6abfb994035232f279acb18818997ea"
+    },
+    {
+      "profile": "common",
+      "subsets": {
+        "memory_full": {
+          "samples": 26477,
+          "dr_samples": 13215,
+          "pair_categories_checked": 20
+        },
+        "long_full": {
+          "samples": 29696,
+          "dr_samples": 14848,
+          "pair_categories_checked": 20
+        }
+      },
+      "trajectory_labels_identical_to_source": true
+    },
+    {
+      "profile": "memory_training",
+      "subsets": {
+        "memory_full": {
+          "samples": 13997,
+          "dr_samples": 13997,
+          "pair_categories_checked": 10
+        },
+        "long_full": {
+          "samples": 14848,
+          "dr_samples": 14848,
+          "pair_categories_checked": 10
+        }
+      },
+      "trajectory_labels_identical_to_source": true
+    }
+  ],
+  "unit_distance_tolerance": 1e-10,
+  "unix_time": 1789201887.125011
+}

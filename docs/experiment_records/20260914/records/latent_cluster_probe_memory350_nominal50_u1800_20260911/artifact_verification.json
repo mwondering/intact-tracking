@@ -1,0 +1,18 @@
+{
+  "common": {
+    "passed": true,
+    "distance_categories_checked": 50,
+    "all_queries": 32768,
+    "full_history_queries": 23559,
+    "mean_cosine_bf16_vs_fp32": 0.9999931454658508,
+    "motions_per_world_median": 6.0
+  },
+  "memory_training": {
+    "passed": true,
+    "distance_categories_checked": 25,
+    "all_queries": 16384,
+    "full_history_queries": 13135,
+    "mean_cosine_bf16_vs_fp32": 0.9999943375587463,
+    "motions_per_world_median": 4.0
+  }
+}

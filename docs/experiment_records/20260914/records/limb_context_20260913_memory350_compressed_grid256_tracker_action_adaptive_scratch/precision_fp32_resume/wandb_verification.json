@@ -1,0 +1,22 @@
+{
+  "verified_at": 1789316411.654741,
+  "arms": {
+    "baseline": {
+      "id": "m350compressed-4b51834d343d",
+      "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/m350compressed-4b51834d343d",
+      "state": "running",
+      "policy_precision": "fp32",
+      "completed_updates": 1598,
+      "policy_fp32": true
+    },
+    "concat": {
+      "id": "m350compressed-7f1f8ba06224",
+      "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/m350compressed-7f1f8ba06224",
+      "state": "running",
+      "policy_precision": "fp32",
+      "completed_updates": 1356,
+      "policy_fp32": true
+    }
+  },
+  "passed": true
+}

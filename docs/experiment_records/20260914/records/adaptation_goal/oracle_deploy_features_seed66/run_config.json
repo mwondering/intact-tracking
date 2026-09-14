@@ -1,0 +1,180 @@
+{
+  "arguments": {
+    "action_rate_multiplier": 1.0,
+    "actor_lr": 2e-05,
+    "auxiliary_tracking_weight": 8.0,
+    "critic_lr": 0.0005,
+    "device": "cuda:0",
+    "entropy_coef": 0.0005,
+    "epochs": 5,
+    "hidden_dims": [
+      512,
+      256,
+      128
+    ],
+    "imitation_teacher": null,
+    "initial_action_std": null,
+    "initialize_from": "runs/adaptation_goal/oracle_payload_arm_seed57/checkpoint_250.pt",
+    "iterations": 2000,
+    "latent_dim": 64,
+    "metric_reference_offset": 1,
+    "metric_reward_shape": "exp",
+    "metric_tracking_weight": 2.0,
+    "motion_path": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong",
+    "num_envs": 4096,
+    "oracle_clean_proprio": null,
+    "oracle_tracking_features": false,
+    "output_dir": "runs/adaptation_goal/oracle_deploy_features_seed66",
+    "physics": "dr",
+    "privilege_schema": "critic",
+    "privileged": true,
+    "residual_scale": 1.0,
+    "resume": null,
+    "right_arm_angular_weight": 8.0,
+    "rollout_steps": 24,
+    "sampling_mode": "original",
+    "save_interval": 125,
+    "seed": 66,
+    "teacher_bc_batch_size": 2048,
+    "teacher_bc_steps": 2,
+    "teacher_bc_weight": 0.1,
+    "tracker_checkpoint": "/data_zcy/wxy/SP_Tracking/logs/rsl_rl/g1_tracking/2026-09-02_04-48-42_SPTracking-G1-BFM-SPV5-2AActor-HEFTCritic-HEFTReward_8gpu_12288env_motion_data_correct/checkpoint_72000.pt",
+    "tracking_multiplier": 4.0,
+    "train_base_policy": false
+  },
+  "imitation_contract": "teacher action is a training loss label only; alternating PPO and BC",
+  "imitation_teacher_sha256": null,
+  "motion_count": 42,
+  "motion_path": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong",
+  "oracle_clean_proprio": false,
+  "physics": {
+    "cleared_exclusions": [
+      "[/data_zcy/wxy/motion_filter/0827/invalid_motions_0827_v1.json,/data_zcy/wxy/SP_Tracking/logs/motion_benchmark_10000.json,/data_zcy/wxy/SP_Tracking/logs/motion_benchmark_0830_22000.json,/data_zcy/wxy/SP_Tracking/benchmark_0831_36000.json,/data_zcy/wxy/SP_Tracking/benchmark_0901_44000.json,/data_zcy/wxy/SP_Tracking/benchmark_0902_59000.json]"
+    ],
+    "details": {
+      "payload": {
+        "body_name": "right_wrist_yaw_link",
+        "cuboid_size_m": [
+          0.1,
+          0.08,
+          0.08
+        ],
+        "enabled": true,
+        "event_name": "right_hand_payload",
+        "mass_range_kg": [
+          1.0,
+          3.0
+        ],
+        "physics_model": "rigid cuboid composite inertia (mass, COM, principal inertia and inertial frame); no payload collision geometry",
+        "position_body_frame_m": [
+          0.12,
+          0.0,
+          0.0
+        ]
+      }
+    },
+    "physics": "dr",
+    "removed_disturbances": [
+      "push_robot"
+    ]
+  },
+  "privileged": true,
+  "research_source_sha256": {
+    "src/intact_tracking/adaptation_policy.py": "90debf6b913793eeb5abee8dff509b0c94b6c47dd213b1e608179abe2c617a55",
+    "src/intact_tracking/adaptation_ppo.py": "1667653fe034c2b7d9985b0bd6bef60a81c789dab9d295cd122c03acbdf3e3d0",
+    "src/intact_tracking/adaptation_rewards.py": "7ecefdef388eb4034bf78944d6441f94fc4e47a82d6b7d86290737387431fa85",
+    "src/intact_tracking/adaptation_sensors.py": "52fc1c2b333feae0b3e113d4aa3943cd5d2dbd544de5c137678a3b437344f08d",
+    "src/intact_tracking/cli/adaptation_eval.py": "eb265120568840096c52d4cac858ec3c856370d06fa9a3e295e03af4d6476b3a",
+    "src/intact_tracking/cli/adaptation_train.py": "a9cad5f1c23ce2fd9b7e48587ede43fd98e4cb8078f014d021adbf19cd58dda0"
+  },
+  "reward_changes": {
+    "adaptation_auxiliary_tracking": {
+      "from": 0.0,
+      "reference_offset": 1,
+      "scales": [
+        0.25,
+        0.075,
+        0.125,
+        4.4,
+        0.21,
+        0.45,
+        0.267,
+        1.07
+      ],
+      "to": 8.0
+    },
+    "adaptation_balanced_body": {
+      "from": 0.0,
+      "reference_offset": 1,
+      "scale": 0.03,
+      "shape": "exp",
+      "to": 2.0
+    },
+    "adaptation_joint_l2": {
+      "from": 0.0,
+      "reference_offset": 1,
+      "scale": 0.4,
+      "shape": "exp",
+      "to": 2.0
+    },
+    "adaptation_right_arm_angular": {
+      "bodies": "all right shoulder, elbow and wrist bodies in the unchanged tracking set",
+      "from": 0.0,
+      "reference_offset": 1,
+      "scale": 1.0,
+      "to": 8.0
+    },
+    "feet_link_height_tracking": {
+      "from": 1.0,
+      "to": 4.0
+    },
+    "joint_pos_tracking": {
+      "from": 1.0,
+      "to": 4.0
+    },
+    "joint_vel_tracking": {
+      "from": 0.5,
+      "to": 2.0
+    },
+    "keypoint_angvel_tracking": {
+      "from": 1.0,
+      "to": 4.0
+    },
+    "keypoint_pos_tracking": {
+      "from": 2.0,
+      "to": 8.0
+    },
+    "keypoint_rot_tracking": {
+      "from": 2.0,
+      "to": 8.0
+    },
+    "keypoint_vel_tracking": {
+      "from": 1.0,
+      "to": 4.0
+    },
+    "root_ang_vel_tracking": {
+      "from": 1.0,
+      "to": 4.0
+    },
+    "root_pos_tracking": {
+      "from": 1.0,
+      "to": 4.0
+    },
+    "root_rot_tracking": {
+      "from": 1.0,
+      "to": 4.0
+    },
+    "root_vel_tracking": {
+      "from": 1.0,
+      "to": 4.0
+    },
+    "wrist_link_height_tracking": {
+      "from": 1.0,
+      "to": 4.0
+    }
+  },
+  "student_contract": "replace all privileged actor inputs by deployable context and observations",
+  "tracker_checkpoint": "/data_zcy/wxy/SP_Tracking/logs/rsl_rl/g1_tracking/2026-09-02_04-48-42_SPTracking-G1-BFM-SPV5-2AActor-HEFTCritic-HEFTReward_8gpu_12288env_motion_data_correct/checkpoint_72000.pt",
+  "tracker_sha256": "fd7bd90d5552e573bbbce1417e9b415c64bb487a76b683ba3c20503b5ec77635",
+  "version": "adaptation_teacher_v1"
+}

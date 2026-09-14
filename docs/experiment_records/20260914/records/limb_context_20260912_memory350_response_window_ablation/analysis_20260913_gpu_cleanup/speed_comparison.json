@@ -1,0 +1,313 @@
+{
+  "complete": true,
+  "finished_at": 1789265600.6020777,
+  "cleanup_record": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260912_memory350_response_window_ablation/analysis_20260913_gpu_cleanup/cleanup_record.json",
+  "post_ranges": {
+    "baseline": [
+      4104,
+      4133
+    ],
+    "concat": [
+      1204,
+      1233
+    ]
+  },
+  "method": "30 pre-cleanup steady updates versus 30 post-cleanup updates; exclude checkpoint evaluation and first three updates after evaluation",
+  "resources_during_measurement": [
+    {
+      "time": 1789265357.4161177,
+      "arms": {
+        "baseline": {
+          "latest": 4099,
+          "measured_updates": 0,
+          "range": [
+            4104,
+            4133
+          ],
+          "live": true
+        },
+        "concat": {
+          "latest": 1199,
+          "measured_updates": 0,
+          "range": [
+            1204,
+            1233
+          ],
+          "live": true
+        }
+      },
+      "other_gpu_processes": []
+    },
+    {
+      "time": 1789265397.8458169,
+      "arms": {
+        "baseline": {
+          "latest": 4099,
+          "measured_updates": 0,
+          "range": [
+            4104,
+            4133
+          ],
+          "live": true
+        },
+        "concat": {
+          "latest": 1203,
+          "measured_updates": 0,
+          "range": [
+            1204,
+            1233
+          ],
+          "live": true
+        }
+      },
+      "other_gpu_processes": []
+    },
+    {
+      "time": 1789265438.308657,
+      "arms": {
+        "baseline": {
+          "latest": 4099,
+          "measured_updates": 0,
+          "range": [
+            4104,
+            4133
+          ],
+          "live": true
+        },
+        "concat": {
+          "latest": 1211,
+          "measured_updates": 8,
+          "range": [
+            1204,
+            1233
+          ],
+          "live": true
+        }
+      },
+      "other_gpu_processes": []
+    },
+    {
+      "time": 1789265478.7674062,
+      "arms": {
+        "baseline": {
+          "latest": 4103,
+          "measured_updates": 0,
+          "range": [
+            4104,
+            4133
+          ],
+          "live": true
+        },
+        "concat": {
+          "latest": 1220,
+          "measured_updates": 17,
+          "range": [
+            1204,
+            1233
+          ],
+          "live": true
+        }
+      },
+      "other_gpu_processes": []
+    },
+    {
+      "time": 1789265519.1722658,
+      "arms": {
+        "baseline": {
+          "latest": 4113,
+          "measured_updates": 10,
+          "range": [
+            4104,
+            4133
+          ],
+          "live": true
+        },
+        "concat": {
+          "latest": 1228,
+          "measured_updates": 25,
+          "range": [
+            1204,
+            1233
+          ],
+          "live": true
+        }
+      },
+      "other_gpu_processes": []
+    },
+    {
+      "time": 1789265559.6740024,
+      "arms": {
+        "baseline": {
+          "latest": 4124,
+          "measured_updates": 21,
+          "range": [
+            4104,
+            4133
+          ],
+          "live": true
+        },
+        "concat": {
+          "latest": 1236,
+          "measured_updates": 30,
+          "range": [
+            1204,
+            1233
+          ],
+          "live": true
+        }
+      },
+      "other_gpu_processes": []
+    },
+    {
+      "time": 1789265600.142892,
+      "arms": {
+        "baseline": {
+          "latest": 4134,
+          "measured_updates": 30,
+          "range": [
+            4104,
+            4133
+          ],
+          "live": true
+        },
+        "concat": {
+          "latest": 1245,
+          "measured_updates": 30,
+          "range": [
+            1204,
+            1233
+          ],
+          "live": true
+        }
+      },
+      "other_gpu_processes": []
+    }
+  ],
+  "models": {
+    "baseline": {
+      "before": {
+        "updates": [
+          4068,
+          4097
+        ],
+        "samples": 30,
+        "collect_seconds": {
+          "median": 3.1385293006896973,
+          "mean": 3.139222582181295,
+          "min": 3.0695700645446777,
+          "max": 3.263251781463623
+        },
+        "learn_seconds": {
+          "median": 0.6844372749328613,
+          "mean": 0.6845043182373047,
+          "min": 0.6835544109344482,
+          "max": 0.6861550807952881
+        },
+        "collection_plus_optimization_seconds": {
+          "median": 3.8230806589126587,
+          "mean": 3.8237269004185994
+        },
+        "actual_update_interval_seconds": {
+          "median": 3.8862385749816895,
+          "mean": 3.8895279785682417,
+          "n": 29
+        },
+        "finite_metrics": true
+      },
+      "after": {
+        "updates": [
+          4104,
+          4133
+        ],
+        "samples": 30,
+        "collect_seconds": {
+          "median": 3.147326111793518,
+          "mean": 3.147903577486674,
+          "min": 3.062979221343994,
+          "max": 3.2478578090667725
+        },
+        "learn_seconds": {
+          "median": 0.6843305826187134,
+          "mean": 0.6845616420110067,
+          "min": 0.6835048198699951,
+          "max": 0.6867408752441406
+        },
+        "collection_plus_optimization_seconds": {
+          "median": 3.831894040107727,
+          "mean": 3.8324652194976805
+        },
+        "actual_update_interval_seconds": {
+          "median": 3.9001405239105225,
+          "mean": 3.8990084385049752,
+          "n": 29
+        },
+        "finite_metrics": true
+      },
+      "actual_speedup": 0.9964355261448646,
+      "actual_time_reduction_fraction": -0.0035772247793353085
+    },
+    "concat": {
+      "before": {
+        "updates": [
+          1170,
+          1199
+        ],
+        "samples": 30,
+        "collect_seconds": {
+          "median": 13.941093921661377,
+          "mean": 13.877646255493165,
+          "min": 13.53182601928711,
+          "max": 14.063740730285645
+        },
+        "learn_seconds": {
+          "median": 1.3295611143112183,
+          "mean": 1.352672012646993,
+          "min": 1.1626062393188477,
+          "max": 1.546746015548706
+        },
+        "collection_plus_optimization_seconds": {
+          "median": 15.265514373779297,
+          "mean": 15.230318268140158
+        },
+        "actual_update_interval_seconds": {
+          "median": 16.489242792129517,
+          "mean": 16.481881355417187,
+          "n": 29
+        },
+        "finite_metrics": true
+      },
+      "after": {
+        "updates": [
+          1204,
+          1233
+        ],
+        "samples": 30,
+        "collect_seconds": {
+          "median": 4.032144069671631,
+          "mean": 4.0403944730758665,
+          "min": 3.9530365467071533,
+          "max": 4.2590532302856445
+        },
+        "learn_seconds": {
+          "median": 0.7067884206771851,
+          "mean": 0.7069689671198527,
+          "min": 0.7056529521942139,
+          "max": 0.7103855609893799
+        },
+        "collection_plus_optimization_seconds": {
+          "median": 4.738320708274841,
+          "mean": 4.747363440195719
+        },
+        "actual_update_interval_seconds": {
+          "median": 4.810980558395386,
+          "mean": 4.822615278178248,
+          "n": 29
+        },
+        "finite_metrics": true
+      },
+      "actual_speedup": 3.427418296953002,
+      "actual_time_reduction_fraction": 0.7082352040633597
+    }
+  },
+  "other_gpu_processes_observed": false
+}

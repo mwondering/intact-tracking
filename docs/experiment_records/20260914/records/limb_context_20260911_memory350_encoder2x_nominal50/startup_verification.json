@@ -1,0 +1,120 @@
+{
+  "passed": true,
+  "run": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260911_memory350_encoder2x_nominal50/stage1_8192",
+  "progress_at_verification": {
+    "completed_updates": 24,
+    "optimizer_steps": 96,
+    "unbounded": true,
+    "unix_time": 1789135362.8725913
+  },
+  "checkpoint_update": 1,
+  "only_attention_depths_changed": true,
+  "parameter_counts": {
+    "context_encoder": 2026688,
+    "predictor": 19059798,
+    "total": 21086486
+  },
+  "shared_normalization_and_eight_validation_files": true,
+  "initialization": "from scratch; first logged update=1 and optimizer_steps=4; no resume",
+  "rank_counts": [
+    {
+      "rank": 0,
+      "physical_gpu": "4",
+      "num_envs": 8192,
+      "nominal_training_worlds": 4032,
+      "dr_training_worlds": 4032,
+      "nominal_validation_worlds": 64,
+      "dr_validation_worlds": 64
+    },
+    {
+      "rank": 1,
+      "physical_gpu": "5",
+      "num_envs": 8192,
+      "nominal_training_worlds": 4032,
+      "dr_training_worlds": 4032,
+      "nominal_validation_worlds": 64,
+      "dr_validation_worlds": 64
+    },
+    {
+      "rank": 2,
+      "physical_gpu": "6",
+      "num_envs": 8192,
+      "nominal_training_worlds": 4032,
+      "dr_training_worlds": 4032,
+      "nominal_validation_worlds": 64,
+      "dr_validation_worlds": 64
+    },
+    {
+      "rank": 3,
+      "physical_gpu": "7",
+      "num_envs": 8192,
+      "nominal_training_worlds": 4032,
+      "dr_training_worlds": 4032,
+      "nominal_validation_worlds": 64,
+      "dr_validation_worlds": 64
+    }
+  ],
+  "validation": [
+    {
+      "rank": 0,
+      "samples": 512,
+      "nominal_samples": 257,
+      "sha256": "e8634bbc798de938f55a624d0f5c2d66692ab2e6ad8a955eb6346827d14afe72"
+    },
+    {
+      "rank": 1,
+      "samples": 512,
+      "nominal_samples": 257,
+      "sha256": "46a747186d0b2fa5d1b55b376de48990db8d106d3ccf4273c534f158854bb253"
+    },
+    {
+      "rank": 2,
+      "samples": 512,
+      "nominal_samples": 259,
+      "sha256": "4f2dee0be52c526090c428463e7e8408b42b7e7c73bb5f2775f57db7874d39e1"
+    },
+    {
+      "rank": 3,
+      "samples": 512,
+      "nominal_samples": 245,
+      "sha256": "06dce4566ea216e57f4637f09e335745be846304038ab0fd756ad924a1ea7920"
+    }
+  ],
+  "normalization_worlds": 32256,
+  "validation_excluded_from_normalization": true,
+  "ddp_parameter_agreement": {
+    "passed": true,
+    "sha256_by_rank": [
+      "bc5489307912cc302c0d1f228c00fe157e9c3a0d14d2f341608f62f129079fe6",
+      "bc5489307912cc302c0d1f228c00fe157e9c3a0d14d2f341608f62f129079fe6",
+      "bc5489307912cc302c0d1f228c00fe157e9c3a0d14d2f341608f62f129079fe6",
+      "bc5489307912cc302c0d1f228c00fe157e9c3a0d14d2f341608f62f129079fe6"
+    ]
+  },
+  "first_probe": {
+    "dr_counterfactual_rms": 1.7300831973552704,
+    "dr_five_step_nmse": 1.1566812992095947,
+    "latent_distance_batch_p10": 0.9826664924621582,
+    "latent_distance_batch_p50": 1.2979429364204407,
+    "latent_distance_batch_p90": 1.5484967827796936,
+    "latent_distance_mean": 1.2797630429267883,
+    "latent_positive_cosine": 0.9514443874359131,
+    "latent_relation_pairs": 506.5,
+    "latent_response_correlation": 0.002246127463877201,
+    "latent_shuffle_dr_error_ratio": 1.007372498512268,
+    "latent_target_distance_batch_p10": 2.4021699573495425e-05,
+    "latent_target_distance_batch_p50": 1.126165360212326,
+    "latent_target_distance_batch_p90": 1.5566450953483582,
+    "latent_target_distance_mean": 0.9369321763515472,
+    "nominal_counterfactual_rms": 0.001716138474876061,
+    "nominal_five_step_nmse": 1.2000828981399536,
+    "one_step_nmse": 1.0660448968410492,
+    "representation_positive_loss": 0.04855560138821602,
+    "representation_relation_loss": 0.41111526638269424
+  },
+  "wandb": {
+    "url": "https://wandb.ai/2486344338-zhejiang-university/intact-forward-predictor/runs/m350scale-n50-022050a4d5bb",
+    "state": "running",
+    "last_step": 10
+  }
+}

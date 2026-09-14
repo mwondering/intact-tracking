@@ -1,0 +1,7 @@
+{
+  "passed": true,
+  "tests": 50,
+  "exit_code": 0,
+  "command": "OMP_NUM_THREADS=2 OPENBLAS_NUM_THREADS=2 .venv/bin/python -m pytest -q tests/test_memory350_weak_margin_tuning.py tests/test_memory350_weak_tuning.py tests/test_memory350_weak_pairs.py tests/test_memory350_weak_continuation.py",
+  "unix_time": 1789220923.9421377
+}

@@ -1,0 +1,10 @@
+{
+  "best_validation_dr_nmse": 1.0624339580535889,
+  "completed_updates": 2,
+  "converged": false,
+  "hit_cap": true,
+  "optimizer_steps": 8,
+  "selected_checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/smoke/stage1/best.pt",
+  "stopped": false,
+  "unix_time": 1788827748.0556965
+}

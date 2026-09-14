@@ -1,0 +1,28 @@
+{
+  "passed": true,
+  "unix_time": 1788878389.7644076,
+  "regression_tests_passed": 23,
+  "actual_termination_manager_tests_passed": 1,
+  "legacy_scheduler_commands_unchanged": true,
+  "training_continuity": {
+    "baseline_122": {
+      "pid": 50560,
+      "completed_updates": 799,
+      "same_process": true
+    },
+    "film_122": {
+      "pid": 4997,
+      "completed_updates": 199,
+      "same_process": true
+    }
+  },
+  "new_profile_training_started": false,
+  "files_sha256": {
+    "src/intact_tracking/limb_context_terminations.py": "dc6c805890ce99ce02ab4c39d3b527ac067fb51089468ee58cdf97ec7622f687",
+    "src/intact_tracking/cli/limb_context_train.py": "d1f0dfda5ac934d6902849ef0b7a20bdaeafd3d779fc9db493ba7f686f988d53",
+    "src/intact_tracking/limb_context_sampling.py": "975d3a3bd67f813f6467d5a8e5e28f14e93e3fb7760d0dcd6591fa9c7baa182e",
+    "scripts/run_limb_context_experiment.py": "48400e6f812a09d941978a20c28fe51692b9705c88b86d8e5bd609feed47f607",
+    "scripts/audit_limb_context_training.py": "2e79e1550e4ad7b86a36c14f735740a44a7d96b213a4e43cd831464da4f2b5cb",
+    "tests/test_limb_context_terminations.py": "9c39408997d661c968e41fa70818ce58487b0452366cc977c974be8d6bdcba12"
+  }
+}

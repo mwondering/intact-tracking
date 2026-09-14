@@ -1,0 +1,38 @@
+{
+  "checked_at": 1789097969.3689306,
+  "scope": "Checkpoint state only; final evaluations still required",
+  "passed": true,
+  "tracker_sha256": "fd7bd90d5552e573bbbce1417e9b415c64bb487a76b683ba3c20503b5ec77635",
+  "context_sha256": "a677eac8aba10874e616ff313cae0434d14fbf1f83f428f8fdc7c708b2799343",
+  "frozen_context_loader_verified": true,
+  "context_parameter_count": 1035328,
+  "script_sha256": "4af6c2414df4244dd8afc9c9d255a72b3d4cd7ccb3ddc2e063121d592033551c",
+  "arms": {
+    "baseline": {
+      "checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260910_memory350_ppo/ppo/baseline_121/checkpoint_update_005000.pt",
+      "checkpoint_sha256": "bf5fda76f36a8f19a71477b3ba48cfbd9424bf9855e79f40502b4ad9f11a1d53",
+      "completed_updates": 5000,
+      "frozen_tracker_tensors": 53,
+      "all_frozen_tracker_tensors_bitwise_equal": true,
+      "optimizer_parameter_tensors": 23,
+      "optimizer_steps_per_parameter": 100000,
+      "actor_trainable_parameters": 1010746,
+      "critic_trainable_parameters": 7275009,
+      "all_optimizer_moments_finite": true,
+      "frozen_tracker_excluded_from_optimizer": true
+    },
+    "film": {
+      "checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260910_memory350_ppo/ppo/film_121/checkpoint_update_005000.pt",
+      "checkpoint_sha256": "e339c9138746e06f8f1c4b8b89313be1a29902a34b50f7c29ee5e170c0893d26",
+      "completed_updates": 5000,
+      "frozen_tracker_tensors": 53,
+      "all_frozen_tracker_tensors_bitwise_equal": true,
+      "optimizer_parameter_tensors": 39,
+      "optimizer_steps_per_parameter": 100000,
+      "actor_trainable_parameters": 1487930,
+      "critic_trainable_parameters": 8344321,
+      "all_optimizer_moments_finite": true,
+      "frozen_tracker_excluded_from_optimizer": true
+    }
+  }
+}

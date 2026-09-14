@@ -1,0 +1,6 @@
+{
+  "disjoint_history_control": "passed against actual raw-interaction timestamps through resets",
+  "queries": 24,
+  "checked_disjoint_pairs": 24,
+  "overlapping_control_pairs": 42
+}

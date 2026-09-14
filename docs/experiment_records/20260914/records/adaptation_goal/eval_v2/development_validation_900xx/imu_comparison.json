@@ -1,0 +1,181 @@
+{
+  "reference_files": [
+    "runs/adaptation_goal/eval_v2/development_validation_900xx/nominal_seed90001.json",
+    "runs/adaptation_goal/eval_v2/development_validation_900xx/nominal_seed90002.json",
+    "runs/adaptation_goal/eval_v2/development_validation_900xx/nominal_seed90003.json"
+  ],
+  "candidate_files": [
+    "runs/adaptation_goal/eval_v2/development_validation_900xx/imu2500_seed90001.json",
+    "runs/adaptation_goal/eval_v2/development_validation_900xx/imu2500_seed90002.json",
+    "runs/adaptation_goal/eval_v2/development_validation_900xx/imu2500_seed90003.json"
+  ],
+  "seeds": [
+    {
+      "seed": 90001,
+      "reference": "runs/adaptation_goal/eval_v2/development_validation_900xx/nominal_seed90001.json",
+      "candidate": "runs/adaptation_goal/eval_v2/development_validation_900xx/imu2500_seed90001.json",
+      "ratios": {
+        "error_body_pos": 1.0325685259590813,
+        "error_joint_pos": 1.0438767674150502,
+        "error_anchor_pos": 1.0788736952442175,
+        "error_anchor_rot": 1.0803344131355272,
+        "error_body_rot": 1.0853798529923082,
+        "error_joint_vel": 1.0236880639975416,
+        "error_anchor_lin_vel": 1.0629176269271055,
+        "error_anchor_ang_vel": 1.0660464154102938,
+        "error_body_lin_vel": 1.056003377675541,
+        "error_body_ang_vel": 1.064192409919102
+      },
+      "failure_difference": 0.008928571827709675
+    },
+    {
+      "seed": 90002,
+      "reference": "runs/adaptation_goal/eval_v2/development_validation_900xx/nominal_seed90002.json",
+      "candidate": "runs/adaptation_goal/eval_v2/development_validation_900xx/imu2500_seed90002.json",
+      "ratios": {
+        "error_body_pos": 1.026436406616658,
+        "error_joint_pos": 1.0530732196086443,
+        "error_anchor_pos": 1.1190859345247601,
+        "error_anchor_rot": 1.0744014634720593,
+        "error_body_rot": 1.0937962174672848,
+        "error_joint_vel": 1.032041509970527,
+        "error_anchor_lin_vel": 1.0734176807062783,
+        "error_anchor_ang_vel": 1.0687953681483147,
+        "error_body_lin_vel": 1.0696515372077153,
+        "error_body_ang_vel": 1.0711897592418984
+      },
+      "failure_difference": 0.0029761905316263437
+    },
+    {
+      "seed": 90003,
+      "reference": "runs/adaptation_goal/eval_v2/development_validation_900xx/nominal_seed90003.json",
+      "candidate": "runs/adaptation_goal/eval_v2/development_validation_900xx/imu2500_seed90003.json",
+      "ratios": {
+        "error_body_pos": 1.0257721493991527,
+        "error_joint_pos": 1.0479644571876234,
+        "error_anchor_pos": 1.0621991717084902,
+        "error_anchor_rot": 1.0565764844270011,
+        "error_body_rot": 1.0835057841769649,
+        "error_joint_vel": 1.031832248587366,
+        "error_anchor_lin_vel": 1.063603735165271,
+        "error_anchor_ang_vel": 1.0644779789166328,
+        "error_body_lin_vel": 1.0601318249844256,
+        "error_body_ang_vel": 1.0685090832153652
+      },
+      "failure_difference": 0.0
+    }
+  ],
+  "metrics": {
+    "error_body_pos": {
+      "reference": 0.030621089707425882,
+      "candidate": 0.03148644777767089,
+      "ratio": 1.0282601983963735,
+      "paired_motion_seed_bootstrap_95pct": [
+        1.004234454137396,
+        1.0537488827528005
+      ]
+    },
+    "error_joint_pos": {
+      "reference": 0.47862008969745795,
+      "candidate": 0.5017468866372774,
+      "ratio": 1.048319737172834,
+      "paired_motion_seed_bootstrap_95pct": [
+        1.0186851762551943,
+        1.0825290904593377
+      ]
+    },
+    "error_anchor_pos": {
+      "reference": 0.24313861759398703,
+      "candidate": 0.2640737935469361,
+      "ratio": 1.0861038701302002,
+      "paired_motion_seed_bootstrap_95pct": [
+        1.0162635002481464,
+        1.1600387431265562
+      ]
+    },
+    "error_anchor_rot": {
+      "reference": 0.0705431276651983,
+      "candidate": 0.07551298703317924,
+      "ratio": 1.0704513612093893,
+      "paired_motion_seed_bootstrap_95pct": [
+        1.0353699521120412,
+        1.1090333650545516
+      ]
+    },
+    "error_body_rot": {
+      "reference": 0.12337130465362069,
+      "candidate": 0.13417619722763224,
+      "ratio": 1.0875802732600386,
+      "paired_motion_seed_bootstrap_95pct": [
+        1.0602721088942588,
+        1.1197301869680185
+      ]
+    },
+    "error_joint_vel": {
+      "reference": 4.339062032699973,
+      "candidate": 4.465817425786019,
+      "ratio": 1.0292126252472986,
+      "paired_motion_seed_bootstrap_95pct": [
+        0.999039543206421,
+        1.0678431949446239
+      ]
+    },
+    "error_anchor_lin_vel": {
+      "reference": 0.2077306088343941,
+      "candidate": 0.22157396223428003,
+      "ratio": 1.0666408935956186,
+      "paired_motion_seed_bootstrap_95pct": [
+        1.042650791413601,
+        1.0926403942987237
+      ]
+    },
+    "error_anchor_ang_vel": {
+      "reference": 0.44429172519439725,
+      "candidate": 0.47381349535696365,
+      "ratio": 1.0664468152082944,
+      "paired_motion_seed_bootstrap_95pct": [
+        1.0445766625686599,
+        1.0922730390780124
+      ]
+    },
+    "error_body_lin_vel": {
+      "reference": 0.2635623339606655,
+      "candidate": 0.27988811692881316,
+      "ratio": 1.061942777341561,
+      "paired_motion_seed_bootstrap_95pct": [
+        1.0377335814324977,
+        1.0900561174600967
+      ]
+    },
+    "error_body_ang_vel": {
+      "reference": 1.0526874152159365,
+      "candidate": 1.1242589091157607,
+      "ratio": 1.067989312748783,
+      "paired_motion_seed_bootstrap_95pct": [
+        1.0415934694639797,
+        1.1023269554629103
+      ]
+    }
+  },
+  "reference_failure_rate": 0.0,
+  "candidate_failure_rate": 0.003968253968253968,
+  "failure_difference": 0.003968253968253968,
+  "failure_difference_paired_bootstrap_95pct": [
+    0.0,
+    0.013888888888888888
+  ],
+  "failure_upper_95pct_within_margin": false,
+  "margin": 1.02,
+  "evaluation_protocol": "balanced_fixed_starts_v2_isolated_resets",
+  "valid_acceptance_protocol": true,
+  "matched_single_policy_identity": true,
+  "acceptance_conditions": true,
+  "numerical_point_estimate_pass": false,
+  "point_estimate_pass": false,
+  "primary_upper_95pct_within_margin": false,
+  "all_metrics_point_estimate_pass": false,
+  "all_metrics_upper_95pct_within_margin": false,
+  "confirmation_seeds_used": false,
+  "confirmation_seed_set_complete": false,
+  "warning": "Primary metrics alone do not establish whole-tracking equivalence."
+}

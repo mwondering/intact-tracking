@@ -1,0 +1,24 @@
+{
+  "verified_at": 1789319346.6960535,
+  "arms": {
+    "baseline": {
+      "id": "m350moe-ad17c9dc015e",
+      "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/m350moe-ad17c9dc015e",
+      "state": "running",
+      "policy_precision": "fp32",
+      "completed_updates": 27,
+      "policy_fp32": true,
+      "router_center_updates": null
+    },
+    "concat": {
+      "id": "m350moe-1242df5c99bc",
+      "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/m350moe-1242df5c99bc",
+      "state": "running",
+      "policy_precision": "fp32",
+      "completed_updates": 7,
+      "policy_fp32": true,
+      "router_center_updates": 7
+    }
+  },
+  "passed": true
+}

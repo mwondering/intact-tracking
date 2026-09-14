@@ -1,0 +1,32 @@
+{
+  "common": {
+    "queries": 32768,
+    "motion_files_per_world_min_median_max": [
+      4,
+      7.0,
+      10
+    ],
+    "finite_all_models": true,
+    "physics_sessions_constant": true,
+    "bf16_fp32": {
+      "full_memory_samples": 909,
+      "bf16_fp32_element_rms_difference": 0.006631877738982439,
+      "bf16_fp32_mean_cosine": 0.999972939491272
+    }
+  },
+  "memory_training": {
+    "queries": 16384,
+    "motion_files_per_world_min_median_max": [
+      2,
+      4.0,
+      7
+    ],
+    "finite_all_models": true,
+    "physics_sessions_constant": true,
+    "bf16_fp32": {
+      "full_memory_samples": 480,
+      "bf16_fp32_element_rms_difference": 0.00670540239661932,
+      "bf16_fp32_mean_cosine": 0.999971330165863
+    }
+  }
+}

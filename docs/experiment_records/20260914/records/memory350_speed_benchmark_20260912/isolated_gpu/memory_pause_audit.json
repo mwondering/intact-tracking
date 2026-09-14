@@ -1,0 +1,42 @@
+{
+  "workers": [
+    [
+      7940,
+      1439304470
+    ],
+    [
+      7941,
+      1439304470
+    ],
+    [
+      7942,
+      1439304470
+    ],
+    [
+      7943,
+      1439304471
+    ]
+  ],
+  "parent": 7877,
+  "started_at": 1789206135.8298151,
+  "attempts": [
+    {
+      "attempt": 0,
+      "paused_at": 1789206135.8320675,
+      "watchdog_pid": 27511,
+      "utilization_after_drain": "4, 0\n5, 0\n6, 0\n7, 0\n",
+      "timing_started_at": 1789206138.5026147,
+      "completed_within_window": true,
+      "done_text": "done\n",
+      "resumed_at": 1789206140.108997,
+      "pause_seconds": 4.27703988738358
+    }
+  ],
+  "finished_at": 1789206140.1101153,
+  "final_process_states": {
+    "7940": "R",
+    "7941": "R",
+    "7942": "R",
+    "7943": "R"
+  }
+}

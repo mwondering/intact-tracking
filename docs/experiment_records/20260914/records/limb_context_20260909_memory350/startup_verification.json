@@ -1,0 +1,138 @@
+{
+  "passed": true,
+  "verified_at": 1788978634.156801,
+  "torchrun_pid": 51589,
+  "workers": [
+    {
+      "pid": 51662,
+      "CUDA_VISIBLE_DEVICES": "0,1,2,3",
+      "RANK": "0",
+      "WORLD_SIZE": "4",
+      "LOCAL_RANK": "0"
+    },
+    {
+      "pid": 51663,
+      "CUDA_VISIBLE_DEVICES": "0,1,2,3",
+      "RANK": "1",
+      "WORLD_SIZE": "4",
+      "LOCAL_RANK": "1"
+    },
+    {
+      "pid": 51664,
+      "CUDA_VISIBLE_DEVICES": "0,1,2,3",
+      "RANK": "2",
+      "WORLD_SIZE": "4",
+      "LOCAL_RANK": "2"
+    },
+    {
+      "pid": 51665,
+      "CUDA_VISIBLE_DEVICES": "0,1,2,3",
+      "RANK": "3",
+      "WORLD_SIZE": "4",
+      "LOCAL_RANK": "3"
+    }
+  ],
+  "progress": {
+    "completed_updates": 89,
+    "optimizer_steps": 356,
+    "unbounded": true,
+    "unix_time": 1788978617.8260474
+  },
+  "num_envs_per_rank": 8192,
+  "training_worlds_per_rank": 8064,
+  "validation_worlds_per_rank": 128,
+  "loaded_motions": 129827,
+  "loaded_frames": 48085337,
+  "rank_motion_counts": [
+    32457,
+    32457,
+    32457,
+    32456
+  ],
+  "protected_baseline_sources_unchanged": [
+    "scripts/run_limb_context_experiment.py",
+    "src/intact_tracking/cli/forward_predictor_train.py",
+    "src/intact_tracking/data/predictor_online.py",
+    "src/intact_tracking/forward_predictor.py",
+    "src/intact_tracking/forward_predictor_inputs.py",
+    "src/intact_tracking/forward_predictor_objective.py",
+    "src/intact_tracking/forward_predictor_schedule.py",
+    "src/intact_tracking/limb_context_dr.py",
+    "src/intact_tracking/limb_context_protocol.py",
+    "src/intact_tracking/residual_context.py",
+    "src/intact_tracking/rollout/nominal.py",
+    "src/intact_tracking/rollout/online.py"
+  ],
+  "new_sources_match_launch_manifest": true,
+  "checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260909_memory350/stage1_8192/update_000001.pt",
+  "checkpoint_parameter_agreement": {
+    "passed": true,
+    "sha256_by_rank": [
+      "b0a8e4248c271970e553637b5b8a57e8470ae2b3740fa93a6502ae24db3f37f1",
+      "b0a8e4248c271970e553637b5b8a57e8470ae2b3740fa93a6502ae24db3f37f1",
+      "b0a8e4248c271970e553637b5b8a57e8470ae2b3740fa93a6502ae24db3f37f1",
+      "b0a8e4248c271970e553637b5b8a57e8470ae2b3740fa93a6502ae24db3f37f1"
+    ]
+  },
+  "normalization_excludes_validation_worlds": true,
+  "nominal_repeat_diagnostics": {
+    "full_state": {
+      "max": 1.0602301359176636,
+      "mean": 0.0015007208567112684,
+      "p50": 1.537799835205078e-05,
+      "p95": 0.003421100554987788,
+      "p99": 0.019854268059134483
+    },
+    "pose": {
+      "max": 0.02098679542541504,
+      "mean": 2.2878712115925737e-05,
+      "p50": 3.2782554626464844e-07,
+      "p95": 6.704607949359342e-05,
+      "p99": 0.0003367562312632799
+    },
+    "worst_full_state": {
+      "abs_error": 1.0602301359176636,
+      "horizon": 5,
+      "motion_id": 7749,
+      "motion_path": "/data_zcy/wxy/motion_data_correct/motion_data_full/sonic_filtered/221118/turn_jog_270_002__A072_M.motion.npz",
+      "motion_step": 24,
+      "pair_index": 7686,
+      "state_component": "joint_velocity",
+      "state_index": 60
+    },
+    "worst_pose": {
+      "abs_error": 0.02098679542541504,
+      "horizon": 5,
+      "motion_id": 1304,
+      "motion_path": "/data_zcy/wxy/motion_data_correct/motion_data_full/sonic_filtered/220720/clap_enthusiastic_001__A029.motion.npz",
+      "motion_step": 57,
+      "pair_index": 7878,
+      "state_component": "joint_position",
+      "state_index": 30
+    }
+  },
+  "wandb": {
+    "id": "m350-07a735338e82",
+    "url": "https://wandb.ai/2486344338-zhejiang-university/intact-forward-predictor/runs/m350-07a735338e82",
+    "remote_state": "running",
+    "remote_update": 80,
+    "group": "limb_context_20260909_memory350-stage1",
+    "account_email": "2486344338@qq.com"
+  },
+  "cpu_tests_passed": 11,
+  "gpu_smoke_updates": 2,
+  "update_limit": null,
+  "final_live_observation": {
+    "verified_at": 1788979121.709786,
+    "torchrun_pid": 51589,
+    "process_start_ticks": 1416678888,
+    "progress": {
+      "completed_updates": 220,
+      "optimizer_steps": 880,
+      "unbounded": true,
+      "unix_time": 1788979119.985877
+    }
+  },
+  "old_checkpoints_unchanged_evidence": "/data_zcy/wxy/intact-tracking/.runtime/memory350_v1/old_checkpoints_unchanged.json",
+  "baseline_source_hashes_rechecked_before_handoff": true
+}

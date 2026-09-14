@@ -1,0 +1,1092 @@
+{
+  "arguments": {
+    "actor_lr": 1e-05,
+    "condition": "C",
+    "critic_lr": 0.0005,
+    "critic_warmup": 0,
+    "iterations": 1000,
+    "motion_path": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong",
+    "num_envs": 2048,
+    "output_dir": "/data_zcy/wxy/intact-tracking/runs/abc_lafan_20260907_r2/C",
+    "seed": 121,
+    "tracker_checkpoint": "/data_zcy/wxy/SP_Tracking/logs/rsl_rl/g1_tracking/2026-09-02_04-48-42_SPTracking-G1-BFM-SPV5-2AActor-HEFTCritic-HEFTReward_8gpu_12288env_motion_data_correct/checkpoint_72000.pt"
+  },
+  "condition": "C",
+  "critic": "original 6330-D input, restored 1024-512-512-1 weights and DecayVecNorm; synchronized statistics",
+  "dr_profile": "abc-load-only",
+  "extra_input_dim": 0,
+  "fixed_reward_lineage": {
+    "historical_shaped_checkpoint_used": false,
+    "original_tracker_pretraining_dr": true
+  },
+  "frozen_actor": "height/contact estimator, reference encoder, all actor normalizers",
+  "global_num_envs": 4096,
+  "initial_actor_and_critic_bitwise_restored": true,
+  "input_audit": {
+    "actor_control_input_dim": 1645,
+    "actor_groups": [
+      "robot_root_quat",
+      "estimator_history",
+      "reference_encoder_input",
+      "robot_key_body"
+    ],
+    "critic_groups": [
+      "policy",
+      "priv"
+    ],
+    "critic_input_dim": 6330,
+    "trainable_actor_parameters": [
+      "distribution.std_param",
+      "mlp.0.weight",
+      "mlp.0.bias",
+      "mlp.2.weight",
+      "mlp.2.bias",
+      "mlp.4.weight",
+      "mlp.4.bias",
+      "mlp.6.weight",
+      "mlp.6.bias",
+      "mlp.8.weight",
+      "mlp.8.bias",
+      "mlp.10.weight",
+      "mlp.10.bias",
+      "mlp.12.weight",
+      "mlp.12.bias",
+      "mlp.14.weight",
+      "mlp.14.bias"
+    ]
+  },
+  "latent": false,
+  "loaded_frames": 441120,
+  "motion_count": 40,
+  "motion_file": null,
+  "motion_files": [
+    "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/dance1_subject1.motion.npz",
+    "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/dance1_subject2.motion.npz",
+    "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/dance1_subject3.motion.npz",
+    "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/dance2_subject1.motion.npz",
+    "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/dance2_subject2.motion.npz",
+    "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/dance2_subject3.motion.npz",
+    "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/dance2_subject4.motion.npz",
+    "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/dance2_subject5.motion.npz",
+    "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/fallAndGetUp1_subject1.motion.npz",
+    "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/fallAndGetUp1_subject4.motion.npz",
+    "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/fallAndGetUp1_subject5.motion.npz",
+    "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/fallAndGetUp2_subject2.motion.npz",
+    "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/fallAndGetUp2_subject3.motion.npz",
+    "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/fallAndGetUp3_subject1.motion.npz",
+    "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/fight1_subject2.motion.npz",
+    "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/fight1_subject3.motion.npz",
+    "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/fight1_subject5.motion.npz",
+    "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/fightAndSports1_subject1.motion.npz",
+    "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/fightAndSports1_subject4.motion.npz",
+    "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/jumps1_subject1.motion.npz",
+    "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/jumps1_subject2.motion.npz",
+    "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/jumps1_subject5.motion.npz",
+    "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/run1_subject2.motion.npz",
+    "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/run1_subject5.motion.npz",
+    "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/run2_subject1.motion.npz",
+    "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/run2_subject4.motion.npz",
+    "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/sprint1_subject2.motion.npz",
+    "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/sprint1_subject4.motion.npz",
+    "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/walk1_subject1.motion.npz",
+    "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/walk1_subject2.motion.npz",
+    "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/walk1_subject5.motion.npz",
+    "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/walk2_subject1.motion.npz",
+    "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/walk2_subject3.motion.npz",
+    "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/walk2_subject4.motion.npz",
+    "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/walk3_subject1.motion.npz",
+    "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/walk3_subject2.motion.npz",
+    "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/walk3_subject3.motion.npz",
+    "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/walk3_subject4.motion.npz",
+    "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/walk3_subject5.motion.npz",
+    "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/walk4_subject1.motion.npz"
+  ],
+  "motion_path": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong",
+  "motion_sha256": "214d693521097d3bbec2437cc8c8398318658d791fa534da04f4b4554598463c",
+  "num_envs_per_rank": 2048,
+  "physics": {
+    "condition": "C",
+    "details": {
+      "A": "0 kg",
+      "B": "4 kg per limb",
+      "C": "25% all-zero + 25% all-four + 50% independent U(0,4) per limb",
+      "limbs": [
+        "left_hand",
+        "right_hand",
+        "left_shin",
+        "right_shin"
+      ],
+      "positions": [
+        [
+          0.12,
+          0.0,
+          0.0
+        ],
+        [
+          0.12,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          -0.15
+        ],
+        [
+          0.0,
+          0.0,
+          -0.15
+        ]
+      ],
+      "sampling": "startup, independently seeded per rank, fixed per world",
+      "sizes": [
+        [
+          0.1,
+          0.08,
+          0.08
+        ],
+        [
+          0.1,
+          0.08,
+          0.08
+        ],
+        [
+          0.1,
+          0.08,
+          0.1
+        ],
+        [
+          0.1,
+          0.08,
+          0.1
+        ]
+      ]
+    },
+    "dr_profile": "abc-load-only",
+    "nominal_configuration": {
+      "cleared_exclusions": [
+        "[/data_zcy/wxy/motion_filter/0827/invalid_motions_0827_v1.json,/data_zcy/wxy/SP_Tracking/logs/motion_benchmark_10000.json,/data_zcy/wxy/SP_Tracking/logs/motion_benchmark_0830_22000.json,/data_zcy/wxy/SP_Tracking/benchmark_0831_36000.json,/data_zcy/wxy/SP_Tracking/benchmark_0901_44000.json,/data_zcy/wxy/SP_Tracking/benchmark_0902_59000.json]"
+      ],
+      "details": {
+        "action_randomization_overrides": {},
+        "contract": "compiled nominal model with persistent DR and stochastic action DR disabled",
+        "enabled": true,
+        "motion_and_state_resets_preserved": true,
+        "observation_corruption_preserved": true,
+        "removed_events": [
+          {
+            "function": "body_com_offset",
+            "mode": "startup",
+            "name": "base_com"
+          },
+          {
+            "function": "body_mass",
+            "mode": "startup",
+            "name": "base_mass"
+          },
+          {
+            "function": "encoder_bias",
+            "mode": "startup",
+            "name": "encoder_bias"
+          },
+          {
+            "function": "geom_friction",
+            "mode": "startup",
+            "name": "foot_friction"
+          },
+          {
+            "function": "motor_params_implicit",
+            "mode": "startup",
+            "name": "motor_params_implicit"
+          }
+        ],
+        "removed_model_fields": [
+          "actuator_biasprm",
+          "actuator_gainprm",
+          "body_invweight0",
+          "body_ipos",
+          "body_mass",
+          "body_subtreemass",
+          "dof_armature",
+          "dof_frictionloss",
+          "dof_invweight0",
+          "geom_friction",
+          "tendon_invweight0",
+          "tendon_length0"
+        ]
+      },
+      "dr_profile": "right-hand-1-3kg",
+      "physics": "nominal",
+      "removed_disturbances": [
+        "push_robot"
+      ]
+    },
+    "physics": "load_dr"
+  },
+  "physics_mode": "load_dr",
+  "preview": false,
+  "real_transitions_per_update": 98304,
+  "research_source_sha256": {
+    "src/intact_tracking/cli/tracker_finetune_train.py": "76daa65dac8df9eeab09a74047cab7994cd04ad405c9de3303fc93c789b34622",
+    "src/intact_tracking/tracker_finetune.py": "86f78588caa5cc564fa232413e3a17730093f9baf6f681d988d8051cfac1f1ae"
+  },
+  "reward_changes": {},
+  "reward_contract": {
+    "definition": {
+      "decimation": 4,
+      "simulation_dt": 0.005,
+      "terms": {
+        "action_rate_l2": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:action_rate_l2",
+              "source_sha256": "635165f8a9cb725ccc1d517761f4efea67bc9d71dbb187e63eb304d0c0bd775d"
+            },
+            "params": {},
+            "weight": 0.2
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "feet_air_time_ref": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:feet_air_time_ref",
+              "source_sha256": "d01ed891a498a14a128c02a48a2d00fec4376ef870d3d226f9a3b2ce03893483"
+            },
+            "params": {
+              "command_name": "motion",
+              "sensor_name": "contact_forces",
+              "thres": 0.25
+            },
+            "weight": 2.5
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "feet_air_time_ref_dense": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:feet_air_time_ref_dense",
+              "source_sha256": "aa14392ccb551602e30a2a7864f00db66134f1652c1272abae5600d22772d4cf"
+            },
+            "params": {
+              "air_h_high": 0.155,
+              "air_h_low": 0.035,
+              "command_name": "motion",
+              "contact_h_high": 0.125,
+              "contact_h_low": 0.035,
+              "sensor_name": "contact_forces",
+              "toe_specs": [
+                {
+                  "body_name": "left_ankle_roll_link",
+                  "local_pos": [
+                    0.1,
+                    0.0,
+                    0.0
+                  ],
+                  "name": "left_toe"
+                },
+                {
+                  "body_name": "right_ankle_roll_link",
+                  "local_pos": [
+                    0.1,
+                    0.0,
+                    0.0
+                  ],
+                  "name": "right_toe"
+                }
+              ]
+            },
+            "weight": 1.0
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "feet_link_height_tracking": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:global_link_height_tracking",
+              "source_sha256": "ff396ac4e311a68876f542b5426b95cc50b670a7c54a70fa0e2cf7eb709a7307"
+            },
+            "params": {
+              "body_names": [
+                "left_ankle_roll_link",
+                "right_ankle_roll_link"
+              ],
+              "command_name": "motion",
+              "sigma": [
+                0.3
+              ]
+            },
+            "weight": 1.0
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "joint_pos_limits": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:joint_pos_limits",
+              "source_sha256": "63c45b1279c9dffc0de984ea3c2cc146c2da532ad475d51ffd525bb65135be89"
+            },
+            "params": {
+              "joint_names": ".*",
+              "soft_factor": 0.9
+            },
+            "weight": 1.0
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "joint_pos_tracking": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:joint_pos_tracking",
+              "source_sha256": "fec9d489699442aa7aa22ff5020def9b2765a4a68885c1b98e32bdca1ffa122b"
+            },
+            "params": {
+              "command_name": "motion",
+              "sigma": [
+                0.5
+              ]
+            },
+            "weight": 1.0
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "joint_torque_limits": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:joint_torque_limits",
+              "source_sha256": "fe9153eefc1893c551cb63f4f5a3bd443bee90dce7dcaaa70ce119ba016a67d0"
+            },
+            "params": {
+              "joint_names": ".*",
+              "soft_factor": 0.75
+            },
+            "weight": 0.01
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "joint_vel_l2": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:joint_vel_l2",
+              "source_sha256": "c23d85af78e7464e1e8f63588436a80309d0fd65d3386f69c7b25b30fd55984e"
+            },
+            "params": {},
+            "weight": 0.00025
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "joint_vel_tracking": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:joint_vel_tracking",
+              "source_sha256": "a538aa05599e7b8a053b9237a33a9e28d31a0680b81161576e674e6a9fab47e2"
+            },
+            "params": {
+              "command_name": "motion",
+              "sigma": [
+                3.0
+              ]
+            },
+            "weight": 0.5
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "keypoint_angvel_tracking": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:keypoint_angvel_tracking",
+              "source_sha256": "2da1a517db6e66a0a8d99a5979a6ceaa66ad85c7b890bc30f78a40f9b55c7a6a"
+            },
+            "params": {
+              "command_name": "motion",
+              "keypoint_specs": [
+                {
+                  "body_name": "left_hip_yaw_link",
+                  "name": "left_hip"
+                },
+                {
+                  "body_name": "left_knee_link",
+                  "name": "left_knee"
+                },
+                {
+                  "body_name": "left_ankle_roll_link",
+                  "name": "left_foot"
+                },
+                {
+                  "body_name": "right_hip_yaw_link",
+                  "name": "right_hip"
+                },
+                {
+                  "body_name": "right_knee_link",
+                  "name": "right_knee"
+                },
+                {
+                  "body_name": "right_ankle_roll_link",
+                  "name": "right_foot"
+                },
+                {
+                  "body_name": "torso_link",
+                  "local_pos": [
+                    0.01,
+                    0.0,
+                    0.41
+                  ],
+                  "name": "head"
+                },
+                {
+                  "body_name": "left_shoulder_yaw_link",
+                  "name": "left_shoulder"
+                },
+                {
+                  "body_name": "left_wrist_roll_link",
+                  "name": "left_wrist"
+                },
+                {
+                  "body_name": "left_wrist_yaw_link",
+                  "correction_body_name": "left_wrist_pitch_link",
+                  "correction_local_pos": [
+                    0.005,
+                    0.0,
+                    0.0
+                  ],
+                  "local_pos": [
+                    0.116,
+                    0.0,
+                    0.0
+                  ],
+                  "name": "left_hand"
+                },
+                {
+                  "body_name": "right_shoulder_yaw_link",
+                  "name": "right_shoulder"
+                },
+                {
+                  "body_name": "right_wrist_roll_link",
+                  "name": "right_wrist"
+                },
+                {
+                  "body_name": "right_wrist_yaw_link",
+                  "correction_body_name": "right_wrist_pitch_link",
+                  "correction_local_pos": [
+                    0.005,
+                    0.0,
+                    0.0
+                  ],
+                  "local_pos": [
+                    0.116,
+                    0.0,
+                    0.0
+                  ],
+                  "name": "right_hand"
+                }
+              ],
+              "sigma": [
+                3.0
+              ]
+            },
+            "weight": 1.0
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "keypoint_pos_tracking": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:keypoint_pos_tracking",
+              "source_sha256": "f61653e9ae9a095b0e71bc9e0cd7af9463e3d697494a9f3f72c7583b26775e1f"
+            },
+            "params": {
+              "command_name": "motion",
+              "keypoint_specs": [
+                {
+                  "body_name": "left_hip_yaw_link",
+                  "name": "left_hip"
+                },
+                {
+                  "body_name": "left_knee_link",
+                  "name": "left_knee"
+                },
+                {
+                  "body_name": "left_ankle_roll_link",
+                  "name": "left_foot"
+                },
+                {
+                  "body_name": "right_hip_yaw_link",
+                  "name": "right_hip"
+                },
+                {
+                  "body_name": "right_knee_link",
+                  "name": "right_knee"
+                },
+                {
+                  "body_name": "right_ankle_roll_link",
+                  "name": "right_foot"
+                },
+                {
+                  "body_name": "torso_link",
+                  "local_pos": [
+                    0.01,
+                    0.0,
+                    0.41
+                  ],
+                  "name": "head"
+                },
+                {
+                  "body_name": "left_shoulder_yaw_link",
+                  "name": "left_shoulder"
+                },
+                {
+                  "body_name": "left_wrist_roll_link",
+                  "name": "left_wrist"
+                },
+                {
+                  "body_name": "left_wrist_yaw_link",
+                  "correction_body_name": "left_wrist_pitch_link",
+                  "correction_local_pos": [
+                    0.005,
+                    0.0,
+                    0.0
+                  ],
+                  "local_pos": [
+                    0.116,
+                    0.0,
+                    0.0
+                  ],
+                  "name": "left_hand"
+                },
+                {
+                  "body_name": "right_shoulder_yaw_link",
+                  "name": "right_shoulder"
+                },
+                {
+                  "body_name": "right_wrist_roll_link",
+                  "name": "right_wrist"
+                },
+                {
+                  "body_name": "right_wrist_yaw_link",
+                  "correction_body_name": "right_wrist_pitch_link",
+                  "correction_local_pos": [
+                    0.005,
+                    0.0,
+                    0.0
+                  ],
+                  "local_pos": [
+                    0.116,
+                    0.0,
+                    0.0
+                  ],
+                  "name": "right_hand"
+                }
+              ],
+              "sigma": [
+                0.3
+              ]
+            },
+            "weight": 2.0
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "keypoint_rot_tracking": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:keypoint_rot_tracking",
+              "source_sha256": "d59392c1bda5e5872d655db7e3fa0580856c11f92fb022de2a69418d79e523d7"
+            },
+            "params": {
+              "command_name": "motion",
+              "keypoint_specs": [
+                {
+                  "body_name": "left_hip_yaw_link",
+                  "name": "left_hip"
+                },
+                {
+                  "body_name": "left_knee_link",
+                  "name": "left_knee"
+                },
+                {
+                  "body_name": "left_ankle_roll_link",
+                  "name": "left_foot"
+                },
+                {
+                  "body_name": "right_hip_yaw_link",
+                  "name": "right_hip"
+                },
+                {
+                  "body_name": "right_knee_link",
+                  "name": "right_knee"
+                },
+                {
+                  "body_name": "right_ankle_roll_link",
+                  "name": "right_foot"
+                },
+                {
+                  "body_name": "torso_link",
+                  "local_pos": [
+                    0.01,
+                    0.0,
+                    0.41
+                  ],
+                  "name": "head"
+                },
+                {
+                  "body_name": "left_shoulder_yaw_link",
+                  "name": "left_shoulder"
+                },
+                {
+                  "body_name": "left_wrist_roll_link",
+                  "name": "left_wrist"
+                },
+                {
+                  "body_name": "left_wrist_yaw_link",
+                  "correction_body_name": "left_wrist_pitch_link",
+                  "correction_local_pos": [
+                    0.005,
+                    0.0,
+                    0.0
+                  ],
+                  "local_pos": [
+                    0.116,
+                    0.0,
+                    0.0
+                  ],
+                  "name": "left_hand"
+                },
+                {
+                  "body_name": "right_shoulder_yaw_link",
+                  "name": "right_shoulder"
+                },
+                {
+                  "body_name": "right_wrist_roll_link",
+                  "name": "right_wrist"
+                },
+                {
+                  "body_name": "right_wrist_yaw_link",
+                  "correction_body_name": "right_wrist_pitch_link",
+                  "correction_local_pos": [
+                    0.005,
+                    0.0,
+                    0.0
+                  ],
+                  "local_pos": [
+                    0.116,
+                    0.0,
+                    0.0
+                  ],
+                  "name": "right_hand"
+                }
+              ],
+              "sigma": [
+                0.4
+              ]
+            },
+            "weight": 2.0
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "keypoint_vel_tracking": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:keypoint_vel_tracking",
+              "source_sha256": "dd2587621326b8d377bbd315d9906cf2da1904c361642f84412398ebcdf6c58b"
+            },
+            "params": {
+              "command_name": "motion",
+              "keypoint_specs": [
+                {
+                  "body_name": "left_hip_yaw_link",
+                  "name": "left_hip"
+                },
+                {
+                  "body_name": "left_knee_link",
+                  "name": "left_knee"
+                },
+                {
+                  "body_name": "left_ankle_roll_link",
+                  "name": "left_foot"
+                },
+                {
+                  "body_name": "right_hip_yaw_link",
+                  "name": "right_hip"
+                },
+                {
+                  "body_name": "right_knee_link",
+                  "name": "right_knee"
+                },
+                {
+                  "body_name": "right_ankle_roll_link",
+                  "name": "right_foot"
+                },
+                {
+                  "body_name": "torso_link",
+                  "local_pos": [
+                    0.01,
+                    0.0,
+                    0.41
+                  ],
+                  "name": "head"
+                },
+                {
+                  "body_name": "left_shoulder_yaw_link",
+                  "name": "left_shoulder"
+                },
+                {
+                  "body_name": "left_wrist_roll_link",
+                  "name": "left_wrist"
+                },
+                {
+                  "body_name": "left_wrist_yaw_link",
+                  "correction_body_name": "left_wrist_pitch_link",
+                  "correction_local_pos": [
+                    0.005,
+                    0.0,
+                    0.0
+                  ],
+                  "local_pos": [
+                    0.116,
+                    0.0,
+                    0.0
+                  ],
+                  "name": "left_hand"
+                },
+                {
+                  "body_name": "right_shoulder_yaw_link",
+                  "name": "right_shoulder"
+                },
+                {
+                  "body_name": "right_wrist_roll_link",
+                  "name": "right_wrist"
+                },
+                {
+                  "body_name": "right_wrist_yaw_link",
+                  "correction_body_name": "right_wrist_pitch_link",
+                  "correction_local_pos": [
+                    0.005,
+                    0.0,
+                    0.0
+                  ],
+                  "local_pos": [
+                    0.116,
+                    0.0,
+                    0.0
+                  ],
+                  "name": "right_hand"
+                }
+              ],
+              "sigma": [
+                1.0
+              ]
+            },
+            "weight": 1.0
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "root_ang_vel_tracking": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:root_ang_vel_tracking",
+              "source_sha256": "dc92ed590abe95d9a8e63a5db90e180dffe2aa1a11d3d06e9500db181e15010e"
+            },
+            "params": {
+              "command_name": "motion",
+              "sigma": [
+                3.0
+              ]
+            },
+            "weight": 1.0
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "root_pos_tracking": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:root_pos_tracking",
+              "source_sha256": "e357a36bcae77384efebc9fda1fa9681b2e7035441de980c2abc0f4ad8da04e1"
+            },
+            "params": {
+              "command_name": "motion",
+              "sigma": [
+                0.3
+              ]
+            },
+            "weight": 1.0
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "root_rot_tracking": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:root_rot_tracking",
+              "source_sha256": "d89c22f13b7a1380d930bf4d74d58993be509bd81d630d80196f965419d7d179"
+            },
+            "params": {
+              "command_name": "motion",
+              "sigma": [
+                0.4
+              ]
+            },
+            "weight": 1.0
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "root_vel_tracking": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:root_vel_tracking",
+              "source_sha256": "213bd6b98275afff2f9cf189b1bb9c1c2439be4deec030e87094dac3ecc0d585"
+            },
+            "params": {
+              "command_name": "motion",
+              "sigma": [
+                1.0
+              ]
+            },
+            "weight": 1.0
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "survival": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:survival",
+              "source_sha256": "5d509a90834d083da9f334025aba2b76710e0b0d538ea7dc2d69737dafb9ff89"
+            },
+            "params": {},
+            "weight": 3.0
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "waist_action_rate_l2": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.rewards:joint_action_rate_l2",
+              "source_sha256": "5459bf83fd6d5b6926afb9363866bf521e4e8b7d38b8dabe43d4e6ab8862aad1"
+            },
+            "params": {
+              "action_name": "joint_pos",
+              "asset_cfg": {
+                "fields": {
+                  "actuator_ids": {
+                    "slice": [
+                      null,
+                      null,
+                      null
+                    ]
+                  },
+                  "actuator_names": null,
+                  "body_ids": {
+                    "slice": [
+                      null,
+                      null,
+                      null
+                    ]
+                  },
+                  "body_names": null,
+                  "camera_ids": {
+                    "slice": [
+                      null,
+                      null,
+                      null
+                    ]
+                  },
+                  "camera_names": null,
+                  "geom_ids": {
+                    "slice": [
+                      null,
+                      null,
+                      null
+                    ]
+                  },
+                  "geom_names": null,
+                  "joint_ids": {
+                    "slice": [
+                      null,
+                      null,
+                      null
+                    ]
+                  },
+                  "joint_names": [
+                    "waist_yaw_joint",
+                    "waist_roll_joint",
+                    "waist_pitch_joint"
+                  ],
+                  "light_ids": {
+                    "slice": [
+                      null,
+                      null,
+                      null
+                    ]
+                  },
+                  "light_names": null,
+                  "material_ids": {
+                    "slice": [
+                      null,
+                      null,
+                      null
+                    ]
+                  },
+                  "material_names": null,
+                  "name": "robot",
+                  "pair_ids": {
+                    "slice": [
+                      null,
+                      null,
+                      null
+                    ]
+                  },
+                  "pair_names": null,
+                  "preserve_order": false,
+                  "site_ids": {
+                    "slice": [
+                      null,
+                      null,
+                      null
+                    ]
+                  },
+                  "site_names": null,
+                  "tendon_ids": {
+                    "slice": [
+                      null,
+                      null,
+                      null
+                    ]
+                  },
+                  "tendon_names": null
+                },
+                "type": "mjlab.managers.scene_entity_config:SceneEntityCfg"
+              }
+            },
+            "weight": -0.5
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "wrist_link_height_tracking": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:global_link_height_tracking",
+              "source_sha256": "ff396ac4e311a68876f542b5426b95cc50b670a7c54a70fa0e2cf7eb709a7307"
+            },
+            "params": {
+              "body_names": [
+                "left_wrist_yaw_link",
+                "right_wrist_yaw_link"
+              ],
+              "command_name": "motion",
+              "sigma": [
+                0.3
+              ]
+            },
+            "weight": 1.0
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        }
+      }
+    },
+    "sha256": "abee73632d079f08c160584b04ace15532ecf6bd9dfa8139979af518d8a1553c",
+    "version": "original_task_reward_locked_v1"
+  },
+  "runtime_audits_by_rank": [
+    {
+      "actual_mass_sha256": "fa6cf13009699bb3f6ae65f80a413e3a19b3e50faf588eb75e9f8df4f28e5ce4",
+      "hardest_worlds": 512,
+      "max_kg": 4.0,
+      "min_kg": 0.0,
+      "nominal_worlds": 512,
+      "per_limb_mean_kg": [
+        1.9945135116577148,
+        1.9978042840957642,
+        1.96901535987854,
+        1.990332007408142
+      ]
+    },
+    {
+      "actual_mass_sha256": "e750ce1d3c6393f5136d8a670b5c49adf38bbb6ae6333032396000912ebfc8c6",
+      "hardest_worlds": 512,
+      "max_kg": 4.0,
+      "min_kg": 0.0,
+      "nominal_worlds": 512,
+      "per_limb_mean_kg": [
+        1.9960260391235352,
+        2.019092321395874,
+        1.9840810298919678,
+        2.021327257156372
+      ]
+    }
+  ],
+  "tracker_checkpoint": "/data_zcy/wxy/SP_Tracking/logs/rsl_rl/g1_tracking/2026-09-02_04-48-42_SPTracking-G1-BFM-SPV5-2AActor-HEFTCritic-HEFTReward_8gpu_12288env_motion_data_correct/checkpoint_72000.pt",
+  "tracker_sha256": "fd7bd90d5552e573bbbce1417e9b415c64bb487a76b683ba3c20503b5ec77635",
+  "trainable_actor": "original control MLP and exploration std only; no residual",
+  "training_starts": {
+    "after": {
+      "init_noise": {},
+      "joint_position_range": [
+        0.0,
+        0.0
+      ],
+      "pose_range": {},
+      "velocity_range": {}
+    },
+    "before": {
+      "init_noise": {},
+      "joint_position_range": [
+        -0.1,
+        0.1
+      ],
+      "pose_range": {
+        "pitch": [
+          -0.1,
+          0.1
+        ],
+        "roll": [
+          -0.1,
+          0.1
+        ],
+        "x": [
+          -0.05,
+          0.05
+        ],
+        "y": [
+          -0.05,
+          0.05
+        ],
+        "yaw": [
+          -0.2,
+          0.2
+        ],
+        "z": [
+          -0.01,
+          0.01
+        ]
+      },
+      "velocity_range": {
+        "pitch": [
+          -0.52,
+          0.52
+        ],
+        "roll": [
+          -0.52,
+          0.52
+        ],
+        "x": [
+          -0.5,
+          0.5
+        ],
+        "y": [
+          -0.5,
+          0.5
+        ],
+        "yaw": [
+          -0.78,
+          0.78
+        ],
+        "z": [
+          -0.2,
+          0.2
+        ]
+      }
+    },
+    "contract": "Training reset curriculum only; no changes to physical DR, sensors, motions, terminations, or evaluation",
+    "mode": "reference"
+  },
+  "variant": "C",
+  "version": "lafan_abc_tracker_head_finetune_warmcritic_v2",
+  "world_size": 2
+}

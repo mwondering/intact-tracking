@@ -1,0 +1,81 @@
+{
+  "verified_at": 1789267027.5281165,
+  "runs": {
+    "baseline": {
+      "id": "m350compressed-43cb8d622e96",
+      "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/m350compressed-43cb8d622e96",
+      "state": "running",
+      "motion_sampling": {
+        "scope": "motion/bin sampling only; per-world independent limb payloads remain U(0,4)",
+        "version": "limb_motion_sampling_curriculum_v1",
+        "parameters": {
+          "adaptive_bin_width_s": 1,
+          "adaptive_uniform_ratio": 0.1,
+          "adaptive_bin_width_steps": null,
+          "adaptive_max_prob_per_bin": "auto",
+          "adaptive_prior_visit_count": 1,
+          "adaptive_max_prob_per_motion": "auto",
+          "adaptive_prior_failure_count": 0,
+          "adaptive_sequence_length_agnostic": false,
+          "adaptive_probability_max_over_mean": 500,
+          "adaptive_failure_rate_ema_iterations": 1000,
+          "adaptive_failure_rate_window_iterations": null,
+          "adaptive_pre_failure_sample_window_steps": 100
+        },
+        "statistics": "rank-local motion shards; adaptive statistics begin from priors at the phase boundary",
+        "active_mode": "adaptive",
+        "requested_mode": "adaptive",
+        "adaptive_sampling": {
+          "strategy": "branch",
+          "temperature": 0.25,
+          "random_probability": 0.5
+        },
+        "adaptive_after_update": 0,
+        "failure_rewind_enabled": false,
+        "adaptive_bin_snapshot_interval_iterations": 0
+      },
+      "training_termination_profile": "original",
+      "resume": null,
+      "encoder_frozen": true,
+      "completed_updates": null
+    },
+    "concat": {
+      "id": "m350compressed-a71787775410",
+      "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/m350compressed-a71787775410",
+      "state": "running",
+      "motion_sampling": {
+        "scope": "motion/bin sampling only; per-world independent limb payloads remain U(0,4)",
+        "version": "limb_motion_sampling_curriculum_v1",
+        "parameters": {
+          "adaptive_bin_width_s": 1,
+          "adaptive_uniform_ratio": 0.1,
+          "adaptive_bin_width_steps": null,
+          "adaptive_max_prob_per_bin": "auto",
+          "adaptive_prior_visit_count": 1,
+          "adaptive_max_prob_per_motion": "auto",
+          "adaptive_prior_failure_count": 0,
+          "adaptive_sequence_length_agnostic": false,
+          "adaptive_probability_max_over_mean": 500,
+          "adaptive_failure_rate_ema_iterations": 1000,
+          "adaptive_failure_rate_window_iterations": null,
+          "adaptive_pre_failure_sample_window_steps": 100
+        },
+        "statistics": "rank-local motion shards; adaptive statistics begin from priors at the phase boundary",
+        "active_mode": "adaptive",
+        "requested_mode": "adaptive",
+        "adaptive_sampling": {
+          "strategy": "branch",
+          "temperature": 0.25,
+          "random_probability": 0.5
+        },
+        "adaptive_after_update": 0,
+        "failure_rewind_enabled": false,
+        "adaptive_bin_snapshot_interval_iterations": 0
+      },
+      "training_termination_profile": "original",
+      "resume": null,
+      "encoder_frozen": true,
+      "completed_updates": null
+    }
+  }
+}

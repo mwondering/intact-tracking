@@ -1,0 +1,210 @@
+{
+  "motions": 42,
+  "baseline_body_joint": [
+    0.041944745861006334,
+    0.6518059792274254
+  ],
+  "preview_body_joint": [
+    0.04195452186953238,
+    0.6519489626156255
+  ],
+  "preview_over_baseline_body_joint": [
+    1.0002330687270926,
+    1.0002193649533095
+  ],
+  "ratio_ci95_low": [
+    0.9996857793606452,
+    0.9998608581603369
+  ],
+  "ratio_ci95_high": [
+    1.0009443672962628,
+    1.0006043676363743
+  ],
+  "baseline_failure_rate": 0.0,
+  "preview_failure_rate": 0.0,
+  "failure_rate_delta_ci95": [
+    0.0,
+    0.0
+  ],
+  "new_failure_episodes": 0,
+  "rescued_failure_episodes": 0,
+  "clear_tracking_gain_this_seed": false,
+  "strict_no_regression_this_seed": false,
+  "uncertainty": "paired bootstrap over motions, not over independent training seeds",
+  "scope": "in-distribution full-catalog evaluation, not an unseen-motion generalization test",
+  "preview_vs_frozen_dr": {
+    "motions": 42,
+    "baseline_body_joint": [
+      0.04194904760758315,
+      0.6521471411632818
+    ],
+    "preview_body_joint": [
+      0.04195452186953238,
+      0.6519489626156255
+    ],
+    "preview_over_baseline_body_joint": [
+      1.0001304978840149,
+      0.9996961137523309
+    ],
+    "ratio_ci95_low": [
+      0.9994398924531647,
+      0.9992567096523092
+    ],
+    "ratio_ci95_high": [
+      1.000957560770463,
+      1.0002031732218253
+    ],
+    "baseline_failure_rate": 0.0,
+    "preview_failure_rate": 0.0,
+    "failure_rate_delta_ci95": [
+      0.0,
+      0.0
+    ],
+    "new_failure_episodes": 0,
+    "rescued_failure_episodes": 0,
+    "clear_tracking_gain_this_seed": false,
+    "strict_no_regression_this_seed": false,
+    "uncertainty": "paired bootstrap over motions, not over independent training seeds",
+    "scope": "in-distribution full-catalog evaluation, not an unseen-motion generalization test",
+    "reference_label": "frozen tracker, same DR"
+  },
+  "contract": {
+    "dataset": {
+      "root": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong",
+      "motion_count": 42,
+      "manifest_sha256": "0cbcd72bb1141863496d6f5abeba5fc48e644b0850ebe8599d7e62c3de2b6638",
+      "manifest_hash_kind": "relative-path,size,mtime_ns",
+      "archive_bytes": 812768852,
+      "groups": {
+        "lafan_qingtong": 42
+      },
+      "coverage": "all recursive *.npz files; no exclusions or active subset"
+    },
+    "arguments": {
+      "baseline_checkpoint": "runs/preview_v2_validation_limb/full_baseline_4096/checkpoint_final.pt",
+      "preview_checkpoint": "runs/preview_v2_validation_limb/full_preview_4096/checkpoint_final.pt",
+      "tracker_checkpoint": "/data_zcy/wxy/SP_Tracking/logs/rsl_rl/g1_tracking/2026-09-02_04-48-42_SPTracking-G1-BFM-SPV5-2AActor-HEFTCritic-HEFTReward_8gpu_12288env_motion_data_correct/checkpoint_72000.pt",
+      "motion_path": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong",
+      "dr_profile": "hands-shins-2-4kg",
+      "output_dir": "runs/preview_v2_validation_limb/batched_eval_smoke",
+      "num_envs": 64,
+      "repeats": 2,
+      "steps": 16,
+      "seed": 20001,
+      "bootstrap_samples": 100
+    },
+    "checkpoint_sha256": {
+      "baseline": "fd83894382b85f73f39b9a8d47271ff57d0dc186bb4868ed545e3176852a0067",
+      "preview": "e3c134f7c1d668fe17ec6ba8073ef32117741b6c3ed478976a812721fbf4483a",
+      "frozen": "fd7bd90d5552e573bbbce1417e9b415c64bb487a76b683ba3c20503b5ec77635"
+    }
+  },
+  "training_pair": {
+    "completed_updates": 1,
+    "version": "simulator_preview_original_inputs_v2",
+    "tracker_sha256": "fd7bd90d5552e573bbbce1417e9b415c64bb487a76b683ba3c20503b5ec77635",
+    "motion_sha256": "df31b45ef2a32dbda7107c57f55bb90b2d300a182bcc05ef62c19e1959d85978",
+    "dr_profile": "hands-shins-2-4kg",
+    "reward_sha256": "abee73632d079f08c160584b04ace15532ecf6bd9dfa8139979af518d8a1553c",
+    "physics_details": {
+      "limbs": {
+        "left_hand": {
+          "event_name": "preview_payload_left_hand",
+          "body_name": "left_wrist_yaw_link",
+          "mass_range_kg": [
+            2.0,
+            4.0
+          ],
+          "position_body_frame_m": [
+            0.12,
+            0.0,
+            0.0
+          ],
+          "cuboid_size_m": [
+            0.1,
+            0.08,
+            0.08
+          ]
+        },
+        "right_hand": {
+          "event_name": "preview_payload_right_hand",
+          "body_name": "right_wrist_yaw_link",
+          "mass_range_kg": [
+            2.0,
+            4.0
+          ],
+          "position_body_frame_m": [
+            0.12,
+            0.0,
+            0.0
+          ],
+          "cuboid_size_m": [
+            0.1,
+            0.08,
+            0.08
+          ]
+        },
+        "left_shin": {
+          "event_name": "preview_payload_left_shin",
+          "body_name": "left_knee_link",
+          "mass_range_kg": [
+            2.0,
+            4.0
+          ],
+          "position_body_frame_m": [
+            0.0,
+            0.0,
+            -0.15
+          ],
+          "cuboid_size_m": [
+            0.1,
+            0.08,
+            0.1
+          ]
+        },
+        "right_shin": {
+          "event_name": "preview_payload_right_shin",
+          "body_name": "right_knee_link",
+          "mass_range_kg": [
+            2.0,
+            4.0
+          ],
+          "position_body_frame_m": [
+            0.0,
+            0.0,
+            -0.15
+          ],
+          "cuboid_size_m": [
+            0.1,
+            0.08,
+            0.1
+          ]
+        }
+      },
+      "sampling": "independent per limb and world, fixed at startup",
+      "total_added_mass_range_kg": [
+        8.0,
+        16.0
+      ],
+      "physics_model": "composite rigid cuboid mass/COM/inertia; no added collision geometry"
+    },
+    "arguments": {
+      "num_envs": 4096,
+      "seed": 121,
+      "rollout_steps": 24,
+      "actor_lr": 0.0001,
+      "critic_lr": 0.0005,
+      "critic_warmup_updates": 0,
+      "epochs": 5,
+      "mini_batches": 4,
+      "entropy_coef": 0.0002,
+      "initial_action_std": 0.1,
+      "residual_scale": 1.0,
+      "hidden_dims": [
+        512,
+        256,
+        128
+      ]
+    }
+  }
+}

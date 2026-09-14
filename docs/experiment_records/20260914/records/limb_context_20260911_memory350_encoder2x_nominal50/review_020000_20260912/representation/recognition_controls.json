@@ -1,0 +1,202 @@
+{
+  "common": {
+    "motion_split": {
+      "worlds": 501,
+      "test_samples": 7282,
+      "uniform_chance": 0.001996007984031936,
+      "disjoint_history": false,
+      "train_motion_families": [
+        "run1",
+        "fight1",
+        "fightAndSports1",
+        "run2",
+        "jumps1",
+        "walk4",
+        "sprint1"
+      ],
+      "test_motion_families": [
+        "walk1",
+        "fallAndGetUp1",
+        "walk2",
+        "dance1",
+        "walk3",
+        "fallAndGetUp2",
+        "dance2",
+        "fallAndGetUp3"
+      ],
+      "models": {
+        "original": {
+          "top1_accuracy": 0.19802252128536116,
+          "top5_accuracy": 0.44946443284811866
+        },
+        "original_no_long": {
+          "top1_accuracy": 0.005904971161768745,
+          "top5_accuracy": 0.02787695687997803
+        },
+        "encoder2x": {
+          "top1_accuracy": 0.21793463334248833,
+          "top5_accuracy": 0.4372425157923647
+        },
+        "encoder2x_no_long": {
+          "top1_accuracy": 0.009338093930238945,
+          "top5_accuracy": 0.03927492447129909
+        }
+      },
+      "top1_gain_percentage_points": 1.9912112057127163,
+      "top1_gain_query_world_bootstrap_ci95_pp": [
+        0.29978552712426043,
+        3.7144229751703834
+      ],
+      "uncertainty_scope": "Descriptive paired query-world bootstrap, fixed fitted centers and one training seed."
+    },
+    "motion_split_disjoint_history": {
+      "worlds": 409,
+      "test_samples": 3152,
+      "uniform_chance": 0.0024449877750611247,
+      "disjoint_history": true,
+      "train_motion_families": [
+        "run1",
+        "fight1",
+        "fightAndSports1",
+        "run2",
+        "jumps1",
+        "walk4",
+        "sprint1"
+      ],
+      "test_motion_families": [
+        "walk1",
+        "fallAndGetUp1",
+        "walk2",
+        "dance1",
+        "walk3",
+        "fallAndGetUp2",
+        "dance2",
+        "fallAndGetUp3"
+      ],
+      "models": {
+        "original": {
+          "top1_accuracy": 0.17163705583756345,
+          "top5_accuracy": 0.4137055837563452
+        },
+        "original_no_long": {
+          "top1_accuracy": 0.008883248730964468,
+          "top5_accuracy": 0.034581218274111675
+        },
+        "encoder2x": {
+          "top1_accuracy": 0.19194162436548223,
+          "top5_accuracy": 0.42163705583756345
+        },
+        "encoder2x_no_long": {
+          "top1_accuracy": 0.010786802030456852,
+          "top5_accuracy": 0.04187817258883249
+        }
+      },
+      "top1_gain_percentage_points": 2.030456852791878,
+      "top1_gain_query_world_bootstrap_ci95_pp": [
+        -0.22442813108371187,
+        4.204138471285294
+      ],
+      "uncertainty_scope": "Descriptive paired query-world bootstrap, fixed fitted centers and one training seed."
+    }
+  },
+  "memory_training": {
+    "motion_split": {
+      "worlds": 423,
+      "test_samples": 6502,
+      "uniform_chance": 0.002364066193853428,
+      "disjoint_history": false,
+      "train_motion_families": [
+        "run1",
+        "fight1",
+        "fightAndSports1",
+        "run2",
+        "jumps1",
+        "walk4",
+        "sprint1"
+      ],
+      "test_motion_families": [
+        "walk1",
+        "fallAndGetUp1",
+        "walk2",
+        "dance1",
+        "walk3",
+        "fallAndGetUp2",
+        "dance2",
+        "fallAndGetUp3"
+      ],
+      "models": {
+        "original": {
+          "top1_accuracy": 0.25469086434943095,
+          "top5_accuracy": 0.43909566287296214
+        },
+        "original_no_long": {
+          "top1_accuracy": 0.008766533374346354,
+          "top5_accuracy": 0.0379883112888342
+        },
+        "encoder2x": {
+          "top1_accuracy": 0.3145186096585666,
+          "top5_accuracy": 0.517225469086435
+        },
+        "encoder2x_no_long": {
+          "top1_accuracy": 0.00938172869886189,
+          "top5_accuracy": 0.04091048908028299
+        }
+      },
+      "top1_gain_percentage_points": 5.982774530913565,
+      "top1_gain_query_world_bootstrap_ci95_pp": [
+        4.1881087824105565,
+        7.805476116436746
+      ],
+      "uncertainty_scope": "Descriptive paired query-world bootstrap, fixed fitted centers and one training seed."
+    },
+    "motion_split_disjoint_history": {
+      "worlds": 292,
+      "test_samples": 2761,
+      "uniform_chance": 0.003424657534246575,
+      "disjoint_history": true,
+      "train_motion_families": [
+        "run1",
+        "fight1",
+        "fightAndSports1",
+        "run2",
+        "jumps1",
+        "walk4",
+        "sprint1"
+      ],
+      "test_motion_families": [
+        "walk1",
+        "fallAndGetUp1",
+        "walk2",
+        "dance1",
+        "walk3",
+        "fallAndGetUp2",
+        "dance2",
+        "fallAndGetUp3"
+      ],
+      "models": {
+        "original": {
+          "top1_accuracy": 0.24664976457805143,
+          "top5_accuracy": 0.4505613908004346
+        },
+        "original_no_long": {
+          "top1_accuracy": 0.011590003621876132,
+          "top5_accuracy": 0.04672220210068816
+        },
+        "encoder2x": {
+          "top1_accuracy": 0.3147410358565737,
+          "top5_accuracy": 0.5193770373053241
+        },
+        "encoder2x_no_long": {
+          "top1_accuracy": 0.01231437884824339,
+          "top5_accuracy": 0.052155016298442596
+        }
+      },
+      "top1_gain_percentage_points": 6.809127127852227,
+      "top1_gain_query_world_bootstrap_ci95_pp": [
+        4.1738196312756095,
+        9.498291561476718
+      ],
+      "uncertainty_scope": "Descriptive paired query-world bootstrap, fixed fitted centers and one training seed."
+    }
+  }
+}

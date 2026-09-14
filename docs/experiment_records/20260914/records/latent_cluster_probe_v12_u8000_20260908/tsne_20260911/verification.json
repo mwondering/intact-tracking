@@ -1,0 +1,29 @@
+{
+  "interaction_test": "passed with mock DOM; no browser rendering test",
+  "distance_text": "Nominal / M0 / phase 0.441 ↔ DR 527 / M8 / phase 0.943 ｜原始 latent L2 距离：4.3885 ｜单位化后 L2：0.6170 ｜余弦：0.80964。点击新点可开始下一组比较。",
+  "expected": {
+    "expected_raw": 4.388492254107009,
+    "expected_unit": 0.6170268886005282,
+    "expected_cosine": 0.8096389093719757,
+    "html_bytes": 5134255,
+    "sample_count": 503,
+    "script_src_tags": []
+  },
+  "main_exec_exit": 0,
+  "counts": {
+    "all": 24345,
+    "nominal_all": 12159,
+    "dr_all": 12186,
+    "detail": 503,
+    "nominal_detail": 124,
+    "dr_detail": 379
+  },
+  "static_plots_visually_inspected": [
+    "tsne_detail.png",
+    "tsne_overview.png",
+    "tsne_nominal.png",
+    "tsne_settings.png",
+    "raw_latent_distances.png"
+  ],
+  "python_compilation": "passed"
+}

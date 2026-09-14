@@ -1,0 +1,21 @@
+{
+  "pid": 40953,
+  "process_start_ticks": 1438867042,
+  "command": [
+    "/data_zcy/wxy/intact-tracking/.venv/bin/python",
+    "-B",
+    "-u",
+    "/data_zcy/wxy/intact-tracking/scripts/evaluate_memory350_weak_pairs.py",
+    "--candidate",
+    "/data_zcy/wxy/intact-tracking/runs/limb_context_20260912_memory350_encoder2x_nominal50_weakpairs/stage1_8192/update_005000.pt",
+    "--reference",
+    "/data_zcy/wxy/intact-tracking/runs/limb_context_20260911_memory350_encoder2x_nominal50/stage1_8192/update_005000.pt",
+    "--cache",
+    "/data_zcy/wxy/intact-tracking/runs/latent_cluster_probe_memory350_nominal50_u5000_20260911",
+    "--output",
+    "/data_zcy/wxy/intact-tracking/runs/limb_context_20260912_memory350_encoder2x_nominal50_weakpairs/comparison_005000"
+  ],
+  "physical_gpus": "7",
+  "log": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260912_memory350_encoder2x_nominal50_weakpairs/comparison_005000.log",
+  "started_at": 1789199735.9721441
+}

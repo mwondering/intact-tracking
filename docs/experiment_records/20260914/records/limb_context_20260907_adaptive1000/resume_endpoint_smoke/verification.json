@@ -1,0 +1,80 @@
+{
+  "passed": true,
+  "selected_update": 3,
+  "first_resumed_update": 4,
+  "model_optimizer_restoration": {
+    "checkpoint_update": 3,
+    "model_optimizer_state_sha256": "b6f6d20adfa518420d0926d3d90e37e983cfcde470ed8ce7b7cb35b9919895d7",
+    "passed": true
+  },
+  "sampling_restoration": [
+    {
+      "open_episode_visits_rebuilt": true,
+      "pending_completed_visits_restored": true,
+      "rank": 0,
+      "restored": true,
+      "sha256": "15e5a2f8051df44fd1a3ddf8a525c508e6465fffc530ddc4e426393175151c21"
+    },
+    {
+      "open_episode_visits_rebuilt": true,
+      "pending_completed_visits_restored": true,
+      "rank": 1,
+      "restored": true,
+      "sha256": "f909bbbf97032a849b14f9f3af8538098c52ca96da085e40dd98cdecd9038a8f"
+    }
+  ],
+  "endpoint_test": {
+    "completed_updates": 3,
+    "checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907_adaptive1000/smoke_2gpu8192_scratch/baseline/checkpoint_update_000003.pt",
+    "checkpoint_sha256": "54d4c83b18946b99b15f200edc6979308c38eab5220c6518c358e083483ef2ab",
+    "protocol_sha256": "b1d934ced925c20d6a49c68d6139026410ad543f8f24360a4f5cf988f2eff2cb",
+    "metrics": {
+      "checkpoint_update": 3,
+      "motions": 1,
+      "all_0": {
+        "error_body_pos": 0.029719810117967427,
+        "error_joint_pos": 0.7472882457077503,
+        "error_anchor_pos": 0.029399185383226722,
+        "error_anchor_rot": 0.048481222707778215,
+        "error_body_rot": 0.16113186348229647,
+        "error_joint_vel": 8.300598442554474,
+        "error_anchor_lin_vel": 0.24952692491933703,
+        "error_anchor_ang_vel": 0.6366842407733202,
+        "error_body_lin_vel": 0.39564975537359715,
+        "error_body_ang_vel": 2.0982867628335953,
+        "failure_rate": 0.0,
+        "coverage_fraction": 1.0,
+        "mean_episode_return": 3.9828315675258636,
+        "residual_saturation_fraction": 0.0
+      },
+      "all_4": {
+        "error_body_pos": 0.04800939292181283,
+        "error_joint_pos": 0.8893870487809181,
+        "error_anchor_pos": 0.05418858799384907,
+        "error_anchor_rot": 0.07062786910682917,
+        "error_body_rot": 0.2840174660086632,
+        "error_joint_vel": 9.825475692749023,
+        "error_anchor_lin_vel": 0.4880146812647581,
+        "error_anchor_ang_vel": 1.3677130714058876,
+        "error_body_lin_vel": 0.6184844169765711,
+        "error_body_ang_vel": 3.074828252196312,
+        "failure_rate": 0.0,
+        "coverage_fraction": 1.0,
+        "mean_episode_return": 3.3801310509443283,
+        "residual_saturation_fraction": 0.0
+      }
+    },
+    "unix_time": 1788854191.2815971,
+    "wall_seconds": 20.041469234973192,
+    "training_state_preserved": true
+  },
+  "scale": {
+    "advantage_normalization": "global rollout mean and sample standard deviation",
+    "critic_normalization": "global pooled sums, squared sums and count at every environment step",
+    "global_num_envs": 16384,
+    "gradient_synchronization": "mean across all ranks at each optimizer step",
+    "num_envs_per_rank": 8192,
+    "rank_seed_formula": "seed + 1000003 * rank",
+    "world_size": 2
+  }
+}

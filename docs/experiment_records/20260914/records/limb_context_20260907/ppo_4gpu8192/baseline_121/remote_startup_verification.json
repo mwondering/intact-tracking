@@ -1,0 +1,54 @@
+{
+  "verified_at": 1788835505.213498,
+  "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/limb-89dbbe866731",
+  "group": "limb_context_20260907-stage2-4gpu8192",
+  "dataset": {
+    "root": "/data_zcy/wxy/motion_data_correct/motion_data_full",
+    "groups": {
+      "sonic_filtered": 129785,
+      "AMASS_LAFAN_Qingtong": 42
+    },
+    "coverage": "all recursive *.npz files; no exclusions or active subset",
+    "motion_count": 129827,
+    "archive_bytes": 86401833542,
+    "loaded_frames": 48085337,
+    "rank_partition": "sorted files [rank::world_size]; single-file smoke replicated",
+    "manifest_sha256": "df31b45ef2a32dbda7107c57f55bb90b2d300a182bcc05ef62c19e1959d85978",
+    "manifest_hash_kind": "relative-path,size,mtime_ns",
+    "loaded_motion_count": 129827,
+    "reference_storage_mode": "qpos_only_actor_fk",
+    "loaded_motion_counts_per_rank": [
+      32457,
+      32457,
+      32457,
+      32456
+    ]
+  },
+  "distributed": {
+    "world_size": 4,
+    "global_num_envs": 32768,
+    "num_envs_per_rank": 8192,
+    "rank_seed_formula": "seed + 1000003 * rank",
+    "critic_normalization": "global pooled sums, squared sums and count at every environment step",
+    "advantage_normalization": "global rollout mean and sample standard deviation",
+    "gradient_synchronization": "mean across all ranks at each optimizer step"
+  },
+  "history": [
+    {
+      "global_num_envs": 32768,
+      "_step": 28,
+      "update": 28
+    },
+    {
+      "_step": 29,
+      "update": 29,
+      "global_num_envs": 32768
+    },
+    {
+      "_step": 30,
+      "update": 30,
+      "global_num_envs": 32768
+    }
+  ],
+  "target_updates": 5000
+}

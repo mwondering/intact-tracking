@@ -1,0 +1,219 @@
+{
+  "completed_updates": 2,
+  "unix_time": 1789351281.2541802,
+  "dr_id": 3,
+  "checkpoint_sha256": "ff568dbc966013399935ead1a6563371f13df382b4a47929f57e624bf13e8ac6",
+  "protocol_sha256": "a573ef4b223665006d3aa0a6f0580fc8126781f2e4a374caea3bb686afdfd42b",
+  "training_state_preserved": true,
+  "global_transitions": 6144,
+  "comparison": {
+    "paired_motions": 2,
+    "bootstrap_repeats": 2000,
+    "bootstrap_unit": "motion; one fixed-start episode per motion",
+    "training_seed_count": 1,
+    "common_survival_steps_mean": 40.0,
+    "failure_rate": {
+      "reference": 0.0,
+      "candidate": 0.0,
+      "candidate_minus_reference": 0.0,
+      "difference_ci95": [
+        0.0,
+        0.0
+      ],
+      "reduction_percent": 0.0,
+      "reduction_percent_ci95": [
+        0.0,
+        0.0
+      ]
+    },
+    "coverage": {
+      "reference": 1.0,
+      "candidate": 1.0,
+      "candidate_minus_reference": 0.0,
+      "difference_ci95": [
+        0.0,
+        0.0
+      ],
+      "reduction_percent": 0.0,
+      "reduction_percent_ci95": [
+        0.0,
+        0.0
+      ]
+    },
+    "truncated_error_body_pos": {
+      "reference": 0.029491293866885825,
+      "candidate": 0.045986677636392415,
+      "candidate_minus_reference": 0.01649538376950659,
+      "difference_ci95": [
+        0.013081177475396541,
+        0.019909590063616638
+      ],
+      "reduction_percent": -55.93306229276146,
+      "reduction_percent_ci95": [
+        -82.54682178245385,
+        -37.52118996843029
+      ]
+    },
+    "common_error_body_pos": {
+      "reference": 0.02949129417538643,
+      "candidate": 0.045986679196357724,
+      "candidate_minus_reference": 0.016495385020971295,
+      "difference_ci95": [
+        0.013081181049346927,
+        0.019909588992595675
+      ],
+      "reduction_percent": -55.93306595116609,
+      "reduction_percent_ci95": [
+        -82.54681319827331,
+        -37.52120085869409
+      ]
+    },
+    "truncated_error_joint_pos": {
+      "reference": 0.8172386744990945,
+      "candidate": 0.9038923840969801,
+      "candidate_minus_reference": 0.08665370959788565,
+      "difference_ci95": [
+        0.07006351500749597,
+        0.10324390418827534
+      ],
+      "reduction_percent": -10.603231626427593,
+      "reduction_percent_ci95": [
+        -23.380405666885384,
+        -5.873405044914656
+      ]
+    },
+    "common_error_joint_pos": {
+      "reference": 0.8172387123107909,
+      "candidate": 0.9038923740386964,
+      "candidate_minus_reference": 0.08665366172790545,
+      "difference_ci95": [
+        0.07006349563598646,
+        0.10324382781982422
+      ],
+      "reduction_percent": -10.60322527831398,
+      "reduction_percent_ci95": [
+        -23.380386814428505,
+        -5.873403193564914
+      ]
+    },
+    "truncated_error_anchor_pos": {
+      "reference": 0.03920533730124589,
+      "candidate": 0.030447358035598882,
+      "candidate_minus_reference": -0.008757979265647007,
+      "difference_ci95": [
+        -0.018927799444645642,
+        0.001411840913351628
+      ],
+      "reduction_percent": 22.33874229509228,
+      "reduction_percent_ci95": [
+        -4.176123243054323,
+        42.435947166341194
+      ]
+    },
+    "truncated_error_anchor_rot": {
+      "reference": 0.04478302369825542,
+      "candidate": 0.0710785947390832,
+      "candidate_minus_reference": 0.02629557104082779,
+      "difference_ci95": [
+        0.01544487033970654,
+        0.03714627174194902
+      ],
+      "reduction_percent": -58.717721291008246,
+      "reduction_percent_ci95": [
+        -129.01143457177625,
+        -25.414016328372796
+      ]
+    },
+    "truncated_error_body_rot": {
+      "reference": 0.22199456207454205,
+      "candidate": 0.2541207725182176,
+      "candidate_minus_reference": 0.03212621044367553,
+      "difference_ci95": [
+        0.020209451485425245,
+        0.04404296940192581
+      ],
+      "reduction_percent": -14.471620450273951,
+      "reduction_percent_ci95": [
+        -14.656755739184726,
+        -14.083919420127206
+      ]
+    },
+    "truncated_error_joint_vel": {
+      "reference": 4.0958586007356645,
+      "candidate": 4.486877137422562,
+      "candidate_minus_reference": 0.39101853668689746,
+      "difference_ci95": [
+        0.2886332839727399,
+        0.49340378940105456
+      ],
+      "reduction_percent": -9.546680557201508,
+      "reduction_percent_ci95": [
+        -11.120357400422385,
+        -7.687098576998182
+      ]
+    },
+    "truncated_error_anchor_lin_vel": {
+      "reference": 0.13409267212264242,
+      "candidate": 0.12009785027476028,
+      "candidate_minus_reference": -0.013994821847882144,
+      "difference_ci95": [
+        -0.04340879756491632,
+        0.015419153869152075
+      ],
+      "reduction_percent": 10.436679071532222,
+      "reduction_percent_ci95": [
+        -11.036618216843197,
+        33.787397124338256
+      ]
+    },
+    "truncated_error_anchor_ang_vel": {
+      "reference": 0.3002056172117591,
+      "candidate": 0.3733364962507039,
+      "candidate_minus_reference": 0.07313087903894483,
+      "difference_ci95": [
+        0.0480194614268839,
+        0.09824229665100576
+      ],
+      "reduction_percent": -24.360263381534182,
+      "reduction_percent_ci95": [
+        -27.876191217196812,
+        -19.36365716191818
+      ]
+    },
+    "truncated_error_body_lin_vel": {
+      "reference": 0.19758508875966074,
+      "candidate": 0.2105850322172046,
+      "candidate_minus_reference": 0.01299994345754385,
+      "difference_ci95": [
+        -0.0032902140170335825,
+        0.029290100932121282
+      ],
+      "reduction_percent": -6.579415247957687,
+      "reduction_percent_ci95": [
+        -14.40522260547649,
+        1.715078411888256
+      ]
+    },
+    "truncated_error_body_ang_vel": {
+      "reference": 1.0668901681900025,
+      "candidate": 1.1599035371094941,
+      "candidate_minus_reference": 0.09301336891949163,
+      "difference_ci95": [
+        0.09022672846913338,
+        0.09580000936985011
+      ],
+      "reduction_percent": -8.718176593312355,
+      "reduction_percent_ci95": [
+        -9.378999194962022,
+        -8.11136655243646
+      ]
+    },
+    "reference_checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260913_memory350_online_kmeans16_critic_action/ppo/baseline_121/checkpoint_update_003900.pt",
+    "reference_update": 3900,
+    "specialist_checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260914_fixed_dr_specialists8/smoke_final/B03_all_4kg/checkpoint_update_000002.pt",
+    "specialist_update": 2,
+    "dr_id": 3,
+    "physics_fingerprint": "3d0059490fc570860cce91d00229f2278d4291f82b95901507f2bad23cf2af73",
+    "interpretation": "Specialization relative to the existing continuous-DR universal A; not an equal-training-distribution or equal-total-samples ablation"
+  }
+}

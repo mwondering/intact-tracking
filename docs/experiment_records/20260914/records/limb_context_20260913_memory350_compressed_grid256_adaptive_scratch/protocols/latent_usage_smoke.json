@@ -1,0 +1,11 @@
+{
+  "version": "memory350_matched_latent_usage_v1",
+  "interval_updates": 1000,
+  "motion_manifest": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260913_memory350_compressed_grid256_adaptive_scratch/protocols/latent_usage_smoke_motions.txt",
+  "manifest_sha256": "d1066aadcbcffb5a846e139f20ad8c8a2127c8eeb141087de768eb52b4012ff9",
+  "motions": 8,
+  "motion_path": "/data_zcy/wxy/motion_data_correct/motion_data_full",
+  "seed": 22001,
+  "steps": 200,
+  "warmup_steps": 500
+}

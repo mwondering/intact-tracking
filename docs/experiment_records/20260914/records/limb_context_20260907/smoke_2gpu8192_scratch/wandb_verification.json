@@ -1,0 +1,51 @@
+{
+  "verified_at": 1788844258.9303563,
+  "runs": {
+    "stage1": {
+      "url": "https://wandb.ai/2486344338-zhejiang-university/intact-forward-predictor/runs/limb-7fdd4c20fbf2",
+      "state": "finished",
+      "group": "limb_context_20260907-stage1",
+      "training_status": "complete",
+      "last_uploaded_update": 8100,
+      "completion_completed_updates": 8116,
+      "user_confirmed_converged": true,
+      "selected_update": 7800
+    },
+    "smoke_baseline": {
+      "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/limb-60b4bdb05875",
+      "state": "finished",
+      "group": "limb_context_20260907-stage2-2gpu8192-scratch-smoke",
+      "training_status": "complete",
+      "last_uploaded_update": 3,
+      "completion_completed_updates": 3,
+      "history_update_3_read_back": true
+    },
+    "smoke_film": {
+      "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/limb-e58ee4be62b1",
+      "state": "finished",
+      "group": "limb_context_20260907-stage2-2gpu8192-scratch-smoke",
+      "training_status": "complete",
+      "last_uploaded_update": 3,
+      "completion_completed_updates": 3,
+      "history_update_3_read_back": true
+    },
+    "smoke_constant": {
+      "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/limb-1b7bdf86987d",
+      "state": "finished",
+      "group": "limb_context_20260907-stage2-2gpu8192-scratch-smoke",
+      "training_status": "complete",
+      "last_uploaded_update": 3,
+      "completion_completed_updates": 3,
+      "history_update_3_read_back": true
+    },
+    "smoke_concat": {
+      "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/limb-edddec04e555",
+      "state": "finished",
+      "group": "limb_context_20260907-stage2-2gpu8192-scratch-smoke",
+      "training_status": "complete",
+      "last_uploaded_update": 3,
+      "completion_completed_updates": 3,
+      "history_update_3_read_back": true
+    }
+  }
+}

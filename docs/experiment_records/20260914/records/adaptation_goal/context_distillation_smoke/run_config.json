@@ -1,0 +1,63 @@
+{
+  "version": "deployable_context_distillation_v1",
+  "arguments": {
+    "teacher_checkpoint": "runs/adaptation_goal/metric_aligned_compact_seed45/checkpoint_250.pt",
+    "tracker_checkpoint": "/data_zcy/wxy/SP_Tracking/logs/rsl_rl/g1_tracking/2026-09-02_04-48-42_SPTracking-G1-BFM-SPV5-2AActor-HEFTCritic-HEFTReward_8gpu_12288env_motion_data_correct/checkpoint_72000.pt",
+    "motion_path": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong",
+    "output_dir": "runs/adaptation_goal/context_distillation_smoke",
+    "device": "cuda:0",
+    "seed": 43,
+    "num_envs": 16,
+    "iterations": 3,
+    "rollout_steps": 2,
+    "gradient_steps": 2,
+    "batch_size": 32,
+    "replay_capacity": 256,
+    "teacher_mix_updates": 2,
+    "latent_loss_weight": 0.0,
+    "learning_rate": 0.0003,
+    "save_interval": 1
+  },
+  "teacher_sha256": "44009de594ff5d0790864b760a3b84976bf919296d445acb8ce2e4c1e8a406e5",
+  "physics": {
+    "physics": "dr",
+    "details": {
+      "payload": {
+        "enabled": true,
+        "event_name": "right_hand_payload",
+        "body_name": "right_wrist_yaw_link",
+        "mass_range_kg": [
+          1.0,
+          3.0
+        ],
+        "position_body_frame_m": [
+          0.12,
+          0.0,
+          0.0
+        ],
+        "cuboid_size_m": [
+          0.1,
+          0.08,
+          0.08
+        ],
+        "physics_model": "rigid cuboid composite inertia (mass, COM, principal inertia and inertial frame); no payload collision geometry"
+      }
+    },
+    "removed_disturbances": [
+      "push_robot"
+    ],
+    "cleared_exclusions": [
+      "[/data_zcy/wxy/motion_filter/0827/invalid_motions_0827_v1.json,/data_zcy/wxy/SP_Tracking/logs/motion_benchmark_10000.json,/data_zcy/wxy/SP_Tracking/logs/motion_benchmark_0830_22000.json,/data_zcy/wxy/SP_Tracking/benchmark_0831_36000.json,/data_zcy/wxy/SP_Tracking/benchmark_0901_44000.json,/data_zcy/wxy/SP_Tracking/benchmark_0902_59000.json]"
+    ]
+  },
+  "actor_inputs": [
+    "robot_root_quat",
+    "estimator_history",
+    "reference_encoder_input",
+    "robot_key_body"
+  ],
+  "context_inputs": "50-frame measured q, qdot, gravity, gyro, known command and torque history",
+  "privileged_actor_inputs": [],
+  "action_distillation": "student-visited states with an annealed per-world teacher mixture",
+  "latent_loss_weight": 0.0
+}

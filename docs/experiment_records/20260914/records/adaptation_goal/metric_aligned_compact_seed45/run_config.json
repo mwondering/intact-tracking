@@ -1,0 +1,93 @@
+{
+  "arguments": {
+    "action_rate_multiplier": 0.25,
+    "actor_lr": 3e-05,
+    "critic_lr": 0.0005,
+    "device": "cuda:0",
+    "entropy_coef": 0.0005,
+    "epochs": 5,
+    "hidden_dims": [
+      512,
+      256,
+      128
+    ],
+    "initialize_from": "runs/adaptation_goal/compact_unfrozen_tracking2_seed42/checkpoint_750.pt",
+    "iterations": 4000,
+    "latent_dim": 64,
+    "metric_tracking_weight": 10.0,
+    "motion_path": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong",
+    "num_envs": 4096,
+    "oracle_tracking_features": false,
+    "output_dir": "runs/adaptation_goal/metric_aligned_compact_seed45",
+    "physics": "dr",
+    "privilege_schema": "critic",
+    "privileged": true,
+    "residual_scale": 1.0,
+    "resume": null,
+    "rollout_steps": 24,
+    "sampling_mode": "uniform",
+    "save_interval": 250,
+    "seed": 45,
+    "tracker_checkpoint": "/data_zcy/wxy/SP_Tracking/logs/rsl_rl/g1_tracking/2026-09-02_04-48-42_SPTracking-G1-BFM-SPV5-2AActor-HEFTCritic-HEFTReward_8gpu_12288env_motion_data_correct/checkpoint_72000.pt",
+    "tracking_multiplier": 1.0,
+    "train_base_policy": false
+  },
+  "motion_count": 42,
+  "motion_path": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong",
+  "physics": {
+    "cleared_exclusions": [
+      "[/data_zcy/wxy/motion_filter/0827/invalid_motions_0827_v1.json,/data_zcy/wxy/SP_Tracking/logs/motion_benchmark_10000.json,/data_zcy/wxy/SP_Tracking/logs/motion_benchmark_0830_22000.json,/data_zcy/wxy/SP_Tracking/benchmark_0831_36000.json,/data_zcy/wxy/SP_Tracking/benchmark_0901_44000.json,/data_zcy/wxy/SP_Tracking/benchmark_0902_59000.json]"
+    ],
+    "details": {
+      "payload": {
+        "body_name": "right_wrist_yaw_link",
+        "cuboid_size_m": [
+          0.1,
+          0.08,
+          0.08
+        ],
+        "enabled": true,
+        "event_name": "right_hand_payload",
+        "mass_range_kg": [
+          1.0,
+          3.0
+        ],
+        "physics_model": "rigid cuboid composite inertia (mass, COM, principal inertia and inertial frame); no payload collision geometry",
+        "position_body_frame_m": [
+          0.12,
+          0.0,
+          0.0
+        ]
+      }
+    },
+    "physics": "dr",
+    "removed_disturbances": [
+      "push_robot"
+    ]
+  },
+  "privileged": true,
+  "reward_changes": {
+    "action_rate_l2": {
+      "from": 0.2,
+      "to": 0.05
+    },
+    "adaptation_balanced_body": {
+      "from": 0.0,
+      "scale": 0.03,
+      "to": 10.0
+    },
+    "adaptation_joint_l2": {
+      "from": 0.0,
+      "scale": 0.4,
+      "to": 10.0
+    },
+    "waist_action_rate_l2": {
+      "from": -0.5,
+      "to": -0.125
+    }
+  },
+  "student_contract": "replace all privileged actor inputs by deployable context and observations",
+  "tracker_checkpoint": "/data_zcy/wxy/SP_Tracking/logs/rsl_rl/g1_tracking/2026-09-02_04-48-42_SPTracking-G1-BFM-SPV5-2AActor-HEFTCritic-HEFTReward_8gpu_12288env_motion_data_correct/checkpoint_72000.pt",
+  "tracker_sha256": "fd7bd90d5552e573bbbce1417e9b415c64bb487a76b683ba3c20503b5ec77635",
+  "version": "adaptation_teacher_v1"
+}

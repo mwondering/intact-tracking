@@ -1,0 +1,99 @@
+{
+  "checked_at": 1789098314.732759,
+  "passed": true,
+  "scope": "Final training inputs and actual dataset identity; final evaluation completion is checked separately",
+  "sources_sha256": {
+    "src/intact_tracking/memory350_policy_protocol.py": "7f3033fd8c414f25a6d0bd71323a3d22d45ecba9c69ea6656a95ccaf74a7fcb7",
+    "src/intact_tracking/memory350_policy_inference.py": "8b58cf9b974e792bcb0fc818734a830bd95dd43472e6fd7b0ff197a344c58fdc",
+    "src/intact_tracking/memory350_policy_env.py": "db5cae24651249ce706aa385401c767b46830fdba10a199e7a5da0c3c5f9985c",
+    "src/intact_tracking/memory350_policy_checkpoint_eval.py": "57c7305cfd1f7c25317f5c3e3740dfdf3f27e8e0e36801bf0395243f094e795c",
+    "src/intact_tracking/memory350_policy_results.py": "0e4b86a90fee13c255e192c995a67341049c0d9210556374665cff8be92eb84e",
+    "src/intact_tracking/cli/memory350_policy_eval.py": "5886900018c60ea3e84d539649463de2a567c5cc8a2aab5eb0108c0f6aeb013b",
+    "src/intact_tracking/cli/memory350_policy_train.py": "eb97960ee22cad13aaffc05e28a29469b395b04c99e136724450b0a925b2a421",
+    "scripts/run_memory350_ppo_experiment.py": "1e65d22dc24ca55a2424231889280d6ece67cb8843afde07c9d4b6d9712e5aa5",
+    "scripts/evaluate_memory350_ppo.py": "816d3074477bc09ae0300188d01ebba1d1a2ebfe72c32d23ccb204190e3139ab",
+    "scripts/report_memory350_ppo.py": "4cc5c19020a2eda45f4b3a581f0518da537310b4661d46327ca80cedff271bb4",
+    "src/intact_tracking/limb_context_checkpoint_eval.py": "50e6f9bfd3bb00c51d05e7d40bbca10fd553dbef239836751c44a1436672f46e",
+    "src/intact_tracking/limb_context_distributed.py": "7aa08fe83dd60f33d0ab94199c4d8227934fca34e1938f628f97c3850449cb2f",
+    "src/intact_tracking/limb_context_dr.py": "c89a758bd9fbd193f8c5d1c23ad0f6b2cda7aec4ff296025055cfe1212ec7f58",
+    "src/intact_tracking/limb_context_env.py": "5ac109d3b27bfa44d1b0994dad0227b9e03b7ba15022822f0b11ff127c58c506",
+    "src/intact_tracking/limb_context_policy.py": "349eaeb2a32b3cb4ce6a104708deed6c83f7f8793077fdd783663d7e88e60f35",
+    "src/intact_tracking/limb_context_protocol.py": "7267526fd490c8dd815aa1513461e97280b22226b378367f000a6ac2d34c0c3c",
+    "src/intact_tracking/limb_context_results.py": "0b46f757377852bdd81ba31160d26c25f1d05df8105eb1fb5e2a1f699c7241f6",
+    "src/intact_tracking/limb_context_sampling.py": "975d3a3bd67f813f6467d5a8e5e28f14e93e3fb7760d0dcd6591fa9c7baa182e",
+    "src/intact_tracking/limb_context_terminations.py": "f23169b44694935b9c07247ae4c8ad634d12a3b05d63c5075434727c36aa54fb",
+    "src/intact_tracking/limb_context_validation.py": "6a9680dd473e3510d185fb42f6510666020c7d3bd99d15c422162a6cf28dbfcc",
+    "src/intact_tracking/memory350_bank.py": "426279ef3cb9f788cc598264b0b9f6d5c33758a50436b7612c7daf1b85907d26",
+    "src/intact_tracking/memory350_inference.py": "b9da5dafef0ca6c54517c98986a406ba459fb465722c4bd3e9956c06cfd3fdd6",
+    "src/intact_tracking/memory350_model.py": "fe78c63753d0c79ffdc52a977ca77ccf72002c3a70f72a9735dbb30313e11645",
+    "src/intact_tracking/memory350_objective.py": "f803d13c858e031040ecbcf7d8c07c2e0e476761a19176139b8c5b68c0f904a1",
+    "src/intact_tracking/memory350_replay.py": "391a36f6cc0f6eedb17e4c5af3b075b1320696957252d00030dcf4c7ed670406",
+    "src/intact_tracking/memory350_rollout.py": "fef3d9d6e5ef722865ad1dcf22f7bbb43964188a23e7327a76134d7ba8c5e6d9",
+    "src/intact_tracking/residual_policy.py": "47ea7173d327a2443fe89882f92f81642bb2193521700f9b08f53151429a5862",
+    "src/intact_tracking/residual_runner.py": "db2d1aa41939d3d707ec0072447128025149568907c338cc12ed36cd47fe1971"
+  },
+  "documented_supervisor_revision": {
+    "scripts/run_memory350_ppo_experiment.py": {
+      "before": "0ba34b288b5c4889841b1ff4113fd2e8771a837f413c6863042889098cbcc387",
+      "after": "1e65d22dc24ca55a2424231889280d6ece67cb8843afde07c9d4b6d9712e5aa5"
+    }
+  },
+  "run_config_sha256": {
+    "baseline": "5166f333035702e198f9c67c909e8d7809b725839b60c68e0af780c00185d442",
+    "film": "b2a194e86d9e205b621a472ef444a05c9292d66013d6faf50ded94dc5a969ddc"
+  },
+  "common_arguments": {
+    "actor_lr": 0.0001,
+    "critic_lr": 0.0005,
+    "entropy_coef": 0.0002,
+    "epochs": 5,
+    "mini_batches": 4,
+    "rollout_steps": 24,
+    "seed": 121,
+    "iterations": 5000,
+    "residual_scale": 0.25,
+    "episode_steps": 1000,
+    "motion_path": "/data_zcy/wxy/motion_data_correct/motion_data_full",
+    "dr_profile": "tracker_dr_plus_limb_payload",
+    "num_envs": 8192,
+    "training_terminations": "no_ee_body_pos",
+    "motion_sampling": "adaptive",
+    "adaptive_after_update": 1000
+  },
+  "dataset": {
+    "archive_bytes": 86401833542,
+    "coverage": "all recursive *.npz files; no exclusions or active subset",
+    "groups": {
+      "AMASS_LAFAN_Qingtong": 42,
+      "sonic_filtered": 129785
+    },
+    "loaded_frames": 48085337,
+    "loaded_motion_count": 129827,
+    "loaded_motion_counts_per_rank": [
+      64914,
+      64913
+    ],
+    "manifest_hash_kind": "relative-path,size,mtime_ns",
+    "manifest_sha256": "df31b45ef2a32dbda7107c57f55bb90b2d300a182bcc05ef62c19e1959d85978",
+    "motion_count": 129827,
+    "rank_partition": "sorted files [rank::world_size]; single-file smoke replicated",
+    "reference_storage_mode": "qpos_only_actor_fk",
+    "root": "/data_zcy/wxy/motion_data_correct/motion_data_full"
+  },
+  "actual_dataset_manifest_recomputed": true,
+  "tracker_sha256": "fd7bd90d5552e573bbbce1417e9b415c64bb487a76b683ba3c20503b5ec77635",
+  "context_sha256": "a677eac8aba10874e616ff313cae0434d14fbf1f83f428f8fdc7c708b2799343",
+  "matching_initial_trunks": true,
+  "original_tracker_dr_plus_independent_limb_payload_contract": true,
+  "script_sha256": "0d6232bdad223244dcb33dd91e6474227cd1d001960e3a433360c5b7cbccb2b0",
+  "per_rank_payload_mass_sha256": {
+    "baseline": [
+      "23e5fd036798774567cdfd8ce6d8b23fa447d594fbb89fe943c80c4f8d9519b0",
+      "70afad204f4e33a539440fb34840c06f5f10790187cdabcfb8e1cc4069727ac8"
+    ],
+    "film": [
+      "23e5fd036798774567cdfd8ce6d8b23fa447d594fbb89fe943c80c4f8d9519b0",
+      "70afad204f4e33a539440fb34840c06f5f10790187cdabcfb8e1cc4069727ac8"
+    ]
+  }
+}

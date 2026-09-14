@@ -1,0 +1,8 @@
+{
+  "dr_profile": "tracker_dr_plus_limb_payload",
+  "stage1_loss": {
+    "representation_weight": 0.01,
+    "representation_relation_weight": 2.0,
+    "response_distance_scale": 0.75
+  }
+}

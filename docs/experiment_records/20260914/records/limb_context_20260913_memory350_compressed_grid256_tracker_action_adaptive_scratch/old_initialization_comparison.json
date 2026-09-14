@@ -1,0 +1,17 @@
+{
+  "passed": true,
+  "arms": {
+    "baseline": {
+      "old_original_weights_preserved_exactly": true,
+      "new_action_columns_zero": true,
+      "critic_trainable_weights_preserved_exactly": true
+    },
+    "concat": {
+      "old_original_weights_preserved_exactly": true,
+      "new_action_columns_zero": true,
+      "critic_trainable_weights_preserved_exactly": true
+    }
+  },
+  "scope": "Actual old formal initialization vs new smoke initialization; critic observation moments depend on the environment batch and are excluded",
+  "verified_at": 1789305155.5514429
+}

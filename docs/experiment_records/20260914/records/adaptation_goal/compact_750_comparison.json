@@ -1,0 +1,133 @@
+{
+  "reference_files": [
+    "runs/adaptation_goal/existing_nominal_seed10001.json"
+  ],
+  "candidate_files": [
+    "runs/adaptation_goal/compact_unfrozen_tracking2_seed42/eval_750_seed10001.json"
+  ],
+  "seeds": [
+    {
+      "seed": 10001,
+      "reference": "runs/adaptation_goal/existing_nominal_seed10001.json",
+      "candidate": "runs/adaptation_goal/compact_unfrozen_tracking2_seed42/eval_750_seed10001.json",
+      "ratios": {
+        "error_body_pos": 1.2108092145949891,
+        "error_joint_pos": 1.2741927497991234,
+        "error_anchor_pos": 1.3887305370971308,
+        "error_anchor_rot": 1.1767145661618843,
+        "error_body_rot": 1.311667944340665,
+        "error_joint_vel": 1.1909870972063124,
+        "error_anchor_lin_vel": 1.1480478857427046,
+        "error_anchor_ang_vel": 1.170676198940162,
+        "error_body_lin_vel": 1.1859094181695378,
+        "error_body_ang_vel": 1.2628928083366642
+      },
+      "failure_difference": 0.005952381296083331
+    }
+  ],
+  "metrics": {
+    "error_body_pos": {
+      "reference": 0.030918286224507645,
+      "candidate": 0.03743614586011919,
+      "ratio": 1.2108092145949896,
+      "paired_motion_seed_bootstrap_95pct": [
+        1.1738978625535832,
+        1.2450424766253696
+      ]
+    },
+    "error_joint_pos": {
+      "reference": 0.4845856434430927,
+      "candidate": 0.6174555135319321,
+      "ratio": 1.274192749799124,
+      "paired_motion_seed_bootstrap_95pct": [
+        1.2371710550776662,
+        1.3149592754257433
+      ]
+    },
+    "error_anchor_pos": {
+      "reference": 0.24644189814909892,
+      "candidate": 0.3422413895798345,
+      "ratio": 1.3887305370971308,
+      "paired_motion_seed_bootstrap_95pct": [
+        1.2848195829262483,
+        1.5037446961535528
+      ]
+    },
+    "error_anchor_rot": {
+      "reference": 0.07318411563919291,
+      "candidate": 0.08611681488431405,
+      "ratio": 1.176714566161884,
+      "paired_motion_seed_bootstrap_95pct": [
+        1.1081535800280928,
+        1.244403720531937
+      ]
+    },
+    "error_body_rot": {
+      "reference": 0.1259760012940744,
+      "candidate": 0.16523868265365552,
+      "ratio": 1.311667944340665,
+      "paired_motion_seed_bootstrap_95pct": [
+        1.2606358263239024,
+        1.3614647758560774
+      ]
+    },
+    "error_joint_vel": {
+      "reference": 4.398731057332997,
+      "candidate": 5.238831933364278,
+      "ratio": 1.1909870972063121,
+      "paired_motion_seed_bootstrap_95pct": [
+        1.15740501812722,
+        1.2281097205890457
+      ]
+    },
+    "error_anchor_lin_vel": {
+      "reference": 0.21041167104671218,
+      "candidate": 0.2415626740807674,
+      "ratio": 1.1480478857427048,
+      "paired_motion_seed_bootstrap_95pct": [
+        1.1177656003892622,
+        1.1817848747938786
+      ]
+    },
+    "error_anchor_ang_vel": {
+      "reference": 0.45293839950927184,
+      "candidate": 0.5302442038915549,
+      "ratio": 1.170676198940162,
+      "paired_motion_seed_bootstrap_95pct": [
+        1.1356581302371012,
+        1.21273829616428
+      ]
+    },
+    "error_body_lin_vel": {
+      "reference": 0.2675949371629195,
+      "candidate": 0.31734335623599175,
+      "ratio": 1.1859094181695373,
+      "paired_motion_seed_bootstrap_95pct": [
+        1.155984016367846,
+        1.2170690986564963
+      ]
+    },
+    "error_body_ang_vel": {
+      "reference": 1.069398871794235,
+      "candidate": 1.3505361444322819,
+      "ratio": 1.2628928083366642,
+      "paired_motion_seed_bootstrap_95pct": [
+        1.228329934838606,
+        1.2980660668672526
+      ]
+    }
+  },
+  "reference_failure_rate": 0.002976190476190476,
+  "candidate_failure_rate": 0.008928571428571428,
+  "failure_difference": 0.005952380952380952,
+  "failure_difference_paired_bootstrap_95pct": [
+    -0.005952380952380952,
+    0.020833333333333332
+  ],
+  "margin": 1.05,
+  "point_estimate_pass": false,
+  "primary_upper_95pct_within_margin": false,
+  "confirmation_seeds_used": false,
+  "confirmation_seed_set_complete": false,
+  "warning": "Development results alone do not establish completion."
+}

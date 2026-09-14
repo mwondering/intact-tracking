@@ -1,0 +1,11 @@
+{
+  "passed": true,
+  "verified_at": 1789320654.7838724,
+  "counts": {
+    "tests": 31,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "junit": "runs/limb_context_20260913_memory350_online_kmeans16_critic_action/unit_results.xml"
+}

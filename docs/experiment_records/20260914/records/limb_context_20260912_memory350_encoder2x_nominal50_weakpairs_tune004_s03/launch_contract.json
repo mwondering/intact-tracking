@@ -1,0 +1,135 @@
+{
+  "parent_checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260912_memory350_encoder2x_nominal50_weakpairs/stage1_8192/update_008000.pt",
+  "parent_sha256": "8394031ffa61c228edea488a4a011d85b42b338113123ae041300a2f846bf96b",
+  "parent_evaluation_summary": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260912_memory350_encoder2x_nominal50_weakpairs/continuation_005000_010000/comparison_008000/summary.json",
+  "parent_evaluation_sha256": "de095f56ce5b1dacd5850286d6620b07b938162bed2870f22940055b09075890",
+  "from_update": 8000,
+  "stop_after_updates": 10000,
+  "additional_updates": 2000,
+  "evaluation_updates": [
+    9000,
+    10000
+  ],
+  "loss_changes": {
+    "weak_positive_weight": {
+      "before": 0.002,
+      "after": 0.004
+    },
+    "weak_negative_weight": {
+      "before": 0.002,
+      "after": 0.004
+    },
+    "response_distance_scale": {
+      "before": 0.5,
+      "after": 0.3
+    }
+  },
+  "primary_metric": "cross-motion, disjoint-history known-environment Top-1",
+  "profiles": [
+    "common",
+    "memory_training"
+  ],
+  "optimizer_state_restored": true,
+  "learning_rate_schedule_unchanged": true,
+  "learning_rate": 1e-05,
+  "validation_sha256": {
+    "validation_broad_rank_0.pt": "e8634bbc798de938f55a624d0f5c2d66692ab2e6ad8a955eb6346827d14afe72",
+    "validation_broad_rank_1.pt": "46a747186d0b2fa5d1b55b376de48990db8d106d3ccf4273c534f158854bb253",
+    "validation_broad_rank_2.pt": "4f2dee0be52c526090c428463e7e8408b42b7e7c73bb5f2775f57db7874d39e1",
+    "validation_broad_rank_3.pt": "06dce4566ea216e57f4637f09e335745be846304038ab0fd756ad924a1ea7920",
+    "validation_rank_0.pt": "76155805c37affe88e1127c282e7122ac5b328205bb58ba27111ea886f013c5d",
+    "validation_rank_1.pt": "3aadffc0de74e11417fa96fe10eff1ef40292363c6024cd2930e84ba12ffa910",
+    "validation_rank_2.pt": "da2cbc726347d5ce89826e2e500e3a4a63582c2adf8da4ef10b72f061a9994be",
+    "validation_rank_3.pt": "aeb03066b22e62bb1f2f8a042ac0b86e59b28ebc9b55e181ca973fe932c63429"
+  },
+  "matched_control": {
+    "reference_dir": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260912_memory350_encoder2x_nominal50_weakpairs/stage1_8192",
+    "reference_config_sha256": "26a083419af299776184228bc66dc76b39c33a30c7b57bb95fc30e29b530b425",
+    "normalization_sha256": "25f76070f16ee2144ff2e767f075e1fd9e47d6911d7e956332f04462fcd1a175",
+    "shared_normalization_and_validation": true,
+    "physics_and_training_controls_passed": true,
+    "model_input": "identical short50 plus nonoverlapping cross-reset chunk10 x 30",
+    "architecture_change": "none",
+    "initialization": "restore u8000 model and AdamW state",
+    "paired_checkpoint_updates": [
+      9000,
+      10000
+    ],
+    "primary_comparison_update": 10000,
+    "conclusion_scope": "joint effect of three loss changes plus continued training; one seed",
+    "nominal_a_fraction": 0.5,
+    "nominal_mixture_matched": true,
+    "authorized_supervision_changes": {
+      "weak_positive_weight": {
+        "before": 0.002,
+        "after": 0.004
+      },
+      "weak_negative_weight": {
+        "before": 0.002,
+        "after": 0.004
+      },
+      "response_distance_scale": {
+        "before": 0.5,
+        "after": 0.3
+      }
+    }
+  },
+  "cached_trajectories": "/data_zcy/wxy/intact-tracking/runs/latent_cluster_probe_memory350_nominal50_u5000_20260911",
+  "physical_gpus": [
+    4,
+    5,
+    6,
+    7
+  ],
+  "evaluation_gpu": 7,
+  "maximum_concurrent_evaluations": 1,
+  "formal_command": [
+    "/data_zcy/wxy/intact-tracking/.venv/bin/python",
+    "-B",
+    "-u",
+    "-m",
+    "torch.distributed.run",
+    "--standalone",
+    "--nproc-per-node=4",
+    "--max-restarts=0",
+    "-m",
+    "intact_tracking.cli.forward_memory_weak_tune_train",
+    "--checkpoint-file",
+    "/data_zcy/wxy/SP_Tracking/logs/rsl_rl/g1_tracking/2026-09-02_04-48-42_SPTracking-G1-BFM-SPV5-2AActor-HEFTCritic-HEFTReward_8gpu_12288env_motion_data_correct/checkpoint_72000.pt",
+    "--output-dir",
+    "/data_zcy/wxy/intact-tracking/runs/limb_context_20260912_memory350_encoder2x_nominal50_weakpairs_tune004_s03/stage1_8192",
+    "--nominal-fraction",
+    ".5",
+    "--num-envs",
+    "8192",
+    "--weak-positive-weight",
+    "0.004",
+    "--weak-negative-weight",
+    "0.004",
+    "--weak-negative-margin",
+    "1.0",
+    "--response-distance-scale",
+    "0.3",
+    "--wandb",
+    "--wandb-entity",
+    "2486344338-zhejiang-university",
+    "--wandb-project",
+    "intact-forward-predictor",
+    "--wandb-group",
+    "limb_context_20260912_memory350_encoder2x_nominal50_weakpairs_tune004_s03",
+    "--wandb-name",
+    "limb_context_20260912_memory350_encoder2x_nominal50_weakpairs_tune004_s03-stage1_8192",
+    "--motion-path",
+    "/data_zcy/wxy/motion_data_correct/motion_data_full",
+    "--until-user-stop",
+    "--updates",
+    "8000",
+    "--stop-after-updates",
+    "10000",
+    "--comparison-reference-dir",
+    "/data_zcy/wxy/intact-tracking/runs/limb_context_20260912_memory350_encoder2x_nominal50_weakpairs/stage1_8192",
+    "--resume",
+    "/data_zcy/wxy/intact-tracking/runs/limb_context_20260912_memory350_encoder2x_nominal50_weakpairs/stage1_8192/update_008000.pt"
+  ],
+  "prepared_at": 1789212325.024364
+}

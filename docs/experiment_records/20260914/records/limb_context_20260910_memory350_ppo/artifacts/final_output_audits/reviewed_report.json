@@ -1,0 +1,9 @@
+{
+  "created_at": 1789099816.3090992,
+  "source_results_sha256": "78f94e18c8a46173e9b651d237602badc6e6dfee3a5149db4631f2510eb45feb",
+  "reviewed_report_sha256": "fd78b32d17de5ae7ffcb9098adab6d2de7b9e6ca665686c82b5d893941122ebb",
+  "original_generated_report_sha256": "75dbd1ff3bc0c5e99a3f932a3aa3cb8b9fdd1c5d87271a61ca305a1296eeee33",
+  "script_sha256": "da946dee84db054af7e1cf21bfb2aac8cc8d4f5b710625537f4a1cf70ba7b5e7",
+  "main_body_means_use_common_survival": true,
+  "full_metrics_csv_rows": 336
+}

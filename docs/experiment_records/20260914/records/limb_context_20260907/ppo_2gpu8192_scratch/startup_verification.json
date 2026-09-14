@@ -1,0 +1,152 @@
+{
+  "passed": true,
+  "verified_at": 1788844384.317899,
+  "context_sha256": "ed48887b11a6f46e6491a4e709841858e7bb378090a0cc053299a54f734ca5f6",
+  "paired_common_trunks_equal": true,
+  "paired_dataset_physics_rewards_equal": true,
+  "normalization_comparison": {
+    "passed": true,
+    "sample_count_equal": true,
+    "rtol": 1e-06,
+    "atol": 1e-06,
+    "exact_equal": false,
+    "differences": {
+      "sum": {
+        "max_absolute_difference": 7.62939453125e-06,
+        "max_moment_difference": 4.656612873077393e-10
+      },
+      "ssq": {
+        "max_absolute_difference": 0.0,
+        "max_moment_difference": 0.0
+      }
+    }
+  },
+  "runs": {
+    "baseline_121": {
+      "input_audit": {
+        "actor_original_features": 1645,
+        "critic_original_features": 6330,
+        "latent_dimensions": 0,
+        "original_obs_groups": {
+          "actor": [
+            "robot_root_quat",
+            "estimator_history",
+            "reference_encoder_input",
+            "robot_key_body"
+          ],
+          "critic": [
+            "policy",
+            "priv"
+          ]
+        },
+        "identical_initial_action": true,
+        "identical_initial_value": true,
+        "action_std_initialization": 0.25,
+        "actor_initialization_seed": 10128,
+        "critic_initialization_seed": 20124,
+        "actor_common_trunk_sha256": "1033214a95048c2d5992f0cb33e0f593f11931b70659753d6af1f25520c008d9",
+        "critic_common_trunk_sha256": "1101e1c179b19def6cfa8d33594e3e86bd43700bd0add9e645d00a972a50f474",
+        "critic_initial_normalizer_sha256": "ccba03d75f094ea9193f352d4febc204c55b8e72accdba7915402f20477e4b5e",
+        "critic_initial_normalizer_count": 16384.0,
+        "actor_trainable_parameters": 1010746,
+        "critic_trainable_parameters": 7275009
+      },
+      "distributed": {
+        "world_size": 2,
+        "num_envs_per_rank": 8192,
+        "global_num_envs": 16384,
+        "rank_seed_formula": "seed + 1000003 * rank",
+        "gradient_synchronization": "mean across all ranks at each optimizer step",
+        "advantage_normalization": "global rollout mean and sample standard deviation",
+        "critic_normalization": "global pooled sums, squared sums and count at every environment step"
+      },
+      "dataset": {
+        "root": "/data_zcy/wxy/motion_data_correct/motion_data_full",
+        "motion_count": 129827,
+        "manifest_sha256": "df31b45ef2a32dbda7107c57f55bb90b2d300a182bcc05ef62c19e1959d85978",
+        "manifest_hash_kind": "relative-path,size,mtime_ns",
+        "archive_bytes": 86401833542,
+        "groups": {
+          "AMASS_LAFAN_Qingtong": 42,
+          "sonic_filtered": 129785
+        },
+        "coverage": "all recursive *.npz files; no exclusions or active subset",
+        "loaded_motion_count": 129827,
+        "loaded_frames": 48085337,
+        "rank_partition": "sorted files [rank::world_size]; single-file smoke replicated",
+        "loaded_motion_counts_per_rank": [
+          64914,
+          64913
+        ],
+        "reference_storage_mode": "qpos_only_actor_fk"
+      },
+      "context_sha256": null,
+      "iterations": 5000,
+      "initial_updates": 0,
+      "all_initial_tensors_finite": true
+    },
+    "film_121": {
+      "input_audit": {
+        "actor_original_features": 1645,
+        "critic_original_features": 6330,
+        "latent_dimensions": 64,
+        "original_obs_groups": {
+          "actor": [
+            "robot_root_quat",
+            "estimator_history",
+            "reference_encoder_input",
+            "robot_key_body"
+          ],
+          "critic": [
+            "policy",
+            "priv"
+          ]
+        },
+        "identical_initial_action": true,
+        "identical_initial_value": true,
+        "action_std_initialization": 0.25,
+        "actor_initialization_seed": 10128,
+        "critic_initialization_seed": 20124,
+        "actor_common_trunk_sha256": "1033214a95048c2d5992f0cb33e0f593f11931b70659753d6af1f25520c008d9",
+        "critic_common_trunk_sha256": "1101e1c179b19def6cfa8d33594e3e86bd43700bd0add9e645d00a972a50f474",
+        "critic_initial_normalizer_sha256": "0431b5e737d835970cd366481fcbac2c515667b4a71988b7f1bfeef0211672d1",
+        "critic_initial_normalizer_count": 16384.0,
+        "actor_trainable_parameters": 1487930,
+        "critic_trainable_parameters": 8344321
+      },
+      "distributed": {
+        "world_size": 2,
+        "num_envs_per_rank": 8192,
+        "global_num_envs": 16384,
+        "rank_seed_formula": "seed + 1000003 * rank",
+        "gradient_synchronization": "mean across all ranks at each optimizer step",
+        "advantage_normalization": "global rollout mean and sample standard deviation",
+        "critic_normalization": "global pooled sums, squared sums and count at every environment step"
+      },
+      "dataset": {
+        "root": "/data_zcy/wxy/motion_data_correct/motion_data_full",
+        "motion_count": 129827,
+        "manifest_sha256": "df31b45ef2a32dbda7107c57f55bb90b2d300a182bcc05ef62c19e1959d85978",
+        "manifest_hash_kind": "relative-path,size,mtime_ns",
+        "archive_bytes": 86401833542,
+        "groups": {
+          "AMASS_LAFAN_Qingtong": 42,
+          "sonic_filtered": 129785
+        },
+        "coverage": "all recursive *.npz files; no exclusions or active subset",
+        "loaded_motion_count": 129827,
+        "loaded_frames": 48085337,
+        "rank_partition": "sorted files [rank::world_size]; single-file smoke replicated",
+        "loaded_motion_counts_per_rank": [
+          64914,
+          64913
+        ],
+        "reference_storage_mode": "qpos_only_actor_fk"
+      },
+      "context_sha256": "ed48887b11a6f46e6491a4e709841858e7bb378090a0cc053299a54f734ca5f6",
+      "iterations": 5000,
+      "initial_updates": 0,
+      "all_initial_tensors_finite": true
+    }
+  }
+}

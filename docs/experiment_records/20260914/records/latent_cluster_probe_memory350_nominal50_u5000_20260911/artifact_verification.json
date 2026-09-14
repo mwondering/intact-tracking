@@ -1,0 +1,96 @@
+{
+  "common": {
+    "passed": true,
+    "distance_categories_checked": 60,
+    "all_queries": 32768,
+    "full_history_queries": 23538,
+    "mean_cosine_bf16_vs_fp32": 0.9999885559082031,
+    "motions_per_world_median": 6.0,
+    "cached_queries": 32,
+    "anchor_distance_ordering": {
+      "memory350": {
+        "n": 11697,
+        "positive_closer_fraction": 0.762161237924254,
+        "ties_fraction": 0.0,
+        "definition": "For the same DR query, a disjoint-history different-motion sample from its world is closer than a different-world sample with matched motion and phase."
+      },
+      "nominal_u1800": {
+        "n": 11697,
+        "positive_closer_fraction": 0.5637342908438061,
+        "ties_fraction": 0.0,
+        "definition": "For the same DR query, a disjoint-history different-motion sample from its world is closer than a different-world sample with matched motion and phase."
+      },
+      "alldr_u5000": {
+        "n": 11697,
+        "positive_closer_fraction": 0.7310421475592032,
+        "ties_fraction": 0.0,
+        "definition": "For the same DR query, a disjoint-history different-motion sample from its world is closer than a different-world sample with matched motion and phase."
+      },
+      "alldr_u22700": {
+        "n": 11697,
+        "positive_closer_fraction": 0.8209797383944601,
+        "ties_fraction": 0.0,
+        "definition": "For the same DR query, a disjoint-history different-motion sample from its world is closer than a different-world sample with matched motion and phase."
+      },
+      "v12": {
+        "n": 11697,
+        "positive_closer_fraction": 0.9392151833803539,
+        "ties_fraction": 0.0,
+        "definition": "For the same DR query, a disjoint-history different-motion sample from its world is closer than a different-world sample with matched motion and phase."
+      },
+      "memory350_without_long": {
+        "n": 11697,
+        "positive_closer_fraction": 0.2736599127981534,
+        "ties_fraction": 0.0,
+        "definition": "For the same DR query, a disjoint-history different-motion sample from its world is closer than a different-world sample with matched motion and phase."
+      }
+    }
+  },
+  "memory_training": {
+    "passed": true,
+    "distance_categories_checked": 30,
+    "all_queries": 16384,
+    "full_history_queries": 13161,
+    "mean_cosine_bf16_vs_fp32": 0.9999892711639404,
+    "motions_per_world_median": 4.0,
+    "cached_queries": 32,
+    "anchor_distance_ordering": {
+      "memory350": {
+        "n": 12996,
+        "positive_closer_fraction": 0.6812865497076024,
+        "ties_fraction": 0.0,
+        "definition": "For the same DR query, a disjoint-history different-motion sample from its world is closer than a different-world sample with matched motion and phase."
+      },
+      "nominal_u1800": {
+        "n": 12996,
+        "positive_closer_fraction": 0.49130501692828565,
+        "ties_fraction": 0.0,
+        "definition": "For the same DR query, a disjoint-history different-motion sample from its world is closer than a different-world sample with matched motion and phase."
+      },
+      "alldr_u5000": {
+        "n": 12996,
+        "positive_closer_fraction": 0.5993382579255155,
+        "ties_fraction": 0.0,
+        "definition": "For the same DR query, a disjoint-history different-motion sample from its world is closer than a different-world sample with matched motion and phase."
+      },
+      "alldr_u22700": {
+        "n": 12996,
+        "positive_closer_fraction": 0.6445829485995691,
+        "ties_fraction": 0.0,
+        "definition": "For the same DR query, a disjoint-history different-motion sample from its world is closer than a different-world sample with matched motion and phase."
+      },
+      "v12": {
+        "n": 12996,
+        "positive_closer_fraction": 0.8796552785472453,
+        "ties_fraction": 0.0,
+        "definition": "For the same DR query, a disjoint-history different-motion sample from its world is closer than a different-world sample with matched motion and phase."
+      },
+      "memory350_without_long": {
+        "n": 12996,
+        "positive_closer_fraction": 0.3234072022160665,
+        "ties_fraction": 0.0,
+        "definition": "For the same DR query, a disjoint-history different-motion sample from its world is closer than a different-world sample with matched motion and phase."
+      }
+    }
+  }
+}

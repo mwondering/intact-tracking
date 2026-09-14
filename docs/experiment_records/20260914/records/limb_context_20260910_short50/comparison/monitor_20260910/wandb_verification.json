@@ -1,0 +1,30 @@
+{
+  "url": "https://wandb.ai/2486344338-zhejiang-university/intact-forward-predictor/runs/s50cmp-b0eac927bde6",
+  "state": "finished",
+  "verified_fields": 20,
+  "timestamp": 1789035088.253962,
+  "float_relative_tolerance": 1e-12,
+  "max_float_absolute_difference": 1.4210854715202004e-14,
+  "metrics": {
+    "monitoring/update": 4500,
+    "monitoring/memory_relative_short_percent/all": -0.08024685108235508,
+    "monitoring/memory_relative_short_percent/short_incomplete_with_long": -22.5217079123081,
+    "monitoring/memory_relative_short_percent/short_under10_with_long": -31.214491993768423,
+    "monitoring/memory_relative_short_percent/short_full_with_long": 1.071974464428438,
+    "monitoring/memory_relative_short_percent/no_long_in_reference": 73.28569492690633,
+    "monitoring/memory_relative_short_percent/full_30_chunks": -22.549320218268043,
+    "diagnostics/all/remove_long_error_increase_percent": 55.83826303482056,
+    "diagnostics/all/shuffle_long_error_increase_percent": 88.18436861038208,
+    "diagnostics/long_available/remove_long_error_increase_percent": 77.54924297332764,
+    "diagnostics/long_available/shuffle_long_error_increase_percent": 122.47209548950195,
+    "diagnostics/short_incomplete_with_long/remove_long_error_increase_percent": 103.06072235107422,
+    "diagnostics/short_incomplete_with_long/shuffle_long_error_increase_percent": 144.6962833404541,
+    "diagnostics/short_full_with_long/remove_long_error_increase_percent": 41.633784770965576,
+    "diagnostics/short_full_with_long/shuffle_long_error_increase_percent": 91.18456840515135,
+    "monitoring/no_long_memory_relative_short_ci95_low": 39.48134172619673,
+    "monitoring/no_long_memory_relative_short_ci95_high": 131.3288004704776,
+    "diagnostics/empty_memory_negative_control_exact": true,
+    "diagnostics/inference_ablation_not_retraining": true,
+    "diagnostics/natural_reproduction_relative_error": 5.6849141172321544e-08
+  }
+}

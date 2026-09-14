@@ -1,0 +1,238 @@
+{
+  "source": "prediction_samples.npz",
+  "metric": "Recursive rollout error at each of horizons 1..5, pooled MSE divided by unchanged-state pooled MSE.",
+  "bootstrap": "5000 paired world-cluster resamples, seed 20260912; these are validation uncertainty intervals, not training-seed uncertainty.",
+  "groups": {
+    "dr_all": {
+      "samples": 1030,
+      "worlds": 249,
+      "short_steps_mean": 31.961165048543688,
+      "long_chunks_mean": 18.342718446601943,
+      "baseline_nmse_by_horizon": [
+        0.047043615263578524,
+        0.034008233807937806,
+        0.03023654122542303,
+        0.031228131583889065,
+        0.03586603517032917
+      ],
+      "candidate_nmse_by_horizon": [
+        0.04998206447572382,
+        0.03960382875263064,
+        0.037542836094283445,
+        0.04012869901677423,
+        0.04551226211150419
+      ],
+      "relative_error_change_percent_by_horizon": [
+        6.246223203045931,
+        16.45364759691452,
+        24.163791798769772,
+        28.50176101306383,
+        26.895158317234458
+      ],
+      "final_step_relative_error_change_percent_ci95": [
+        14.763649190888305,
+        42.205873537008884
+      ],
+      "final_step_fraction_windows_candidate_better": 0.43592233009708736,
+      "share_of_net_dr_final_error_increase": 1.0
+    },
+    "dr_full350": {
+      "samples": 157,
+      "worlds": 113,
+      "short_steps_mean": 50.0,
+      "long_chunks_mean": 30.0,
+      "baseline_nmse_by_horizon": [
+        0.0346368835142407,
+        0.025852736559731474,
+        0.03044394837926804,
+        0.028828546558169087,
+        0.028083901190420445
+      ],
+      "candidate_nmse_by_horizon": [
+        0.034622806287024355,
+        0.024652286795355437,
+        0.02772014020019056,
+        0.02488804497110157,
+        0.024269636313476176
+      ],
+      "relative_error_change_percent_by_horizon": [
+        -0.04064230319843487,
+        -4.643414679148017,
+        -8.94696096953167,
+        -13.668748714460966,
+        -13.581677456710795
+      ],
+      "final_step_relative_error_change_percent_ci95": [
+        -27.76636787934663,
+        6.153013454974321
+      ],
+      "final_step_fraction_windows_candidate_better": 0.5031847133757962,
+      "share_of_net_dr_final_error_increase": -0.03723484010446567
+    },
+    "dr_full_long_incomplete_short": {
+      "samples": 226,
+      "worlds": 129,
+      "short_steps_mean": 17.106194690265486,
+      "long_chunks_mean": 30.0,
+      "baseline_nmse_by_horizon": [
+        0.032117962279059636,
+        0.022834247369724277,
+        0.02172080773852813,
+        0.02497633707008011,
+        0.027881730233979128
+      ],
+      "candidate_nmse_by_horizon": [
+        0.032358824420480985,
+        0.02401363528449905,
+        0.022835979839689755,
+        0.025527673221587277,
+        0.027939913031170986
+      ],
+      "relative_error_change_percent_by_horizon": [
+        0.7499297101372537,
+        5.164995787592774,
+        5.134118926818498,
+        2.2074339802517606,
+        0.2086771398460474
+      ],
+      "final_step_relative_error_change_percent_ci95": [
+        -7.452282065203475,
+        11.47696940325249
+      ],
+      "final_step_fraction_windows_candidate_better": 0.4646017699115044,
+      "share_of_net_dr_final_error_increase": 0.0019891109076526597
+    },
+    "dr_incomplete_long": {
+      "samples": 647,
+      "worlds": 226,
+      "short_steps_mean": 32.77279752704791,
+      "long_chunks_mean": 11.442040185471406,
+      "baseline_nmse_by_horizon": [
+        0.056597018035131716,
+        0.04176611668729271,
+        0.035204723149469146,
+        0.035269000721887614,
+        0.0417089888349343
+      ],
+      "candidate_nmse_by_horizon": [
+        0.061358572615310004,
+        0.05100310577588603,
+        0.04778959344128426,
+        0.05111427875163696,
+        0.05904450022848731
+      ],
+      "relative_error_change_percent_by_horizon": [
+        8.413083843432577,
+        22.115987363037902,
+        35.74767578311402,
+        44.92692649473313,
+        41.563010463186465
+      ],
+      "final_step_relative_error_change_percent_ci95": [
+        26.169430974328577,
+        60.84359966327588
+      ],
+      "final_step_fraction_windows_candidate_better": 0.4095826893353941,
+      "share_of_net_dr_final_error_increase": 1.035245729196813
+    },
+    "dr_partial_long_1_to_29": {
+      "samples": 494,
+      "worlds": 207,
+      "short_steps_mean": 36.987854251012145,
+      "long_chunks_mean": 14.98582995951417,
+      "baseline_nmse_by_horizon": [
+        0.05112872902498186,
+        0.03614768907661779,
+        0.027505581071700213,
+        0.024603342206320038,
+        0.025663078802832848
+      ],
+      "candidate_nmse_by_horizon": [
+        0.04800753182726175,
+        0.037723768849390014,
+        0.029434216913272398,
+        0.02652987238066598,
+        0.027232437668327114
+      ],
+      "relative_error_change_percent_by_horizon": [
+        -6.10458592896973,
+        4.3601121206714,
+        7.011798211223796,
+        7.830359624275185,
+        6.1152400206986535
+      ],
+      "final_step_relative_error_change_percent_ci95": [
+        -1.1447730692173974,
+        14.88488158155814
+      ],
+      "final_step_fraction_windows_candidate_better": 0.4939271255060729,
+      "share_of_net_dr_final_error_increase": 0.06687575958968342
+    },
+    "dr_no_long": {
+      "samples": 153,
+      "worlds": 118,
+      "short_steps_mean": 19.163398692810457,
+      "long_chunks_mean": 0.0,
+      "baseline_nmse_by_horizon": [
+        0.06692335499983389,
+        0.055294619023551136,
+        0.05464337439145494,
+        0.061940260572779515,
+        0.08168442588881332
+      ],
+      "candidate_nmse_by_horizon": [
+        0.08657072686519865,
+        0.08297816233668129,
+        0.09413290794818448,
+        0.1125916914817591,
+        0.1382984099091212
+      ],
+      "relative_error_change_percent_by_horizon": [
+        29.358019880224973,
+        50.06552862103844,
+        72.26774333853156,
+        81.77464938085689,
+        69.30817399312978
+      ],
+      "final_step_relative_error_change_percent_ci95": [
+        43.841076654313206,
+        104.91969595519576
+      ],
+      "final_step_fraction_windows_candidate_better": 0.13725490196078433,
+      "share_of_net_dr_final_error_increase": 0.9683699696071296
+    },
+    "nominal_all": {
+      "samples": 1018,
+      "worlds": 246,
+      "short_steps_mean": 31.927308447937133,
+      "long_chunks_mean": 17.228880157170924,
+      "baseline_nmse_by_horizon": [
+        0.025673149989075904,
+        0.01618230659647482,
+        0.012843229874135415,
+        0.011331939820512976,
+        0.011163018102343856
+      ],
+      "candidate_nmse_by_horizon": [
+        0.025168650675391816,
+        0.014772658521880451,
+        0.01107966440046065,
+        0.009430076796708035,
+        0.009328206866788659
+      ],
+      "relative_error_change_percent_by_horizon": [
+        -1.9650853670031054,
+        -8.71104540128692,
+        -13.731479471735963,
+        -16.783207940817025,
+        -16.43651581260045
+      ],
+      "final_step_relative_error_change_percent_ci95": [
+        -23.832188524451947,
+        -9.190508943595898
+      ],
+      "final_step_fraction_windows_candidate_better": 0.600196463654224,
+      "share_of_net_dr_final_error_increase": null
+    }
+  }
+}

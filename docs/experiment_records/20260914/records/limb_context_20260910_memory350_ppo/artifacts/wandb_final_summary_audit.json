@@ -1,0 +1,12 @@
+{
+  "checked_at": 1789099246.1768267,
+  "passed": true,
+  "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/elxgffpv",
+  "id": "elxgffpv",
+  "name": "paired_5000_tracking_summary",
+  "state": "finished",
+  "group": "memory350-trackerdr-residual-20260910",
+  "scalar_count_verified": 1344,
+  "local_results_sha256": "78f94e18c8a46173e9b651d237602badc6e6dfee3a5149db4631f2510eb45feb",
+  "scope": "All final scalar point estimates; full confidence intervals and traces retained in local report artifacts"
+}

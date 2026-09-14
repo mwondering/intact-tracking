@@ -1,0 +1,253 @@
+{
+  "plan": {
+    "identities": {
+      "reference": {
+        "path": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/fixed_reward_actuator_shared_zero_seed77/checkpoint_500.pt",
+        "sha256": "6d2531ed0e7011516041d63ae751235e61280542b31f51ddaa7e088465671519"
+      },
+      "candidate": {
+        "path": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/fixed_reward_actuator_shared_normal_seed77/checkpoint_500.pt",
+        "sha256": "e834d12ae45718153832522bea1055aa733057780ed1651f911dede1a3892d1e"
+      }
+    },
+    "evaluation_seeds": [
+      97001,
+      97002,
+      97003
+    ],
+    "scope": "One training seed, predeclared equal-update checkpoints. Same architecture/initialization/critic/reward/optimization; only actor physics input differs. New evaluation worlds are not independent training replications. Not nominal-goal acceptance."
+  },
+  "same_physics_worlds_audited": true,
+  "legacy_reference_configuration_audit": null,
+  "actor_input_only_training_audit": {
+    "initial_tensors_bitwise_equal": {
+      "actor_state_dict": 118,
+      "critic_state_dict": 17
+    },
+    "arguments_differ": {
+      "actor_physics_input": [
+        "zero",
+        "normal"
+      ],
+      "output_dir": [
+        "runs/adaptation_goal/fixed_reward_actuator_shared_zero_seed77",
+        "runs/adaptation_goal/fixed_reward_actuator_shared_normal_seed77"
+      ]
+    },
+    "checkpoint_iteration": 500,
+    "scope": "Only actor physical input differs; fixed architecture, critic, initialization, reward, optimizer and training budget"
+  },
+  "context_replacement_audit": null,
+  "statistics": {
+    "reference_files": [
+      "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/input_control_970xx/actuator64_shared16_seed77/reference_seed97001.json",
+      "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/input_control_970xx/actuator64_shared16_seed77/reference_seed97002.json",
+      "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/input_control_970xx/actuator64_shared16_seed77/reference_seed97003.json"
+    ],
+    "candidate_files": [
+      "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/input_control_970xx/actuator64_shared16_seed77/candidate_seed97001.json",
+      "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/input_control_970xx/actuator64_shared16_seed77/candidate_seed97002.json",
+      "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/input_control_970xx/actuator64_shared16_seed77/candidate_seed97003.json"
+    ],
+    "seeds": [
+      {
+        "seed": 97001,
+        "reference": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/input_control_970xx/actuator64_shared16_seed77/reference_seed97001.json",
+        "candidate": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/input_control_970xx/actuator64_shared16_seed77/candidate_seed97001.json",
+        "ratios": {
+          "error_body_pos": 1.021385176604535,
+          "error_joint_pos": 1.0043214819682695,
+          "error_anchor_pos": 1.022551291310585,
+          "error_anchor_rot": 1.020046283129277,
+          "error_body_rot": 1.014294817517546,
+          "error_joint_vel": 1.0109570617864232,
+          "error_anchor_lin_vel": 1.0153796991043538,
+          "error_anchor_ang_vel": 1.0053066752312836,
+          "error_body_lin_vel": 1.015255070580567,
+          "error_body_ang_vel": 1.0114436669117686
+        },
+        "failure_difference": -0.0029761912301182747
+      },
+      {
+        "seed": 97002,
+        "reference": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/input_control_970xx/actuator64_shared16_seed77/reference_seed97002.json",
+        "candidate": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/input_control_970xx/actuator64_shared16_seed77/candidate_seed97002.json",
+        "ratios": {
+          "error_body_pos": 1.0361845997347177,
+          "error_joint_pos": 1.0143736657410667,
+          "error_anchor_pos": 1.0580417897931973,
+          "error_anchor_rot": 1.0428897603817244,
+          "error_body_rot": 1.0264925813166075,
+          "error_joint_vel": 1.0170381081333313,
+          "error_anchor_lin_vel": 1.0228845561106097,
+          "error_anchor_ang_vel": 1.0154738905511893,
+          "error_body_lin_vel": 1.0233103072239418,
+          "error_body_ang_vel": 1.0174973522995863
+        },
+        "failure_difference": -0.0029761912301182747
+      },
+      {
+        "seed": 97003,
+        "reference": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/input_control_970xx/actuator64_shared16_seed77/reference_seed97003.json",
+        "candidate": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/input_control_970xx/actuator64_shared16_seed77/candidate_seed97003.json",
+        "ratios": {
+          "error_body_pos": 1.022024330604349,
+          "error_joint_pos": 1.0106121400311416,
+          "error_anchor_pos": 1.0126601992069317,
+          "error_anchor_rot": 1.0223161961041773,
+          "error_body_rot": 1.0139977400428968,
+          "error_joint_vel": 1.0155805794201231,
+          "error_anchor_lin_vel": 1.0222856797761617,
+          "error_anchor_ang_vel": 1.0159573324834532,
+          "error_body_lin_vel": 1.0206533639036437,
+          "error_body_ang_vel": 1.015207705440394
+        },
+        "failure_difference": 0.008928571827709675
+      }
+    ],
+    "metrics": {
+      "error_body_pos": {
+        "reference": 0.04156816253398784,
+        "candidate": 0.04267123507859338,
+        "ratio": 1.0265364759316369,
+        "paired_motion_seed_bootstrap_95pct": [
+          1.0134203333204233,
+          1.0436058008341256
+        ]
+      },
+      "error_joint_pos": {
+        "reference": 0.6447346978270873,
+        "candidate": 0.6510349829487282,
+        "ratio": 1.0097719033004962,
+        "paired_motion_seed_bootstrap_95pct": [
+          1.0017187717003693,
+          1.020839690976555
+        ]
+      },
+      "error_anchor_pos": {
+        "reference": 0.33094922581760444,
+        "candidate": 0.3412224076985352,
+        "ratio": 1.0310415649275233,
+        "paired_motion_seed_bootstrap_95pct": [
+          0.9924429162729078,
+          1.0696176046692762
+        ]
+      },
+      "error_anchor_rot": {
+        "reference": 0.09065774700496673,
+        "candidate": 0.09321722554824247,
+        "ratio": 1.0282323202134673,
+        "paired_motion_seed_bootstrap_95pct": [
+          1.0100549663395655,
+          1.0543284932158454
+        ]
+      },
+      "error_body_rot": {
+        "reference": 0.18582911397580965,
+        "candidate": 0.18921752836555367,
+        "ratio": 1.018234034039387,
+        "paired_motion_seed_bootstrap_95pct": [
+          1.0078970178567166,
+          1.0338965088596135
+        ]
+      },
+      "error_joint_vel": {
+        "reference": 5.232259997484863,
+        "candidate": 5.308296895650164,
+        "ratio": 1.0145323241203328,
+        "paired_motion_seed_bootstrap_95pct": [
+          1.0061652576965203,
+          1.0269609940295616
+        ]
+      },
+      "error_anchor_lin_vel": {
+        "reference": 0.2550685887037019,
+        "candidate": 0.2602137508857441,
+        "ratio": 1.0201716809121448,
+        "paired_motion_seed_bootstrap_95pct": [
+          1.0082316083563365,
+          1.0370376765343607
+        ]
+      },
+      "error_anchor_ang_vel": {
+        "reference": 0.5511169939351175,
+        "candidate": 0.5578686717764652,
+        "ratio": 1.0122508975692057,
+        "paired_motion_seed_bootstrap_95pct": [
+          1.000219690564672,
+          1.0310753078704313
+        ]
+      },
+      "error_body_lin_vel": {
+        "reference": 0.3404567324306986,
+        "candidate": 0.34717757950770606,
+        "ratio": 1.019740679025566,
+        "paired_motion_seed_bootstrap_95pct": [
+          1.0095053762650992,
+          1.0346838043146578
+        ]
+      },
+      "error_body_ang_vel": {
+        "reference": 1.4367071174991741,
+        "candidate": 1.4578565927641456,
+        "ratio": 1.0147207980021604,
+        "paired_motion_seed_bootstrap_95pct": [
+          1.0059027980049708,
+          1.0275472189308965
+        ]
+      }
+    },
+    "reference_failure_rate": 0.016865079365079364,
+    "candidate_failure_rate": 0.017857142857142856,
+    "failure_difference": 0.000992063492063492,
+    "failure_difference_paired_bootstrap_95pct": [
+      -0.010912698412698412,
+      0.01488095238095238
+    ],
+    "failure_upper_95pct_within_margin": false,
+    "allowed_observed_failure_increase": 0.0,
+    "observed_failure_nonincrease": false,
+    "fixed_reward_candidate_eligible": true,
+    "margin": 1.0,
+    "evaluation_protocol": "balanced_fixed_starts_v2_isolated_resets",
+    "valid_acceptance_protocol": true,
+    "matched_single_policy_identity": true,
+    "acceptance_conditions": false,
+    "numerical_point_estimate_pass": false,
+    "point_estimate_pass": false,
+    "primary_upper_95pct_within_margin": false,
+    "all_metrics_point_estimate_pass": false,
+    "all_metrics_upper_95pct_within_margin": false,
+    "confirmation_seeds_used": false,
+    "confirmation_seed_set_complete": false,
+    "warning": "INVALID FOR ACCEPTANCE: missing v2 reset audits, fixed-reward lineage, or a diagnostic/ablation condition."
+  },
+  "paired_failures": [
+    {
+      "seed": 97001,
+      "reference": 6,
+      "candidate": 5,
+      "episodes": 336,
+      "new": 2,
+      "recovered": 3
+    },
+    {
+      "seed": 97002,
+      "reference": 6,
+      "candidate": 5,
+      "episodes": 336,
+      "new": 1,
+      "recovered": 2
+    },
+    {
+      "seed": 97003,
+      "reference": 5,
+      "candidate": 8,
+      "episodes": 336,
+      "new": 5,
+      "recovered": 2
+    }
+  ],
+  "nominal_goal_acceptance": false,
+  "warning": "Bootstrap reflects evaluation seed/motion uncertainty only, not training-seed uncertainty. Actor-input causal scope requires the explicit matching audit; otherwise architecture and input differ together."
+}

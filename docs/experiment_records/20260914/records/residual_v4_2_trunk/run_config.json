@@ -1,0 +1,295 @@
+{
+  "architecture": {
+    "action": "clip(per-step frozen tracker action + cached residual trunk slot)",
+    "context": "16 x [proprio_before, five total commands, proprio_after]",
+    "execution": "generate one five-action residual trunk; execute one slot per real simulator step; invalidate only reset worlds",
+    "forward": "causal GRU over five action prefixes; predicts five non-chained pose deltas from the current state",
+    "gradient_routes": {
+      "backward_loss": [
+        "context_encoder",
+        "backward_predictor"
+      ],
+      "forward_loss": [
+        "context_encoder",
+        "forward_predictor"
+      ],
+      "nominal_pair_loss": [
+        "context_encoder",
+        "forward_predictor"
+      ],
+      "tracking_loss": [
+        "residual_policy"
+      ]
+    },
+    "nominal_pair": "restore sampled DR state into no-DR physics; replay the same five final actions; train zero-world nominal and encoded-world DR predictions plus their real pose-effect difference",
+    "optimization_schedule": "model replay updates followed by one recent on-policy trunk update",
+    "policy_reference_offsets": {
+      "explicit_t_plus_5_in_tracker_latent": false,
+      "tracker_latent": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "tracking_targets": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    },
+    "policy_update": "one current tracker feature -> five residual actions -> frozen-parameter differentiable Forward -> five reconstructed reference pose losses",
+    "state": "Forward input and Backward state retain root pose/velocity + joint position/velocity; Forward output and Tracking loss use pose only"
+  },
+  "arguments": {
+    "backward_depth": 3,
+    "backward_weight": 2.0,
+    "batch_size": 512,
+    "checkpoint_file": "/data_zcy/wxy/SP_Tracking/logs/rsl_rl/g1_tracking/2026-07-28_05-25-04_SPTracking-G1-BFM-SPV5-2Actor-HEFTCritic-HEFTReward_6gpu_12288env_motion_data_correct_sota/checkpoint_22000.pt",
+    "checkpoint_interval": 1000,
+    "context_depth": 2,
+    "context_dim": 192,
+    "context_heads": 4,
+    "device": null,
+    "distributed_backend": null,
+    "forward_depth": 2,
+    "forward_weight": 2.0,
+    "gradient_clip": 1.0,
+    "gradient_steps_per_update": 1,
+    "hidden_dim": 512,
+    "joint_position_weight": 1.0,
+    "log_interval": 10,
+    "max_warmup_steps": 10000,
+    "metric_window": 100,
+    "model_learning_rate": 0.0003,
+    "motion_file": null,
+    "motion_path": "/data_zcy/wxy/motion_data_correct/motion_data_full",
+    "nominal_effect_weight": 1.0,
+    "nominal_pair_batch_size": 512,
+    "nominal_pair_weight": 1.0,
+    "nominal_restore_atol": 1e-05,
+    "num_envs": 4096,
+    "output_dir": "/data_zcy/wxy/intact-tracking/runs/residual_v4_2_trunk",
+    "policy_depth": 3,
+    "policy_learning_rate": 0.0001,
+    "randomize_initial_episode_phase": true,
+    "replay_capacity": 8192,
+    "residual_l2_weight": 0.2,
+    "residual_scale": 0.25,
+    "residual_smooth_weight": 0.001,
+    "rollout_steps_per_update": 5,
+    "root_orientation_weight": 2.0,
+    "root_position_weight": 5.0,
+    "sample_stride": 1,
+    "seed": 0,
+    "stochastic_policy": false,
+    "task_id": null,
+    "tracking_weight": 1.0,
+    "updates": 100000,
+    "wandb": true,
+    "wandb_entity": null,
+    "wandb_group": null,
+    "wandb_mode": "online",
+    "wandb_name": null,
+    "wandb_project": "intact-residual-tracking",
+    "wandb_tag": [],
+    "warmup_log_interval": 10,
+    "warmup_steps": 100,
+    "weight_decay": 0.001
+  },
+  "distributed": {
+    "enabled": true,
+    "rank_seed": "seed + rank",
+    "world_size": 2
+  },
+  "loss": {
+    "action_clip": null,
+    "backward_weight": 2.0,
+    "forward_weight": 2.0,
+    "joint_position_weight": 1.0,
+    "nominal_effect_weight": 1.0,
+    "nominal_pair_weight": 1.0,
+    "residual_l2_weight": 0.2,
+    "residual_smooth_weight": 0.001,
+    "root_orientation_weight": 2.0,
+    "root_position_weight": 5.0,
+    "tracking_weight": 1.0
+  },
+  "loss_weights": {
+    "objective_terms": {
+      "backward_loss": 2.0,
+      "forward_loss": 2.0,
+      "nominal_effect_within_pair": 1.0,
+      "nominal_pair_loss": 1.0,
+      "residual_l2": 0.2,
+      "residual_smooth": 0.001,
+      "tracking_loss": 1.0
+    },
+    "pose_terms_shared_by_forward_and_tracking": {
+      "joint_position": 1.0,
+      "root_orientation": 2.0,
+      "root_position": 5.0
+    }
+  },
+  "method": "context-conditioned residual tracking",
+  "mjlab_version": "1.5.0",
+  "model": {
+    "action_dim": 29,
+    "architecture_version": "context_residual_tracking_nominal_pair_v4",
+    "backward_depth": 3,
+    "context_chunk_steps": 5,
+    "context_depth": 2,
+    "context_dim": 192,
+    "context_heads": 4,
+    "context_tokens": 16,
+    "dropout": 0.0,
+    "forward_depth": 2,
+    "hidden_dim": 512,
+    "horizon": 5,
+    "policy_depth": 3,
+    "policy_observation_dim": 1645,
+    "pose_delta_dim": 35,
+    "proprio_dim": 122,
+    "residual_scale": 0.25,
+    "state_dim": 71
+  },
+  "nominal_pair_rollout": {
+    "checkpoint_task_id": "SPTracking-G1-BFM-SPV5-2Actor-HEFTCritic-HEFTReward",
+    "cleared_missing_motion_exclusions": [],
+    "config": {
+      "checkpoint_file": "/data_zcy/wxy/SP_Tracking/logs/rsl_rl/g1_tracking/2026-07-28_05-25-04_SPTracking-G1-BFM-SPV5-2Actor-HEFTCritic-HEFTReward_6gpu_12288env_motion_data_correct_sota/checkpoint_22000.pt",
+      "device": "cuda:0",
+      "horizon": 5,
+      "motion_file": null,
+      "motion_path": "/data_zcy/wxy/motion_data_correct/motion_data_full",
+      "num_envs": 512,
+      "restore_atol": 1e-05,
+      "seed": 100000,
+      "task_id": null
+    },
+    "physics": "compiled checkpoint defaults with all DR events removed",
+    "removed_managers": {
+      "commands": [
+        "motion"
+      ],
+      "curriculum": [],
+      "events": [
+        "base_com",
+        "base_mass",
+        "encoder_bias",
+        "foot_friction",
+        "motor_params_implicit",
+        "push_robot"
+      ],
+      "metrics": [
+        "substep_tracking_cache"
+      ],
+      "observations": [
+        "estimator_history",
+        "estimator_target",
+        "foot_contact_target",
+        "policy",
+        "priv",
+        "reference_encoder_input",
+        "reference_encoder_target",
+        "robot_key_body",
+        "robot_root_quat"
+      ],
+      "recorders": [],
+      "rewards": [
+        "action_rate_l2",
+        "feet_air_time_ref",
+        "feet_air_time_ref_dense",
+        "feet_link_height_tracking",
+        "joint_pos_limits",
+        "joint_pos_tracking",
+        "joint_torque_limits",
+        "joint_vel_l2",
+        "joint_vel_tracking",
+        "keypoint_angvel_tracking",
+        "keypoint_pos_tracking",
+        "keypoint_rot_tracking",
+        "keypoint_vel_tracking",
+        "root_ang_vel_tracking",
+        "root_pos_tracking",
+        "root_rot_tracking",
+        "root_vel_tracking",
+        "survival",
+        "waist_action_rate_l2",
+        "wrist_link_height_tracking"
+      ],
+      "terminations": [
+        "anchor_ori",
+        "anchor_pos",
+        "ee_body_pos",
+        "time_out"
+      ]
+    },
+    "state_restore": "clear sim/entity/action state; write local 71-D robot state; run zero-time sim.forward",
+    "warmup": "none; warmup would change the paired initial state"
+  },
+  "replay": {
+    "context_chunk_steps": 5,
+    "context_tokens": 16,
+    "estimated_storage_bytes_per_rank": 628137984,
+    "horizon": 5,
+    "minimum_steps": 85
+  },
+  "rollout": {
+    "checkpoint_path": "/data_zcy/wxy/SP_Tracking/logs/rsl_rl/g1_tracking/2026-07-28_05-25-04_SPTracking-G1-BFM-SPV5-2Actor-HEFTCritic-HEFTReward_6gpu_12288env_motion_data_correct_sota/checkpoint_22000.pt",
+    "checkpoint_task_id": "SPTracking-G1-BFM-SPV5-2Actor-HEFTCritic-HEFTReward",
+    "cleared_missing_motion_exclusions": [],
+    "disabled_startup_reset_callbacks": [
+      "motor_params_implicit"
+    ],
+    "domain_randomization_contract": "startup DR fixed per vector slot before rollout and never resampled",
+    "fixed_dr_model_fields": [
+      "actuator_biasprm",
+      "actuator_gainprm",
+      "body_invweight0",
+      "body_ipos",
+      "body_mass",
+      "body_subtreemass",
+      "dof_armature",
+      "dof_frictionloss",
+      "dof_invweight0",
+      "geom_friction",
+      "tendon_invweight0",
+      "tendon_length0"
+    ],
+    "initial_episode_phase_randomized": true,
+    "initial_episode_phase_summary": {
+      "maximum": 499,
+      "minimum": 0,
+      "unique": 500
+    },
+    "motion_contract": "random motion resampling at initialization and reset",
+    "removed_non_startup_events": [
+      "push_robot"
+    ],
+    "reset_contract": "asynchronous per-slot auto-reset; startup events are never reapplied",
+    "reset_window_contract": "the teleport boundary is excluded; the post-reset state may start a query",
+    "startup_events": [
+      "base_com",
+      "base_mass",
+      "encoder_bias",
+      "foot_friction",
+      "motor_params_implicit"
+    ],
+    "tracker_frozen": true,
+    "tracking_error_names": [
+      "error_anchor_pos",
+      "error_anchor_rot",
+      "error_anchor_lin_vel",
+      "error_anchor_ang_vel",
+      "error_body_pos",
+      "error_body_rot",
+      "error_joint_pos",
+      "error_joint_vel"
+    ],
+    "world_id_offset": 0
+  },
+  "tracker_checkpoint_sha256": "fa36f219c0ccd3f38816578b8a6cfbface1d305a14ed546b36c99a9c22dd2332"
+}

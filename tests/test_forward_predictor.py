@@ -288,10 +288,11 @@ def test_representation_matches_continuous_counterfactual_response_geometry() ->
     assert metrics["latent_response_correlation"] > 0.9
 
 
-def test_incomplete_long_context_trains_predictor_but_not_representation_pairs() -> None:
+@pytest.mark.parametrize("context_steps", [100, 200])
+def test_incomplete_long_context_trains_predictor_but_not_representation_pairs(context_steps) -> None:
     torch.manual_seed(9)
     config = ForwardPredictorConfig(
-        context_history_steps=100,
+        context_history_steps=context_steps,
         transformer_dim=32,
         transformer_depth=1,
         transformer_heads=4,
@@ -305,9 +306,9 @@ def test_incomplete_long_context_trains_predictor_but_not_representation_pairs()
     delta = torch.randn(2, 70) * 0.01
     foot, contact_force, contact_binary = _privileged_trajectory(2)
     history = _history(2)
-    history["history_state"] = torch.randn(2, 100, 71)
-    history["history_action"] = torch.randn(2, 100, 29)
-    history["history_valid"] = torch.zeros(2, 100, dtype=torch.bool)
+    history["history_state"] = torch.randn(2, context_steps, 71)
+    history["history_action"] = torch.randn(2, context_steps, 29)
+    history["history_valid"] = torch.zeros(2, context_steps, dtype=torch.bool)
     history["history_valid"][:, -8:] = True
     batch = {
         "state": torch.cat((initial[:, None], _rollout_target(initial, delta)), dim=1),
@@ -850,21 +851,22 @@ def test_predictor_replay_supplies_ten_causal_history_frames() -> None:
     assert torch.allclose(target_state[2, :, 0], torch.arange(10, 16, dtype=torch.float32))
 
 
-def test_replay_uses_exact_five_frame_full_context_positive_views() -> None:
+@pytest.mark.parametrize("context_steps", [10, 200])
+def test_replay_uses_exact_five_frame_full_context_positive_views(context_steps) -> None:
     replay = ForwardPredictorReplayBuffer(
         num_worlds=1,
         capacity=8,
-        context_history_steps=10,
+        context_history_steps=context_steps,
         sampling_mode="uniform",
         seed=17,
     )
-    for step in range(15):
+    for step in range(context_steps + 5):
         replay.add_step(
             _single_transition(state_value=float(step), episode_id=0, episode_step=step)
         )
     assert not replay.can_sample_positive_pairs(1)
 
-    for step in range(15, 20):
+    for step in range(context_steps + 5, context_steps + 10):
         replay.add_step(
             _single_transition(state_value=float(step), episode_id=0, episode_step=step)
         )
@@ -885,12 +887,13 @@ def test_replay_uses_exact_five_frame_full_context_positive_views() -> None:
     torch.testing.assert_close((current[:, 0] - positive[:, 0]).abs(), torch.full((2,), 5.0))
 
 
-def test_reset_state_can_start_target_with_masked_old_history() -> None:
+@pytest.mark.parametrize("context_steps", [10, 200])
+def test_reset_state_can_start_target_with_masked_old_history(context_steps) -> None:
     replay = ForwardPredictorReplayBuffer(
         num_worlds=1,
         capacity=4,
         sampling_mode="uniform",
-        context_history_steps=10,
+        context_history_steps=context_steps,
     )
     for step in range(3):
         replay.add_step(
@@ -922,6 +925,28 @@ def test_reset_state_can_start_target_with_masked_old_history() -> None:
     assert sampled["history_valid"].sum().item() == 2
     assert not sampled["context_full"].item()
     assert not sampled["positive_pair_valid"].item()
+
+
+@pytest.mark.parametrize("context_steps,ready", [(200, True), (500, False)])
+def test_full_context_pairs_respect_500_step_episode_boundaries(context_steps, ready):
+    replay = ForwardPredictorReplayBuffer(
+        num_worlds=1, capacity=256, context_history_steps=context_steps,
+        sampling_mode="uniform", seed=17,
+    )
+    for collector_step in range(1000):
+        episode, step = divmod(collector_step, 500)
+        replay.add_step(_single_transition(
+            state_value=float(collector_step), episode_id=episode, episode_step=step,
+            reset_boundary=step == 499,
+        ))
+    assert len(replay) > 0
+    assert replay.can_sample_positive_pairs(2) is ready
+    if ready:
+        stats = replay.normalizer.snapshot_from_packed(
+            replay.normalizer.packed_statistics(), replay.world_ids)
+        sampled = replay.sample_batch(2, stats, positive_ready_only=True)
+        assert sampled["history_valid"].shape == (2, 200)
+        assert sampled["history_valid"].all() and sampled["positive_history_valid"].all()
 
 
 def test_motion_balanced_sampling_uses_inverse_motion_frequency() -> None:

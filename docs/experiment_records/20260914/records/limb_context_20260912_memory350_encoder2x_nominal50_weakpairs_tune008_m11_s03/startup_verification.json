@@ -1,0 +1,46 @@
+{
+  "passed": true,
+  "progress": {
+    "completed_updates": 10021,
+    "optimizer_steps": 40084,
+    "stop_after_updates": 12000,
+    "unbounded": false,
+    "unix_time": 1789221470.0367928
+  },
+  "parent_checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260912_memory350_encoder2x_nominal50_weakpairs_tune004_s03/stage1_8192/update_010000.pt",
+  "parent_sha256": "fd461bdfd1588574bb8d5340a6f493d0d851d0bc3bbac94f999e3f3efd520980",
+  "loss_changes": {
+    "weak_positive_weight": {
+      "before": 0.004,
+      "after": 0.008
+    },
+    "weak_negative_weight": {
+      "before": 0.004,
+      "after": 0.008
+    },
+    "weak_negative_margin": {
+      "before": 1.0,
+      "after": 1.1
+    }
+  },
+  "first_update": 10001,
+  "first_optimizer_steps": 40004,
+  "learning_rate": 1e-05,
+  "first_weighted_weak_loss": 0.00013318412311491556,
+  "first_weak_positive_pairs": 0.0,
+  "first_weak_negative_pairs": 1401.640625,
+  "same_eight_validation_files_and_normalization": true,
+  "same_model_and_data": true,
+  "physical_gpus": [
+    4,
+    5,
+    6,
+    7
+  ],
+  "nominal_fraction": 0.5,
+  "wandb": {
+    "id": "m350margin-f6b71edf715f",
+    "url": "https://wandb.ai/2486344338-zhejiang-university/intact-forward-predictor/runs/m350margin-f6b71edf715f"
+  },
+  "unix_time": 1789221479.7598302
+}

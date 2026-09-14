@@ -1,0 +1,61 @@
+{
+  "phase": "complete",
+  "pid": 9911,
+  "started_at": 1789077524.5979948,
+  "jobs": {
+    "baseline": {
+      "pid": 63807,
+      "gpus": [
+        0,
+        1
+      ],
+      "phase": "complete",
+      "log": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260910_memory350_ppo/logs/final_baseline.log",
+      "started_at": 1789091930.574155,
+      "progress": {
+        "completed_updates": 5000,
+        "unix_time": 1789091914.2654796
+      },
+      "finished_at": 1789092576.533525
+    },
+    "film": {
+      "pid": 9576,
+      "gpus": [
+        2,
+        3
+      ],
+      "phase": "complete",
+      "log": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260910_memory350_ppo/logs/final_film.log",
+      "started_at": 1789098210.7955337,
+      "progress": {
+        "completed_updates": 5000,
+        "unix_time": 1789098194.6657908
+      },
+      "finished_at": 1789098991.9691467
+    },
+    "frozen_tracker": {
+      "pid": 7304,
+      "gpus": [
+        0,
+        1
+      ],
+      "phase": "complete",
+      "log": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260910_memory350_ppo/logs/final_frozen_tracker.log",
+      "started_at": 1789092576.5458727,
+      "progress_read_error": {
+        "error": "[Errno 2] No such file or directory: '/data_zcy/wxy/intact-tracking/runs/limb_context_20260910_memory350_ppo/ppo/frozen_tracker_121/progress.json'",
+        "at": 1789093193.5964131
+      },
+      "finished_at": 1789093208.6188025
+    }
+  },
+  "group": "memory350-trackerdr-residual-20260910",
+  "recovery": {
+    "previous_pid": 58635,
+    "previous_error": "[Errno 2] No such file or directory: '/data_zcy/wxy/intact-tracking/runs/limb_context_20260910_memory350_ppo/ppo/baseline_121/progress.json'",
+    "mode": "attach_existing_training",
+    "attached_at": 1789077524.5987053
+  },
+  "updated_at": 1789098991.9691525,
+  "finished_at": 1789099044.870581
+}

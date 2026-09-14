@@ -1,0 +1,234 @@
+{
+  "checked_at": 1789094408.8998525,
+  "passed": true,
+  "arms": {
+    "baseline": {
+      "completed_updates": 4400,
+      "context_checkpoint": null,
+      "context_sha256": null,
+      "latent_dimensions": 0,
+      "actor_state_shapes": {
+        "residual_mlp.0.weight": [
+          512,
+          1645
+        ],
+        "residual_mlp.0.bias": [
+          512
+        ],
+        "residual_mlp.2.weight": [
+          256,
+          512
+        ],
+        "residual_mlp.2.bias": [
+          256
+        ],
+        "residual_mlp.4.weight": [
+          128,
+          256
+        ],
+        "residual_mlp.4.bias": [
+          128
+        ],
+        "residual_mlp.6.weight": [
+          29,
+          128
+        ],
+        "residual_mlp.6.bias": [
+          29
+        ]
+      },
+      "critic_state_shapes": {
+        "mlp.0.weight": [
+          1024,
+          6330
+        ],
+        "mlp.0.bias": [
+          1024
+        ],
+        "mlp.1.weight": [
+          1024
+        ],
+        "mlp.1.bias": [
+          1024
+        ],
+        "mlp.3.weight": [
+          512,
+          1024
+        ],
+        "mlp.3.bias": [
+          512
+        ],
+        "mlp.4.weight": [
+          512
+        ],
+        "mlp.4.bias": [
+          512
+        ],
+        "mlp.6.weight": [
+          512,
+          512
+        ],
+        "mlp.6.bias": [
+          512
+        ],
+        "mlp.7.weight": [
+          512
+        ],
+        "mlp.7.bias": [
+          512
+        ],
+        "mlp.9.weight": [
+          1,
+          512
+        ],
+        "mlp.9.bias": [
+          1
+        ]
+      },
+      "actor_film_parameter_tensors": 0,
+      "critic_film_parameter_tensors": 0
+    },
+    "film": {
+      "completed_updates": 4400,
+      "context_checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260910_memory350_ppo/artifacts/memory350_context_update_022700.pt",
+      "context_sha256": "a677eac8aba10874e616ff313cae0434d14fbf1f83f428f8fdc7c708b2799343",
+      "latent_dimensions": 64,
+      "actor_state_shapes": {
+        "residual_mlp.base.0.weight": [
+          512,
+          1645
+        ],
+        "residual_mlp.base.0.bias": [
+          512
+        ],
+        "residual_mlp.base.2.weight": [
+          256,
+          512
+        ],
+        "residual_mlp.base.2.bias": [
+          256
+        ],
+        "residual_mlp.base.4.weight": [
+          128,
+          256
+        ],
+        "residual_mlp.base.4.bias": [
+          128
+        ],
+        "residual_mlp.base.6.weight": [
+          29,
+          128
+        ],
+        "residual_mlp.base.6.bias": [
+          29
+        ],
+        "residual_mlp.condition.0.weight": [
+          256,
+          64
+        ],
+        "residual_mlp.condition.0.bias": [
+          256
+        ],
+        "residual_mlp.heads.0.weight": [
+          1024,
+          256
+        ],
+        "residual_mlp.heads.0.bias": [
+          1024
+        ],
+        "residual_mlp.heads.1.weight": [
+          512,
+          256
+        ],
+        "residual_mlp.heads.1.bias": [
+          512
+        ],
+        "residual_mlp.heads.2.weight": [
+          256,
+          256
+        ],
+        "residual_mlp.heads.2.bias": [
+          256
+        ]
+      },
+      "critic_state_shapes": {
+        "mlp.base.0.weight": [
+          1024,
+          6330
+        ],
+        "mlp.base.0.bias": [
+          1024
+        ],
+        "mlp.base.1.weight": [
+          1024
+        ],
+        "mlp.base.1.bias": [
+          1024
+        ],
+        "mlp.base.3.weight": [
+          512,
+          1024
+        ],
+        "mlp.base.3.bias": [
+          512
+        ],
+        "mlp.base.4.weight": [
+          512
+        ],
+        "mlp.base.4.bias": [
+          512
+        ],
+        "mlp.base.6.weight": [
+          512,
+          512
+        ],
+        "mlp.base.6.bias": [
+          512
+        ],
+        "mlp.base.7.weight": [
+          512
+        ],
+        "mlp.base.7.bias": [
+          512
+        ],
+        "mlp.base.9.weight": [
+          1,
+          512
+        ],
+        "mlp.base.9.bias": [
+          1
+        ],
+        "mlp.condition.0.weight": [
+          256,
+          64
+        ],
+        "mlp.condition.0.bias": [
+          256
+        ],
+        "mlp.heads.0.weight": [
+          2048,
+          256
+        ],
+        "mlp.heads.0.bias": [
+          2048
+        ],
+        "mlp.heads.1.weight": [
+          1024,
+          256
+        ],
+        "mlp.heads.1.bias": [
+          1024
+        ],
+        "mlp.heads.2.weight": [
+          1024,
+          256
+        ],
+        "mlp.heads.2.bias": [
+          1024
+        ]
+      },
+      "actor_film_parameter_tensors": 8,
+      "critic_film_parameter_tensors": 8
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "automatic_plateau_detected": false,
+  "best_validation_dr_nmse": 0.02518733451142907,
+  "completed_updates": 10631,
+  "converged": false,
+  "hit_cap": false,
+  "optimizer_steps": 42524,
+  "selected_checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260910_short50/stage1_8192/best.pt",
+  "stopped": true,
+  "stopping_mode": "until_user_stop",
+  "target_updates": null,
+  "unix_time": 1789056971.2759824
+}

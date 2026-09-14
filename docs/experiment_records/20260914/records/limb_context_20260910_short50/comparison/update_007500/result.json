@@ -1,0 +1,103 @@
+{
+  "update": 7500,
+  "optimizer_steps": 30000,
+  "checkpoints": {
+    "short50": {
+      "path": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260910_short50/stage1_8192/update_007500.pt",
+      "sha256": "e71d0b84b425d5e4c19c60cd8ed32ae9cf760af1b044748aca7efa80566cd307"
+    },
+    "memory350": {
+      "path": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260909_memory350/stage1_8192/update_007500.pt",
+      "sha256": "b7164d13ba5ba7d0b518ec1eb6f1936fb293cb2aedbed096f8061dcd3bd03fa9"
+    }
+  },
+  "validation_sha256": {
+    "validation_broad_rank_0.pt": "2d833e70b3ac9fafbb5a1dc26d06a18261b0a04ff211090ece8ef76156717f1e",
+    "validation_broad_rank_1.pt": "fdf8a512ce235c36f576dda14489a17e9ed36efd604de8cd8fb05a12d95aa261",
+    "validation_broad_rank_2.pt": "de2b391bcd8cf9fe22edb6969012db33189e61f2720a33c8a87537e6842ab83a",
+    "validation_broad_rank_3.pt": "b3f532e4ab0b4577ed40cb1828f5b3a4efbe7b60d4b22a7e2b12cec1a805b850"
+  },
+  "same_normalization": true,
+  "same_validation": true,
+  "comparison": "independently trained matched Short50 vs Memory350, identical held-out windows",
+  "groups": {
+    "all": {
+      "samples": 2048,
+      "worlds": 489,
+      "memory350_nmse": 0.02764534205198288,
+      "short50_nmse": 0.026013314723968506,
+      "short50_to_memory350_error_ratio": 0.9409655332565308,
+      "paired_world_bootstrap_ratio_ci95": [
+        0.8556798186828347,
+        1.0245960407999755
+      ],
+      "fraction_windows_memory_better": 0.59619140625
+    },
+    "short_incomplete_with_long": {
+      "samples": 931,
+      "worlds": 374,
+      "memory350_nmse": 0.02105056867003441,
+      "short50_nmse": 0.025718383491039276,
+      "short50_to_memory350_error_ratio": 1.2217429876327515,
+      "paired_world_bootstrap_ratio_ci95": [
+        1.0608525043714823,
+        1.4080574879388332
+      ],
+      "fraction_windows_memory_better": 0.7475832438238453
+    },
+    "short_under10_with_long": {
+      "samples": 327,
+      "worlds": 223,
+      "memory350_nmse": 0.021437102928757668,
+      "short50_nmse": 0.028134670108556747,
+      "short50_to_memory350_error_ratio": 1.3124287128448486,
+      "paired_world_bootstrap_ratio_ci95": [
+        0.9956428925804633,
+        1.8348872496001183
+      ],
+      "fraction_windows_memory_better": 0.8776758409785933
+    },
+    "short_full_with_long": {
+      "samples": 820,
+      "worlds": 398,
+      "memory350_nmse": 0.02410111390054226,
+      "short50_nmse": 0.025916147977113724,
+      "short50_to_memory350_error_ratio": 1.075309157371521,
+      "paired_world_bootstrap_ratio_ci95": [
+        0.9462700690802747,
+        1.154208220159934
+      ],
+      "fraction_windows_memory_better": 0.6231707317073171
+    },
+    "no_long_in_reference": {
+      "samples": 297,
+      "worlds": 222,
+      "memory350_nmse": 0.05574139207601547,
+      "short50_nmse": 0.027153028175234795,
+      "short50_to_memory350_error_ratio": 0.487125039100647,
+      "paired_world_bootstrap_ratio_ci95": [
+        0.3266797387883862,
+        0.6669557007135674
+      ],
+      "fraction_windows_memory_better": 0.04713804713804714
+    },
+    "full_30_chunks": {
+      "samples": 707,
+      "worlds": 351,
+      "memory350_nmse": 0.020850051194429398,
+      "short50_nmse": 0.028681814670562744,
+      "short50_to_memory350_error_ratio": 1.3756232261657715,
+      "paired_world_bootstrap_ratio_ci95": [
+        1.2796424346433513,
+        1.5661904858238915
+      ],
+      "fraction_windows_memory_better": 0.768033946251768
+    }
+  },
+  "timestamp": 1789045509.7661717,
+  "rank_mean_nmse": {
+    "short50": 0.026078559458255768,
+    "memory350": 0.027693461626768112
+  },
+  "elapsed_seconds": 8.038700103759766
+}

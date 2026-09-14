@@ -1,0 +1,57 @@
+{
+  "baseline": "no-latent",
+  "cleared_missing_motion_exclusions": [
+    "[/data_zcy/wxy/motion_filter/0827/invalid_motions_0827_v1.json,/data_zcy/wxy/SP_Tracking/logs/motion_benchmark_10000.json,/data_zcy/wxy/SP_Tracking/logs/motion_benchmark_0830_22000.json,/data_zcy/wxy/SP_Tracking/benchmark_0831_36000.json,/data_zcy/wxy/SP_Tracking/benchmark_0901_44000.json,/data_zcy/wxy/SP_Tracking/benchmark_0902_59000.json]"
+  ],
+  "context_encoder_frozen": false,
+  "context_history_steps": 0,
+  "contract": "base action and base feature extractor are frozen SPV5-2A; PPO samples the final base-plus-residual Gaussian; the latent baseline executes only the frozen history Context Encoder, never Forward Predictor or simulator theta",
+  "critic_warm_started": true,
+  "dynamics_latent_dim": 0,
+  "forward_checkpoint": null,
+  "forward_checkpoint_sha256": null,
+  "global_num_envs": 4096,
+  "initial_policy_distribution": "exact frozen tracker mean/std because residual output layer starts at zero",
+  "iterations": 100000,
+  "nominal_physics": {
+    "contract": "checkpoint domain randomization retained",
+    "enabled": false
+  },
+  "num_envs_per_rank": 2048,
+  "num_steps_per_env": 24,
+  "payload": {
+    "body_name": "right_wrist_yaw_link",
+    "cuboid_size_m": [
+      0.1,
+      0.08,
+      0.08
+    ],
+    "enabled": true,
+    "event_name": "right_hand_payload",
+    "mass_range_kg": [
+      1.0,
+      3.0
+    ],
+    "physics_model": "rigid cuboid composite inertia (mass, COM, principal inertia and inertial frame); no payload collision geometry",
+    "position_body_frame_m": [
+      0.12,
+      0.0,
+      0.0
+    ]
+  },
+  "removed_step_interval_events": [
+    "push_robot"
+  ],
+  "residual_hidden_dims": [
+    512,
+    256,
+    128
+  ],
+  "residual_scale": 0.25,
+  "task_id": "SPTracking-G1-BFM-SPV5-2AActor-HEFTCritic-HEFTReward",
+  "tracker_checkpoint": "/data_zcy/wxy/SP_Tracking/logs/rsl_rl/g1_tracking/2026-09-02_04-48-42_SPTracking-G1-BFM-SPV5-2AActor-HEFTCritic-HEFTReward_8gpu_12288env_motion_data_correct/checkpoint_72000.pt",
+  "tracker_frozen": true,
+  "tracker_sha256": "fd7bd90d5552e573bbbce1417e9b415c64bb487a76b683ba3c20503b5ec77635",
+  "version": "spv52a_frozen_tracker_residual_v1",
+  "world_size": 2
+}

@@ -1,0 +1,171 @@
+{
+  "architecture": {
+    "action": "clip(frozen_tracker_action + bounded_residual)",
+    "context": "16 x [proprio_before, five total commands, proprio_after]",
+    "forward": "causal GRU over five action prefixes",
+    "gradient_routes": {
+      "backward_loss": [
+        "context_encoder",
+        "backward_predictor"
+      ],
+      "forward_loss": [
+        "context_encoder",
+        "forward_predictor"
+      ],
+      "tracking_loss": [
+        "residual_policy"
+      ]
+    },
+    "policy_update": "five fixed rollout observations -> current actions -> frozen-parameter Forward -> reference MSE",
+    "state": "root pose/velocity + joint position/velocity; previous action is separate"
+  },
+  "arguments": {
+    "backward_depth": 3,
+    "backward_weight": 0.25,
+    "batch_size": 512,
+    "checkpoint_file": "/data_zcy/wxy/SP_Tracking/logs/rsl_rl/g1_tracking/2026-07-28_05-25-04_SPTracking-G1-BFM-SPV5-2Actor-HEFTCritic-HEFTReward_6gpu_12288env_motion_data_correct_sota/checkpoint_22000.pt",
+    "checkpoint_interval": 1000,
+    "context_depth": 2,
+    "context_dim": 192,
+    "context_heads": 4,
+    "device": null,
+    "distributed_backend": null,
+    "forward_depth": 2,
+    "forward_weight": 1.0,
+    "gradient_clip": 1.0,
+    "gradient_steps_per_update": 1,
+    "hidden_dim": 512,
+    "joint_position_weight": 1.0,
+    "joint_velocity_weight": 0.1,
+    "log_interval": 10,
+    "max_warmup_steps": 10000,
+    "metric_window": 100,
+    "model_learning_rate": 0.0003,
+    "motion_file": null,
+    "motion_path": "/data_zcy/wxy/motion_data_correct/motion_data_full",
+    "num_envs": 4096,
+    "output_dir": "/data_zcy/wxy/intact-tracking/runs/residual_v1_2",
+    "policy_depth": 3,
+    "policy_learning_rate": 0.0001,
+    "replay_capacity": 8192,
+    "residual_l2_weight": 0.001,
+    "residual_scale": 0.25,
+    "residual_smooth_weight": 0.001,
+    "rollout_steps_per_update": 5,
+    "root_angular_velocity_weight": 0.1,
+    "root_linear_velocity_weight": 0.1,
+    "root_orientation_weight": 1.0,
+    "root_position_weight": 1.0,
+    "sample_stride": 1,
+    "seed": 0,
+    "stochastic_policy": false,
+    "task_id": null,
+    "tracking_weight": 1.0,
+    "updates": 100000,
+    "wandb": true,
+    "wandb_entity": null,
+    "wandb_group": null,
+    "wandb_mode": "online",
+    "wandb_name": null,
+    "wandb_project": "intact-residual-tracking",
+    "wandb_tag": [],
+    "warmup_log_interval": 10,
+    "warmup_steps": 100,
+    "weight_decay": 0.001
+  },
+  "distributed": {
+    "enabled": true,
+    "rank_seed": "seed + rank",
+    "world_size": 3
+  },
+  "loss": {
+    "action_clip": null,
+    "backward_weight": 0.25,
+    "forward_weight": 1.0,
+    "joint_position_weight": 1.0,
+    "joint_velocity_weight": 0.1,
+    "residual_l2_weight": 0.001,
+    "residual_smooth_weight": 0.001,
+    "root_angular_velocity_weight": 0.1,
+    "root_linear_velocity_weight": 0.1,
+    "root_orientation_weight": 1.0,
+    "root_position_weight": 1.0,
+    "tracking_weight": 1.0
+  },
+  "method": "context-conditioned residual tracking",
+  "mjlab_version": "1.5.0",
+  "model": {
+    "action_dim": 29,
+    "architecture_version": "context_residual_tracking_v1",
+    "backward_depth": 3,
+    "context_chunk_steps": 5,
+    "context_depth": 2,
+    "context_dim": 192,
+    "context_heads": 4,
+    "context_tokens": 16,
+    "dropout": 0.0,
+    "forward_depth": 2,
+    "hidden_dim": 512,
+    "horizon": 5,
+    "policy_depth": 3,
+    "policy_observation_dim": 1645,
+    "proprio_dim": 122,
+    "residual_scale": 0.25,
+    "state_dim": 71
+  },
+  "replay": {
+    "context_chunk_steps": 5,
+    "context_tokens": 16,
+    "estimated_storage_bytes_per_rank": 811384832,
+    "horizon": 5,
+    "minimum_steps": 85
+  },
+  "rollout": {
+    "checkpoint_path": "/data_zcy/wxy/SP_Tracking/logs/rsl_rl/g1_tracking/2026-07-28_05-25-04_SPTracking-G1-BFM-SPV5-2Actor-HEFTCritic-HEFTReward_6gpu_12288env_motion_data_correct_sota/checkpoint_22000.pt",
+    "checkpoint_task_id": "SPTracking-G1-BFM-SPV5-2Actor-HEFTCritic-HEFTReward",
+    "cleared_missing_motion_exclusions": [],
+    "disabled_startup_reset_callbacks": [
+      "motor_params_implicit"
+    ],
+    "domain_randomization_contract": "startup DR fixed per vector slot before rollout and never resampled",
+    "fixed_dr_model_fields": [
+      "actuator_biasprm",
+      "actuator_gainprm",
+      "body_invweight0",
+      "body_ipos",
+      "body_mass",
+      "body_subtreemass",
+      "dof_armature",
+      "dof_frictionloss",
+      "dof_invweight0",
+      "geom_friction",
+      "tendon_invweight0",
+      "tendon_length0"
+    ],
+    "motion_contract": "random motion resampling at initialization and reset",
+    "removed_non_startup_events": [
+      "push_robot"
+    ],
+    "reset_contract": "asynchronous per-slot auto-reset; startup events are never reapplied",
+    "startup_events": [
+      "base_com",
+      "base_mass",
+      "encoder_bias",
+      "foot_friction",
+      "motor_params_implicit"
+    ],
+    "tracker_frozen": true,
+    "tracking_error_names": [
+      "error_anchor_pos",
+      "error_anchor_rot",
+      "error_anchor_lin_vel",
+      "error_anchor_ang_vel",
+      "error_body_pos",
+      "error_body_rot",
+      "error_joint_pos",
+      "error_joint_vel"
+    ],
+    "world_id_offset": 0
+  },
+  "tracker_checkpoint_sha256": "fa36f219c0ccd3f38816578b8a6cfbface1d305a14ed546b36c99a9c22dd2332"
+}

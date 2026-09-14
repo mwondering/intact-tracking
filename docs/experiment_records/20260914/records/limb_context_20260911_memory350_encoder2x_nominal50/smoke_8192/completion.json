@@ -1,0 +1,13 @@
+{
+  "automatic_plateau_detected": false,
+  "best_validation_dr_nmse": 1.058444768190384,
+  "completed_updates": 2,
+  "converged": false,
+  "hit_cap": true,
+  "optimizer_steps": 8,
+  "selected_checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260911_memory350_encoder2x_nominal50/smoke_8192/best.pt",
+  "stopped": false,
+  "stopping_mode": "automatic_budget_or_plateau",
+  "target_updates": 2,
+  "unix_time": 1789134869.5806923
+}

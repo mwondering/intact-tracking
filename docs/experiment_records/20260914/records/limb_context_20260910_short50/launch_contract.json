@@ -1,0 +1,58 @@
+{
+  "gpus": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "environments_first": 8192,
+  "environments_after_confirmed_oom": null,
+  "dataset": "/data_zcy/wxy/motion_data_correct/motion_data_full",
+  "maximum_updates": null,
+  "stage2_jobs": [],
+  "paired_reference": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260909_memory350/stage1_8192",
+  "resource_plan": "co-located on GPU 0-3 with existing Memory350; do not stop its workers",
+  "wandb_project": "intact-forward-predictor",
+  "wandb_entity": "2486344338-zhejiang-university",
+  "protected_baseline_sources": {
+    "scripts/run_limb_context_experiment.py": "865f9b8c0842c11e7d6b337745f900d1c18985cc2d057e239112572a464924b6",
+    "src/intact_tracking/cli/forward_predictor_train.py": "0c8c3269c85348643c7a98c3a1edb1c9817057998581bbda55524812a9a7c535",
+    "src/intact_tracking/data/predictor_online.py": "ef1b41ab8a2c8e1acbecc07232e04800b289990f130df92c647c7ee57fe64bdd",
+    "src/intact_tracking/forward_predictor.py": "390ffb8efc745b39b0e5772d482627bb6ae92a305883a9a540512bd10e45ffc3",
+    "src/intact_tracking/forward_predictor_inputs.py": "dd7f756dca54097b0fdad66a28c993b61f2e1cb84fc6764509cf7719275c3b5e",
+    "src/intact_tracking/forward_predictor_objective.py": "65a8d0a0692a3933667af7cdaa60a18e8eda1c29eeb9aa1ae1fbb0b9e01ab109",
+    "src/intact_tracking/forward_predictor_schedule.py": "edc598bbde6bb10dddf2118b6cfd91eff5a21349600abcdde1a1b331ccff9116",
+    "src/intact_tracking/limb_context_dr.py": "c89a758bd9fbd193f8c5d1c23ad0f6b2cda7aec4ff296025055cfe1212ec7f58",
+    "src/intact_tracking/limb_context_protocol.py": "7267526fd490c8dd815aa1513461e97280b22226b378367f000a6ac2d34c0c3c",
+    "src/intact_tracking/residual_context.py": "e0726446fc0fc95e987a2dec44786cb1150f9bb03fe3d2a04c2aba35a19c8e51",
+    "src/intact_tracking/rollout/nominal.py": "2c974dd67bbf00fdf25412a1658a66f34d02211113c126871a88bdafbd73818d",
+    "src/intact_tracking/rollout/online.py": "7bac8a35788b46355c640be2fe1368bb5c05c649499a046c1b165e01bc70d1bd",
+    "src/intact_tracking/cli/forward_memory_train.py": "94214e1a17c0e9dc0aefc4d64e3fcd6db95f23f5540910ae8feb1eafb5dee411",
+    "src/intact_tracking/memory350_bank.py": "426279ef3cb9f788cc598264b0b9f6d5c33758a50436b7612c7daf1b85907d26",
+    "src/intact_tracking/memory350_inference.py": "b9da5dafef0ca6c54517c98986a406ba459fb465722c4bd3e9956c06cfd3fdd6",
+    "src/intact_tracking/memory350_model.py": "fe78c63753d0c79ffdc52a977ca77ccf72002c3a70f72a9735dbb30313e11645",
+    "src/intact_tracking/memory350_objective.py": "f803d13c858e031040ecbcf7d8c07c2e0e476761a19176139b8c5b68c0f904a1",
+    "src/intact_tracking/memory350_replay.py": "391a36f6cc0f6eedb17e4c5af3b075b1320696957252d00030dcf4c7ed670406",
+    "src/intact_tracking/memory350_rollout.py": "fef3d9d6e5ef722865ad1dcf22f7bbb43964188a23e7327a76134d7ba8c5e6d9"
+  },
+  "new_sources": {
+    "src/intact_tracking/cli/forward_short50_train.py": "2f62a8fb424a5f0a9aa4d5e3953565cc302cfa1680823be7fe46cdc2dd0fbfa2",
+    "src/intact_tracking/memory350_bank.py": "426279ef3cb9f788cc598264b0b9f6d5c33758a50436b7612c7daf1b85907d26",
+    "src/intact_tracking/memory350_inference.py": "b9da5dafef0ca6c54517c98986a406ba459fb465722c4bd3e9956c06cfd3fdd6",
+    "src/intact_tracking/memory350_model.py": "fe78c63753d0c79ffdc52a977ca77ccf72002c3a70f72a9735dbb30313e11645",
+    "src/intact_tracking/memory350_objective.py": "f803d13c858e031040ecbcf7d8c07c2e0e476761a19176139b8c5b68c0f904a1",
+    "src/intact_tracking/memory350_replay.py": "391a36f6cc0f6eedb17e4c5af3b075b1320696957252d00030dcf4c7ed670406",
+    "src/intact_tracking/memory350_rollout.py": "fef3d9d6e5ef722865ad1dcf22f7bbb43964188a23e7327a76134d7ba8c5e6d9",
+    "src/intact_tracking/short50_comparison.py": "54e1072fe5ece5aad20bd071587bf165e86db0d342ae41f7d0a2a64910a6ef9e",
+    "src/intact_tracking/short50_model.py": "500489621ee885cf261f8b09257454d972606f7422328adda9b72e0b1f9baa3d"
+  },
+  "preformal_adjustments": [
+    {
+      "path": "src/intact_tracking/cli/forward_short50_train.py",
+      "before": "7eecfcae71101d3e0427c6a1d7fa3d2c343540a0667e792abbc9475c81b2715c",
+      "after": "2f62a8fb424a5f0a9aa4d5e3953565cc302cfa1680823be7fe46cdc2dd0fbfa2",
+      "timestamp": 1789017565.5246234,
+      "reason": "Read only complete newline-terminated records from concurrently appended reference metrics; no model/training setting change"
+    }
+  ]
+}

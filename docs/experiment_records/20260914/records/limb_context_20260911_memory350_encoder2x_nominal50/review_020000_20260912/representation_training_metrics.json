@@ -1,0 +1,61 @@
+{
+  "update": 20000,
+  "metrics_at_update": {
+    "latent_positive_cosine": {
+      "original": 0.98689965903759,
+      "encoder2x": 0.9894095212221146
+    },
+    "latent_response_correlation": {
+      "original": 0.6741467863321304,
+      "encoder2x": 0.6760636121034622
+    },
+    "latent_shuffle_dr_error_ratio": {
+      "original": 4.570584774017334,
+      "encoder2x": 4.2186713218688965
+    },
+    "representation_positive_loss": {
+      "original": 0.013100352138280869,
+      "encoder2x": 0.01059048529714346
+    },
+    "representation_relation_loss": {
+      "original": 0.1053689569234848,
+      "encoder2x": 0.10604018345475197
+    },
+    "latent_distance_mean": {
+      "original": 0.945778414607048,
+      "encoder2x": 0.9231226891279221
+    }
+  },
+  "trend": {
+    "start": 15000,
+    "end": 20000,
+    "checkpoints": 51,
+    "metrics": {
+      "latent_positive_cosine": {
+        "original_mean": 0.9865320111606636,
+        "encoder2x_mean": 0.9894274309569714
+      },
+      "latent_response_correlation": {
+        "original_mean": 0.6714674275295407,
+        "encoder2x_mean": 0.6739722726976171
+      },
+      "latent_shuffle_dr_error_ratio": {
+        "original_mean": 4.446823336330115,
+        "encoder2x_mean": 4.148093179160473
+      },
+      "representation_positive_loss": {
+        "original_mean": 0.01346798904934058,
+        "encoder2x_mean": 0.01057256917998779
+      },
+      "representation_relation_loss": {
+        "original_mean": 0.10653876805422353,
+        "encoder2x_mean": 0.10670220351540576
+      },
+      "latent_distance_mean": {
+        "original_mean": 0.9428956125881157,
+        "encoder2x_mean": 0.922372675409504
+      }
+    }
+  },
+  "scope": "four-rank averaged metrics on the same fixed probes; one training seed; positive pairs have overlapping histories and the same world/episode/motion"
+}

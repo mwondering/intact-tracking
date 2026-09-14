@@ -1,0 +1,9 @@
+{
+  "verified_at": 1788852279.7817533,
+  "run_id": "limb-extra-97d82167498d",
+  "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/limb-extra-97d82167498d",
+  "completed_training_updates": 600,
+  "summary_readback_passed": true,
+  "project": "intact-preview-v2",
+  "group": "limb_context_20260907-stage2-extra-eval"
+}

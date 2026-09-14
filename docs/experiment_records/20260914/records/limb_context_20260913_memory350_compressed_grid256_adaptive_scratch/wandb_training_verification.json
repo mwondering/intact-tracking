@@ -1,0 +1,51 @@
+{
+  "passed": true,
+  "remote_training_and_grouped_diagnostics_verified": true,
+  "arms": {
+    "baseline": {
+      "id": "m350compressed-e905f5091945",
+      "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/m350compressed-e905f5091945",
+      "state": "running",
+      "uploaded_updates": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "latest_verified_row": {
+        "_step": 9,
+        "completed_updates": 9,
+        "training/loss/latent_same_dr_action_delta_rms": 0,
+        "training/loss/latent_cross_dr_action_delta_rms": 0
+      }
+    },
+    "concat": {
+      "id": "m350compressed-9dc62cb9cd8f",
+      "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/m350compressed-9dc62cb9cd8f",
+      "state": "running",
+      "uploaded_updates": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "latest_verified_row": {
+        "_step": 9,
+        "completed_updates": 9,
+        "training/loss/latent_same_dr_action_delta_rms": 0.0010977915953844786,
+        "training/loss/latent_cross_dr_action_delta_rms": 0.003187722060829401
+      }
+    }
+  },
+  "verified_at": 1789297854.6858582
+}

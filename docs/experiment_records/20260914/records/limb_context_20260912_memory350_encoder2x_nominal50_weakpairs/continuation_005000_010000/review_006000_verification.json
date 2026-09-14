@@ -1,0 +1,28 @@
+{
+  "checked_at": 1789207206.5752814,
+  "checks": {
+    "common_baseline_distances_reproduced": true,
+    "common_same_worlds_and_motion_readout": true,
+    "common_reconstruction_and_precision": true,
+    "memory_training_baseline_distances_reproduced": true,
+    "memory_training_same_worlds_and_motion_readout": true,
+    "memory_training_reconstruction_and_precision": true,
+    "evaluation_exit_zero": true,
+    "report_refreshed": true,
+    "reference_checkpoint_sha": true,
+    "README.md_links_exist": true,
+    "comparison_006000/README.md_links_exist": true
+  },
+  "assessment": "u6000 improves separation/readout and prediction; within-DR cross-motion compactness is essentially unchanged. Nominal cross-motion distance rose from 0.0477 to 0.0583. No convergence claim from one extra checkpoint.",
+  "native_top1_gain_ci95_pp": [
+    2.679144926266432,
+    5.971990361270776
+  ],
+  "training_configuration_changed": false,
+  "next_checks": [
+    7000,
+    8000,
+    9000,
+    10000
+  ]
+}

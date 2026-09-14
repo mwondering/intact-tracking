@@ -1,0 +1,78 @@
+{
+  "timestamp_utc": "2026-09-14T06:03:25.753213+00:00",
+  "reason": "Supervisor exited on transient FileNotFoundError while reading progress.json",
+  "changed_runtime_file": "/data_zcy/wxy/intact-tracking/scripts/run_residual_uniform_specialists.py",
+  "old_sha256": "ed14835fd8d952371d2c5c7656dfcbb9019d3acdaabfe09e8180a279007ce184",
+  "new_sha256": "b5c4e6fad7125b38cbe32dbd64c9e5abadbab7d89d12d7cc63b3ac68c43e8ccb",
+  "unchanged_existing_pinned_files": 186,
+  "focused_tests_passed": 14,
+  "training_workers_restarted": false,
+  "original_workers": {
+    "0": {
+      "pid": 57386,
+      "progress_before": {
+        "completed_updates": 959,
+        "unix_time": 1789365804.084199
+      }
+    },
+    "1": {
+      "pid": 57387,
+      "progress_before": {
+        "completed_updates": 907,
+        "unix_time": 1789365803.0778456
+      }
+    },
+    "2": {
+      "pid": 57388,
+      "progress_before": {
+        "completed_updates": 962,
+        "unix_time": 1789365803.3297899
+      }
+    },
+    "3": {
+      "pid": 57389,
+      "progress_before": {
+        "completed_updates": 944,
+        "unix_time": 1789365801.9142091
+      }
+    },
+    "4": {
+      "pid": 57390,
+      "progress_before": {
+        "completed_updates": 936,
+        "unix_time": 1789365801.7463632
+      }
+    },
+    "5": {
+      "pid": 57391,
+      "progress_before": {
+        "completed_updates": 901,
+        "unix_time": 1789365802.921612
+      }
+    },
+    "6": {
+      "pid": 57392,
+      "progress_before": {
+        "completed_updates": 965,
+        "unix_time": 1789365804.7018023
+      }
+    },
+    "7": {
+      "pid": 57393,
+      "progress_before": {
+        "completed_updates": 961,
+        "unix_time": 1789365805.078449
+      }
+    }
+  },
+  "new_supervisor_pid": 50761,
+  "command": [
+    "/data_zcy/wxy/intact-tracking/.venv/bin/python",
+    "-B",
+    "-u",
+    "/data_zcy/wxy/intact-tracking/scripts/run_residual_uniform_specialists.py",
+    "--run-root",
+    "/data_zcy/wxy/intact-tracking/runs/limb_context_20260914_fixed_dr_specialists8_uniform_unbounded_wrist10",
+    "--attach-existing"
+  ]
+}

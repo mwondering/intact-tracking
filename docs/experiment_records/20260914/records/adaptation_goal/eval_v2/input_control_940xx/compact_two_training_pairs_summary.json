@@ -1,0 +1,359 @@
+{
+  "training_seeds": [
+    76,
+    77
+  ],
+  "independent_training_pairs": 2,
+  "evaluation_seeds": [
+    94001,
+    94002,
+    94003
+  ],
+  "metric_names": [
+    "error_body_pos",
+    "error_joint_pos",
+    "error_anchor_pos",
+    "error_anchor_rot",
+    "error_body_rot",
+    "error_joint_vel",
+    "error_anchor_lin_vel",
+    "error_anchor_ang_vel",
+    "error_body_lin_vel",
+    "error_body_ang_vel"
+  ],
+  "statistics": {
+    "reference_means": [
+      0.04130942984513738,
+      0.6356120746556231,
+      0.32331448553667025,
+      0.08831673336616033,
+      0.18397567572189855,
+      5.185472397041734,
+      0.24957538036642313,
+      0.536732378085202,
+      0.33597054545433347,
+      1.4215069683411306
+    ],
+    "candidate_means": [
+      0.04013977480298568,
+      0.6057640040876746,
+      0.3083546627089548,
+      0.08702459913958131,
+      0.1775476967194201,
+      5.1869466495478855,
+      0.2464831021482246,
+      0.5385089153749049,
+      0.33257371862109275,
+      1.417739073974751
+    ],
+    "ratios": [
+      0.9716855195887101,
+      0.9530404286543482,
+      0.9537298095293082,
+      0.9853693159005118,
+      0.9650607126335815,
+      1.000284304378323,
+      0.9876098427110139,
+      1.0033099126533798,
+      0.9898895100204478,
+      0.9973493662357656
+    ],
+    "ratio_intervals": [
+      [
+        0.9580067398175067,
+        0.9834783353300507
+      ],
+      [
+        0.9433270180624237,
+        0.9618447438920472
+      ],
+      [
+        0.9177212313494486,
+        0.99067723819249
+      ],
+      [
+        0.9476828625395387,
+        1.0083873374040326
+      ],
+      [
+        0.9516866150039391,
+        0.9756074245653058
+      ],
+      [
+        0.9920749785858806,
+        1.007190943246609
+      ],
+      [
+        0.977880827128747,
+        0.9969465062441867
+      ],
+      [
+        0.9892574263611398,
+        1.0152155026936616
+      ],
+      [
+        0.9795145629959447,
+        0.9988646972259472
+      ],
+      [
+        0.9873767116916308,
+        1.0048115564349664
+      ]
+    ],
+    "reference_failure_rate": 0.017361111111111112,
+    "candidate_failure_rate": 0.011904761904761904,
+    "failure_difference_interval": [
+      -0.016865079365079364,
+      0.002976190476190476
+    ]
+  },
+  "per_training_pair": [
+    {
+      "training_seed": 76,
+      "comparison": "runs/adaptation_goal/eval_v2/input_control_940xx/compact76/comparison.json",
+      "metrics": {
+        "error_body_pos": {
+          "reference": 0.04122741075930046,
+          "candidate": 0.04007222083947159,
+          "ratio": 0.9719800516560873,
+          "paired_motion_seed_bootstrap_95pct": [
+            0.9540390796871492,
+            0.9844453991037528
+          ]
+        },
+        "error_joint_pos": {
+          "reference": 0.6363305448299891,
+          "candidate": 0.6080461572090412,
+          "ratio": 0.9555507937647332,
+          "paired_motion_seed_bootstrap_95pct": [
+            0.9458765387208915,
+            0.9640538500152025
+          ]
+        },
+        "error_anchor_pos": {
+          "reference": 0.32759061617014196,
+          "candidate": 0.3088443788044519,
+          "ratio": 0.9427754140675576,
+          "paired_motion_seed_bootstrap_95pct": [
+            0.9055963560222734,
+            0.978526024629971
+          ]
+        },
+        "error_anchor_rot": {
+          "reference": 0.08812156821899018,
+          "candidate": 0.08622351625642365,
+          "ratio": 0.9784609829247511,
+          "paired_motion_seed_bootstrap_95pct": [
+            0.9368150012169314,
+            1.0035891160277681
+          ]
+        },
+        "error_body_rot": {
+          "reference": 0.1841448139520349,
+          "candidate": 0.17778064555705864,
+          "ratio": 0.9654393286544904,
+          "paired_motion_seed_bootstrap_95pct": [
+            0.9496126524243725,
+            0.9764455927047987
+          ]
+        },
+        "error_joint_vel": {
+          "reference": 5.180943012145838,
+          "candidate": 5.188385258614512,
+          "ratio": 1.001436465610841,
+          "paired_motion_seed_bootstrap_95pct": [
+            0.9890096132770342,
+            1.009144631967233
+          ]
+        },
+        "error_anchor_lin_vel": {
+          "reference": 0.2501798571820181,
+          "candidate": 0.24682388250070253,
+          "ratio": 0.9865857518702079,
+          "paired_motion_seed_bootstrap_95pct": [
+            0.9733941291532119,
+            0.9969573765216418
+          ]
+        },
+        "error_anchor_ang_vel": {
+          "reference": 0.5374150309503989,
+          "candidate": 0.5399732873774321,
+          "ratio": 1.0047602993584104,
+          "paired_motion_seed_bootstrap_95pct": [
+            0.9825717420485645,
+            1.0194767503010507
+          ]
+        },
+        "error_body_lin_vel": {
+          "reference": 0.3369321923900993,
+          "candidate": 0.33265802047793863,
+          "ratio": 0.9873144448387643,
+          "paired_motion_seed_bootstrap_95pct": [
+            0.974307155008904,
+            0.9965054976169591
+          ]
+        },
+        "error_body_ang_vel": {
+          "reference": 1.4227105235357675,
+          "candidate": 1.4178262261484524,
+          "ratio": 0.9965669071068818,
+          "paired_motion_seed_bootstrap_95pct": [
+            0.9820678940785986,
+            1.0063187201775692
+          ]
+        }
+      },
+      "paired_failures": [
+        {
+          "seed": 94001,
+          "reference": 6,
+          "candidate": 1,
+          "episodes": 336,
+          "new": 0,
+          "recovered": 5
+        },
+        {
+          "seed": 94002,
+          "reference": 2,
+          "candidate": 3,
+          "episodes": 336,
+          "new": 1,
+          "recovered": 0
+        },
+        {
+          "seed": 94003,
+          "reference": 10,
+          "candidate": 10,
+          "episodes": 336,
+          "new": 1,
+          "recovered": 1
+        }
+      ]
+    },
+    {
+      "training_seed": 77,
+      "comparison": "runs/adaptation_goal/eval_v2/input_control_940xx/compact77/comparison.json",
+      "metrics": {
+        "error_body_pos": {
+          "reference": 0.0413914489309742,
+          "candidate": 0.04020732876649982,
+          "ratio": 0.9713921547793832,
+          "paired_motion_seed_bootstrap_95pct": [
+            0.9575129080720043,
+            0.984574339521187
+          ]
+        },
+        "error_joint_pos": {
+          "reference": 0.6348936044812572,
+          "candidate": 0.6034818509663087,
+          "ratio": 0.9505243818913349,
+          "paired_motion_seed_bootstrap_95pct": [
+            0.9409960076024803,
+            0.9596629767832794
+          ]
+        },
+        "error_anchor_pos": {
+          "reference": 0.31903835490319876,
+          "candidate": 0.30786494661345776,
+          "ratio": 0.9649778526060567,
+          "paired_motion_seed_bootstrap_95pct": [
+            0.9291117116792128,
+            1.005491514648186
+          ]
+        },
+        "error_anchor_rot": {
+          "reference": 0.08851189851333044,
+          "candidate": 0.08782568202273902,
+          "ratio": 0.9922471836880996,
+          "paired_motion_seed_bootstrap_95pct": [
+            0.9577928665370296,
+            1.0133529625566926
+          ]
+        },
+        "error_body_rot": {
+          "reference": 0.18380653749176218,
+          "candidate": 0.1773147478817815,
+          "ratio": 0.9646813998099952,
+          "paired_motion_seed_bootstrap_95pct": [
+            0.9510749803164157,
+            0.9763277183077997
+          ]
+        },
+        "error_joint_vel": {
+          "reference": 5.190001781937629,
+          "candidate": 5.185508040481249,
+          "ratio": 0.9991341541592492,
+          "paired_motion_seed_bootstrap_95pct": [
+            0.9924907048657297,
+            1.0056674912222552
+          ]
+        },
+        "error_anchor_lin_vel": {
+          "reference": 0.2489709035508284,
+          "candidate": 0.24614232179574688,
+          "ratio": 0.9886389063350768,
+          "paired_motion_seed_bootstrap_95pct": [
+            0.9791013909687056,
+            0.9992585228759963
+          ]
+        },
+        "error_anchor_ang_vel": {
+          "reference": 0.5360497252200043,
+          "candidate": 0.5370445433723776,
+          "ratio": 1.0018558318483701,
+          "paired_motion_seed_bootstrap_95pct": [
+            0.9913291602165407,
+            1.0108103569684392
+          ]
+        },
+        "error_body_lin_vel": {
+          "reference": 0.335008898518568,
+          "candidate": 0.3324894167642469,
+          "ratio": 0.9924793587111793,
+          "paired_motion_seed_bootstrap_95pct": [
+            0.9844817548187352,
+            1.0020000880152042
+          ]
+        },
+        "error_body_ang_vel": {
+          "reference": 1.420303413146493,
+          "candidate": 1.4176519218010493,
+          "ratio": 0.9981331514654536,
+          "paired_motion_seed_bootstrap_95pct": [
+            0.9912507748365604,
+            1.0046890987986612
+          ]
+        }
+      },
+      "paired_failures": [
+        {
+          "seed": 94001,
+          "reference": 5,
+          "candidate": 3,
+          "episodes": 336,
+          "new": 1,
+          "recovered": 3
+        },
+        {
+          "seed": 94002,
+          "reference": 2,
+          "candidate": 1,
+          "episodes": 336,
+          "new": 0,
+          "recovered": 1
+        },
+        {
+          "seed": 94003,
+          "reference": 10,
+          "candidate": 6,
+          "episodes": 336,
+          "new": 2,
+          "recovered": 6
+        }
+      ]
+    }
+  ],
+  "scope": "Only actor real physics input differs within each matched pair; controller, critic, original reward, initialization and fixed500 update budget are matched. Different planned run lengths do not change the fixed learning-rate updates being compared.",
+  "uncertainty": "Crossed paired bootstrap resamples training pairs, shared evaluation-world seeds and shared motion clusters. Only two training pairs give very limited training-population precision; intervals must not be presented as a broad generalization guarantee.",
+  "nominal_goal_acceptance": false
+}

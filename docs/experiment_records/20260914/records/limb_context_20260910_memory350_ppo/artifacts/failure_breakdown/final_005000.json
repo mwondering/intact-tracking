@@ -1,0 +1,454 @@
+{
+  "created_at": 1789099111.5978072,
+  "script_sha256": "4d4d5b94c040b54c1fd23ff7c6a243f029236d2ccef2149bf79155810eb7021c",
+  "scope": "Observed triggers only; no termination-off counterfactual",
+  "rows": {
+    "all_0_cold": {
+      "baseline": {
+        "episodes": 4096,
+        "failed_episodes": 7,
+        "failure_rate": 0.001708984375,
+        "completed_training_updates": 5000,
+        "checkpoint_sha256": "bf5fda76f36a8f19a71477b3ba48cfbd9424bf9855e79f40502b4ad9f11a1d53",
+        "counts_by_term": {
+          "anchor_pos": 0,
+          "anchor_ori": 0,
+          "ee_body_pos": 7
+        },
+        "exact_combinations": {
+          "ee_body_pos": 7
+        },
+        "source": "runs/limb_context_20260910_memory350_ppo/final/baseline/endpoint_eval/update_005000/all_0_cold.json",
+        "source_sha256": "b980278fe0510440b319b07783e1f3908f116b81ece896c692c21d89e2ad4b90"
+      },
+      "film": {
+        "episodes": 4096,
+        "failed_episodes": 6,
+        "failure_rate": 0.00146484375,
+        "completed_training_updates": 5000,
+        "checkpoint_sha256": "e339c9138746e06f8f1c4b8b89313be1a29902a34b50f7c29ee5e170c0893d26",
+        "counts_by_term": {
+          "anchor_pos": 0,
+          "anchor_ori": 0,
+          "ee_body_pos": 6
+        },
+        "exact_combinations": {
+          "ee_body_pos": 6
+        },
+        "source": "runs/limb_context_20260910_memory350_ppo/final/film/endpoint_eval/update_005000/all_0_cold.json",
+        "source_sha256": "d95a40865cec4857cc4a309f25d62c6c4bcb5fad1ca61e0e59595724e7c3e454"
+      },
+      "frozen_tracker": {
+        "episodes": 4096,
+        "failed_episodes": 5,
+        "failure_rate": 0.001220703125,
+        "completed_training_updates": null,
+        "checkpoint_sha256": "fd7bd90d5552e573bbbce1417e9b415c64bb487a76b683ba3c20503b5ec77635",
+        "counts_by_term": {
+          "anchor_pos": 0,
+          "anchor_ori": 0,
+          "ee_body_pos": 5
+        },
+        "exact_combinations": {
+          "ee_body_pos": 5
+        },
+        "source": "runs/limb_context_20260910_memory350_ppo/final/frozen_tracker/endpoint_eval/update_000000/all_0_cold.json",
+        "source_sha256": "69238433c634365def22cb2b53cc13dfae217da7173e30b71447ced04e5a29f4"
+      }
+    },
+    "all_4_cold": {
+      "baseline": {
+        "episodes": 4096,
+        "failed_episodes": 407,
+        "failure_rate": 0.099365234375,
+        "completed_training_updates": 5000,
+        "checkpoint_sha256": "bf5fda76f36a8f19a71477b3ba48cfbd9424bf9855e79f40502b4ad9f11a1d53",
+        "counts_by_term": {
+          "anchor_pos": 0,
+          "anchor_ori": 8,
+          "ee_body_pos": 399
+        },
+        "exact_combinations": {
+          "ee_body_pos": 399,
+          "anchor_ori": 8
+        },
+        "source": "runs/limb_context_20260910_memory350_ppo/final/baseline/endpoint_eval/update_005000/all_4_cold.json",
+        "source_sha256": "b085f75a069bfbe2c07d008a2de2e7bdfef5074cee2c95246b2b0f394ed37a6e"
+      },
+      "film": {
+        "episodes": 4096,
+        "failed_episodes": 441,
+        "failure_rate": 0.107666015625,
+        "completed_training_updates": 5000,
+        "checkpoint_sha256": "e339c9138746e06f8f1c4b8b89313be1a29902a34b50f7c29ee5e170c0893d26",
+        "counts_by_term": {
+          "anchor_pos": 0,
+          "anchor_ori": 4,
+          "ee_body_pos": 437
+        },
+        "exact_combinations": {
+          "ee_body_pos": 437,
+          "anchor_ori": 4
+        },
+        "source": "runs/limb_context_20260910_memory350_ppo/final/film/endpoint_eval/update_005000/all_4_cold.json",
+        "source_sha256": "652e8a821f278aa9bca60dfbcd3f5ac581f94fbb8c44bdb7c4ea969a13dda53c"
+      },
+      "frozen_tracker": {
+        "episodes": 4096,
+        "failed_episodes": 554,
+        "failure_rate": 0.13525390625,
+        "completed_training_updates": null,
+        "checkpoint_sha256": "fd7bd90d5552e573bbbce1417e9b415c64bb487a76b683ba3c20503b5ec77635",
+        "counts_by_term": {
+          "anchor_pos": 2,
+          "anchor_ori": 15,
+          "ee_body_pos": 539
+        },
+        "exact_combinations": {
+          "ee_body_pos": 537,
+          "anchor_ori": 13,
+          "anchor_pos": 2,
+          "anchor_ori + ee_body_pos": 2
+        },
+        "source": "runs/limb_context_20260910_memory350_ppo/final/frozen_tracker/endpoint_eval/update_000000/all_4_cold.json",
+        "source_sha256": "accb5af6f7738e8b743d8741d35f89d69776b19fc58bba2896414359e9505544"
+      }
+    },
+    "all_0_warm": {
+      "baseline": {
+        "episodes": 4096,
+        "failed_episodes": 7,
+        "failure_rate": 0.001708984375,
+        "completed_training_updates": 5000,
+        "checkpoint_sha256": "bf5fda76f36a8f19a71477b3ba48cfbd9424bf9855e79f40502b4ad9f11a1d53",
+        "counts_by_term": {
+          "anchor_pos": 0,
+          "anchor_ori": 0,
+          "ee_body_pos": 7
+        },
+        "exact_combinations": {
+          "ee_body_pos": 7
+        },
+        "source": "runs/limb_context_20260910_memory350_ppo/final/baseline/endpoint_eval/update_005000/all_0_warm.json",
+        "source_sha256": "994c73005edfb37ad2da6ee65fa661ac9656f9d861069901e2473b8636fcae31"
+      },
+      "film": {
+        "episodes": 4096,
+        "failed_episodes": 3,
+        "failure_rate": 0.000732421875,
+        "completed_training_updates": 5000,
+        "checkpoint_sha256": "e339c9138746e06f8f1c4b8b89313be1a29902a34b50f7c29ee5e170c0893d26",
+        "counts_by_term": {
+          "anchor_pos": 0,
+          "anchor_ori": 0,
+          "ee_body_pos": 3
+        },
+        "exact_combinations": {
+          "ee_body_pos": 3
+        },
+        "source": "runs/limb_context_20260910_memory350_ppo/final/film/endpoint_eval/update_005000/all_0_warm.json",
+        "source_sha256": "6ea6dbff5181d7f2d3ac0c40bf1720b95a2e720559be110488c65e1a7b18e8ce"
+      },
+      "frozen_tracker": {
+        "episodes": 4096,
+        "failed_episodes": 4,
+        "failure_rate": 0.0009765625,
+        "completed_training_updates": null,
+        "checkpoint_sha256": "fd7bd90d5552e573bbbce1417e9b415c64bb487a76b683ba3c20503b5ec77635",
+        "counts_by_term": {
+          "anchor_pos": 0,
+          "anchor_ori": 0,
+          "ee_body_pos": 4
+        },
+        "exact_combinations": {
+          "ee_body_pos": 4
+        },
+        "source": "runs/limb_context_20260910_memory350_ppo/final/frozen_tracker/endpoint_eval/update_000000/all_0_warm.json",
+        "source_sha256": "3b353d4092a3596acb49e05da2e4f6c54940f68cd43b9cbb056ed03b1ed0c4b2"
+      }
+    },
+    "all_4_warm": {
+      "baseline": {
+        "episodes": 4096,
+        "failed_episodes": 411,
+        "failure_rate": 0.100341796875,
+        "completed_training_updates": 5000,
+        "checkpoint_sha256": "bf5fda76f36a8f19a71477b3ba48cfbd9424bf9855e79f40502b4ad9f11a1d53",
+        "counts_by_term": {
+          "anchor_pos": 2,
+          "anchor_ori": 6,
+          "ee_body_pos": 404
+        },
+        "exact_combinations": {
+          "ee_body_pos": 403,
+          "anchor_ori": 6,
+          "anchor_pos + ee_body_pos": 1,
+          "anchor_pos": 1
+        },
+        "source": "runs/limb_context_20260910_memory350_ppo/final/baseline/endpoint_eval/update_005000/all_4_warm.json",
+        "source_sha256": "5f3c1d07dd93f5e129819f697c5c0051b07b70ff0ae1f991158c2c19aaa6ddb4"
+      },
+      "film": {
+        "episodes": 4096,
+        "failed_episodes": 437,
+        "failure_rate": 0.106689453125,
+        "completed_training_updates": 5000,
+        "checkpoint_sha256": "e339c9138746e06f8f1c4b8b89313be1a29902a34b50f7c29ee5e170c0893d26",
+        "counts_by_term": {
+          "anchor_pos": 2,
+          "anchor_ori": 6,
+          "ee_body_pos": 429
+        },
+        "exact_combinations": {
+          "ee_body_pos": 429,
+          "anchor_ori": 6,
+          "anchor_pos": 2
+        },
+        "source": "runs/limb_context_20260910_memory350_ppo/final/film/endpoint_eval/update_005000/all_4_warm.json",
+        "source_sha256": "5b869ea2a26afb7fa53f24c06b6762ec2d716eddda483132b55600612b533b27"
+      },
+      "frozen_tracker": {
+        "episodes": 4096,
+        "failed_episodes": 567,
+        "failure_rate": 0.138427734375,
+        "completed_training_updates": null,
+        "checkpoint_sha256": "fd7bd90d5552e573bbbce1417e9b415c64bb487a76b683ba3c20503b5ec77635",
+        "counts_by_term": {
+          "anchor_pos": 1,
+          "anchor_ori": 10,
+          "ee_body_pos": 558
+        },
+        "exact_combinations": {
+          "ee_body_pos": 556,
+          "anchor_ori": 8,
+          "anchor_ori + ee_body_pos": 2,
+          "anchor_pos": 1
+        },
+        "source": "runs/limb_context_20260910_memory350_ppo/final/frozen_tracker/endpoint_eval/update_000000/all_4_warm.json",
+        "source_sha256": "0c2dc6c75a6a922d22243167e20a5b1f96b0bcc4a051092953318e818b02e2cc"
+      }
+    },
+    "all_2_cold": {
+      "baseline": {
+        "episodes": 4096,
+        "failed_episodes": 39,
+        "failure_rate": 0.009521484375,
+        "completed_training_updates": 5000,
+        "checkpoint_sha256": "bf5fda76f36a8f19a71477b3ba48cfbd9424bf9855e79f40502b4ad9f11a1d53",
+        "counts_by_term": {
+          "anchor_pos": 1,
+          "anchor_ori": 1,
+          "ee_body_pos": 37
+        },
+        "exact_combinations": {
+          "ee_body_pos": 37,
+          "anchor_ori": 1,
+          "anchor_pos": 1
+        },
+        "source": "runs/limb_context_20260910_memory350_ppo/final/baseline/endpoint_eval/update_005000/all_2_cold.json",
+        "source_sha256": "20d35c60611e0886c5496061191a777b3860863ffbf4bd73ee4c35b23e571ee4"
+      },
+      "film": {
+        "episodes": 4096,
+        "failed_episodes": 42,
+        "failure_rate": 0.01025390625,
+        "completed_training_updates": 5000,
+        "checkpoint_sha256": "e339c9138746e06f8f1c4b8b89313be1a29902a34b50f7c29ee5e170c0893d26",
+        "counts_by_term": {
+          "anchor_pos": 0,
+          "anchor_ori": 0,
+          "ee_body_pos": 42
+        },
+        "exact_combinations": {
+          "ee_body_pos": 42
+        },
+        "source": "runs/limb_context_20260910_memory350_ppo/final/film/endpoint_eval/update_005000/all_2_cold.json",
+        "source_sha256": "cf526abcb9e9c0ed472263da9e16cb6c1756710efe837e2ebc31b2c89a9a4306"
+      },
+      "frozen_tracker": {
+        "episodes": 4096,
+        "failed_episodes": 41,
+        "failure_rate": 0.010009765625,
+        "completed_training_updates": null,
+        "checkpoint_sha256": "fd7bd90d5552e573bbbce1417e9b415c64bb487a76b683ba3c20503b5ec77635",
+        "counts_by_term": {
+          "anchor_pos": 0,
+          "anchor_ori": 0,
+          "ee_body_pos": 41
+        },
+        "exact_combinations": {
+          "ee_body_pos": 41
+        },
+        "source": "runs/limb_context_20260910_memory350_ppo/final/frozen_tracker/endpoint_eval/update_000000/all_2_cold.json",
+        "source_sha256": "9e8ff51f92d27a18ce28a661846e3a01eff435a4ab77c5e35792a589f2a9a9fc"
+      }
+    },
+    "uniform_cold": {
+      "baseline": {
+        "episodes": 4096,
+        "failed_episodes": 73,
+        "failure_rate": 0.017822265625,
+        "completed_training_updates": 5000,
+        "checkpoint_sha256": "bf5fda76f36a8f19a71477b3ba48cfbd9424bf9855e79f40502b4ad9f11a1d53",
+        "counts_by_term": {
+          "anchor_pos": 0,
+          "anchor_ori": 1,
+          "ee_body_pos": 72
+        },
+        "exact_combinations": {
+          "ee_body_pos": 72,
+          "anchor_ori": 1
+        },
+        "source": "runs/limb_context_20260910_memory350_ppo/final/baseline/endpoint_eval/update_005000/uniform_cold.json",
+        "source_sha256": "8ec94ae388b30d65d62ba44b9b7123167e595fc9ddcca50f59eda652ac25515b"
+      },
+      "film": {
+        "episodes": 4096,
+        "failed_episodes": 80,
+        "failure_rate": 0.01953125,
+        "completed_training_updates": 5000,
+        "checkpoint_sha256": "e339c9138746e06f8f1c4b8b89313be1a29902a34b50f7c29ee5e170c0893d26",
+        "counts_by_term": {
+          "anchor_pos": 1,
+          "anchor_ori": 0,
+          "ee_body_pos": 80
+        },
+        "exact_combinations": {
+          "ee_body_pos": 79,
+          "anchor_pos + ee_body_pos": 1
+        },
+        "source": "runs/limb_context_20260910_memory350_ppo/final/film/endpoint_eval/update_005000/uniform_cold.json",
+        "source_sha256": "2fa69aaa93322f661af2c92822f0e4f5e98498c44c0efdce694247ca16ae4092"
+      },
+      "frozen_tracker": {
+        "episodes": 4096,
+        "failed_episodes": 99,
+        "failure_rate": 0.024169921875,
+        "completed_training_updates": null,
+        "checkpoint_sha256": "fd7bd90d5552e573bbbce1417e9b415c64bb487a76b683ba3c20503b5ec77635",
+        "counts_by_term": {
+          "anchor_pos": 0,
+          "anchor_ori": 0,
+          "ee_body_pos": 99
+        },
+        "exact_combinations": {
+          "ee_body_pos": 99
+        },
+        "source": "runs/limb_context_20260910_memory350_ppo/final/frozen_tracker/endpoint_eval/update_000000/uniform_cold.json",
+        "source_sha256": "6162b0e4de4a92720413c9e1a299272e2f8f886f7a688895700c7dfd1ec075c9"
+      }
+    },
+    "all_2_warm": {
+      "baseline": {
+        "episodes": 4096,
+        "failed_episodes": 37,
+        "failure_rate": 0.009033203125,
+        "completed_training_updates": 5000,
+        "checkpoint_sha256": "bf5fda76f36a8f19a71477b3ba48cfbd9424bf9855e79f40502b4ad9f11a1d53",
+        "counts_by_term": {
+          "anchor_pos": 1,
+          "anchor_ori": 1,
+          "ee_body_pos": 35
+        },
+        "exact_combinations": {
+          "ee_body_pos": 35,
+          "anchor_ori": 1,
+          "anchor_pos": 1
+        },
+        "source": "runs/limb_context_20260910_memory350_ppo/final/baseline/endpoint_eval/update_005000/all_2_warm.json",
+        "source_sha256": "5a6072ba32dd612a1504b764db07af2821e0a920fd13e9dce91bba21dec4aec0"
+      },
+      "film": {
+        "episodes": 4096,
+        "failed_episodes": 44,
+        "failure_rate": 0.0107421875,
+        "completed_training_updates": 5000,
+        "checkpoint_sha256": "e339c9138746e06f8f1c4b8b89313be1a29902a34b50f7c29ee5e170c0893d26",
+        "counts_by_term": {
+          "anchor_pos": 0,
+          "anchor_ori": 0,
+          "ee_body_pos": 44
+        },
+        "exact_combinations": {
+          "ee_body_pos": 44
+        },
+        "source": "runs/limb_context_20260910_memory350_ppo/final/film/endpoint_eval/update_005000/all_2_warm.json",
+        "source_sha256": "8913655e70cc0d6135b4a404b4ae3be4f4ab5f2b139665d926f5e865b53147e3"
+      },
+      "frozen_tracker": {
+        "episodes": 4096,
+        "failed_episodes": 49,
+        "failure_rate": 0.011962890625,
+        "completed_training_updates": null,
+        "checkpoint_sha256": "fd7bd90d5552e573bbbce1417e9b415c64bb487a76b683ba3c20503b5ec77635",
+        "counts_by_term": {
+          "anchor_pos": 0,
+          "anchor_ori": 1,
+          "ee_body_pos": 48
+        },
+        "exact_combinations": {
+          "ee_body_pos": 48,
+          "anchor_ori": 1
+        },
+        "source": "runs/limb_context_20260910_memory350_ppo/final/frozen_tracker/endpoint_eval/update_000000/all_2_warm.json",
+        "source_sha256": "49075cab7b226e414f781f65343054fcedbcfb7d9a0e73c95f85d052f70d9fb0"
+      }
+    },
+    "uniform_warm": {
+      "baseline": {
+        "episodes": 4096,
+        "failed_episodes": 74,
+        "failure_rate": 0.01806640625,
+        "completed_training_updates": 5000,
+        "checkpoint_sha256": "bf5fda76f36a8f19a71477b3ba48cfbd9424bf9855e79f40502b4ad9f11a1d53",
+        "counts_by_term": {
+          "anchor_pos": 1,
+          "anchor_ori": 0,
+          "ee_body_pos": 74
+        },
+        "exact_combinations": {
+          "ee_body_pos": 73,
+          "anchor_pos + ee_body_pos": 1
+        },
+        "source": "runs/limb_context_20260910_memory350_ppo/final/baseline/endpoint_eval/update_005000/uniform_warm.json",
+        "source_sha256": "beee00d5dcb4e1f0ccb280f6032304aa67df24a739c9716b578ca05460476eda"
+      },
+      "film": {
+        "episodes": 4096,
+        "failed_episodes": 83,
+        "failure_rate": 0.020263671875,
+        "completed_training_updates": 5000,
+        "checkpoint_sha256": "e339c9138746e06f8f1c4b8b89313be1a29902a34b50f7c29ee5e170c0893d26",
+        "counts_by_term": {
+          "anchor_pos": 2,
+          "anchor_ori": 0,
+          "ee_body_pos": 82
+        },
+        "exact_combinations": {
+          "ee_body_pos": 81,
+          "anchor_pos + ee_body_pos": 1,
+          "anchor_pos": 1
+        },
+        "source": "runs/limb_context_20260910_memory350_ppo/final/film/endpoint_eval/update_005000/uniform_warm.json",
+        "source_sha256": "b93c7b04ee1677ca919bc7aa8239b95147ca5a9fe451d8027b45b486968cc04c"
+      },
+      "frozen_tracker": {
+        "episodes": 4096,
+        "failed_episodes": 89,
+        "failure_rate": 0.021728515625,
+        "completed_training_updates": null,
+        "checkpoint_sha256": "fd7bd90d5552e573bbbce1417e9b415c64bb487a76b683ba3c20503b5ec77635",
+        "counts_by_term": {
+          "anchor_pos": 0,
+          "anchor_ori": 0,
+          "ee_body_pos": 89
+        },
+        "exact_combinations": {
+          "ee_body_pos": 89
+        },
+        "source": "runs/limb_context_20260910_memory350_ppo/final/frozen_tracker/endpoint_eval/update_000000/uniform_warm.json",
+        "source_sha256": "64a18c36507c93027c0895c7e356ba4e1af31de08abd97fbf7c132fb108f2717"
+      }
+    }
+  }
+}

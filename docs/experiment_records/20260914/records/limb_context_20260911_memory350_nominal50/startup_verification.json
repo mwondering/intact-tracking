@@ -1,0 +1,114 @@
+{
+  "passed": true,
+  "run": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260911_memory350_nominal50/stage1_8192",
+  "progress_at_verification": {
+    "completed_updates": 11,
+    "optimizer_steps": 44,
+    "unbounded": true,
+    "unix_time": 1789126292.651767
+  },
+  "checkpoint_update": 1,
+  "original_architecture_and_loss_preserved": true,
+  "initialization": "from scratch; first logged update=1 and optimizer_steps=4; no resume",
+  "rank_counts": [
+    {
+      "rank": 0,
+      "physical_gpu": "0",
+      "num_envs": 8192,
+      "nominal_training_worlds": 4032,
+      "dr_training_worlds": 4032,
+      "nominal_validation_worlds": 64,
+      "dr_validation_worlds": 64
+    },
+    {
+      "rank": 1,
+      "physical_gpu": "1",
+      "num_envs": 8192,
+      "nominal_training_worlds": 4032,
+      "dr_training_worlds": 4032,
+      "nominal_validation_worlds": 64,
+      "dr_validation_worlds": 64
+    },
+    {
+      "rank": 2,
+      "physical_gpu": "2",
+      "num_envs": 8192,
+      "nominal_training_worlds": 4032,
+      "dr_training_worlds": 4032,
+      "nominal_validation_worlds": 64,
+      "dr_validation_worlds": 64
+    },
+    {
+      "rank": 3,
+      "physical_gpu": "3",
+      "num_envs": 8192,
+      "nominal_training_worlds": 4032,
+      "dr_training_worlds": 4032,
+      "nominal_validation_worlds": 64,
+      "dr_validation_worlds": 64
+    }
+  ],
+  "validation": [
+    {
+      "rank": 0,
+      "samples": 512,
+      "nominal_samples": 257,
+      "sha256": "e8634bbc798de938f55a624d0f5c2d66692ab2e6ad8a955eb6346827d14afe72"
+    },
+    {
+      "rank": 1,
+      "samples": 512,
+      "nominal_samples": 257,
+      "sha256": "46a747186d0b2fa5d1b55b376de48990db8d106d3ccf4273c534f158854bb253"
+    },
+    {
+      "rank": 2,
+      "samples": 512,
+      "nominal_samples": 259,
+      "sha256": "4f2dee0be52c526090c428463e7e8408b42b7e7c73bb5f2775f57db7874d39e1"
+    },
+    {
+      "rank": 3,
+      "samples": 512,
+      "nominal_samples": 245,
+      "sha256": "06dce4566ea216e57f4637f09e335745be846304038ab0fd756ad924a1ea7920"
+    }
+  ],
+  "normalization_worlds": 32256,
+  "validation_excluded_from_normalization": true,
+  "ddp_parameter_agreement": {
+    "passed": true,
+    "sha256_by_rank": [
+      "45d79fa8670dc32a76b91f8857ba20884eced23f167b362224a554ebf021030c",
+      "45d79fa8670dc32a76b91f8857ba20884eced23f167b362224a554ebf021030c",
+      "45d79fa8670dc32a76b91f8857ba20884eced23f167b362224a554ebf021030c",
+      "45d79fa8670dc32a76b91f8857ba20884eced23f167b362224a554ebf021030c"
+    ]
+  },
+  "first_probe": {
+    "dr_counterfactual_rms": 1.7300831973552704,
+    "dr_five_step_nmse": 1.1426075100898743,
+    "latent_distance_batch_p10": 1.0099371075630188,
+    "latent_distance_batch_p50": 1.332190603017807,
+    "latent_distance_batch_p90": 1.5866559147834778,
+    "latent_distance_mean": 1.3097297847270966,
+    "latent_positive_cosine": 0.9486510753631592,
+    "latent_relation_pairs": 506.5,
+    "latent_response_correlation": 0.03574636223493144,
+    "latent_shuffle_dr_error_ratio": 1.0054908990859985,
+    "latent_target_distance_batch_p10": 2.4021699573495425e-05,
+    "latent_target_distance_batch_p50": 1.126165360212326,
+    "latent_target_distance_batch_p90": 1.5566450953483582,
+    "latent_target_distance_mean": 0.9369321763515472,
+    "nominal_counterfactual_rms": 0.001716138474876061,
+    "nominal_five_step_nmse": 1.1834458708763123,
+    "one_step_nmse": 1.0597963333129883,
+    "representation_positive_loss": 0.05134894885122776,
+    "representation_relation_loss": 0.4210411235690117
+  },
+  "wandb": {
+    "url": "https://wandb.ai/2486344338-zhejiang-university/intact-forward-predictor/runs/m350n50-c90f7b5cd5be",
+    "state": "running",
+    "last_step": 1
+  }
+}

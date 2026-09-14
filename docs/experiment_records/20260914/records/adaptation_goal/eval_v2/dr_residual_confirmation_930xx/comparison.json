@@ -1,0 +1,244 @@
+{
+  "plan": {
+    "identities": {
+      "reference": {
+        "path": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/matched_dr_seed77/checkpoint_500.pt",
+        "sha256": "543c43348d0d1e9c9a00ca18ae46c0a10c4bafcd6c912f62a6f479be01af8ee4"
+      },
+      "candidate": {
+        "path": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/fixed_reward_lowrank_seed77/checkpoint_500.pt",
+        "sha256": "132ec7f57bece83012ba4565002a77d4c6277dd6da59280dd2ee7c9b07679219"
+      }
+    },
+    "evaluation_seeds": [
+      93001,
+      93002,
+      93003
+    ],
+    "scope": "One training seed, fixed checkpoints selected on development seed10001. Fresh evaluation worlds/starts only; NOT independent training replications. Architecture and physical input differ together. Both train/test DR, original reward. Not final nominal-goal confirmation."
+  },
+  "same_physics_worlds_audited": true,
+  "legacy_reference_configuration_audit": {
+    "reference_checkpoint_sha256": "543c43348d0d1e9c9a00ca18ae46c0a10c4bafcd6c912f62a6f479be01af8ee4",
+    "status": "Legacy reference configuration audited against signed candidate; not retroactively signed",
+    "equal_saved_reward_decimation_sim_config": true,
+    "original_reward_arguments_checked": true,
+    "recorded_reward_changes": {},
+    "no_adaptation_initialization_or_teacher": true,
+    "reward_source_sha256": "06b45f350bdaa00ab2d16d608ee74381214f40fa46ea103a326352365919a381",
+    "eligible_for_training_initialization": false,
+    "limitation": "Historical run predates runtime reward-signature capture. Configuration and source records support the comparison, but are not a retroactive runtime signature."
+  },
+  "statistics": {
+    "reference_files": [
+      "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/dr_residual_confirmation_930xx/reference_seed93001.json",
+      "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/dr_residual_confirmation_930xx/reference_seed93002.json",
+      "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/dr_residual_confirmation_930xx/reference_seed93003.json"
+    ],
+    "candidate_files": [
+      "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/dr_residual_confirmation_930xx/candidate_seed93001.json",
+      "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/dr_residual_confirmation_930xx/candidate_seed93002.json",
+      "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/dr_residual_confirmation_930xx/candidate_seed93003.json"
+    ],
+    "seeds": [
+      {
+        "seed": 93001,
+        "reference": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/dr_residual_confirmation_930xx/reference_seed93001.json",
+        "candidate": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/dr_residual_confirmation_930xx/candidate_seed93001.json",
+        "ratios": {
+          "error_body_pos": 0.9885547637733793,
+          "error_joint_pos": 0.9629068023972607,
+          "error_anchor_pos": 0.9478561889466601,
+          "error_anchor_rot": 1.0004240215321545,
+          "error_body_rot": 0.9843058010740958,
+          "error_joint_vel": 0.9950791558442896,
+          "error_anchor_lin_vel": 0.9854412430002668,
+          "error_anchor_ang_vel": 0.9896046177945218,
+          "error_body_lin_vel": 0.9923981893306123,
+          "error_body_ang_vel": 0.9971313617358917
+        },
+        "failure_difference": 0.0029761905316263437
+      },
+      {
+        "seed": 93002,
+        "reference": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/dr_residual_confirmation_930xx/reference_seed93002.json",
+        "candidate": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/dr_residual_confirmation_930xx/candidate_seed93002.json",
+        "ratios": {
+          "error_body_pos": 0.9852111015170166,
+          "error_joint_pos": 0.9650301110277435,
+          "error_anchor_pos": 0.9451356295914757,
+          "error_anchor_rot": 0.9891508290887593,
+          "error_body_rot": 0.987246767534577,
+          "error_joint_vel": 1.0023102726679636,
+          "error_anchor_lin_vel": 0.9910000246128293,
+          "error_anchor_ang_vel": 1.004785399722742,
+          "error_body_lin_vel": 0.9982659472881451,
+          "error_body_ang_vel": 1.0037986202907876
+        },
+        "failure_difference": -0.0029761907644569874
+      },
+      {
+        "seed": 93003,
+        "reference": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/dr_residual_confirmation_930xx/reference_seed93003.json",
+        "candidate": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/dr_residual_confirmation_930xx/candidate_seed93003.json",
+        "ratios": {
+          "error_body_pos": 0.9943555105541082,
+          "error_joint_pos": 0.9669475044055185,
+          "error_anchor_pos": 0.9853129395789416,
+          "error_anchor_rot": 1.0017077422692953,
+          "error_body_rot": 0.9895412269199111,
+          "error_joint_vel": 1.0012558156586704,
+          "error_anchor_lin_vel": 1.000149966757657,
+          "error_anchor_ang_vel": 0.9999615663620309,
+          "error_body_lin_vel": 1.0044367608208609,
+          "error_body_ang_vel": 1.0051651480706483
+        },
+        "failure_difference": 0.0
+      }
+    ],
+    "metrics": {
+      "error_body_pos": {
+        "reference": 0.040455710961931894,
+        "candidate": 0.04002730363118804,
+        "ratio": 0.9894104609569963,
+        "paired_motion_seed_bootstrap_95pct": [
+          0.9773246536625729,
+          1.0001547170606393
+        ]
+      },
+      "error_joint_pos": {
+        "reference": 0.6199412261766021,
+        "candidate": 0.5982211357112145,
+        "ratio": 0.9649642747598137,
+        "paired_motion_seed_bootstrap_95pct": [
+          0.957482564514877,
+          0.9727307898558485
+        ]
+      },
+      "error_anchor_pos": {
+        "reference": 0.3113536449173632,
+        "candidate": 0.2986984992333086,
+        "ratio": 0.9593544322006783,
+        "paired_motion_seed_bootstrap_95pct": [
+          0.9083767035213013,
+          1.0055066400107406
+        ]
+      },
+      "error_anchor_rot": {
+        "reference": 0.08653553965469887,
+        "candidate": 0.08628587384261424,
+        "ratio": 0.9971148754248154,
+        "paired_motion_seed_bootstrap_95pct": [
+          0.9783004222251821,
+          1.0151257970527277
+        ]
+      },
+      "error_body_rot": {
+        "reference": 0.17803975924392668,
+        "candidate": 0.17573086356233283,
+        "ratio": 0.9870315726588323,
+        "paired_motion_seed_bootstrap_95pct": [
+          0.9788654113537446,
+          0.996157582000691
+        ]
+      },
+      "error_joint_vel": {
+        "reference": 5.159093876249436,
+        "candidate": 5.1567024168188365,
+        "ratio": 0.9995364574694775,
+        "paired_motion_seed_bootstrap_95pct": [
+          0.9920904543525867,
+          1.011109737870575
+        ]
+      },
+      "error_anchor_lin_vel": {
+        "reference": 0.2466269099256839,
+        "candidate": 0.2447042266838028,
+        "ratio": 0.9922040816938409,
+        "paired_motion_seed_bootstrap_95pct": [
+          0.9830343212503785,
+          1.003299042910471
+        ]
+      },
+      "error_anchor_ang_vel": {
+        "reference": 0.5382217912073791,
+        "candidate": 0.5372000458947955,
+        "ratio": 0.9981016277503526,
+        "paired_motion_seed_bootstrap_95pct": [
+          0.9872226668838379,
+          1.0154258054526815
+        ]
+      },
+      "error_body_lin_vel": {
+        "reference": 0.3317627728452576,
+        "candidate": 0.3312258560087073,
+        "ratio": 0.9983816242191804,
+        "paired_motion_seed_bootstrap_95pct": [
+          0.9906369701651305,
+          1.0077918001261723
+        ]
+      },
+      "error_body_ang_vel": {
+        "reference": 1.407132232496467,
+        "candidate": 1.4099849319536686,
+        "ratio": 1.0020273144138987,
+        "paired_motion_seed_bootstrap_95pct": [
+          0.993345898953596,
+          1.013521385017477
+        ]
+      }
+    },
+    "reference_failure_rate": 0.008928571428571428,
+    "candidate_failure_rate": 0.008928571428571428,
+    "failure_difference": 0.0,
+    "failure_difference_paired_bootstrap_95pct": [
+      -0.008928571428571428,
+      0.008928571428571428
+    ],
+    "failure_upper_95pct_within_margin": false,
+    "allowed_observed_failure_increase": 0.0,
+    "observed_failure_nonincrease": true,
+    "fixed_reward_candidate_eligible": true,
+    "margin": 1.0,
+    "evaluation_protocol": "balanced_fixed_starts_v2_isolated_resets",
+    "valid_acceptance_protocol": true,
+    "matched_single_policy_identity": true,
+    "acceptance_conditions": false,
+    "numerical_point_estimate_pass": true,
+    "point_estimate_pass": false,
+    "primary_upper_95pct_within_margin": false,
+    "all_metrics_point_estimate_pass": false,
+    "all_metrics_upper_95pct_within_margin": false,
+    "confirmation_seeds_used": false,
+    "confirmation_seed_set_complete": false,
+    "warning": "INVALID FOR ACCEPTANCE: missing v2 reset audits, fixed-reward lineage, or a diagnostic/ablation condition."
+  },
+  "paired_failures": [
+    {
+      "seed": 93001,
+      "reference": 1,
+      "candidate": 2,
+      "episodes": 336,
+      "new": 1,
+      "recovered": 0
+    },
+    {
+      "seed": 93002,
+      "reference": 3,
+      "candidate": 2,
+      "episodes": 336,
+      "new": 2,
+      "recovered": 3
+    },
+    {
+      "seed": 93003,
+      "reference": 5,
+      "candidate": 5,
+      "episodes": 336,
+      "new": 2,
+      "recovered": 2
+    }
+  ],
+  "nominal_goal_acceptance": false,
+  "warning": "Bootstrap reflects evaluation seed/motion uncertainty only, not training-seed uncertainty or a causal input-only ablation."
+}

@@ -10,3 +10,6 @@ rollouts/
 runs/
 environment_ref_base.md
 jepa_ref_base.md
+.runtime/
+wandb/
+*.log

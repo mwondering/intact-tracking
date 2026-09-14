@@ -1,0 +1,21 @@
+{
+  "passed": true,
+  "unchanged_training_math_and_sampling": {
+    "src/intact_tracking/memory350_weak_pairs.py": "0495b6f3c869ccdd00d90d38b2fd89644187293f3cab1c8d2cc9a852cb77a7ad",
+    "src/intact_tracking/memory350_model.py": "fe78c63753d0c79ffdc52a977ca77ccf72002c3a70f72a9735dbb30313e11645",
+    "src/intact_tracking/memory350_scale_model.py": "0d295de4fe351dede549ae6efc1753de8e14b3e1be0537a4fc3b61cfcb12f096",
+    "src/intact_tracking/memory350_objective.py": "27f5a3108759cb956fe0368e09da6087f361b479d9e045e9d6f1e406e96d70e4",
+    "src/intact_tracking/memory350_replay.py": "d2f06d09e8e745e8519ce498dd3cf2fa41c3dcfb9dad84b1bc0b6243ed138fb0",
+    "src/intact_tracking/memory350_bank.py": "426279ef3cb9f788cc598264b0b9f6d5c33758a50436b7612c7daf1b85907d26",
+    "src/intact_tracking/memory350_rollout.py": "fef3d9d6e5ef722865ad1dcf22f7bbb43964188a23e7327a76134d7ba8c5e6d9",
+    "src/intact_tracking/memory350_nominal_rollout.py": "30591e9e75d6a2ba07750937dda3312b7684e8ef2e2393d1fcff5589e04f9b63",
+    "src/intact_tracking/forward_predictor_objective.py": "65a8d0a0692a3933667af7cdaa60a18e8eda1c29eeb9aa1ae1fbb0b9e01ab109",
+    "src/intact_tracking/forward_predictor_schedule.py": "edc598bbde6bb10dddf2118b6cfd91eff5a21349600abcdde1a1b331ccff9116",
+    "src/intact_tracking/rollout/online.py": "7bac8a35788b46355c640be2fe1368bb5c05c649499a046c1b165e01bc70d1bd",
+    "src/intact_tracking/rollout/nominal.py": "2c974dd67bbf00fdf25412a1658a66f34d02211113c126871a88bdafbd73818d"
+  },
+  "new_entry": "intact_tracking.cli.forward_memory_weak_tune_train",
+  "ordinary_resume_remains_strict": true,
+  "tests_passed": 31,
+  "unix_time": 1789212441.8054075
+}

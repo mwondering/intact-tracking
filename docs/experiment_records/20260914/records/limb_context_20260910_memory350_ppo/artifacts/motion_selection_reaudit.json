@@ -1,0 +1,17 @@
+{
+  "checked_at": 1789094274.3641005,
+  "full_catalog_count": 129827,
+  "sampling_seed_checked": 209101,
+  "selection_reproduced_from_sorted_catalog": true,
+  "periodic_is_final_prefix": true,
+  "periodic_groups": {
+    "sonic_filtered": 511,
+    "AMASS_LAFAN_Qingtong": 1
+  },
+  "final_groups": {
+    "sonic_filtered": 4094,
+    "AMASS_LAFAN_Qingtong": 2
+  },
+  "periodic_manifest_sha256": "84f2d51105dfcf3826bc45b2b047e5a4b669ab1874c7bca22d55e5e30c3f6c30",
+  "final_manifest_sha256": "64ba95b32180b796e4fe98dd3fe22c1e7ea912c334b8527991b075d94c91f468"
+}

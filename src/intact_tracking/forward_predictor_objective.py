@@ -25,6 +25,7 @@ class ForwardPredictorLossConfig:
     contact_force_weight: float = 1.0
     contact_binary_weight: float = 1.0
     representation_weight: float = 0.01
+    representation_relation_weight: float = 1.0
     response_distance_scale: float = 1.0
     huber_delta: float = 1.0
 
@@ -40,6 +41,7 @@ class ForwardPredictorLossConfig:
             "contact_force_weight",
             "contact_binary_weight",
             "representation_weight",
+            "representation_relation_weight",
         )
         invalid = {name: getattr(self, name) for name in weights if getattr(self, name) < 0.0}
         if invalid:
@@ -203,6 +205,9 @@ def _counterfactual_representation_loss(
     world_id: torch.Tensor,
     *,
     response_distance_scale: float,
+    representation_relation_weight: float = 1.0,
+    compute_metrics: bool = True,
+    response_valid: torch.Tensor | None = None,
 ) -> tuple[torch.Tensor, dict[str, torch.Tensor], torch.Tensor]:
     """Match latent geometry to the continuously observed nominal/DR response.
 
@@ -215,8 +220,9 @@ def _counterfactual_representation_loss(
 
     if latent.shape != positive_latent.shape or latent.ndim != 2:
         raise ValueError("Latent and positive_latent must have equal [batch,dim] shapes")
-    if response.ndim != 3 or response.shape[:2] != (latent.size(0), 5):
-        raise ValueError("Counterfactual response must be [batch,5,70]")
+    if (response.ndim != 3 or response.size(0) != latent.size(0)
+            or response.size(1) not in (5, 10) or response.size(2) != 70):
+        raise ValueError("Counterfactual response must be [batch,5 or 10,70]")
     full_positive = positive_pair_valid & context_full & positive_context_full
     embedding = F.normalize(latent.float(), dim=-1, eps=1.0e-8)
     positive_embedding = F.normalize(positive_latent.float(), dim=-1, eps=1.0e-8)
@@ -232,15 +238,36 @@ def _counterfactual_representation_loss(
     )
     target_distance = 2.0 * response_distance / (response_distance + float(response_distance_scale))
     relation_valid = context_full & context_full.index_select(0, partner) & different_world
+    if response_valid is not None:
+        if response_valid.shape != world_id.shape or response_valid.dtype != torch.bool:
+            raise ValueError("Response validity must be a boolean per sample")
+        relation_valid = relation_valid & response_valid & response_valid.index_select(0, partner)
     relation_error = F.smooth_l1_loss(latent_distance, target_distance, reduction="none", beta=0.25)
     relation_loss = _masked_mean(relation_error, relation_valid)
-    representation_loss = positive_loss + relation_loss
-    metrics = {
-        "latent_positive_cosine": _masked_mean(positive_cosine, full_positive),
-        "latent_response_correlation": _pearson_correlation(
-            latent_distance, response_distance, relation_valid
-        ),
-    }
+    representation_loss = positive_loss + float(representation_relation_weight) * relation_loss
+    metrics = {}
+    if compute_metrics:
+        metrics = {
+            "latent_positive_cosine": _masked_mean(positive_cosine, full_positive),
+            "latent_response_correlation": _pearson_correlation(
+                latent_distance, response_distance, relation_valid
+            ),
+            "representation_positive_loss": positive_loss.detach(),
+            "representation_relation_loss": relation_loss.detach(),
+            "latent_relation_pairs": relation_valid.sum().float(),
+        }
+        for name, distance in (
+            ("latent_distance", latent_distance),
+            ("latent_target_distance", target_distance),
+        ):
+            values = distance.detach()[relation_valid]
+            quantiles = (
+                torch.quantile(values, values.new_tensor([0.1, 0.5, 0.9]))
+                if values.numel() else distance.new_zeros(3)
+            )
+            metrics[f"{name}_mean"] = _masked_mean(distance.detach(), relation_valid)
+            for index, percentile in enumerate((10, 50, 90)):
+                metrics[f"{name}_batch_p{percentile}"] = quantiles[index]
     return representation_loss, metrics, partner
 
 
@@ -438,6 +465,8 @@ class ForwardPredictorObjective(nn.Module):
             batch["positive_history_valid"].all(dim=1),
             batch["world_id"],
             response_distance_scale=self.loss_config.response_distance_scale,
+            representation_relation_weight=self.loss_config.representation_relation_weight,
+            compute_metrics=compute_metrics,
         )
         total_loss = prediction_loss + self.loss_config.representation_weight * representation_loss
         if not compute_metrics:

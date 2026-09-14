@@ -1,0 +1,402 @@
+{
+  "arms": {
+    "baseline": {
+      "checkpoint_sha256": "aec23eaa9f49bf712a494b710917c19f8483126323744fdb469ab40715bdc7a7",
+      "checks": {
+        "adaptive_from_zero": true,
+        "critic_current_tracker_action": true,
+        "critic_head_157": true,
+        "ee_termination": true,
+        "evaluation_complete": true,
+        "evaluation_finite": true,
+        "finite_losses": true,
+        "four_rank_parameters_agree": true,
+        "four_ranks_8192_each": true,
+        "fp32": true,
+        "independent_actor_critic": true,
+        "independent_uniform_dr": true,
+        "three_full_scale_updates": true
+      },
+      "input_audit": {
+        "action_std_initialization": 0.25,
+        "actor_compression": [
+          1645,
+          512,
+          256,
+          128
+        ],
+        "actor_compressor_sha256": "79577949de8dabd8042d78d2bdc63a574f34a2c81a784b6868bcbbeffdba9662",
+        "actor_critic_parameters_shared": false,
+        "actor_experts": 1,
+        "actor_head": [
+          157,
+          256,
+          128,
+          29
+        ],
+        "actor_initialization_seed": 10128,
+        "actor_original_features": 1645,
+        "actor_trainable_parameters": 1084090,
+        "critic_bootstrap_tracker_action": "recomputed on final next-state observation",
+        "critic_compression": [
+          6330,
+          1024,
+          512,
+          256,
+          128
+        ],
+        "critic_compressor_sha256": "dfadf550f769ad9c09076ffbfadbc97a2b1c1b6099c3847c0befef2d37e40603",
+        "critic_experts": 1,
+        "critic_head": [
+          157,
+          256,
+          128,
+          1
+        ],
+        "critic_initial_normalizer_sha256": "ed24a9ce0f4e3ee6980c02ff7a30289cbb497911904a60bf2f3db80dcd3897ca",
+        "critic_initialization_seed": 20124,
+        "critic_original_features": 6330,
+        "critic_tracker_action_input_dim": 29,
+        "critic_tracker_action_matches_actor": true,
+        "critic_tracker_action_normalization": "unmodified raw action; appended after obs compression",
+        "critic_tracker_action_source": "same current raw deterministic tracker mean used by actor; stored in rollout observations",
+        "critic_trainable_parameters": 7245441,
+        "each_side_shares_one_obs_encoder_across_its_experts": true,
+        "identical_initial_action": true,
+        "initial_value_independent_of_latent": true,
+        "latent_dimensions": 0,
+        "latent_use": "absent",
+        "router_has_trainable_parameters": false,
+        "routing_bootstrap": {
+          "policy": "deterministic frozen tracker",
+          "ppo_updates": 0,
+          "rank_seed": 2300121,
+          "same_bootstrap_in_baseline": true,
+          "steps": 500,
+          "trajectory_sha256": "95b2564631769d7017e815affcff67ad3cfa0d60ed0f4575371db3b7b2c26001"
+        },
+        "tracker_action_input_dim": 29
+      },
+      "timing": [
+        {
+          "collect_seconds": 3.325963020324707,
+          "learn_seconds": 1.5497238636016846
+        },
+        {
+          "collect_seconds": 3.170380115509033,
+          "learn_seconds": 1.4489381313323975
+        },
+        {
+          "collect_seconds": 3.155824899673462,
+          "learn_seconds": 1.4487533569335938
+        }
+      ]
+    },
+    "concat": {
+      "checkpoint_sha256": "571dcead1874e989e434addc04410ba96fb4e77920c405e2daf27f3d615accd2",
+      "checks": {
+        "actor_critic_router_equal": true,
+        "adaptive_from_zero": true,
+        "all_16_experts_used": true,
+        "centers_update_once_per_ppo_update": true,
+        "context_frozen": true,
+        "critic_current_tracker_action": true,
+        "critic_head_157": true,
+        "ee_termination": true,
+        "evaluation_complete": true,
+        "evaluation_finite": true,
+        "finite_losses": true,
+        "four_rank_parameters_agree": true,
+        "four_ranks_8192_each": true,
+        "fp32": true,
+        "independent_actor_critic": true,
+        "independent_uniform_dr": true,
+        "reassignment_within_cap": true,
+        "three_full_scale_updates": true
+      },
+      "input_audit": {
+        "action_std_initialization": 0.25,
+        "actor_compression": [
+          1645,
+          512,
+          256,
+          128
+        ],
+        "actor_compressor_sha256": "79577949de8dabd8042d78d2bdc63a574f34a2c81a784b6868bcbbeffdba9662",
+        "actor_critic_parameters_shared": false,
+        "actor_experts": 16,
+        "actor_head": [
+          157,
+          256,
+          128,
+          29
+        ],
+        "actor_initialization_seed": 10128,
+        "actor_original_features": 1645,
+        "actor_trainable_parameters": 2240365,
+        "critic_bootstrap_tracker_action": "recomputed on final next-state observation",
+        "critic_compression": [
+          6330,
+          1024,
+          512,
+          256,
+          128
+        ],
+        "critic_compressor_sha256": "dfadf550f769ad9c09076ffbfadbc97a2b1c1b6099c3847c0befef2d37e40603",
+        "critic_experts": 16,
+        "critic_head": [
+          157,
+          256,
+          128,
+          1
+        ],
+        "critic_initial_normalizer_sha256": "bd0b60b4fc745e480ba6d1ce6317d04a99d68097f7338664edc5969216a070a1",
+        "critic_initialization_seed": 20124,
+        "critic_original_features": 6330,
+        "critic_tracker_action_input_dim": 29,
+        "critic_tracker_action_matches_actor": true,
+        "critic_tracker_action_normalization": "unmodified raw action; appended after obs compression",
+        "critic_tracker_action_source": "same current raw deterministic tracker mean used by actor; stored in rollout observations",
+        "critic_trainable_parameters": 8347536,
+        "each_side_shares_one_obs_encoder_across_its_experts": true,
+        "identical_initial_action": true,
+        "initial_value_independent_of_latent": true,
+        "latent_dimensions": 64,
+        "latent_use": "online K-means hard routing only",
+        "router_has_trainable_parameters": false,
+        "routing_bootstrap": {
+          "bootstrap_counts": [
+            11388,
+            9223,
+            7584,
+            8946,
+            7381,
+            9360,
+            6989,
+            8627,
+            11306,
+            7550,
+            6458,
+            7052,
+            6323,
+            8235,
+            7170,
+            7480
+          ],
+          "bootstrap_inertia": 0.30710569024086,
+          "bootstrap_samples": 131072,
+          "centers_sha256": "61e6cc94a2cfac15c5b39cef8c2676cc8ca8204ba2d277ec2a6f7c9e60532b40",
+          "policy": "deterministic frozen tracker",
+          "ppo_updates": 0,
+          "rank_seed": 2300121,
+          "same_bootstrap_in_baseline": true,
+          "steps": 500,
+          "trajectory_sha256": "588a0684ab837f609aa2e39920ddf25a0129730e894e6ff37faf8f9c13da3980"
+        },
+        "tracker_action_input_dim": 29
+      },
+      "timing": [
+        {
+          "collect_seconds": 5.546474456787109,
+          "learn_seconds": 1.8285400867462158
+        },
+        {
+          "collect_seconds": 5.3982391357421875,
+          "learn_seconds": 1.7090606689453125
+        },
+        {
+          "collect_seconds": 5.719714164733887,
+          "learn_seconds": 1.6996064186096191
+        }
+      ]
+    }
+  },
+  "bootstrap_scope": "Same initialization procedure; no assertion of bitwise-identical 500-step simulator trajectories or initial critic moments.",
+  "critic_action_runtime_verification.json": {
+    "arms": {
+      "baseline": {
+        "all_critic_heads_learned_all_tracker_action_columns": true,
+        "changes": [
+          {
+            "action_weight_delta_rms": 0.004048385191708803,
+            "action_weight_max_change": 0.012567704543471336,
+            "changed_action_columns": 29,
+            "expert": 0
+          }
+        ],
+        "total_trainable_parameters": 8329531
+      },
+      "concat": {
+        "all_critic_heads_learned_all_tracker_action_columns": true,
+        "changes": [
+          {
+            "action_weight_delta_rms": 0.003659941954538226,
+            "action_weight_max_change": 0.011675594374537468,
+            "changed_action_columns": 29,
+            "expert": 0
+          },
+          {
+            "action_weight_delta_rms": 0.003729796502739191,
+            "action_weight_max_change": 0.00986289419233799,
+            "changed_action_columns": 29,
+            "expert": 1
+          },
+          {
+            "action_weight_delta_rms": 0.003521118313074112,
+            "action_weight_max_change": 0.013718539848923683,
+            "changed_action_columns": 29,
+            "expert": 2
+          },
+          {
+            "action_weight_delta_rms": 0.0035530675668269396,
+            "action_weight_max_change": 0.009850602596998215,
+            "changed_action_columns": 29,
+            "expert": 3
+          },
+          {
+            "action_weight_delta_rms": 0.0035963444970548153,
+            "action_weight_max_change": 0.008686729706823826,
+            "changed_action_columns": 29,
+            "expert": 4
+          },
+          {
+            "action_weight_delta_rms": 0.003556023584678769,
+            "action_weight_max_change": 0.008227510377764702,
+            "changed_action_columns": 29,
+            "expert": 5
+          },
+          {
+            "action_weight_delta_rms": 0.004416400101035833,
+            "action_weight_max_change": 0.010435636155307293,
+            "changed_action_columns": 29,
+            "expert": 6
+          },
+          {
+            "action_weight_delta_rms": 0.003669216763228178,
+            "action_weight_max_change": 0.010874886065721512,
+            "changed_action_columns": 29,
+            "expert": 7
+          },
+          {
+            "action_weight_delta_rms": 0.0035873213782906532,
+            "action_weight_max_change": 0.008593281731009483,
+            "changed_action_columns": 29,
+            "expert": 8
+          },
+          {
+            "action_weight_delta_rms": 0.003569640452042222,
+            "action_weight_max_change": 0.012515032663941383,
+            "changed_action_columns": 29,
+            "expert": 9
+          },
+          {
+            "action_weight_delta_rms": 0.004676315933465958,
+            "action_weight_max_change": 0.009969953447580338,
+            "changed_action_columns": 29,
+            "expert": 10
+          },
+          {
+            "action_weight_delta_rms": 0.004343148320913315,
+            "action_weight_max_change": 0.009441390633583069,
+            "changed_action_columns": 29,
+            "expert": 11
+          },
+          {
+            "action_weight_delta_rms": 0.004613184370100498,
+            "action_weight_max_change": 0.009626351296901703,
+            "changed_action_columns": 29,
+            "expert": 12
+          },
+          {
+            "action_weight_delta_rms": 0.0035411883145570755,
+            "action_weight_max_change": 0.010908439755439758,
+            "changed_action_columns": 29,
+            "expert": 13
+          },
+          {
+            "action_weight_delta_rms": 0.004441866651177406,
+            "action_weight_max_change": 0.008466176688671112,
+            "changed_action_columns": 29,
+            "expert": 14
+          },
+          {
+            "action_weight_delta_rms": 0.0036735148169100285,
+            "action_weight_max_change": 0.01050972193479538,
+            "changed_action_columns": 29,
+            "expert": 15
+          }
+        ],
+        "total_trainable_parameters": 10587901
+      }
+    },
+    "passed": true,
+    "verified_at": 1789320654.3610952
+  },
+  "matched_compressor_initialization": {
+    "actor_compressor_sha256": true,
+    "critic_compressor_sha256": true
+  },
+  "matched_physics": true,
+  "matched_reward": true,
+  "passed": true,
+  "precision_reuse_verification.json": {
+    "actor_class_unchanged": "intact_tracking.memory350_moe_policy:HardMoEActor",
+    "inherited_source_changes": [],
+    "inherited_source_files_checked": 174,
+    "passed": true,
+    "prior_actor_precision_verification": "runs/limb_context_20260913_memory350_online_kmeans16_uniform_dr/precision_verification.json",
+    "scope": "Prior formal-batch actor precision audit applies to unchanged actor implementation/configuration. Critic action plumbing is separately covered by v2 runtime tests."
+  },
+  "resume": {
+    "centers_restored_and_advanced_once": true,
+    "completed_updates": 4,
+    "four_rank_parameters_agree": true,
+    "restoration": {
+      "checkpoint_update": 3,
+      "model_optimizer_state_sha256": "bc2dd170792b1e31b7090e6a0cb452f00316d2d64453ea5584aaaa4e361a124b",
+      "passed": true
+    },
+    "sampler": [
+      {
+        "open_episode_visits_rebuilt": true,
+        "pending_completed_visits_restored": true,
+        "rank": 0,
+        "restored": true,
+        "sha256": "d146744c70b75d0ed1631d110ebdee8e2af0af46f5101e3b4f31d4740a081295"
+      },
+      {
+        "open_episode_visits_rebuilt": true,
+        "pending_completed_visits_restored": true,
+        "rank": 1,
+        "restored": true,
+        "sha256": "32e9d8cf1c298e9c8b419d751ab89e65ce8029957a9a9fc247cdd686a9cf9d74"
+      },
+      {
+        "open_episode_visits_rebuilt": true,
+        "pending_completed_visits_restored": true,
+        "rank": 2,
+        "restored": true,
+        "sha256": "fc37b80707ca204887455b60e8cfa89643b8f1458f9c94e1c0e79de94206cdbd"
+      },
+      {
+        "open_episode_visits_rebuilt": true,
+        "pending_completed_visits_restored": true,
+        "rank": 3,
+        "restored": true,
+        "sha256": "e917c7ca85348e086e22781ad04b340c23361ec10b1d55acfedf1a766fd2b79f"
+      }
+    ]
+  },
+  "unit_verification.json": {
+    "counts": {
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0,
+      "tests": 31
+    },
+    "junit": "runs/limb_context_20260913_memory350_online_kmeans16_critic_action/unit_results.xml",
+    "passed": true,
+    "verified_at": 1789320654.7838724
+  },
+  "verified_at": 1789320827.2429814
+}

@@ -1,0 +1,224 @@
+{
+  "arguments": {
+    "action_rate_multiplier": 1.0,
+    "actor_lr": 2e-05,
+    "actor_lr_schedule": "fixed",
+    "add_static_correction": false,
+    "auxiliary_metric_weights": null,
+    "auxiliary_reward_shape": "exp",
+    "auxiliary_tracking_weight": 0.0,
+    "context_aux_batch_size": 2048,
+    "context_aux_steps": 0,
+    "context_aux_weight": 0.05,
+    "context_physics_weight": 0.01,
+    "correction_scale": 0.25,
+    "correction_use_privilege": null,
+    "critic_lr": 0.0005,
+    "critic_warmup_updates": 50,
+    "device": "cuda:0",
+    "entropy_coef": 0.0002,
+    "epochs": 5,
+    "failure_penalty": 0.0,
+    "hidden_dims": [
+      512,
+      256,
+      128
+    ],
+    "imitation_teacher": null,
+    "initial_action_std": 0.1,
+    "initialize_from": null,
+    "iterations": 1000,
+    "latent_dim": 64,
+    "metric_reference_offset": 0,
+    "metric_reward_shape": "exp",
+    "metric_tracking_weight": 0.0,
+    "motion_path": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong",
+    "num_envs": 1024,
+    "oracle_clean_proprio": null,
+    "oracle_feature_curriculum_updates": 0,
+    "oracle_tracking_features": null,
+    "output_dir": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/matched_nominal_seed77",
+    "physics": "nominal",
+    "privilege_schema": "critic",
+    "privileged": false,
+    "residual_scale": 1.0,
+    "resume": null,
+    "right_arm_angular_weight": 0.0,
+    "right_arm_rotation_weight": 0.0,
+    "rollout_steps": 24,
+    "sampling_mode": "uniform",
+    "save_initial": true,
+    "save_interval": 250,
+    "seed": 77,
+    "teacher_bc_batch_size": 2048,
+    "teacher_bc_steps": 2,
+    "teacher_bc_weight": 0.1,
+    "tracker_checkpoint": "/data_zcy/wxy/SP_Tracking/logs/rsl_rl/g1_tracking/2026-09-02_04-48-42_SPTracking-G1-BFM-SPV5-2AActor-HEFTCritic-HEFTReward_8gpu_12288env_motion_data_correct/checkpoint_72000.pt",
+    "tracking_multiplier": 1.0,
+    "train_base_policy": null,
+    "train_context_encoder": null,
+    "training_rng_seed": 770001,
+    "training_start_mode": "reference"
+  },
+  "context_auxiliary_ppo_contract": "optional loss-only body velocity/payload/static-physics labels; PPO followed by encoder/readout-only supervised steps on identical rollout; disabled throughout critic warmup",
+  "imitation_contract": "teacher action is a training loss label only; alternating PPO and BC",
+  "imitation_teacher_sha256": null,
+  "initialization_sha256": null,
+  "motion_count": 42,
+  "motion_path": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong",
+  "oracle_clean_proprio": false,
+  "physics": {
+    "cleared_exclusions": [
+      "[/data_zcy/wxy/motion_filter/0827/invalid_motions_0827_v1.json,/data_zcy/wxy/SP_Tracking/logs/motion_benchmark_10000.json,/data_zcy/wxy/SP_Tracking/logs/motion_benchmark_0830_22000.json,/data_zcy/wxy/SP_Tracking/benchmark_0831_36000.json,/data_zcy/wxy/SP_Tracking/benchmark_0901_44000.json,/data_zcy/wxy/SP_Tracking/benchmark_0902_59000.json]"
+    ],
+    "details": {
+      "action_randomization_overrides": {},
+      "contract": "compiled nominal model with persistent DR and stochastic action DR disabled",
+      "enabled": true,
+      "motion_and_state_resets_preserved": true,
+      "observation_corruption_preserved": true,
+      "removed_events": [
+        {
+          "function": "body_com_offset",
+          "mode": "startup",
+          "name": "base_com"
+        },
+        {
+          "function": "body_mass",
+          "mode": "startup",
+          "name": "base_mass"
+        },
+        {
+          "function": "encoder_bias",
+          "mode": "startup",
+          "name": "encoder_bias"
+        },
+        {
+          "function": "geom_friction",
+          "mode": "startup",
+          "name": "foot_friction"
+        },
+        {
+          "function": "motor_params_implicit",
+          "mode": "startup",
+          "name": "motor_params_implicit"
+        }
+      ],
+      "removed_model_fields": [
+        "actuator_biasprm",
+        "actuator_gainprm",
+        "body_invweight0",
+        "body_ipos",
+        "body_mass",
+        "body_subtreemass",
+        "dof_armature",
+        "dof_frictionloss",
+        "dof_invweight0",
+        "geom_friction",
+        "tendon_invweight0",
+        "tendon_length0"
+      ]
+    },
+    "physics": "nominal",
+    "removed_disturbances": [
+      "push_robot"
+    ],
+    "runtime_audit": {
+      "alpha_max_abs_error": 0.0,
+      "domain_randomization_field_count": 0,
+      "joint_offset_abs_max": 0.0,
+      "max_delay": 0,
+      "persistent_event_count": 0
+    }
+  },
+  "privileged": false,
+  "research_source_sha256": {
+    "src/intact_tracking/adaptation_context_memory.py": "d226f9f4ee7b6420be14b99f5251d90a5bf7edc38092ebefc504eb2047226148",
+    "src/intact_tracking/adaptation_correction.py": "d314fb29ef393db090511a0ea3eaf85b10d37374bc39425ed932225562e973e5",
+    "src/intact_tracking/adaptation_curriculum.py": "85b4b9b8239bf89fc4aa228b3721bcc3039a5f78e55c4955c2c1dd714d7bc22d",
+    "src/intact_tracking/adaptation_policy.py": "73dd45c408dcc3cdc4cb73f54c0f7ebf40b3c578a6c497ee09bbd9386cba6335",
+    "src/intact_tracking/adaptation_ppo.py": "4b423e1dbe711c0fb5741bb9df02f0237cffa48bbd66144611aca23f3ced37ce",
+    "src/intact_tracking/adaptation_rewards.py": "06b45f350bdaa00ab2d16d608ee74381214f40fa46ea103a326352365919a381",
+    "src/intact_tracking/adaptation_sensors.py": "52fc1c2b333feae0b3e113d4aa3943cd5d2dbd544de5c137678a3b437344f08d",
+    "src/intact_tracking/cli/adaptation_eval.py": "7fc5e21b01c3e6db78005aa9cc0e261f37111187a355a213d810d9a1dda298da",
+    "src/intact_tracking/cli/adaptation_train.py": "c61dd1c31030907840b6a601b1af9a80ff44f7489042fa2e9ebb38b091cff5db"
+  },
+  "reward_changes": {},
+  "static_correction_contract": "frozen deployable source plus bounded learned correction; teacher uses only centered payload and normalized torso COMx/y; student uses copied context-head predictions only",
+  "student_contract": "replace all privileged actor inputs by deployable context and observations",
+  "tracker_checkpoint": "/data_zcy/wxy/SP_Tracking/logs/rsl_rl/g1_tracking/2026-09-02_04-48-42_SPTracking-G1-BFM-SPV5-2AActor-HEFTCritic-HEFTReward_8gpu_12288env_motion_data_correct/checkpoint_72000.pt",
+  "tracker_sha256": "fd7bd90d5552e573bbbce1417e9b415c64bb487a76b683ba3c20503b5ec77635",
+  "training_starts": {
+    "after": {
+      "init_noise": {},
+      "joint_position_range": [
+        0.0,
+        0.0
+      ],
+      "pose_range": {},
+      "velocity_range": {}
+    },
+    "before": {
+      "init_noise": {},
+      "joint_position_range": [
+        -0.1,
+        0.1
+      ],
+      "pose_range": {
+        "pitch": [
+          -0.1,
+          0.1
+        ],
+        "roll": [
+          -0.1,
+          0.1
+        ],
+        "x": [
+          -0.05,
+          0.05
+        ],
+        "y": [
+          -0.05,
+          0.05
+        ],
+        "yaw": [
+          -0.2,
+          0.2
+        ],
+        "z": [
+          -0.01,
+          0.01
+        ]
+      },
+      "velocity_range": {
+        "pitch": [
+          -0.52,
+          0.52
+        ],
+        "roll": [
+          -0.52,
+          0.52
+        ],
+        "x": [
+          -0.5,
+          0.5
+        ],
+        "y": [
+          -0.5,
+          0.5
+        ],
+        "yaw": [
+          -0.78,
+          0.78
+        ],
+        "z": [
+          -0.2,
+          0.2
+        ]
+      }
+    },
+    "contract": "Training reset curriculum only; no changes to physical DR, sensors, motions, terminations, or evaluation",
+    "mode": "reference"
+  },
+  "version": "adaptation_teacher_v1"
+}

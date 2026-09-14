@@ -1,0 +1,191 @@
+{
+  "created_at": 1789264302.9462461,
+  "timing_window": [
+    1001,
+    1100
+  ],
+  "models": {
+    "baseline": {
+      "collect_seconds_median": 3.1343034505844116,
+      "learn_seconds_median": 0.6838588714599609,
+      "evaluation_u1100_seconds": 240.7522165197879,
+      "transition_rows": [
+        {
+          "completed_updates": 999,
+          "mean_reward": 258.53212946433575,
+          "mean_episode_length": 992.08,
+          "learning_rate": 0.0001,
+          "return_divided_by_episode_length": 0.2605960501817754,
+          "long_valid_chunks_mean": null,
+          "long_full_fraction": null
+        },
+        {
+          "completed_updates": 1000,
+          "mean_reward": 257.97310200691226,
+          "mean_episode_length": 991.9875,
+          "learning_rate": 0.0001,
+          "return_divided_by_episode_length": 0.2600568071743971,
+          "long_valid_chunks_mean": null,
+          "long_full_fraction": null
+        },
+        {
+          "completed_updates": 1001,
+          "mean_reward": 4.342100515067577,
+          "mean_episode_length": 17.765,
+          "learning_rate": 0.0001,
+          "return_divided_by_episode_length": 0.2444188300066185,
+          "long_valid_chunks_mean": null,
+          "long_full_fraction": null
+        },
+        {
+          "completed_updates": 1002,
+          "mean_reward": 10.599726262539626,
+          "mean_episode_length": 42.39,
+          "learning_rate": 0.0001,
+          "return_divided_by_episode_length": 0.2500525185784295,
+          "long_valid_chunks_mean": null,
+          "long_full_fraction": null
+        },
+        {
+          "completed_updates": 1005,
+          "mean_reward": 29.485540676116944,
+          "mean_episode_length": 114.5075,
+          "learning_rate": 0.0001,
+          "return_divided_by_episode_length": 0.2574987723609104,
+          "long_valid_chunks_mean": null,
+          "long_full_fraction": null
+        },
+        {
+          "completed_updates": 1010,
+          "mean_reward": 60.57151325434447,
+          "mean_episode_length": 232.7825,
+          "learning_rate": 0.0001,
+          "return_divided_by_episode_length": 0.26020647279904835,
+          "long_valid_chunks_mean": null,
+          "long_full_fraction": null
+        },
+        {
+          "completed_updates": 1020,
+          "mean_reward": 116.42628630749881,
+          "mean_episode_length": 451.56,
+          "learning_rate": 0.0001,
+          "return_divided_by_episode_length": 0.25783126562914965,
+          "long_valid_chunks_mean": null,
+          "long_full_fraction": null
+        },
+        {
+          "completed_updates": 1050,
+          "mean_reward": 217.96073777601123,
+          "mean_episode_length": 868.0,
+          "learning_rate": 0.0001,
+          "return_divided_by_episode_length": 0.25110684075577333,
+          "long_valid_chunks_mean": null,
+          "long_full_fraction": null
+        },
+        {
+          "completed_updates": 1100,
+          "mean_reward": 191.35599877864124,
+          "mean_episode_length": 791.4725,
+          "learning_rate": 0.0001,
+          "return_divided_by_episode_length": 0.2417721383606395,
+          "long_valid_chunks_mean": null,
+          "long_full_fraction": null
+        }
+      ]
+    },
+    "concat": {
+      "collect_seconds_median": 14.492663383483887,
+      "learn_seconds_median": 1.3420822620391846,
+      "evaluation_u1100_seconds": 791.8949968591332,
+      "transition_rows": [
+        {
+          "completed_updates": 999,
+          "mean_reward": 261.1547616004944,
+          "mean_episode_length": 994.8175,
+          "learning_rate": 0.0001,
+          "return_divided_by_episode_length": 0.26251524686738464,
+          "long_valid_chunks_mean": 30.0,
+          "long_full_fraction": 1.0
+        },
+        {
+          "completed_updates": 1000,
+          "mean_reward": 260.99574241638186,
+          "mean_episode_length": 995.44,
+          "learning_rate": 0.0001,
+          "return_divided_by_episode_length": 0.262191334903542,
+          "long_valid_chunks_mean": 30.0,
+          "long_full_fraction": 1.0
+        },
+        {
+          "completed_updates": 1001,
+          "mean_reward": 4.350505521893501,
+          "mean_episode_length": 17.7675,
+          "learning_rate": 0.0001,
+          "return_divided_by_episode_length": 0.24485749384513866,
+          "long_valid_chunks_mean": 0.05535888671875,
+          "long_full_fraction": 0.0
+        },
+        {
+          "completed_updates": 1002,
+          "mean_reward": 10.6289238640666,
+          "mean_episode_length": 42.4475,
+          "learning_rate": 0.0001,
+          "return_divided_by_episode_length": 0.25040164589355324,
+          "long_valid_chunks_mean": 0.26629638671875,
+          "long_full_fraction": 0.0
+        },
+        {
+          "completed_updates": 1005,
+          "mean_reward": 29.483994021713734,
+          "mean_episode_length": 114.1675,
+          "learning_rate": 0.0001,
+          "return_divided_by_episode_length": 0.2582520771823306,
+          "long_valid_chunks_mean": 7.194915771484375,
+          "long_full_fraction": 0.0
+        },
+        {
+          "completed_updates": 1010,
+          "mean_reward": 60.387036862969396,
+          "mean_episode_length": 232.285,
+          "learning_rate": 0.0001,
+          "return_divided_by_episode_length": 0.2599695927975091,
+          "long_valid_chunks_mean": 18.8360595703125,
+          "long_full_fraction": 0.0
+        },
+        {
+          "completed_updates": 1020,
+          "mean_reward": 117.16663980141283,
+          "mean_episode_length": 451.965,
+          "learning_rate": 0.0001,
+          "return_divided_by_episode_length": 0.2592383034115758,
+          "long_valid_chunks_mean": 30.0,
+          "long_full_fraction": 1.0
+        },
+        {
+          "completed_updates": 1050,
+          "mean_reward": 209.12668611109257,
+          "mean_episode_length": 823.775,
+          "learning_rate": 0.0001,
+          "return_divided_by_episode_length": 0.25386384159642206,
+          "long_valid_chunks_mean": 30.0,
+          "long_full_fraction": 1.0
+        },
+        {
+          "completed_updates": 1100,
+          "mean_reward": 199.26194286823272,
+          "mean_episode_length": 817.6775,
+          "learning_rate": 0.0001,
+          "return_divided_by_episode_length": 0.2436925840178221,
+          "long_valid_chunks_mean": 30.0,
+          "long_full_fraction": 1.0
+        }
+      ]
+    }
+  },
+  "interpretation": {
+    "u1000": "planned uniform-to-adaptive restart; model, optimizer and normalizers restored; logger episode sums and online memory re-created",
+    "memory": "short50 plus long30x10; retain complete chunks across ordinary resets of the same physical world; process restart starts empty",
+    "speed": "observational timings with four extra MJLab jobs sharing GPU4-7; cannot isolate encoder cost from contention",
+    "return_ratio": "ratio of rolling mean episode return to rolling mean recorded episode length; diagnostic only, not an unbiased performance estimator"
+  }
+}

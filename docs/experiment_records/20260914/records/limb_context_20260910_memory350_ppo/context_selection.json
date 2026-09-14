@@ -1,0 +1,41 @@
+{
+  "selected_at": 1789057061.144356,
+  "selection": "minimum saved stage1 fixed-validation five-step NMSE; selected before PPO results",
+  "source": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260909_memory350/stage1_8192/best.pt",
+  "checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260910_memory350_ppo/artifacts/memory350_context_update_022700.pt",
+  "sha256": "a677eac8aba10874e616ff313cae0434d14fbf1f83f428f8fdc7c708b2799343",
+  "stage1_update": 22700,
+  "architecture": "nominal_counterfactual_short50_chunk10_long30_context_v1",
+  "tracker": {
+    "checkpoint_path": "/data_zcy/wxy/SP_Tracking/logs/rsl_rl/g1_tracking/2026-09-02_04-48-42_SPTracking-G1-BFM-SPV5-2AActor-HEFTCritic-HEFTReward_8gpu_12288env_motion_data_correct/checkpoint_72000.pt",
+    "checkpoint_sha256": "fd7bd90d5552e573bbbce1417e9b415c64bb487a76b683ba3c20503b5ec77635",
+    "task_id": "SPTracking-G1-BFM-SPV5-2AActor-HEFTCritic-HEFTReward",
+    "frozen": true
+  },
+  "model_config": {
+    "architecture_version": "nominal_counterfactual_short50_chunk10_long30_context_v1",
+    "state_dim": 71,
+    "action_dim": 29,
+    "delta_dim": 70,
+    "foot_feature_dim": 8,
+    "contact_force_dim": 6,
+    "contact_binary_dim": 2,
+    "horizon": 5,
+    "history_steps": 10,
+    "context_history_steps": 50,
+    "transformer_dim": 512,
+    "transformer_depth": 6,
+    "transformer_heads": 8,
+    "context_dim": 128,
+    "context_depth": 2,
+    "context_heads": 4,
+    "dynamics_latent_dim": 64,
+    "dropout": 0.0,
+    "memory_chunk_steps": 10,
+    "memory_chunks": 30,
+    "chunk_depth": 1,
+    "memory_depth": 2
+  },
+  "normalization_sha256": "4c4b8ac8e3048e52ecc6069e3a50e7dabe369dff73e654eb0392a85772902db0",
+  "encoder_frozen_for_all_ppo": true
+}

@@ -1,0 +1,133 @@
+{
+  "reference_files": [
+    "runs/adaptation_goal/existing_nominal_seed10001.json"
+  ],
+  "candidate_files": [
+    "runs/adaptation_goal/context_action_distill_seed43/eval_250_seed10001.json"
+  ],
+  "seeds": [
+    {
+      "seed": 10001,
+      "reference": "runs/adaptation_goal/existing_nominal_seed10001.json",
+      "candidate": "runs/adaptation_goal/context_action_distill_seed43/eval_250_seed10001.json",
+      "ratios": {
+        "error_body_pos": 0.9617857393336388,
+        "error_joint_pos": 0.9811194976905299,
+        "error_anchor_pos": 1.4546828193508543,
+        "error_anchor_rot": 1.1479276643841252,
+        "error_body_rot": 1.0868646615490742,
+        "error_joint_vel": 1.1007326468030225,
+        "error_anchor_lin_vel": 1.1734568111319703,
+        "error_anchor_ang_vel": 1.1753837652457966,
+        "error_body_lin_vel": 1.1502129905839351,
+        "error_body_ang_vel": 1.1809743087336486
+      },
+      "failure_difference": 0.005952381296083331
+    }
+  ],
+  "metrics": {
+    "error_body_pos": {
+      "reference": 0.030918286224507645,
+      "candidate": 0.029736766775367147,
+      "ratio": 0.9617857393336389,
+      "paired_motion_seed_bootstrap_95pct": [
+        0.9327477862142372,
+        0.9891483482111448
+      ]
+    },
+    "error_joint_pos": {
+      "reference": 0.4845856434430927,
+      "candidate": 0.4754364230829295,
+      "ratio": 0.9811194976905303,
+      "paired_motion_seed_bootstrap_95pct": [
+        0.9471503216128817,
+        1.0171441127052445
+      ]
+    },
+    "error_anchor_pos": {
+      "reference": 0.24644189814909892,
+      "candidate": 0.3584947952057072,
+      "ratio": 1.4546828193508539,
+      "paired_motion_seed_bootstrap_95pct": [
+        1.3714618877576483,
+        1.542200367062552
+      ]
+    },
+    "error_anchor_rot": {
+      "reference": 0.07318411563919291,
+      "candidate": 0.08401007093571644,
+      "ratio": 1.147927664384125,
+      "paired_motion_seed_bootstrap_95pct": [
+        1.0934355591137677,
+        1.1977123183472496
+      ]
+    },
+    "error_body_rot": {
+      "reference": 0.1259760012940744,
+      "candidate": 0.13691886400978992,
+      "ratio": 1.0868646615490742,
+      "paired_motion_seed_bootstrap_95pct": [
+        1.0440584108167172,
+        1.127466249605271
+      ]
+    },
+    "error_joint_vel": {
+      "reference": 4.398731057332997,
+      "candidate": 4.841826879312807,
+      "ratio": 1.1007326468030223,
+      "paired_motion_seed_bootstrap_95pct": [
+        1.0715519735429686,
+        1.1313287687829312
+      ]
+    },
+    "error_anchor_lin_vel": {
+      "reference": 0.21041167104671218,
+      "candidate": 0.24690900853142397,
+      "ratio": 1.17345681113197,
+      "paired_motion_seed_bootstrap_95pct": [
+        1.1496638758670508,
+        1.198859401077097
+      ]
+    },
+    "error_anchor_ang_vel": {
+      "reference": 0.45293839950927184,
+      "candidate": 0.5323764414396128,
+      "ratio": 1.1753837652457966,
+      "paired_motion_seed_bootstrap_95pct": [
+        1.1536194242451723,
+        1.19704015168783
+      ]
+    },
+    "error_body_lin_vel": {
+      "reference": 0.2675949371629195,
+      "candidate": 0.30779117293928177,
+      "ratio": 1.150212990583935,
+      "paired_motion_seed_bootstrap_95pct": [
+        1.127291125349245,
+        1.1734835639427366
+      ]
+    },
+    "error_body_ang_vel": {
+      "reference": 1.069398871794235,
+      "candidate": 1.2629325933777407,
+      "ratio": 1.1809743087336488,
+      "paired_motion_seed_bootstrap_95pct": [
+        1.1541982283319592,
+        1.2079368589718735
+      ]
+    }
+  },
+  "reference_failure_rate": 0.002976190476190476,
+  "candidate_failure_rate": 0.008928571428571428,
+  "failure_difference": 0.005952380952380952,
+  "failure_difference_paired_bootstrap_95pct": [
+    -0.005952380952380952,
+    0.017857142857142856
+  ],
+  "margin": 1.02,
+  "point_estimate_pass": true,
+  "primary_upper_95pct_within_margin": true,
+  "confirmation_seeds_used": false,
+  "confirmation_seed_set_complete": false,
+  "warning": "Development results alone do not establish completion."
+}

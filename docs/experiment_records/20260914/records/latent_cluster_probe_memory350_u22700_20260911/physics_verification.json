@@ -1,0 +1,11 @@
+{
+  "common_vs_previous_v12_physics": {
+    "names_equal": true,
+    "values_equal": true,
+    "shape": [
+      1024,
+      34
+    ],
+    "max_abs_difference": 0.0
+  }
+}

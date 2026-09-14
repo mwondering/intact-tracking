@@ -1,0 +1,36 @@
+{
+  "run_root": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260914_fixed_dr_specialists8_uniform_unbounded_wrist10",
+  "supervisor_pid": 57275,
+  "status": "eight_specialists_training",
+  "updated_at": 1789363174.8879998,
+  "version": "residual_uniform_wrist10_hand2p5_unbounded_v1",
+  "architecture": "8 independent fixed-DR residual MLP specialists; no latent; unbounded residual output",
+  "physics_contract": {
+    "version": "residual_uniform_wrist10_hand2p5_unbounded_v1",
+    "motion_sampling": "uniform",
+    "limb_max_masses_kg": [
+      2.5,
+      2.5,
+      4.0,
+      4.0
+    ],
+    "wrist_pitch_yaw_effort_limit_nm": 10.0,
+    "tracker_action_scale": "preserved from frozen tracker",
+    "pd_gains": "preserved"
+  },
+  "gpu_assignments": {
+    "0": "all_0kg",
+    "1": "all_1kg",
+    "2": "all_2kg",
+    "3": "hands_2p5_shins_4kg",
+    "4": "hands_2p5kg",
+    "5": "shins_4kg",
+    "6": "left_hand_2p5_shin_4kg",
+    "7": "right_hand_2p5_shin_4kg"
+  },
+  "periodic_updates": {
+    "checkpoint": 100,
+    "evaluation": 1000
+  },
+  "health": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260914_fixed_dr_specialists8_uniform_unbounded_wrist10/health/latest.json"
+}

@@ -1,0 +1,19 @@
+{
+  "passed": true,
+  "training_checks": {
+    "baseline_122": {
+      "same_process": true,
+      "resume_history_unchanged": true,
+      "pid": 12899,
+      "latest_completed_updates": 3566
+    },
+    "film_122": {
+      "same_process": true,
+      "resume_history_unchanged": true,
+      "pid": 49852,
+      "latest_completed_updates": 2129
+    }
+  },
+  "extra_eval_children_finished": true,
+  "unix_time": 1788920538.1331205
+}

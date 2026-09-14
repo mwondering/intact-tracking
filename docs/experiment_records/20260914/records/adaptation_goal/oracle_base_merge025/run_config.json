@@ -1,0 +1,157 @@
+{
+  "version": "single_core_parameter_interpolation_v1",
+  "physics": {
+    "physics": "dr",
+    "details": {
+      "payload": {
+        "enabled": true,
+        "event_name": "right_hand_payload",
+        "body_name": "right_wrist_yaw_link",
+        "mass_range_kg": [
+          1.0,
+          3.0
+        ],
+        "position_body_frame_m": [
+          0.12,
+          0.0,
+          0.0
+        ],
+        "cuboid_size_m": [
+          0.1,
+          0.08,
+          0.08
+        ],
+        "physics_model": "rigid cuboid composite inertia (mass, COM, principal inertia and inertial frame); no payload collision geometry"
+      }
+    },
+    "removed_disturbances": [
+      "push_robot"
+    ],
+    "cleared_exclusions": [
+      "[/data_zcy/wxy/motion_filter/0827/invalid_motions_0827_v1.json,/data_zcy/wxy/SP_Tracking/logs/motion_benchmark_10000.json,/data_zcy/wxy/SP_Tracking/logs/motion_benchmark_0830_22000.json,/data_zcy/wxy/SP_Tracking/benchmark_0831_36000.json,/data_zcy/wxy/SP_Tracking/benchmark_0901_44000.json,/data_zcy/wxy/SP_Tracking/benchmark_0902_59000.json]"
+    ]
+  },
+  "privileged": true,
+  "tracker_checkpoint": "/data_zcy/wxy/SP_Tracking/logs/rsl_rl/g1_tracking/2026-09-02_04-48-42_SPTracking-G1-BFM-SPV5-2AActor-HEFTCritic-HEFTReward_8gpu_12288env_motion_data_correct/checkpoint_72000.pt",
+  "tracker_sha256": "fd7bd90d5552e573bbbce1417e9b415c64bb487a76b683ba3c20503b5ec77635",
+  "motion_path": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong",
+  "arguments": {
+    "tracker_checkpoint": "/data_zcy/wxy/SP_Tracking/logs/rsl_rl/g1_tracking/2026-09-02_04-48-42_SPTracking-G1-BFM-SPV5-2AActor-HEFTCritic-HEFTReward_8gpu_12288env_motion_data_correct/checkpoint_72000.pt",
+    "motion_path": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong",
+    "output_dir": "runs/adaptation_goal/oracle_features_tracking4_seed44",
+    "physics": "dr",
+    "privileged": true,
+    "device": "cuda:0",
+    "seed": 44,
+    "num_envs": 4096,
+    "iterations": 2000,
+    "save_interval": 250,
+    "rollout_steps": 24,
+    "hidden_dims": [
+      512,
+      256,
+      128
+    ],
+    "latent_dim": 64,
+    "residual_scale": 1.0,
+    "actor_lr": 5e-05,
+    "critic_lr": 0.0005,
+    "entropy_coef": 0.0005,
+    "epochs": 5,
+    "resume": null,
+    "initialize_from": null,
+    "tracking_multiplier": 4.0,
+    "action_rate_multiplier": 0.25,
+    "privilege_schema": "state_physics",
+    "train_base_policy": true,
+    "oracle_tracking_features": true
+  },
+  "motion_count": 42,
+  "student_contract": "replace all privileged actor inputs by deployable context and observations",
+  "reward_changes": {
+    "root_pos_tracking": {
+      "from": 1.0,
+      "to": 4.0
+    },
+    "wrist_link_height_tracking": {
+      "from": 1.0,
+      "to": 4.0
+    },
+    "feet_link_height_tracking": {
+      "from": 1.0,
+      "to": 4.0
+    },
+    "root_rot_tracking": {
+      "from": 1.0,
+      "to": 4.0
+    },
+    "root_vel_tracking": {
+      "from": 1.0,
+      "to": 4.0
+    },
+    "root_ang_vel_tracking": {
+      "from": 1.0,
+      "to": 4.0
+    },
+    "keypoint_pos_tracking": {
+      "from": 2.0,
+      "to": 8.0
+    },
+    "keypoint_vel_tracking": {
+      "from": 1.0,
+      "to": 4.0
+    },
+    "keypoint_rot_tracking": {
+      "from": 2.0,
+      "to": 8.0
+    },
+    "keypoint_angvel_tracking": {
+      "from": 1.0,
+      "to": 4.0
+    },
+    "joint_pos_tracking": {
+      "from": 1.0,
+      "to": 4.0
+    },
+    "joint_vel_tracking": {
+      "from": 0.5,
+      "to": 2.0
+    },
+    "action_rate_l2": {
+      "from": 0.2,
+      "to": 0.05
+    },
+    "waist_action_rate_l2": {
+      "from": -0.5,
+      "to": -0.125
+    }
+  },
+  "merge": {
+    "receiver": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/oracle_features_tracking4_seed44/checkpoint_1500.pt",
+    "receiver_sha256": "e8fa39c8b37a4d14d186c27f33b892df9918d10e9f727366c83acd81d3211f33",
+    "donor": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/metric_aligned_compact_seed45/checkpoint_500.pt",
+    "donor_sha256": "1109798661a6ee3b82b043631db516c0b57c586fabb0ec816dc847fbe2d480b3",
+    "donor_fraction": 0.25,
+    "merged_keys": [
+      "tracker.mlp.0.weight",
+      "tracker.mlp.0.bias",
+      "tracker.mlp.2.weight",
+      "tracker.mlp.2.bias",
+      "tracker.mlp.4.weight",
+      "tracker.mlp.4.bias",
+      "tracker.mlp.6.weight",
+      "tracker.mlp.6.bias",
+      "tracker.mlp.8.weight",
+      "tracker.mlp.8.bias",
+      "tracker.mlp.10.weight",
+      "tracker.mlp.10.bias",
+      "tracker.mlp.12.weight",
+      "tracker.mlp.12.bias",
+      "tracker.mlp.14.weight",
+      "tracker.mlp.14.bias"
+    ],
+    "input_mode": "receiver unchanged",
+    "inference_contract": "one policy core, one privileged encoder, one residual; no ensemble",
+    "source_sha256": "d70fec98dea48135c94beaa162e5995c806ab76f240ac3ba5020c38c8927cfac"
+  }
+}

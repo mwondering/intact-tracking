@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import copy
+import itertools
 import os
 import time
 from collections.abc import Mapping
@@ -68,7 +70,22 @@ class ResidualOnPolicyRunner(MjlabOnPolicyRunner):
     ) -> None:
         self.checkpoint_cfg = checkpoint_cfg
         self.residual_metadata = dict(residual_metadata)
-        super().__init__(env, train_cfg, log_dir, device)
+        self.stop_requested = False
+        self.completed_learning_updates = 0
+        # RSL-RL's factory pops class_name and other constructor options. Never
+        # let that mutate the caller's serializable checkpoint configuration.
+        super().__init__(env, copy.deepcopy(train_cfg), log_dir, device)
+
+    def request_stop(self) -> None:
+        """Finish the current PPO update before saving a resumable checkpoint."""
+        self.stop_requested = True
+
+    def _collective_stop_requested(self) -> bool:
+        if self.is_distributed:
+            value = torch.tensor(int(self.stop_requested), device=self.device)
+            torch.distributed.all_reduce(value, op=torch.distributed.ReduceOp.MAX)
+            self.stop_requested = bool(value.item())
+        return self.stop_requested
 
     def _configure_multi_gpu(self) -> None:
         """Accept the process group initialized by our CLI before MJLab construction."""
@@ -138,7 +155,7 @@ class ResidualOnPolicyRunner(MjlabOnPolicyRunner):
             }
         return diagnostics
 
-    def learn(self, num_learning_iterations: int, init_at_random_ep_len: bool = False) -> None:
+    def learn(self, num_learning_iterations: int | None, init_at_random_ep_len: bool = False) -> None:
         if init_at_random_ep_len:
             self.env.episode_length_buf = torch.randint_like(
                 self.env.episode_length_buf,
@@ -176,8 +193,11 @@ class ResidualOnPolicyRunner(MjlabOnPolicyRunner):
             print("Logging writer initialized.", flush=True)
 
         start_iteration = self.current_learning_iteration
-        final_iteration = start_iteration + num_learning_iterations
-        for iteration in range(start_iteration, final_iteration):
+        final_iteration = None if num_learning_iterations is None else start_iteration + num_learning_iterations
+        iterations = itertools.count(start_iteration) if final_iteration is None else range(start_iteration, final_iteration)
+        for iteration in iterations:
+            if self._collective_stop_requested():
+                break
             self._begin_adaptive_sampling_iteration(iteration)
             start = time.time()
             with torch.inference_mode():
@@ -202,10 +222,16 @@ class ResidualOnPolicyRunner(MjlabOnPolicyRunner):
             learn_time = time.time() - start
             loss_dict.update(self._policy_diagnostics(obs))
             self.current_learning_iteration = iteration
+            self.completed_learning_updates = iteration + 1
+            checkpoint_evaluator = getattr(self, "checkpoint_evaluator", None)
+            if checkpoint_evaluator is not None:
+                checkpoint_evaluator(self)
             self.logger.log(
                 it=iteration,
                 start_it=start_iteration,
-                total_it=final_iteration,
+                # RSL's console logger needs finite arithmetic for its ETA;
+                # this display value does not bound the count() training loop.
+                total_it=final_iteration if final_iteration is not None else iteration + 1,
                 collect_time=collect_time,
                 learn_time=learn_time,
                 loss_dict=loss_dict,
@@ -213,10 +239,20 @@ class ResidualOnPolicyRunner(MjlabOnPolicyRunner):
                 action_std=self.alg.get_policy().output_std,
                 rnd_weight=None,
             )
-            if self.logger.writer is not None and iteration % int(self.cfg["save_interval"]) == 0:
-                self.save(str(Path(self.logger.log_dir) / f"checkpoint_{iteration}.pt"))
+            if checkpoint_evaluator is None and iteration % int(self.cfg["save_interval"]) == 0:
+                preparer = getattr(self, "checkpoint_state_preparer", None)
+                if preparer is not None:
+                    preparer(self)
+                if self.logger.writer is not None:
+                    self.save(str(Path(self.logger.log_dir) / f"checkpoint_{iteration}.pt"))
 
+        preparer = getattr(self, "checkpoint_state_preparer", None)
+        if preparer is not None:
+            preparer(self)
         if self.logger.writer is not None:
+            if self.stop_requested:
+                self.save(str(Path(self.logger.log_dir) / "checkpoint_interrupted.pt"),
+                          infos={"stop_reason": "user_requested_at_update_boundary"})
             self.save(str(Path(self.logger.log_dir) / "checkpoint_final.pt"))
             self.logger.stop_logging_writer()
 
@@ -230,13 +266,19 @@ class ResidualOnPolicyRunner(MjlabOnPolicyRunner):
             "rsl_rl": rsl_state,
             "env": env_state,
             "iter": int(self.current_learning_iteration),
+            "completed_updates": int(self.completed_learning_updates),
             "infos": infos,
             "cfg": self.checkpoint_cfg,
             "residual_policy": self.residual_metadata,
+            "motion_sampling_state": getattr(self, "motion_sampling_state", None),
         }
 
     def save(self, path: str, infos: dict[str, Any] | None = None) -> None:
-        torch.save(self._checkpoint_payload(infos), path)
+        # A signal or reader must not observe a partially overwritten checkpoint.
+        destination = Path(path)
+        temporary = destination.with_name(f".{destination.name}.{os.getpid()}.tmp")
+        torch.save(self._checkpoint_payload(infos), temporary)
+        os.replace(temporary, destination)
         if self.cfg.get("upload_model", False):
             self.logger.save_model(path, self.current_learning_iteration)
 
@@ -250,12 +292,16 @@ class ResidualOnPolicyRunner(MjlabOnPolicyRunner):
         checkpoint = torch.load(path, map_location=map_location, weights_only=False)
         if not isinstance(checkpoint, Mapping):
             raise TypeError("Residual checkpoint must be mapping-valued")
+        self.loaded_motion_sampling_state = checkpoint.get("motion_sampling_state")
         state = dict(checkpoint.get("rsl_rl", checkpoint))
         if "actor_state_dict" not in state and isinstance(checkpoint.get("policy"), Mapping):
             state["actor_state_dict"] = checkpoint["policy"]
         load_iteration = self.alg.load(state, load_cfg, strict)
         if load_iteration:
             self.current_learning_iteration = int(checkpoint.get("iter", state.get("iter", 0)))
+            self.completed_learning_updates = int(
+                checkpoint.get("completed_updates", self.current_learning_iteration + 1)
+            )
         infos = checkpoint.get("infos")
         if not isinstance(infos, dict):
             infos = {}

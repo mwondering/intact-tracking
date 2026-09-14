@@ -1,0 +1,435 @@
+{
+  "verified_at": 1789321545.8661628,
+  "supervisor_pid": 47401,
+  "source_files_checked": 182,
+  "source_mismatches": [],
+  "health_history_records": 12,
+  "arms": {
+    "baseline": {
+      "checks": {
+        "four_correct_workers": true,
+        "at_least_five_updates": true,
+        "finite_losses": true,
+        "fresh_model_and_unlimited_training": true,
+        "full_dataset": true,
+        "8192_envs_per_gpu": true,
+        "fp32": true,
+        "independent_uniform_dr": true,
+        "independent_actor_critic": true,
+        "both_heads_receive_current_raw_tracker_action": true,
+        "initial_fixed_evaluation_complete": true,
+        "health_agrees": true
+      },
+      "workers": [
+        {
+          "pid": 47471,
+          "local_rank": 0,
+          "physical_gpus": "0,1,2,3",
+          "state": "R"
+        },
+        {
+          "pid": 47472,
+          "local_rank": 1,
+          "physical_gpus": "0,1,2,3",
+          "state": "R"
+        },
+        {
+          "pid": 47473,
+          "local_rank": 2,
+          "physical_gpus": "0,1,2,3",
+          "state": "R"
+        },
+        {
+          "pid": 47475,
+          "local_rank": 3,
+          "physical_gpus": "0,1,2,3",
+          "state": "R"
+        }
+      ],
+      "completed_updates": 30,
+      "input_audit": {
+        "action_std_initialization": 0.25,
+        "actor_compression": [
+          1645,
+          512,
+          256,
+          128
+        ],
+        "actor_compressor_sha256": "79577949de8dabd8042d78d2bdc63a574f34a2c81a784b6868bcbbeffdba9662",
+        "actor_critic_parameters_shared": false,
+        "actor_experts": 1,
+        "actor_head": [
+          157,
+          256,
+          128,
+          29
+        ],
+        "actor_initialization_seed": 10128,
+        "actor_original_features": 1645,
+        "actor_trainable_parameters": 1084090,
+        "critic_bootstrap_tracker_action": "recomputed on final next-state observation",
+        "critic_compression": [
+          6330,
+          1024,
+          512,
+          256,
+          128
+        ],
+        "critic_compressor_sha256": "dfadf550f769ad9c09076ffbfadbc97a2b1c1b6099c3847c0befef2d37e40603",
+        "critic_experts": 1,
+        "critic_head": [
+          157,
+          256,
+          128,
+          1
+        ],
+        "critic_initial_normalizer_sha256": "67c4b32ed04ef64d637c5fb29bb14aaff461d36cc085c3ede34cdf1b61d4f31f",
+        "critic_initialization_seed": 20124,
+        "critic_original_features": 6330,
+        "critic_tracker_action_input_dim": 29,
+        "critic_tracker_action_matches_actor": true,
+        "critic_tracker_action_normalization": "unmodified raw action; appended after obs compression",
+        "critic_tracker_action_source": "same current raw deterministic tracker mean used by actor; stored in rollout observations",
+        "critic_trainable_parameters": 7245441,
+        "each_side_shares_one_obs_encoder_across_its_experts": true,
+        "identical_initial_action": true,
+        "initial_value_independent_of_latent": true,
+        "latent_dimensions": 0,
+        "latent_use": "absent",
+        "router_has_trainable_parameters": false,
+        "routing_bootstrap": {
+          "policy": "deterministic frozen tracker",
+          "ppo_updates": 0,
+          "rank_seed": 2300121,
+          "same_bootstrap_in_baseline": true,
+          "steps": 500,
+          "trajectory_sha256": "f4010b433679f1aacd44dceeb73e91fbdc1fd1ea1329e5ef40ec7ff115e8a683"
+        },
+        "tracker_action_input_dim": 29
+      },
+      "latest_router": {},
+      "periodic_evaluation": {
+        "checkpoint_counting": "completed PPO updates; checkpoint_update_XXXXXX.pt",
+        "enabled_after_update": 0,
+        "execution": "all ranks pause PPO; separate endpoint simulators on the first two allocated GPUs",
+        "protocol": {
+          "cases": {
+            "all_0_cold": {
+              "masses": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "memory_start": "cold"
+            },
+            "all_0_warm": {
+              "masses": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "memory_start": "warm"
+            },
+            "all_4_cold": {
+              "masses": [
+                4,
+                4,
+                4,
+                4
+              ],
+              "memory_start": "cold"
+            },
+            "all_4_warm": {
+              "masses": [
+                4,
+                4,
+                4,
+                4
+              ],
+              "memory_start": "warm"
+            }
+          },
+          "evaluation_module": "intact_tracking.cli.memory350_moe_critic_action_eval",
+          "interval_updates": 100,
+          "latent_usage": {
+            "evaluation_module": "intact_tracking.cli.memory350_moe_critic_action_eval",
+            "interval_updates": 1000,
+            "manifest_sha256": "952f3ef6e8004aa703b90fb9916966354b566223f5fc56a7fd68e7b97ec38ced",
+            "motion_manifest": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260913_memory350_compressed_grid256_tracker_action_adaptive_scratch/protocols/latent_usage_motions.txt",
+            "motion_path": "/data_zcy/wxy/motion_data_correct/motion_data_full",
+            "motions": 128,
+            "seed": 22001,
+            "steps": 1000,
+            "version": "memory350_matched_latent_usage_v1",
+            "warmup_steps": 500
+          },
+          "manifest_sha256": "84f2d51105dfcf3826bc45b2b047e5a4b669ab1874c7bca22d55e5e30c3f6c30",
+          "motion_manifest": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260912_memory350_response_window_ablation/protocols/periodic_motions.txt",
+          "motion_path": "/data_zcy/wxy/motion_data_correct/motion_data_full",
+          "motions": 512,
+          "seed": 20001,
+          "steps": 1000,
+          "version": "memory350_periodic_tracking_v1",
+          "warmup_steps": 500
+        },
+        "protocol_file": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260913_memory350_online_kmeans16_critic_action/protocols/periodic.json",
+        "protocol_sha256": "76f9900377e66a848d1f05740359cc9e8d986e008d65baccecb8f8ed0c7704dd"
+      },
+      "latest_timing": {
+        "collect_seconds": 3.439157485961914,
+        "learn_seconds": 1.4520349502563477
+      }
+    },
+    "concat": {
+      "checks": {
+        "four_correct_workers": true,
+        "at_least_five_updates": true,
+        "finite_losses": true,
+        "fresh_model_and_unlimited_training": true,
+        "full_dataset": true,
+        "8192_envs_per_gpu": true,
+        "fp32": true,
+        "independent_uniform_dr": true,
+        "independent_actor_critic": true,
+        "both_heads_receive_current_raw_tracker_action": true,
+        "initial_fixed_evaluation_complete": true,
+        "health_agrees": true,
+        "context_frozen": true,
+        "all_16_experts_used": true,
+        "centers_updated_online": true,
+        "reassignment_within_cap": true
+      },
+      "workers": [
+        {
+          "pid": 47497,
+          "local_rank": 0,
+          "physical_gpus": "4,5,6,7",
+          "state": "R"
+        },
+        {
+          "pid": 47498,
+          "local_rank": 1,
+          "physical_gpus": "4,5,6,7",
+          "state": "R"
+        },
+        {
+          "pid": 47499,
+          "local_rank": 2,
+          "physical_gpus": "4,5,6,7",
+          "state": "R"
+        },
+        {
+          "pid": 47500,
+          "local_rank": 3,
+          "physical_gpus": "4,5,6,7",
+          "state": "R"
+        }
+      ],
+      "completed_updates": 10,
+      "input_audit": {
+        "action_std_initialization": 0.25,
+        "actor_compression": [
+          1645,
+          512,
+          256,
+          128
+        ],
+        "actor_compressor_sha256": "79577949de8dabd8042d78d2bdc63a574f34a2c81a784b6868bcbbeffdba9662",
+        "actor_critic_parameters_shared": false,
+        "actor_experts": 16,
+        "actor_head": [
+          157,
+          256,
+          128,
+          29
+        ],
+        "actor_initialization_seed": 10128,
+        "actor_original_features": 1645,
+        "actor_trainable_parameters": 2240365,
+        "critic_bootstrap_tracker_action": "recomputed on final next-state observation",
+        "critic_compression": [
+          6330,
+          1024,
+          512,
+          256,
+          128
+        ],
+        "critic_compressor_sha256": "dfadf550f769ad9c09076ffbfadbc97a2b1c1b6099c3847c0befef2d37e40603",
+        "critic_experts": 16,
+        "critic_head": [
+          157,
+          256,
+          128,
+          1
+        ],
+        "critic_initial_normalizer_sha256": "9567f4154fd9644acca43d8a5366f059049b02f5a10a8f05fa2934e1eac1737e",
+        "critic_initialization_seed": 20124,
+        "critic_original_features": 6330,
+        "critic_tracker_action_input_dim": 29,
+        "critic_tracker_action_matches_actor": true,
+        "critic_tracker_action_normalization": "unmodified raw action; appended after obs compression",
+        "critic_tracker_action_source": "same current raw deterministic tracker mean used by actor; stored in rollout observations",
+        "critic_trainable_parameters": 8347536,
+        "each_side_shares_one_obs_encoder_across_its_experts": true,
+        "identical_initial_action": true,
+        "initial_value_independent_of_latent": true,
+        "latent_dimensions": 64,
+        "latent_use": "online K-means hard routing only",
+        "router_has_trainable_parameters": false,
+        "routing_bootstrap": {
+          "bootstrap_counts": [
+            8380,
+            8343,
+            8525,
+            6825,
+            8030,
+            9610,
+            6283,
+            8850,
+            10698,
+            8559,
+            7629,
+            9417,
+            7355,
+            8013,
+            7640,
+            6915
+          ],
+          "bootstrap_inertia": 0.32619792222976685,
+          "bootstrap_samples": 131072,
+          "centers_sha256": "784ab81766e2f7e21edbb70fb62e64c9be0c3da93d0ef97e8ffc98c3ad8eeda1",
+          "policy": "deterministic frozen tracker",
+          "ppo_updates": 0,
+          "rank_seed": 2300121,
+          "same_bootstrap_in_baseline": true,
+          "steps": 500,
+          "trajectory_sha256": "0cb1dd23b1476bc9ca28ebc28d4ffad2648df94209b8d066b70d3a2af0cdf0fc"
+        },
+        "tracker_action_input_dim": 29
+      },
+      "latest_router": {
+        "router_center_shift_rms": 8.088978211162612e-05,
+        "router_center_update_switch_fraction": 0.0002721150716145833,
+        "router_center_effective_rate": 0.01,
+        "router_center_updates": 10.0,
+        "router_rollout_active_experts": 16.0,
+        "router_rollout_max_fraction": 0.07623926550149918,
+        "router_rollout_fraction_00": 0.0713450089097023,
+        "router_rollout_fraction_01": 0.060568492859601974,
+        "router_rollout_fraction_02": 0.0599517822265625,
+        "router_rollout_fraction_03": 0.052272796630859375,
+        "router_rollout_fraction_04": 0.0678660050034523,
+        "router_rollout_fraction_05": 0.07623926550149918,
+        "router_rollout_fraction_06": 0.04439544677734375,
+        "router_rollout_fraction_07": 0.07154210656881332,
+        "router_rollout_fraction_08": 0.07159423828125,
+        "router_rollout_fraction_09": 0.06947580724954605,
+        "router_rollout_fraction_10": 0.05783335492014885,
+        "router_rollout_fraction_11": 0.06902185827493668,
+        "router_rollout_fraction_12": 0.048919677734375,
+        "router_rollout_fraction_13": 0.07306798547506332,
+        "router_rollout_fraction_14": 0.061126708984375,
+        "router_rollout_fraction_15": 0.0447794608771801,
+        "router_current_fraction_00": 0.07177734375,
+        "router_current_fraction_01": 0.0596923828125,
+        "router_current_fraction_02": 0.059814453125,
+        "router_current_fraction_03": 0.05267333984375,
+        "router_current_fraction_04": 0.068878173828125,
+        "router_current_fraction_05": 0.075408935546875,
+        "router_current_fraction_06": 0.044342041015625,
+        "router_current_fraction_07": 0.07208251953125,
+        "router_current_fraction_08": 0.071563720703125,
+        "router_current_fraction_09": 0.06915283203125,
+        "router_current_fraction_10": 0.0576171875,
+        "router_current_fraction_11": 0.0687255859375,
+        "router_current_fraction_12": 0.04852294921875,
+        "router_current_fraction_13": 0.07366943359375,
+        "router_current_fraction_14": 0.06201171875,
+        "router_current_fraction_15": 0.0440673828125,
+        "router_current_effective_experts": 15.769383668899536
+      },
+      "periodic_evaluation": {
+        "checkpoint_counting": "completed PPO updates; checkpoint_update_XXXXXX.pt",
+        "enabled_after_update": 0,
+        "execution": "all ranks pause PPO; separate endpoint simulators on the first two allocated GPUs",
+        "protocol": {
+          "cases": {
+            "all_0_cold": {
+              "masses": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "memory_start": "cold"
+            },
+            "all_0_warm": {
+              "masses": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "memory_start": "warm"
+            },
+            "all_4_cold": {
+              "masses": [
+                4,
+                4,
+                4,
+                4
+              ],
+              "memory_start": "cold"
+            },
+            "all_4_warm": {
+              "masses": [
+                4,
+                4,
+                4,
+                4
+              ],
+              "memory_start": "warm"
+            }
+          },
+          "evaluation_module": "intact_tracking.cli.memory350_moe_critic_action_eval",
+          "interval_updates": 100,
+          "latent_usage": {
+            "evaluation_module": "intact_tracking.cli.memory350_moe_critic_action_eval",
+            "interval_updates": 1000,
+            "manifest_sha256": "952f3ef6e8004aa703b90fb9916966354b566223f5fc56a7fd68e7b97ec38ced",
+            "motion_manifest": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260913_memory350_compressed_grid256_tracker_action_adaptive_scratch/protocols/latent_usage_motions.txt",
+            "motion_path": "/data_zcy/wxy/motion_data_correct/motion_data_full",
+            "motions": 128,
+            "seed": 22001,
+            "steps": 1000,
+            "version": "memory350_matched_latent_usage_v1",
+            "warmup_steps": 500
+          },
+          "manifest_sha256": "84f2d51105dfcf3826bc45b2b047e5a4b669ab1874c7bca22d55e5e30c3f6c30",
+          "motion_manifest": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260912_memory350_response_window_ablation/protocols/periodic_motions.txt",
+          "motion_path": "/data_zcy/wxy/motion_data_correct/motion_data_full",
+          "motions": 512,
+          "seed": 20001,
+          "steps": 1000,
+          "version": "memory350_periodic_tracking_v1",
+          "warmup_steps": 500
+        },
+        "protocol_file": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260913_memory350_online_kmeans16_critic_action/protocols/periodic.json",
+        "protocol_sha256": "76f9900377e66a848d1f05740359cc9e8d986e008d65baccecb8f8ed0c7704dd"
+      },
+      "latest_timing": {
+        "collect_seconds": 5.45006799697876,
+        "learn_seconds": 1.7393043041229248
+      }
+    }
+  },
+  "initial_evaluations_paired": [
+    "all_0_cold",
+    "all_4_cold",
+    "all_0_warm",
+    "all_4_warm"
+  ],
+  "passed": true
+}

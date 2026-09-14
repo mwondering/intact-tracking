@@ -1,0 +1,14 @@
+{
+  "url": "https://wandb.ai/2486344338-zhejiang-university/intact-forward-predictor/runs/m350tune-7bd6a3f434a2",
+  "state": "running",
+  "last_update": 8040,
+  "last_step": 8040,
+  "loss_weights": {
+    "weak_positive_weight": 0.004,
+    "weak_negative_weight": 0.004,
+    "response_distance_scale": 0.3
+  },
+  "parent_update": 8000,
+  "checked_at": 1789212778.7080135,
+  "training_logs_uploaded": true
+}

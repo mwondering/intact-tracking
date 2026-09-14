@@ -1,0 +1,353 @@
+{
+  "training_seeds": [
+    76,
+    77,
+    78
+  ],
+  "evaluation_seeds": [
+    92001,
+    92002,
+    92003
+  ],
+  "independent_training_pairs": 3,
+  "scope": "Only subsequent training DR differs; common DR-pretrained frozen tracker, original rewards and equal budget. Not from-scratch nominal-only training. DR payload is 1\u20133kg, nominal payload0kg outside that training support.",
+  "uncertainty": "Paired bootstrap resamples training pairs, evaluation seeds within training pair, and shared motion clusters. Three training pairs still provide limited training-level precision.",
+  "conditions": {
+    "nominal": {
+      "metrics": {
+        "error_body_pos": {
+          "nominal_trained": 0.034337495772706124,
+          "dr_trained": 0.038970564404011386,
+          "dr_over_nominal": 1.134927388472748,
+          "paired_training_eval_motion_bootstrap_95pct": [
+            1.1041776894048496,
+            1.172022960984937
+          ]
+        },
+        "error_joint_pos": {
+          "nominal_trained": 0.566114547894798,
+          "dr_trained": 0.6181739539922331,
+          "dr_over_nominal": 1.09195913846593,
+          "paired_training_eval_motion_bootstrap_95pct": [
+            1.0755205440081703,
+            1.1092811932712858
+          ]
+        },
+        "error_anchor_pos": {
+          "nominal_trained": 0.2584046735089201,
+          "dr_trained": 0.30881996096624537,
+          "dr_over_nominal": 1.1951020729336188,
+          "paired_training_eval_motion_bootstrap_95pct": [
+            1.1487634292781534,
+            1.2441612454820248
+          ]
+        },
+        "error_anchor_rot": {
+          "nominal_trained": 0.07727551662464982,
+          "dr_trained": 0.08536062339851118,
+          "dr_over_nominal": 1.1046270167708245,
+          "paired_training_eval_motion_bootstrap_95pct": [
+            1.075719114322175,
+            1.136176905055874
+          ]
+        },
+        "error_body_rot": {
+          "nominal_trained": 0.14696393158007515,
+          "dr_trained": 0.17910422851570726,
+          "dr_over_nominal": 1.2186951355348035,
+          "paired_training_eval_motion_bootstrap_95pct": [
+            1.1831858592976792,
+            1.2623023232206623
+          ]
+        },
+        "error_joint_vel": {
+          "nominal_trained": 4.430694132444756,
+          "dr_trained": 4.529537819419947,
+          "dr_over_nominal": 1.0223088491375167,
+          "paired_training_eval_motion_bootstrap_95pct": [
+            1.016368542356427,
+            1.0279288565410039
+          ]
+        },
+        "error_anchor_lin_vel": {
+          "nominal_trained": 0.21445842684152142,
+          "dr_trained": 0.2311274572740046,
+          "dr_over_nominal": 1.0777261620258043,
+          "paired_training_eval_motion_bootstrap_95pct": [
+            1.067101670996589,
+            1.0885642773509179
+          ]
+        },
+        "error_anchor_ang_vel": {
+          "nominal_trained": 0.4641867981545183,
+          "dr_trained": 0.4832586018930473,
+          "dr_over_nominal": 1.0410864846099745,
+          "paired_training_eval_motion_bootstrap_95pct": [
+            1.0274628852186811,
+            1.054278713179276
+          ]
+        },
+        "error_body_lin_vel": {
+          "nominal_trained": 0.2744667634460289,
+          "dr_trained": 0.29101767793335825,
+          "dr_over_nominal": 1.0603020718411464,
+          "paired_training_eval_motion_bootstrap_95pct": [
+            1.0519136314962265,
+            1.0695511280535603
+          ]
+        },
+        "error_body_ang_vel": {
+          "nominal_trained": 1.0907131855097612,
+          "dr_trained": 1.1372788996082102,
+          "dr_over_nominal": 1.0426929047132458,
+          "paired_training_eval_motion_bootstrap_95pct": [
+            1.0319530462148059,
+            1.0533703233096274
+          ]
+        }
+      },
+      "nominal_trained_failure_rate": 0.0023148148148148147,
+      "dr_trained_failure_rate": 0.004629629629629629,
+      "failure_difference_95pct": [
+        -0.0013227513227513227,
+        0.007275132275132275
+      ],
+      "per_training_pair": [
+        {
+          "training_seed": 76,
+          "ratios": {
+            "error_body_pos": 1.1499770388596953,
+            "error_joint_pos": 1.0997915620891892,
+            "error_anchor_pos": 1.2098154211081837,
+            "error_anchor_rot": 1.1160442389554555,
+            "error_body_rot": 1.2546221432802,
+            "error_joint_vel": 1.0251264307066197,
+            "error_anchor_lin_vel": 1.076951199493867,
+            "error_anchor_ang_vel": 1.0470699365790992,
+            "error_body_lin_vel": 1.0663205597407115,
+            "error_body_ang_vel": 1.0482831998818745
+          },
+          "failure_counts": {
+            "reference": 2,
+            "candidate": 6,
+            "new_failures": 4,
+            "recovered_failures": 0,
+            "episodes": 1008
+          }
+        },
+        {
+          "training_seed": 77,
+          "ratios": {
+            "error_body_pos": 1.1191982137043275,
+            "error_joint_pos": 1.0925278602878763,
+            "error_anchor_pos": 1.1838160542762322,
+            "error_anchor_rot": 1.095223913088733,
+            "error_body_rot": 1.2066226312640256,
+            "error_joint_vel": 1.023824874465054,
+            "error_anchor_lin_vel": 1.0744032299663069,
+            "error_anchor_ang_vel": 1.029875881636003,
+            "error_body_lin_vel": 1.0586358462945458,
+            "error_body_ang_vel": 1.047111054353866
+          },
+          "failure_counts": {
+            "reference": 3,
+            "candidate": 5,
+            "new_failures": 3,
+            "recovered_failures": 1,
+            "episodes": 1008
+          }
+        },
+        {
+          "training_seed": 78,
+          "ratios": {
+            "error_body_pos": 1.135545492098043,
+            "error_joint_pos": 1.083571463279826,
+            "error_anchor_pos": 1.1918241855405913,
+            "error_anchor_rot": 1.1026050205576545,
+            "error_body_rot": 1.1950365809917567,
+            "error_joint_vel": 1.0179718495099117,
+            "error_anchor_lin_vel": 1.0818655310689966,
+            "error_anchor_ang_vel": 1.0463724690527643,
+            "error_body_lin_vel": 1.0559459865639336,
+            "error_body_ang_vel": 1.0326828590739228
+          },
+          "failure_counts": {
+            "reference": 2,
+            "candidate": 3,
+            "new_failures": 2,
+            "recovered_failures": 1,
+            "episodes": 1008
+          }
+        }
+      ]
+    },
+    "dr": {
+      "metrics": {
+        "error_body_pos": {
+          "nominal_trained": 0.04712575320195581,
+          "dr_trained": 0.042371715508512466,
+          "dr_over_nominal": 0.8991201759031823,
+          "paired_training_eval_motion_bootstrap_95pct": [
+            0.8766619973880742,
+            0.9213960685948009
+          ]
+        },
+        "error_joint_pos": {
+          "nominal_trained": 0.6913385435970067,
+          "dr_trained": 0.6929418369332162,
+          "dr_over_nominal": 1.0023191146379133,
+          "paired_training_eval_motion_bootstrap_95pct": [
+            0.9924491029851277,
+            1.0120064656164824
+          ]
+        },
+        "error_anchor_pos": {
+          "nominal_trained": 0.3821185744893362,
+          "dr_trained": 0.34579056091657173,
+          "dr_over_nominal": 0.9049299981784102,
+          "paired_training_eval_motion_bootstrap_95pct": [
+            0.8384848265908859,
+            0.9712801082074526
+          ]
+        },
+        "error_anchor_rot": {
+          "nominal_trained": 0.1015789467298283,
+          "dr_trained": 0.0964041577960454,
+          "dr_over_nominal": 0.9490564816787637,
+          "paired_training_eval_motion_bootstrap_95pct": [
+            0.9263608855888393,
+            0.9722038258422454
+          ]
+        },
+        "error_body_rot": {
+          "nominal_trained": 0.19915824055607104,
+          "dr_trained": 0.19620882007244156,
+          "dr_over_nominal": 0.9851905676842978,
+          "paired_training_eval_motion_bootstrap_95pct": [
+            0.9716175115633761,
+            1.000119448320197
+          ]
+        },
+        "error_joint_vel": {
+          "nominal_trained": 5.389540615222781,
+          "dr_trained": 5.269964085658828,
+          "dr_over_nominal": 0.9778132241500864,
+          "paired_training_eval_motion_bootstrap_95pct": [
+            0.967119181236951,
+            0.9872506098087441
+          ]
+        },
+        "error_anchor_lin_vel": {
+          "nominal_trained": 0.26693606955813215,
+          "dr_trained": 0.2593095125159849,
+          "dr_over_nominal": 0.9714292749766948,
+          "paired_training_eval_motion_bootstrap_95pct": [
+            0.9559418195754139,
+            0.9884104585910138
+          ]
+        },
+        "error_anchor_ang_vel": {
+          "nominal_trained": 0.5813572423640612,
+          "dr_trained": 0.5625514780233701,
+          "dr_over_nominal": 0.9676519651424341,
+          "paired_training_eval_motion_bootstrap_95pct": [
+            0.9534358607673913,
+            0.9815209792099512
+          ]
+        },
+        "error_body_lin_vel": {
+          "nominal_trained": 0.35691878666060883,
+          "dr_trained": 0.34385881839876187,
+          "dr_over_nominal": 0.9634091318531082,
+          "paired_training_eval_motion_bootstrap_95pct": [
+            0.949921199540364,
+            0.9782499168561273
+          ]
+        },
+        "error_body_ang_vel": {
+          "nominal_trained": 1.4952226753621094,
+          "dr_trained": 1.4443450595288208,
+          "dr_over_nominal": 0.9659732181221989,
+          "paired_training_eval_motion_bootstrap_95pct": [
+            0.9545182671821703,
+            0.9765992712627598
+          ]
+        }
+      },
+      "nominal_trained_failure_rate": 0.021494708994708994,
+      "dr_trained_failure_rate": 0.012896825396825396,
+      "failure_difference_95pct": [
+        -0.021825396825396824,
+        0.0016534391534391533
+      ],
+      "per_training_pair": [
+        {
+          "training_seed": 76,
+          "ratios": {
+            "error_body_pos": 0.9047690337443347,
+            "error_joint_pos": 1.0015621486168154,
+            "error_anchor_pos": 0.921610584489843,
+            "error_anchor_rot": 0.9426540829259493,
+            "error_body_rot": 0.9920633074828997,
+            "error_joint_vel": 0.9751382694676295,
+            "error_anchor_lin_vel": 0.9725576429481735,
+            "error_anchor_ang_vel": 0.9684417631351141,
+            "error_body_lin_vel": 0.9660891570444681,
+            "error_body_ang_vel": 0.9630135942709879
+          },
+          "failure_counts": {
+            "reference": 22,
+            "candidate": 16,
+            "new_failures": 7,
+            "recovered_failures": 13,
+            "episodes": 1008
+          }
+        },
+        {
+          "training_seed": 77,
+          "ratios": {
+            "error_body_pos": 0.8959437112723668,
+            "error_joint_pos": 1.0066362650184775,
+            "error_anchor_pos": 0.9253323388352385,
+            "error_anchor_rot": 0.9506018044478551,
+            "error_body_rot": 0.97763821152008,
+            "error_joint_vel": 0.9829282274958885,
+            "error_anchor_lin_vel": 0.9702323798997581,
+            "error_anchor_ang_vel": 0.9660699904080988,
+            "error_body_lin_vel": 0.9644260093848286,
+            "error_body_ang_vel": 0.9722866159049198
+          },
+          "failure_counts": {
+            "reference": 18,
+            "candidate": 12,
+            "new_failures": 6,
+            "recovered_failures": 12,
+            "episodes": 1008
+          }
+        },
+        {
+          "training_seed": 78,
+          "ratios": {
+            "error_body_pos": 0.8966028465279836,
+            "error_joint_pos": 0.9988334761972575,
+            "error_anchor_pos": 0.8691972059236108,
+            "error_anchor_rot": 0.9539572437198062,
+            "error_body_rot": 0.98578140627615,
+            "error_joint_vel": 0.9754334887204978,
+            "error_anchor_lin_vel": 0.9714790959839762,
+            "error_anchor_ang_vel": 0.9684217417436267,
+            "error_body_lin_vel": 0.9597140380838209,
+            "error_body_ang_vel": 0.9627149648718868
+          },
+          "failure_counts": {
+            "reference": 25,
+            "candidate": 11,
+            "new_failures": 4,
+            "recovered_failures": 18,
+            "episodes": 1008
+          }
+        }
+      ]
+    }
+  }
+}

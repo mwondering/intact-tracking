@@ -1,0 +1,19 @@
+{
+  "arms": {
+    "baseline": {
+      "initial_checkpoint_verified": true,
+      "progress": {
+        "completed_updates": 18,
+        "unix_time": 1789305537.3020298
+      }
+    },
+    "concat": {
+      "initial_checkpoint_verified": true,
+      "progress": {
+        "completed_updates": 7,
+        "unix_time": 1789305536.5789013
+      }
+    }
+  },
+  "time": 1789305541.1721706
+}

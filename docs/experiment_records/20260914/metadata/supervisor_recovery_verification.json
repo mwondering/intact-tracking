@@ -1,0 +1,30 @@
+{
+  "passed": true,
+  "checked_at": 1789365909.0067947,
+  "supervisor_pid": 50761,
+  "first_heartbeat": 1789365873.1465046,
+  "latest_heartbeat": 1789365903.282966,
+  "issues": [],
+  "original_worker_pids_unchanged": true,
+  "updates_before": {
+    "0": 974,
+    "1": 921,
+    "2": 977,
+    "3": 959,
+    "4": 951,
+    "5": 915,
+    "6": 980,
+    "7": 976
+  },
+  "updates_after": {
+    "0": 980,
+    "1": 927,
+    "2": 984,
+    "3": 966,
+    "4": 957,
+    "5": 921,
+    "6": 987,
+    "7": 982
+  },
+  "workers_restarted": false
+}

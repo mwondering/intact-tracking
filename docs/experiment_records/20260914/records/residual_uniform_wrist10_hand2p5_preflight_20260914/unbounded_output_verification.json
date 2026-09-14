@@ -1,0 +1,285 @@
+{
+  "passed": true,
+  "saved_actor_loaded_strictly": true,
+  "large_residual_magnitudes_tested": [
+    20,
+    48
+  ],
+  "no_tanh_or_output_scaling": true,
+  "wrapper_action_clip": null,
+  "position_target_clip": null,
+  "raw_actions_and_position_targets_preserved": true,
+  "actuator_force_limits_retained": true,
+  "physics_audit": {
+    "per_limb_mean_kg": [
+      1.3568300008773804,
+      1.382609486579895,
+      2.1299331188201904,
+      1.9881172180175781
+    ],
+    "min_kg": 0.016311168670654297,
+    "max_kg": 3.813889503479004,
+    "nominal_worlds": 0,
+    "hardest_worlds": 0,
+    "actual_mass_sha256": "975625f8e4ed12c12ff6914522cd4238d5b8d54e09686d00ab5fd39f8e8ebda7",
+    "sampled_mass_sha256": "975a174c5e336aedb49817517c15c772110762a3d9a358804e4cf4912c1c5688",
+    "per_limb_min_kg": [
+      0.346484512090683,
+      0.18646523356437683,
+      0.2512780427932739,
+      0.016311168670654297
+    ],
+    "per_limb_max_kg": [
+      2.4061176776885986,
+      2.4247636795043945,
+      3.7393598556518555,
+      3.813889503479004
+    ],
+    "original_events": {
+      "push_robot": {
+        "function": "intact_tracking.environment.mdp.randomizations.body_force_pulse",
+        "mode": "step",
+        "params": {
+          "body_name": "torso_link",
+          "interval_range_s": [
+            3.0,
+            6.0
+          ],
+          "duration_range_s": [
+            0.3,
+            0.5
+          ],
+          "force_abs_range_n": [
+            0.0,
+            10.0
+          ]
+        },
+        "interval_range_s": null,
+        "is_global_time": false,
+        "min_step_count_between_reset": 0
+      },
+      "base_com": {
+        "function": "mjlab.envs.mdp.dr.body.body_com_offset",
+        "mode": "startup",
+        "params": {
+          "asset_cfg": {
+            "name": "robot",
+            "body_names": [
+              "torso_link"
+            ],
+            "joint_names": null,
+            "geom_names": null,
+            "site_names": null,
+            "actuator_names": null,
+            "preserve_order": false
+          },
+          "operation": "add",
+          "ranges": {
+            "0": [
+              -0.075,
+              0.075
+            ],
+            "1": [
+              -0.075,
+              0.075
+            ],
+            "2": [
+              -0.075,
+              0.075
+            ]
+          }
+        },
+        "interval_range_s": null,
+        "is_global_time": false,
+        "min_step_count_between_reset": 0
+      },
+      "base_mass": {
+        "function": "mjlab.envs.mdp.dr.body.body_mass",
+        "mode": "startup",
+        "params": {
+          "asset_cfg": {
+            "name": "robot",
+            "body_names": [
+              "torso_link"
+            ],
+            "joint_names": null,
+            "geom_names": null,
+            "site_names": null,
+            "actuator_names": null,
+            "preserve_order": false
+          },
+          "operation": "add",
+          "ranges": [
+            -1.0,
+            1.0
+          ]
+        },
+        "interval_range_s": null,
+        "is_global_time": false,
+        "min_step_count_between_reset": 0
+      },
+      "encoder_bias": {
+        "function": "mjlab.envs.mdp.dr.joint.encoder_bias",
+        "mode": "startup",
+        "params": {
+          "asset_cfg": {
+            "name": "robot",
+            "body_names": null,
+            "joint_names": null,
+            "geom_names": null,
+            "site_names": null,
+            "actuator_names": null,
+            "preserve_order": false
+          },
+          "bias_range": [
+            -0.01,
+            0.01
+          ]
+        },
+        "interval_range_s": null,
+        "is_global_time": false,
+        "min_step_count_between_reset": 0
+      },
+      "foot_friction": {
+        "function": "mjlab.envs.mdp.dr.geom.geom_friction",
+        "mode": "startup",
+        "params": {
+          "asset_cfg": {
+            "name": "robot",
+            "body_names": null,
+            "joint_names": null,
+            "geom_names": "^(left|right)_foot[1-7]_collision$",
+            "site_names": null,
+            "actuator_names": null,
+            "preserve_order": false
+          },
+          "operation": "abs",
+          "ranges": [
+            0.3,
+            2.0
+          ],
+          "shared_random": true
+        },
+        "interval_range_s": null,
+        "is_global_time": false,
+        "min_step_count_between_reset": 0
+      },
+      "motor_params_implicit": {
+        "function": "intact_tracking.environment.mdp.randomizations.motor_params_implicit",
+        "mode": "startup",
+        "params": {
+          "mode": "uniform",
+          "armature_range": {
+            ".*": [
+              0.8,
+              1.2
+            ]
+          }
+        },
+        "interval_range_s": null,
+        "is_global_time": false,
+        "min_step_count_between_reset": 0
+      }
+    },
+    "observation_corruption": {
+      "policy": true,
+      "priv": false,
+      "estimator_history": true,
+      "estimator_target": false,
+      "robot_key_body": false,
+      "robot_root_quat": false,
+      "reference_encoder_input": false,
+      "reference_encoder_target": false,
+      "foot_contact_target": false
+    },
+    "correlation": [
+      [
+        1.0,
+        0.05986163020133972,
+        -0.0629841759800911,
+        -0.06259680539369583
+      ],
+      [
+        0.05986163020133972,
+        1.0,
+        0.0992446094751358,
+        -0.12226525694131851
+      ],
+      [
+        -0.0629841759800911,
+        0.0992446169257164,
+        1.0,
+        0.13665753602981567
+      ],
+      [
+        -0.06259679794311523,
+        -0.12226525694131851,
+        0.13665752112865448,
+        1.0
+      ]
+    ],
+    "residual_physics_contract": {
+      "version": "residual_uniform_wrist10_hand2p5_unbounded_v1",
+      "motion_sampling": "uniform",
+      "limb_max_masses_kg": [
+        2.5,
+        2.5,
+        4.0,
+        4.0
+      ],
+      "wrist_pitch_yaw_effort_limit_nm": 10.0,
+      "tracker_action_scale": "preserved from frozen tracker",
+      "pd_gains": "preserved"
+    },
+    "wrist_force_ranges_nm": [
+      [
+        -10.0,
+        10.0
+      ],
+      [
+        -10.0,
+        10.0
+      ],
+      [
+        -10.0,
+        10.0
+      ],
+      [
+        -10.0,
+        10.0
+      ]
+    ],
+    "action_order": [
+      "left_hip_pitch_joint",
+      "left_hip_roll_joint",
+      "left_hip_yaw_joint",
+      "left_knee_joint",
+      "left_ankle_pitch_joint",
+      "left_ankle_roll_joint",
+      "right_hip_pitch_joint",
+      "right_hip_roll_joint",
+      "right_hip_yaw_joint",
+      "right_knee_joint",
+      "right_ankle_pitch_joint",
+      "right_ankle_roll_joint",
+      "waist_yaw_joint",
+      "waist_roll_joint",
+      "waist_pitch_joint",
+      "left_shoulder_pitch_joint",
+      "left_shoulder_roll_joint",
+      "left_shoulder_yaw_joint",
+      "left_elbow_joint",
+      "left_wrist_roll_joint",
+      "left_wrist_pitch_joint",
+      "left_wrist_yaw_joint",
+      "right_shoulder_pitch_joint",
+      "right_shoulder_roll_joint",
+      "right_shoulder_yaw_joint",
+      "right_elbow_joint",
+      "right_wrist_roll_joint",
+      "right_wrist_pitch_joint",
+      "right_wrist_yaw_joint"
+    ],
+    "pd_gains_and_tracker_action_scale_verified": true
+  }
+}

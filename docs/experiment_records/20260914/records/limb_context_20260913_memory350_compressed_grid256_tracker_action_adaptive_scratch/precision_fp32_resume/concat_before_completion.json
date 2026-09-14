@@ -1,0 +1,184 @@
+{
+  "target_updates": null,
+  "completed_updates": 1300,
+  "complete": false,
+  "stopped": true,
+  "distributed_parameter_agreement": {
+    "passed": true,
+    "world_size": 4,
+    "ranks": [
+      {
+        "rank": 0,
+        "completed_updates": 1300,
+        "actor_trainable_sha256": "5af602f5b73b302e3cd27da809d7c5a824a1cf754252ccc7fa29b2a66d6148ce",
+        "critic_trainable_sha256": "6abd0b9abf498cc56ac1c41ffd963ca954036697f8e0a19231c6fc5f3e6e402f",
+        "critic_normalizer_sha256": "8cd0fca23d20a2f39d5d17bb4430384fb0c7f072ac0ee9c1dde8342b70e132d8",
+        "finite": true
+      },
+      {
+        "rank": 1,
+        "completed_updates": 1300,
+        "actor_trainable_sha256": "5af602f5b73b302e3cd27da809d7c5a824a1cf754252ccc7fa29b2a66d6148ce",
+        "critic_trainable_sha256": "6abd0b9abf498cc56ac1c41ffd963ca954036697f8e0a19231c6fc5f3e6e402f",
+        "critic_normalizer_sha256": "8cd0fca23d20a2f39d5d17bb4430384fb0c7f072ac0ee9c1dde8342b70e132d8",
+        "finite": true
+      },
+      {
+        "rank": 2,
+        "completed_updates": 1300,
+        "actor_trainable_sha256": "5af602f5b73b302e3cd27da809d7c5a824a1cf754252ccc7fa29b2a66d6148ce",
+        "critic_trainable_sha256": "6abd0b9abf498cc56ac1c41ffd963ca954036697f8e0a19231c6fc5f3e6e402f",
+        "critic_normalizer_sha256": "8cd0fca23d20a2f39d5d17bb4430384fb0c7f072ac0ee9c1dde8342b70e132d8",
+        "finite": true
+      },
+      {
+        "rank": 3,
+        "completed_updates": 1300,
+        "actor_trainable_sha256": "5af602f5b73b302e3cd27da809d7c5a824a1cf754252ccc7fa29b2a66d6148ce",
+        "critic_trainable_sha256": "6abd0b9abf498cc56ac1c41ffd963ca954036697f8e0a19231c6fc5f3e6e402f",
+        "critic_normalizer_sha256": "8cd0fca23d20a2f39d5d17bb4430384fb0c7f072ac0ee9c1dde8342b70e132d8",
+        "finite": true
+      }
+    ]
+  },
+  "planned_sampling_transition": false,
+  "motion_sampling": {
+    "version": "limb_motion_sampling_curriculum_v1",
+    "requested_mode": "adaptive",
+    "adaptive_after_update": 0,
+    "active_mode": "adaptive",
+    "failure_rewind_enabled": false,
+    "adaptive_bin_snapshot_interval_iterations": 0,
+    "adaptive_sampling": {
+      "random_probability": 0.5,
+      "strategy": "branch",
+      "temperature": 0.25
+    },
+    "parameters": {
+      "adaptive_uniform_ratio": 0.1,
+      "adaptive_bin_width_s": 1.0,
+      "adaptive_bin_width_steps": null,
+      "adaptive_prior_visit_count": 1.0,
+      "adaptive_prior_failure_count": 0.0,
+      "adaptive_failure_rate_ema_iterations": 1000,
+      "adaptive_failure_rate_window_iterations": null,
+      "adaptive_probability_max_over_mean": 500.0,
+      "adaptive_sequence_length_agnostic": false,
+      "adaptive_max_prob_per_bin": "auto",
+      "adaptive_max_prob_per_motion": "auto",
+      "adaptive_pre_failure_sample_window_steps": 100
+    },
+    "scope": "motion/bin sampling only; 256 shared static DR profiles with {0,1,2,4}^4 limb loads",
+    "statistics": "rank-local motion shards; adaptive statistics begin from priors at the phase boundary"
+  },
+  "training_terminations": {
+    "version": "limb_training_terminations_v1",
+    "profile": "original",
+    "disabled_terms": [],
+    "original_terms": [
+      {
+        "name": "time_out",
+        "term": "time_out",
+        "time_out": true
+      },
+      {
+        "name": "anchor_pos",
+        "term": "bad_anchor_pos_z_only",
+        "params": {
+          "command_name": "motion",
+          "threshold": 0.5,
+          "anchor_body_name": "pelvis"
+        }
+      },
+      {
+        "name": "anchor_ori",
+        "term": "bad_anchor_ori",
+        "params": {
+          "command_name": "motion",
+          "threshold": 0.8,
+          "anchor_body_name": "pelvis",
+          "asset_cfg": {
+            "entity_name": "robot"
+          }
+        }
+      },
+      {
+        "name": "ee_body_pos",
+        "term": "bad_motion_body_pos_z_only",
+        "params": {
+          "command_name": "motion",
+          "threshold": 0.5,
+          "body_names": [
+            "left_ankle_roll_link",
+            "right_ankle_roll_link",
+            "left_wrist_yaw_link",
+            "right_wrist_yaw_link"
+          ],
+          "anchor_body_name": "pelvis"
+        }
+      }
+    ],
+    "active_terms": [
+      {
+        "name": "time_out",
+        "term": "time_out",
+        "time_out": true
+      },
+      {
+        "name": "anchor_pos",
+        "term": "bad_anchor_pos_z_only",
+        "params": {
+          "command_name": "motion",
+          "threshold": 0.5,
+          "anchor_body_name": "pelvis"
+        }
+      },
+      {
+        "name": "anchor_ori",
+        "term": "bad_anchor_ori",
+        "params": {
+          "command_name": "motion",
+          "threshold": 0.8,
+          "anchor_body_name": "pelvis",
+          "asset_cfg": {
+            "entity_name": "robot"
+          }
+        }
+      },
+      {
+        "name": "ee_body_pos",
+        "term": "bad_motion_body_pos_z_only",
+        "params": {
+          "command_name": "motion",
+          "threshold": 0.5,
+          "body_names": [
+            "left_ankle_roll_link",
+            "right_ankle_roll_link",
+            "left_wrist_yaw_link",
+            "right_wrist_yaw_link"
+          ],
+          "anchor_body_name": "pelvis"
+        }
+      }
+    ],
+    "evaluation_profile": "original"
+  },
+  "grouped_dr_final_agreement": {
+    "passed": true,
+    "profiles": 256,
+    "replicas_per_profile_per_rank": 32,
+    "replicas_per_profile_all_ranks": 128,
+    "static_bank_sha256": "d0808422cf301be59698c6cde9081223fbf5cf79000a288083f05b5f314a580e"
+  },
+  "initialization_protocol": "residual_actor_and_critic_from_scratch_v3",
+  "distributed": {
+    "world_size": 4,
+    "num_envs_per_rank": 8192,
+    "global_num_envs": 32768,
+    "rank_seed_formula": "seed + 1000003 * rank",
+    "gradient_synchronization": "mean across all ranks at each optimizer step",
+    "advantage_normalization": "global rollout mean and sample standard deviation",
+    "critic_normalization": "global pooled sums, squared sums and count at every environment step"
+  },
+  "unix_time": 1789315532.5182502
+}

@@ -1,0 +1,13 @@
+{
+  "checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260913_memory350_online_kmeans16_uniform_dr/smoke/concat_121/checkpoint_2.pt",
+  "updates": 3,
+  "scope": "256 saved real observations tiled to the 8192 collection / 49152 update batch shapes",
+  "identical_expert_ids": true,
+  "active_experts_in_fixture": 16,
+  "action_mean_max_abs": 4.76837158203125e-06,
+  "logprob_max_abs": 6.508827209472656e-05,
+  "logprob_rms": 9.016047442855779e-06,
+  "ratio_max_abs_error": 6.508827209472656e-05,
+  "fraction_ratio_outside_clip": 0.0,
+  "passed": true
+}

@@ -1,0 +1,22 @@
+{
+  "passed": true,
+  "arms": {
+    "10": {
+      "id": "m350window-1027640674cd",
+      "url": "https://wandb.ai/2486344338-zhejiang-university/intact-forward-predictor/runs/m350window-1027640674cd",
+      "remote_update": 11190,
+      "state": "running",
+      "label_horizon": 10,
+      "predictor_horizon": 5
+    },
+    "5": {
+      "id": "m350window-62879af0dee1",
+      "url": "https://wandb.ai/2486344338-zhejiang-university/intact-forward-predictor/runs/m350window-62879af0dee1",
+      "remote_update": 12210,
+      "state": "running",
+      "label_horizon": 5,
+      "predictor_horizon": 5
+    }
+  },
+  "time": 1789228445.861999
+}

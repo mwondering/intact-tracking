@@ -1,0 +1,121 @@
+{
+  "completed_training_updates": 600,
+  "fixed_masses": [
+    2,
+    2,
+    2,
+    2
+  ],
+  "motions": 4096,
+  "seed": 20001,
+  "steps": 500,
+  "comparison": {
+    "motions": 4096,
+    "means": {
+      "reference_body": 0.03888682180884587,
+      "reference_joint": 0.5689643831011936,
+      "candidate_body": 0.03738999434549933,
+      "candidate_joint": 0.5601277698743659,
+      "reference_failure": 0.006591796875,
+      "candidate_failure": 0.0068359375,
+      "reference_coverage": 0.9962061141368392,
+      "candidate_coverage": 0.9959994362924017,
+      "reference_return": 83.33650171571578,
+      "candidate_return": 83.32094084301555,
+      "reference_common_body": 0.038889860864498076,
+      "reference_common_joint": 0.5689330212941635,
+      "candidate_common_body": 0.037367011451269895,
+      "candidate_common_joint": 0.5598137823599808
+    },
+    "candidate_over_reference_body_joint": [
+      0.9615081049640822,
+      0.9844689518548368
+    ],
+    "body_joint_ratio_ci95": [
+      [
+        0.9576868122185587,
+        0.96537730509806
+      ],
+      [
+        0.9819783467847079,
+        0.9869029052125322
+      ]
+    ],
+    "failure_rate_delta": 0.000244140625,
+    "failure_rate_delta_ci95": [
+      -0.00146484375,
+      0.002197265625
+    ],
+    "coverage_delta": -0.00020667784443750836,
+    "coverage_delta_ci95": [
+      -0.0013217692762606398,
+      0.000826760975918086
+    ],
+    "episode_return_delta": -0.01556087270023454,
+    "episode_return_delta_ci95": [
+      -0.11822885626124524,
+      0.07674553709735928
+    ],
+    "common_prefix_body_joint_ratio": [
+      0.9608419937902538,
+      0.9839713312589258
+    ],
+    "common_prefix_body_joint_ratio_ci95": [
+      [
+        0.9574526073468861,
+        0.964340286037381
+      ],
+      [
+        0.9816882382989633,
+        0.9862251374575322
+      ]
+    ],
+    "new_failure_episodes": 8,
+    "rescued_failure_episodes": 7,
+    "uncertainty": "paired motion bootstrap conditional on this training seed; not training-seed uncertainty",
+    "scope": "new starts and loads on the training motion catalog; not unseen-motion generalization"
+  },
+  "policies": {
+    "baseline_121": {
+      "checkpoint_sha256": "0a4f9348e0ada0795789e55e3e228b149d8fb698afb46fbf8b0f6014b2377661",
+      "mean": {
+        "error_body_pos": 0.038886821808845895,
+        "error_joint_pos": 0.5689643831011928,
+        "error_anchor_pos": 0.1812088462869823,
+        "error_anchor_rot": 0.062429502516490855,
+        "error_body_rot": 0.17397611483992415,
+        "error_joint_vel": 3.926883221684505,
+        "error_anchor_lin_vel": 0.1704590886504746,
+        "error_anchor_ang_vel": 0.411639406859155,
+        "error_body_lin_vel": 0.24457140151370313,
+        "error_body_ang_vel": 1.1207902843544604
+      },
+      "failure_rate": 0.006591796875,
+      "failure_count": 27,
+      "coverage_fraction": 0.9962061643600464,
+      "mean_episode_return": 83.33650171571578
+    },
+    "film_121": {
+      "checkpoint_sha256": "5b0e4e87392bd2b0141ae7193795ceb29d468c81cf40296ca77c2e4244fc47e5",
+      "mean": {
+        "error_body_pos": 0.037389994345499306,
+        "error_joint_pos": 0.5601277698743656,
+        "error_anchor_pos": 0.19006471394360852,
+        "error_anchor_rot": 0.06274090770328702,
+        "error_body_rot": 0.17471362590098022,
+        "error_joint_vel": 3.932190062361548,
+        "error_anchor_lin_vel": 0.17073311558296242,
+        "error_anchor_ang_vel": 0.407657334831251,
+        "error_body_lin_vel": 0.2466973325400897,
+        "error_body_ang_vel": 1.1093991503194067
+      },
+      "failure_rate": 0.0068359375,
+      "failure_count": 28,
+      "coverage_fraction": 0.9959994554519653,
+      "mean_episode_return": 83.32094084301555
+    }
+  },
+  "matching_motion_start_horizon_physics_reward_and_step_trace_audit_passed": true,
+  "complete": true,
+  "completed_at": 1788852202.7088974
+}

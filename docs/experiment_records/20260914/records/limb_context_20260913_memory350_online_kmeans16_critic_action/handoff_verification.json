@@ -1,0 +1,28 @@
+{
+  "verified_at": 1789321608.1057541,
+  "checks": {
+    "implemented_actor_and_critic_moe": true,
+    "independent_parameters_and_encoders": true,
+    "critic_current_tracker_action": true,
+    "old_jobs_stopped_and_checkpoints_retained": true,
+    "fresh_eight_gpu_pair_running": true,
+    "full_dataset_uniform_dr_8192_envs_per_gpu": true,
+    "online_centers_at_ppo_boundaries": true,
+    "unlimited_training": true,
+    "periodic_monitoring_live": true,
+    "initial_matched_endpoint_evaluation_passed": true,
+    "wandb_upload_verified": true
+  },
+  "progress": {
+    "baseline": {
+      "completed_updates": 43,
+      "unix_time": 1789321607.0625808
+    },
+    "concat": {
+      "completed_updates": 18,
+      "unix_time": 1789321602.432537
+    }
+  },
+  "passed": true,
+  "ongoing_monitoring": "Supervisor PID 47401 continues independently; 100-update tracking endpoints and 1000-update latent-usage evaluations remain scheduled."
+}

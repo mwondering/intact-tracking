@@ -1,0 +1,219 @@
+{
+  "completed_updates": 1000,
+  "unix_time": 1789357452.9973552,
+  "dr_id": 5,
+  "checkpoint_sha256": "1e02094fff3f044b5e79130ea37109e22174ae6798a3ed6645eea51b32c783e9",
+  "protocol_sha256": "7dbe9bb5c30a58d65cb20ef0679f9afcafb153219967818d9deabc105b54f572",
+  "training_state_preserved": true,
+  "global_transitions": 196608000,
+  "comparison": {
+    "paired_motions": 512,
+    "bootstrap_repeats": 2000,
+    "bootstrap_unit": "motion; one fixed-start episode per motion",
+    "training_seed_count": 1,
+    "common_survival_steps_mean": 352.26171875,
+    "failure_rate": {
+      "reference": 0.001953125,
+      "candidate": 0.001953125,
+      "candidate_minus_reference": 0.0,
+      "difference_ci95": [
+        0.0,
+        0.0
+      ],
+      "reduction_percent": 0.0,
+      "reduction_percent_ci95": [
+        0.0,
+        0.0
+      ]
+    },
+    "coverage": {
+      "reference": 0.9988773375984252,
+      "candidate": 0.9988465797244095,
+      "candidate_minus_reference": -3.075787401574104e-05,
+      "difference_ci95": [
+        -9.227362204744516e-05,
+        0.0
+      ],
+      "reduction_percent": 0.0030792443534349667,
+      "reduction_percent_ci95": [
+        0.0,
+        0.0092585448653855
+      ]
+    },
+    "truncated_error_body_pos": {
+      "reference": 0.04171310020849031,
+      "candidate": 0.027720328333541686,
+      "candidate_minus_reference": -0.013992771874948625,
+      "difference_ci95": [
+        -0.01457065380826814,
+        -0.013434750559794267
+      ],
+      "reduction_percent": 33.54526948371132,
+      "reduction_percent_ci95": [
+        31.957616582737604,
+        35.020540370668925
+      ]
+    },
+    "common_error_body_pos": {
+      "reference": 0.04169050267954112,
+      "candidate": 0.027720328453764605,
+      "candidate_minus_reference": -0.013970174225776517,
+      "difference_ci95": [
+        -0.014546322206365057,
+        -0.013409167985539901
+      ],
+      "reduction_percent": 33.50924869666331,
+      "reduction_percent_ci95": [
+        31.92090391991466,
+        34.990279195978324
+      ]
+    },
+    "truncated_error_joint_pos": {
+      "reference": 0.5935959303810736,
+      "candidate": 0.46566230376657214,
+      "candidate_minus_reference": -0.12793362661450147,
+      "difference_ci95": [
+        -0.13339529230362165,
+        -0.12291137078527288
+      ],
+      "reduction_percent": 21.5523085767066,
+      "reduction_percent_ci95": [
+        20.564362312054843,
+        22.563815535784123
+      ]
+    },
+    "common_error_joint_pos": {
+      "reference": 0.5935331285146263,
+      "candidate": 0.46566230357291427,
+      "candidate_minus_reference": -0.12787082494171198,
+      "difference_ci95": [
+        -0.13330377020654585,
+        -0.12290295533334628
+      ],
+      "reduction_percent": 21.544008042435816,
+      "reduction_percent_ci95": [
+        20.5641539674548,
+        22.550946202768134
+      ]
+    },
+    "truncated_error_anchor_pos": {
+      "reference": 0.22841335560308818,
+      "candidate": 0.18816284531252256,
+      "candidate_minus_reference": -0.040250510290565616,
+      "difference_ci95": [
+        -0.04888175032824901,
+        -0.031861672004751596
+      ],
+      "reduction_percent": 17.621784936476555,
+      "reduction_percent_ci95": [
+        14.434372512728263,
+        20.66104095383107
+      ]
+    },
+    "truncated_error_anchor_rot": {
+      "reference": 0.07694811487213266,
+      "candidate": 0.056308688505688764,
+      "candidate_minus_reference": -0.02063942636644389,
+      "difference_ci95": [
+        -0.0225098423778122,
+        -0.018788020414849404
+      ],
+      "reduction_percent": 26.822523723604068,
+      "reduction_percent_ci95": [
+        24.483477846660964,
+        29.021132062086856
+      ]
+    },
+    "truncated_error_body_rot": {
+      "reference": 0.16390838607794,
+      "candidate": 0.11175607165678053,
+      "candidate_minus_reference": -0.052152314421159474,
+      "difference_ci95": [
+        -0.05382010343118247,
+        -0.050531401200843276
+      ],
+      "reduction_percent": 31.817965919303575,
+      "reduction_percent_ci95": [
+        30.6908945110358,
+        32.986781231377655
+      ]
+    },
+    "truncated_error_joint_vel": {
+      "reference": 3.1837034362972507,
+      "candidate": 3.124890806112453,
+      "candidate_minus_reference": -0.058812630184797765,
+      "difference_ci95": [
+        -0.08202972702450902,
+        -0.03542488257310463
+      ],
+      "reduction_percent": 1.8473024061939243,
+      "reduction_percent_ci95": [
+        1.116283104776832,
+        2.5731746718515978
+      ]
+    },
+    "truncated_error_anchor_lin_vel": {
+      "reference": 0.16369815072568317,
+      "candidate": 0.14392019009274928,
+      "candidate_minus_reference": -0.019777960632933883,
+      "difference_ci95": [
+        -0.02301771428196343,
+        -0.01660232399463704
+      ],
+      "reduction_percent": 12.081969494008982,
+      "reduction_percent_ci95": [
+        10.501824994771765,
+        13.668380132464602
+      ]
+    },
+    "truncated_error_anchor_ang_vel": {
+      "reference": 0.3744124405223568,
+      "candidate": 0.3435327056186705,
+      "candidate_minus_reference": -0.030879734903686284,
+      "difference_ci95": [
+        -0.03420212431993711,
+        -0.02749610402267233
+      ],
+      "reduction_percent": 8.247518394582405,
+      "reduction_percent_ci95": [
+        7.410932730855552,
+        9.05041402924861
+      ]
+    },
+    "truncated_error_body_lin_vel": {
+      "reference": 0.2036601458045198,
+      "candidate": 0.18292033189587015,
+      "candidate_minus_reference": -0.02073981390864965,
+      "difference_ci95": [
+        -0.023798662638356036,
+        -0.017813838793976442
+      ],
+      "reduction_percent": 10.183540734845813,
+      "reduction_percent_ci95": [
+        8.944975270336112,
+        11.400564667676111
+      ]
+    },
+    "truncated_error_body_ang_vel": {
+      "reference": 0.7835902316802263,
+      "candidate": 0.7389283333952723,
+      "candidate_minus_reference": -0.04466189828495404,
+      "difference_ci95": [
+        -0.05081068871858517,
+        -0.038522511438670706
+      ],
+      "reduction_percent": 5.699649699459247,
+      "reduction_percent_ci95": [
+        4.979312432152779,
+        6.439174058808104
+      ]
+    },
+    "reference_checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260914_fixed_dr_specialists8/reference_A/checkpoint_update_004000.pt",
+    "reference_update": 4000,
+    "specialist_checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260914_fixed_dr_specialists8/ppo/B05_shins_4kg/checkpoint_update_001000.pt",
+    "specialist_update": 1000,
+    "dr_id": 5,
+    "physics_fingerprint": "77d3d1c9a607d786913cdd3c6241205ffcc3502680319cf5e6c431895eeeee5d",
+    "interpretation": "Specialization relative to the existing continuous-DR universal A; not an equal-training-distribution or equal-total-samples ablation"
+  }
+}

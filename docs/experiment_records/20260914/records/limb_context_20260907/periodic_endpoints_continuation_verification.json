@@ -1,0 +1,83 @@
+{
+  "verified_at": 1788847325.7093642,
+  "policy": "Save and evaluate every 100 completed PPO updates; keep the same training processes and simulator episodes between tests.",
+  "runs": {
+    "baseline_121": {
+      "processes": [
+        {
+          "pid": 54779,
+          "start_ticks": 1403500481
+        },
+        {
+          "pid": 54931,
+          "start_ticks": 1403501020
+        },
+        {
+          "pid": 54932,
+          "start_ticks": 1403501021
+        }
+      ],
+      "resume_history_count": 1,
+      "latest_logged_update": 323,
+      "scheduled_checkpoint_update": 300,
+      "evaluation_finished": true,
+      "continued_after_evaluation": true,
+      "same_processes_verified": true,
+      "training_state_preserved": true,
+      "checkpoint_sha256": "5775c65a92b7114ec1a0abd4b1aad4a8d60c6a3de348992cc267440a26a42521",
+      "evaluation_wall_seconds": 408.107152255252,
+      "audit": {
+        "passed": true,
+        "enabled_after_update": 203,
+        "interval_updates": 100,
+        "required_updates": [
+          300
+        ],
+        "evaluated_updates": [
+          203,
+          300
+        ],
+        "motions_per_endpoint": 4096
+      }
+    },
+    "film_121": {
+      "processes": [
+        {
+          "pid": 54780,
+          "start_ticks": 1403500481
+        },
+        {
+          "pid": 54972,
+          "start_ticks": 1403501124
+        },
+        {
+          "pid": 54973,
+          "start_ticks": 1403501124
+        }
+      ],
+      "resume_history_count": 1,
+      "latest_logged_update": 260,
+      "scheduled_checkpoint_update": 200,
+      "evaluation_finished": true,
+      "continued_after_evaluation": true,
+      "training_state_preserved": true,
+      "checkpoint_sha256": "55af8081bbbef71908dbe01e80bd231e5751b73bf5dc74cd8d8515302da8feb4",
+      "evaluation_wall_seconds": 433.11031592823565,
+      "audit": {
+        "passed": true,
+        "enabled_after_update": 164,
+        "interval_updates": 100,
+        "required_updates": [
+          200
+        ],
+        "evaluated_updates": [
+          164,
+          200
+        ],
+        "motions_per_endpoint": 4096
+      },
+      "same_processes_verified": true
+    }
+  },
+  "passed": true
+}

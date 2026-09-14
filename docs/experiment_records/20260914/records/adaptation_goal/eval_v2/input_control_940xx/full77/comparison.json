@@ -1,0 +1,252 @@
+{
+  "plan": {
+    "identities": {
+      "reference": {
+        "path": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/fixed_reward_zero_actor_physics_seed77/checkpoint_500.pt",
+        "sha256": "d020c9ef85e298c4085efe2c2cfb91bba0255d9bff5065919be834214b43fa65"
+      },
+      "candidate": {
+        "path": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/fixed_reward_physics_critic_prior_seed77/checkpoint_500.pt",
+        "sha256": "ae7e3e407bba1869cdc94355c422eaf374754fdb110534e591bb22ca2d832b6f"
+      }
+    },
+    "evaluation_seeds": [
+      94001,
+      94002,
+      94003
+    ],
+    "scope": "One training seed, predeclared equal-update checkpoints. Same architecture/initialization/critic/reward/optimization; only actor physics input differs. New evaluation worlds are not independent training replications. Not nominal-goal acceptance."
+  },
+  "same_physics_worlds_audited": true,
+  "legacy_reference_configuration_audit": null,
+  "actor_input_only_training_audit": {
+    "initial_tensors_bitwise_equal": {
+      "actor_state_dict": 86,
+      "critic_state_dict": 27
+    },
+    "arguments_differ": {
+      "output_dir": [
+        "runs/adaptation_goal/fixed_reward_zero_actor_physics_seed77",
+        "runs/adaptation_goal/fixed_reward_physics_critic_prior_seed77"
+      ],
+      "actor_physics_input": [
+        "zero",
+        "normal"
+      ]
+    },
+    "checkpoint_iteration": 500,
+    "scope": "Only actor physical input differs; fixed architecture, critic, initialization, reward, optimizer and training budget"
+  },
+  "statistics": {
+    "reference_files": [
+      "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/input_control_940xx/full77/reference_seed94001.json",
+      "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/input_control_940xx/full77/reference_seed94002.json",
+      "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/input_control_940xx/full77/reference_seed94003.json"
+    ],
+    "candidate_files": [
+      "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/input_control_940xx/full77/candidate_seed94001.json",
+      "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/input_control_940xx/full77/candidate_seed94002.json",
+      "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/input_control_940xx/full77/candidate_seed94003.json"
+    ],
+    "seeds": [
+      {
+        "seed": 94001,
+        "reference": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/input_control_940xx/full77/reference_seed94001.json",
+        "candidate": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/input_control_940xx/full77/candidate_seed94001.json",
+        "ratios": {
+          "error_body_pos": 0.991614588679484,
+          "error_joint_pos": 0.99181108592858,
+          "error_anchor_pos": 0.9900241955786172,
+          "error_anchor_rot": 0.9969251508334536,
+          "error_body_rot": 0.98918404233402,
+          "error_joint_vel": 0.9984095297098473,
+          "error_anchor_lin_vel": 0.995523796975241,
+          "error_anchor_ang_vel": 0.997621318922226,
+          "error_body_lin_vel": 0.994608520285707,
+          "error_body_ang_vel": 0.9954546240780805
+        },
+        "failure_difference": 0.0
+      },
+      {
+        "seed": 94002,
+        "reference": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/input_control_940xx/full77/reference_seed94002.json",
+        "candidate": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/input_control_940xx/full77/candidate_seed94002.json",
+        "ratios": {
+          "error_body_pos": 0.992745792429229,
+          "error_joint_pos": 0.9903365907493891,
+          "error_anchor_pos": 1.0137787189569654,
+          "error_anchor_rot": 0.9969447597793781,
+          "error_body_rot": 0.9885702373077841,
+          "error_joint_vel": 0.9967739401990482,
+          "error_anchor_lin_vel": 0.9973112451007395,
+          "error_anchor_ang_vel": 0.9963514838279146,
+          "error_body_lin_vel": 0.9943790780449596,
+          "error_body_ang_vel": 0.9931681628273263
+        },
+        "failure_difference": -0.008928571827709675
+      },
+      {
+        "seed": 94003,
+        "reference": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/input_control_940xx/full77/reference_seed94003.json",
+        "candidate": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/input_control_940xx/full77/candidate_seed94003.json",
+        "ratios": {
+          "error_body_pos": 0.995943825292297,
+          "error_joint_pos": 0.9943962771386485,
+          "error_anchor_pos": 1.0072627529319664,
+          "error_anchor_rot": 1.00657249743197,
+          "error_body_rot": 0.9936672282230987,
+          "error_joint_vel": 1.0013131453442317,
+          "error_anchor_lin_vel": 0.9986709056828257,
+          "error_anchor_ang_vel": 0.999882632991261,
+          "error_body_lin_vel": 0.9997578243458309,
+          "error_body_ang_vel": 0.9968964779108265
+        },
+        "failure_difference": 0.0029761902987957
+      }
+    ],
+    "metrics": {
+      "error_body_pos": {
+        "reference": 0.04240762344203775,
+        "candidate": 0.042128753133282744,
+        "ratio": 0.9934240524198164,
+        "paired_motion_seed_bootstrap_95pct": [
+          0.9852041984365468,
+          1.0022429439516092
+        ]
+      },
+      "error_joint_pos": {
+        "reference": 0.6620524615661251,
+        "candidate": 0.6568764055016518,
+        "ratio": 0.9921818037618515,
+        "paired_motion_seed_bootstrap_95pct": [
+          0.9868555665738552,
+          0.9985545536270513
+        ]
+      },
+      "error_anchor_pos": {
+        "reference": 0.35576107275032953,
+        "candidate": 0.35682021829075355,
+        "ratio": 1.0029771260026734,
+        "paired_motion_seed_bootstrap_95pct": [
+          0.9735040614353665,
+          1.0338084787650732
+        ]
+      },
+      "error_anchor_rot": {
+        "reference": 0.09343761740295592,
+        "candidate": 0.0934465959168229,
+        "ratio": 1.0000960909975718,
+        "paired_motion_seed_bootstrap_95pct": [
+          0.9860464275898148,
+          1.014176318131238
+        ]
+      },
+      "error_body_rot": {
+        "reference": 0.19060709002523918,
+        "candidate": 0.1887897595955371,
+        "ratio": 0.9904655675218511,
+        "paired_motion_seed_bootstrap_95pct": [
+          0.9842305838335468,
+          0.9969128262617858
+        ]
+      },
+      "error_joint_vel": {
+        "reference": 5.265362298812228,
+        "candidate": 5.259236449797577,
+        "ratio": 0.9988365759719835,
+        "paired_motion_seed_bootstrap_95pct": [
+          0.9922895692920042,
+          1.0062299803318202
+        ]
+      },
+      "error_anchor_lin_vel": {
+        "reference": 0.2578782949877168,
+        "candidate": 0.2571428849668238,
+        "ratio": 0.997148228310847,
+        "paired_motion_seed_bootstrap_95pct": [
+          0.9894920347246918,
+          1.0042415126475055
+        ]
+      },
+      "error_anchor_ang_vel": {
+        "reference": 0.5554771829150709,
+        "candidate": 0.5543425715326835,
+        "ratio": 0.9979574113621859,
+        "paired_motion_seed_bootstrap_95pct": [
+          0.9884621300871369,
+          1.0069354740758498
+        ]
+      },
+      "error_body_lin_vel": {
+        "reference": 0.34272103727988507,
+        "candidate": 0.34143217834168044,
+        "ratio": 0.9962393352085006,
+        "paired_motion_seed_bootstrap_95pct": [
+          0.9901129878932567,
+          1.0034368264727658
+        ]
+      },
+      "error_body_ang_vel": {
+        "reference": 1.4501769589097075,
+        "candidate": 1.4431950704948162,
+        "ratio": 0.995185492107018,
+        "paired_motion_seed_bootstrap_95pct": [
+          0.9883637197932327,
+          1.002684809480745
+        ]
+      }
+    },
+    "reference_failure_rate": 0.015873015873015872,
+    "candidate_failure_rate": 0.013888888888888888,
+    "failure_difference": -0.001984126984126984,
+    "failure_difference_paired_bootstrap_95pct": [
+      -0.012896825396825396,
+      0.011904761904761904
+    ],
+    "failure_upper_95pct_within_margin": false,
+    "allowed_observed_failure_increase": 0.0,
+    "observed_failure_nonincrease": true,
+    "fixed_reward_candidate_eligible": true,
+    "margin": 1.0,
+    "evaluation_protocol": "balanced_fixed_starts_v2_isolated_resets",
+    "valid_acceptance_protocol": true,
+    "matched_single_policy_identity": true,
+    "acceptance_conditions": false,
+    "numerical_point_estimate_pass": true,
+    "point_estimate_pass": false,
+    "primary_upper_95pct_within_margin": false,
+    "all_metrics_point_estimate_pass": false,
+    "all_metrics_upper_95pct_within_margin": false,
+    "confirmation_seeds_used": false,
+    "confirmation_seed_set_complete": false,
+    "warning": "INVALID FOR ACCEPTANCE: missing v2 reset audits, fixed-reward lineage, or a diagnostic/ablation condition."
+  },
+  "paired_failures": [
+    {
+      "seed": 94001,
+      "reference": 2,
+      "candidate": 2,
+      "episodes": 336,
+      "new": 0,
+      "recovered": 0
+    },
+    {
+      "seed": 94002,
+      "reference": 7,
+      "candidate": 4,
+      "episodes": 336,
+      "new": 0,
+      "recovered": 3
+    },
+    {
+      "seed": 94003,
+      "reference": 7,
+      "candidate": 8,
+      "episodes": 336,
+      "new": 5,
+      "recovered": 4
+    }
+  ],
+  "nominal_goal_acceptance": false,
+  "warning": "Bootstrap reflects evaluation seed/motion uncertainty only, not training-seed uncertainty. Actor-input causal scope requires the explicit matching audit; otherwise architecture and input differ together."
+}

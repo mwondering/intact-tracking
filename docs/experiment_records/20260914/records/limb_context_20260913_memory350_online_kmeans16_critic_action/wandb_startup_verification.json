@@ -1,0 +1,30 @@
+{
+  "verified_at": 1789321546.6317055,
+  "arms": {
+    "baseline": {
+      "id": "m350moe-304ffc7c9a59",
+      "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/m350moe-304ffc7c9a59",
+      "state": "running",
+      "version": "memory350_online_kmeans16_actor_critic_action_v2",
+      "policy_precision": "fp32",
+      "critic_tracker_action_dim": 29,
+      "independent_actor_critic": true,
+      "completed_updates": 27,
+      "policy_fp32": true,
+      "router_center_updates": null
+    },
+    "concat": {
+      "id": "m350moe-95a79ab11b01",
+      "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/m350moe-95a79ab11b01",
+      "state": "running",
+      "version": "memory350_online_kmeans16_actor_critic_action_v2",
+      "policy_precision": "fp32",
+      "critic_tracker_action_dim": 29,
+      "independent_actor_critic": true,
+      "completed_updates": 9,
+      "policy_fp32": true,
+      "router_center_updates": 9
+    }
+  },
+  "passed": true
+}

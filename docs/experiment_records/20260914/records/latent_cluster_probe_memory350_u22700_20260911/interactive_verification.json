@@ -1,0 +1,6 @@
+{
+  "passed": true,
+  "scope": "mock DOM click handler and independent NumPy distance calculation; not browser automation",
+  "sample_count": 414,
+  "text": "DR 15 / M9 / phase 0.229 ↔ DR 72 / M4 / phase 0.234 ｜Memory350：原始 L2 9.1555；单位化 L2 1.3184 ｜v12：原始 L2 0.8081；单位化 L2 0.1139"
+}

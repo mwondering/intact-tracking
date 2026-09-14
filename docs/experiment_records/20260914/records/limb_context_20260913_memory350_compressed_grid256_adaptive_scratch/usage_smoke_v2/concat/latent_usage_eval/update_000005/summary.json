@@ -1,0 +1,119 @@
+{
+  "completed_updates": 5,
+  "checkpoint_sha256": "7dde26e42a147c1e7f09aa99ab8b5a48b3bce8b80045d024d9185f582926c4de",
+  "fusion": "concat",
+  "protocol": {
+    "version": "memory350_matched_latent_usage_v1",
+    "interval_updates": 1000,
+    "motion_manifest": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260913_memory350_compressed_grid256_adaptive_scratch/protocols/latent_usage_smoke_motions.txt",
+    "manifest_sha256": "d1066aadcbcffb5a846e139f20ad8c8a2127c8eeb141087de768eb52b4012ff9",
+    "motions": 8,
+    "motion_path": "/data_zcy/wxy/motion_data_correct/motion_data_full",
+    "seed": 22001,
+    "steps": 200,
+    "warmup_steps": 500
+  },
+  "metrics": {
+    "correct": {
+      "error_body_pos": 0.05620493395707457,
+      "error_joint_pos": 0.7203718395645802,
+      "error_anchor_pos": 0.1331287543046696,
+      "error_anchor_rot": 0.11478939493537324,
+      "error_body_rot": 0.23887618432381152,
+      "error_joint_vel": 4.5005667856672344,
+      "error_anchor_lin_vel": 0.21363703245119278,
+      "error_anchor_ang_vel": 0.5228846862831658,
+      "error_body_lin_vel": 0.28620105083497505,
+      "error_body_ang_vel": 1.2391131959811676,
+      "failure_rate": 0.0,
+      "coverage_fraction": 1.0,
+      "mean_episode_return": 50.4301648652181
+    },
+    "paired-swap": {
+      "error_body_pos": 0.05639333750989001,
+      "error_joint_pos": 0.7186682336600139,
+      "error_anchor_pos": 0.13017666610424827,
+      "error_anchor_rot": 0.11496526425533468,
+      "error_body_rot": 0.23937054414327483,
+      "error_joint_vel": 4.509864624200914,
+      "error_anchor_lin_vel": 0.21232689140002967,
+      "error_anchor_ang_vel": 0.5260964619367196,
+      "error_body_lin_vel": 0.28610043014547465,
+      "error_body_ang_vel": 1.2393864151751561,
+      "failure_rate": 0.0,
+      "coverage_fraction": 1.0,
+      "mean_episode_return": 50.437127315439284
+    },
+    "swap_over_correct_common_body_ratio": 1.003352082095841,
+    "swap_over_correct_common_joint_ratio": 0.997635102025093,
+    "swap_minus_correct_failure_pp": 0.0,
+    "swapped_fraction_of_valid_steps": 0.7492163009404389
+  },
+  "paired_motion_bootstrap": {
+    "motions": 8,
+    "means": {
+      "reference_body": 0.05620493395707458,
+      "reference_joint": 0.7203718395645802,
+      "candidate_body": 0.056393337509890014,
+      "candidate_joint": 0.7186682336600139,
+      "reference_failure": 0.0,
+      "candidate_failure": 0.0,
+      "reference_coverage": 1.0,
+      "candidate_coverage": 1.0,
+      "reference_return": 50.4301648652181,
+      "candidate_return": 50.437127315439284,
+      "reference_common_body": 0.05620493395707458,
+      "reference_common_joint": 0.7203718395645802,
+      "candidate_common_body": 0.056393337509890014,
+      "candidate_common_joint": 0.7186682336600139
+    },
+    "candidate_over_reference_body_joint": [
+      1.003352082095841,
+      0.997635102025093
+    ],
+    "body_joint_ratio_ci95": [
+      [
+        0.9924342322224927,
+        1.016970708193778
+      ],
+      [
+        0.9812164260199943,
+        1.011799415088322
+      ]
+    ],
+    "failure_rate_delta": 0.0,
+    "failure_rate_delta_ci95": [
+      0.0,
+      0.0
+    ],
+    "coverage_delta": 0.0,
+    "coverage_delta_ci95": [
+      0.0,
+      0.0
+    ],
+    "episode_return_delta": 0.006962450221180916,
+    "episode_return_delta_ci95": [
+      -0.27352870809845625,
+      0.2751788852503522
+    ],
+    "common_prefix_body_joint_ratio": [
+      1.003352082095841,
+      0.997635102025093
+    ],
+    "common_prefix_body_joint_ratio_ci95": [
+      [
+        0.9924342322224927,
+        1.016970708193778
+      ],
+      [
+        0.9812164260199943,
+        1.011799415088322
+      ]
+    ],
+    "new_failure_episodes": 0,
+    "rescued_failure_episodes": 0,
+    "uncertainty": "paired motion bootstrap conditional on this training seed; not training-seed uncertainty",
+    "scope": "new starts and loads on the training motion catalog; not unseen-motion generalization"
+  },
+  "scope": "Warm history; 2 matched-phase worlds per motion; independently sampled continuous DR. Swap only while both histories are full and both worlds are active. Ratios above one mean swapped latent worsens tracking."
+}

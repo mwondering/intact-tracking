@@ -1,0 +1,54 @@
+{
+  "target_updates": 5000,
+  "completed_updates": 957,
+  "complete": false,
+  "stopped": true,
+  "distributed_parameter_agreement": {
+    "passed": true,
+    "world_size": 4,
+    "ranks": [
+      {
+        "rank": 0,
+        "completed_updates": 957,
+        "actor_trainable_sha256": "2fff0ad1aeb98ae91327f051e093cbef0a09c170d1d934480bea9c35c5708571",
+        "critic_trainable_sha256": "2e23902a60dcc549fd35e2e79a3fef99b87b2f2d30d01bba81476d909c4cdb8e",
+        "critic_normalizer_sha256": "5d4377336b3a8233e09ce0f0c768afbcfd3f819805a3ac11176ea5ad402110a1",
+        "finite": true
+      },
+      {
+        "rank": 1,
+        "completed_updates": 957,
+        "actor_trainable_sha256": "2fff0ad1aeb98ae91327f051e093cbef0a09c170d1d934480bea9c35c5708571",
+        "critic_trainable_sha256": "2e23902a60dcc549fd35e2e79a3fef99b87b2f2d30d01bba81476d909c4cdb8e",
+        "critic_normalizer_sha256": "5d4377336b3a8233e09ce0f0c768afbcfd3f819805a3ac11176ea5ad402110a1",
+        "finite": true
+      },
+      {
+        "rank": 2,
+        "completed_updates": 957,
+        "actor_trainable_sha256": "2fff0ad1aeb98ae91327f051e093cbef0a09c170d1d934480bea9c35c5708571",
+        "critic_trainable_sha256": "2e23902a60dcc549fd35e2e79a3fef99b87b2f2d30d01bba81476d909c4cdb8e",
+        "critic_normalizer_sha256": "5d4377336b3a8233e09ce0f0c768afbcfd3f819805a3ac11176ea5ad402110a1",
+        "finite": true
+      },
+      {
+        "rank": 3,
+        "completed_updates": 957,
+        "actor_trainable_sha256": "2fff0ad1aeb98ae91327f051e093cbef0a09c170d1d934480bea9c35c5708571",
+        "critic_trainable_sha256": "2e23902a60dcc549fd35e2e79a3fef99b87b2f2d30d01bba81476d909c4cdb8e",
+        "critic_normalizer_sha256": "5d4377336b3a8233e09ce0f0c768afbcfd3f819805a3ac11176ea5ad402110a1",
+        "finite": true
+      }
+    ]
+  },
+  "distributed": {
+    "world_size": 4,
+    "num_envs_per_rank": 8192,
+    "global_num_envs": 32768,
+    "rank_seed_formula": "seed + 1000003 * rank",
+    "gradient_synchronization": "mean across all ranks at each optimizer step",
+    "advantage_normalization": "global rollout mean and sample standard deviation",
+    "critic_normalization": "global pooled sums, squared sums and count at every environment step"
+  },
+  "unix_time": 1788838898.1945748
+}

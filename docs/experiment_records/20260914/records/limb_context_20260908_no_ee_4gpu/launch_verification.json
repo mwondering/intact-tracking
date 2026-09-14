@@ -1,0 +1,39 @@
+{
+  "passed": true,
+  "unix_time": 1788880444.6845107,
+  "regression_tests_passed": 35,
+  "smoke_audit": "runs/limb_context_20260908_no_ee_4gpu/smoke_4gpu8192_scratch/audit.json",
+  "startup_audit": "runs/limb_context_20260908_no_ee_4gpu/ppo_4gpu8192_scratch/startup_verification_seed_121.json",
+  "wandb_readback_passed": true,
+  "active_training": {
+    "baseline_121": {
+      "pid": 39258,
+      "gpus": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "completed_updates": 76,
+      "global_num_envs": 32768,
+      "seconds_per_update": 3.679607319831848,
+      "initial_endpoint_evaluation_passed": true
+    },
+    "film_121": {
+      "pid": 39259,
+      "gpus": [
+        4,
+        5,
+        6,
+        7
+      ],
+      "completed_updates": 61,
+      "global_num_envs": 32768,
+      "seconds_per_update": 4.505564725399017,
+      "initial_endpoint_evaluation_passed": true
+    }
+  },
+  "periodic_interval_updates": 100,
+  "all_evaluations_use_original_terminations": true,
+  "write_scope": "project only"
+}

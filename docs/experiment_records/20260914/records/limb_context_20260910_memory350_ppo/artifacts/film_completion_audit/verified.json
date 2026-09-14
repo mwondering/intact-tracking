@@ -1,0 +1,76 @@
+{
+  "checked_at": 1789098367.367371,
+  "passed": true,
+  "checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260910_memory350_ppo/ppo/film_121/checkpoint_update_005000.pt",
+  "checkpoint_sha256": "e339c9138746e06f8f1c4b8b89313be1a29902a34b50f7c29ee5e170c0893d26",
+  "completion_sha256": "fb08e56b60f4a0bbb16164d73bcb1d7f853a9ef476689ff6078eb9e181df021e",
+  "run_config_sha256": "b2a194e86d9e205b621a472ef444a05c9292d66013d6faf50ded94dc5a969ddc",
+  "periodic_100_to_5000": {
+    "count": 50,
+    "all_training_state_preserved": true
+  },
+  "initial_evaluation_at_update_0": true,
+  "total_evaluation_records": 51,
+  "distributed_parameter_agreement": {
+    "passed": true,
+    "world_size": 2,
+    "ranks": [
+      {
+        "rank": 0,
+        "completed_updates": 5000,
+        "actor_trainable_sha256": "b4fba84619c55a8f5d41a673883319bdc41459f070b1f52bdeb854df13b343fc",
+        "critic_trainable_sha256": "f9e7cf552397235e4f3438f78a14bd68b40d623cd143b9476870b3b78869dc99",
+        "critic_normalizer_sha256": "541717c67e3c0e2bf4bcf148754d1cd2f1b411ca6a6cb0f7149a151eba855c3c",
+        "finite": true
+      },
+      {
+        "rank": 1,
+        "completed_updates": 5000,
+        "actor_trainable_sha256": "b4fba84619c55a8f5d41a673883319bdc41459f070b1f52bdeb854df13b343fc",
+        "critic_trainable_sha256": "f9e7cf552397235e4f3438f78a14bd68b40d623cd143b9476870b3b78869dc99",
+        "critic_normalizer_sha256": "541717c67e3c0e2bf4bcf148754d1cd2f1b411ca6a6cb0f7149a151eba855c3c",
+        "finite": true
+      }
+    ]
+  },
+  "exited_training_processes": {
+    "film_launcher": {
+      "pid": 19374,
+      "state": "exited"
+    },
+    "film_rank0": {
+      "pid": 19438,
+      "state": "exited"
+    },
+    "film_rank1": {
+      "pid": 19439,
+      "state": "exited"
+    },
+    "paired_reporter": {
+      "pid": 9912,
+      "state": "exited"
+    }
+  },
+  "final_evaluator": {
+    "pid": 9576,
+    "start_ticks": "1428714525",
+    "state": "S",
+    "command": [
+      "/data_zcy/wxy/intact-tracking/.venv/bin/python",
+      "-u",
+      "/data_zcy/wxy/intact-tracking/scripts/evaluate_memory350_ppo.py",
+      "--run-root",
+      "/data_zcy/wxy/intact-tracking/runs/limb_context_20260910_memory350_ppo",
+      "--fusion",
+      "film",
+      "--gpus",
+      "2",
+      "3"
+    ],
+    "gpus": [
+      2,
+      3
+    ]
+  },
+  "actual_checkpoint_tensor_audit": "artifacts/checkpoint_state_audits/baseline_005000_film_005000.json"
+}

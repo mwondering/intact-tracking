@@ -1,0 +1,98 @@
+{
+  "arguments": {
+    "actor_lr": 0.0003,
+    "critic_lr": 0.0005,
+    "device": "cuda:0",
+    "entropy_coef": 0.002,
+    "epochs": 5,
+    "hidden_dims": [
+      512,
+      256,
+      128
+    ],
+    "iterations": 2000,
+    "latent_dim": 64,
+    "motion_path": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong",
+    "num_envs": 1024,
+    "output_dir": "runs/adaptation_goal/nominal_scale1_seed42",
+    "physics": "nominal",
+    "privileged": false,
+    "residual_scale": 1.0,
+    "resume": null,
+    "rollout_steps": 24,
+    "save_interval": 250,
+    "seed": 42,
+    "tracker_checkpoint": "/data_zcy/wxy/SP_Tracking/logs/rsl_rl/g1_tracking/2026-09-02_04-48-42_SPTracking-G1-BFM-SPV5-2AActor-HEFTCritic-HEFTReward_8gpu_12288env_motion_data_correct/checkpoint_72000.pt"
+  },
+  "motion_count": 42,
+  "motion_path": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong",
+  "physics": {
+    "cleared_exclusions": [
+      "[/data_zcy/wxy/motion_filter/0827/invalid_motions_0827_v1.json,/data_zcy/wxy/SP_Tracking/logs/motion_benchmark_10000.json,/data_zcy/wxy/SP_Tracking/logs/motion_benchmark_0830_22000.json,/data_zcy/wxy/SP_Tracking/benchmark_0831_36000.json,/data_zcy/wxy/SP_Tracking/benchmark_0901_44000.json,/data_zcy/wxy/SP_Tracking/benchmark_0902_59000.json]"
+    ],
+    "details": {
+      "action_randomization_overrides": {},
+      "contract": "compiled nominal model with persistent DR and stochastic action DR disabled",
+      "enabled": true,
+      "motion_and_state_resets_preserved": true,
+      "observation_corruption_preserved": true,
+      "removed_events": [
+        {
+          "function": "body_com_offset",
+          "mode": "startup",
+          "name": "base_com"
+        },
+        {
+          "function": "body_mass",
+          "mode": "startup",
+          "name": "base_mass"
+        },
+        {
+          "function": "encoder_bias",
+          "mode": "startup",
+          "name": "encoder_bias"
+        },
+        {
+          "function": "geom_friction",
+          "mode": "startup",
+          "name": "foot_friction"
+        },
+        {
+          "function": "motor_params_implicit",
+          "mode": "startup",
+          "name": "motor_params_implicit"
+        }
+      ],
+      "removed_model_fields": [
+        "actuator_biasprm",
+        "actuator_gainprm",
+        "body_invweight0",
+        "body_ipos",
+        "body_mass",
+        "body_subtreemass",
+        "dof_armature",
+        "dof_frictionloss",
+        "dof_invweight0",
+        "geom_friction",
+        "tendon_invweight0",
+        "tendon_length0"
+      ]
+    },
+    "physics": "nominal",
+    "removed_disturbances": [
+      "push_robot"
+    ],
+    "runtime_audit": {
+      "alpha_max_abs_error": 0.0,
+      "domain_randomization_field_count": 0,
+      "joint_offset_abs_max": 0.0,
+      "max_delay": 0,
+      "persistent_event_count": 0
+    }
+  },
+  "privileged": false,
+  "student_contract": "replace all privileged actor inputs by deployable context and observations",
+  "tracker_checkpoint": "/data_zcy/wxy/SP_Tracking/logs/rsl_rl/g1_tracking/2026-09-02_04-48-42_SPTracking-G1-BFM-SPV5-2AActor-HEFTCritic-HEFTReward_8gpu_12288env_motion_data_correct/checkpoint_72000.pt",
+  "tracker_sha256": "fd7bd90d5552e573bbbce1417e9b415c64bb487a76b683ba3c20503b5ec77635",
+  "version": "adaptation_teacher_v1"
+}

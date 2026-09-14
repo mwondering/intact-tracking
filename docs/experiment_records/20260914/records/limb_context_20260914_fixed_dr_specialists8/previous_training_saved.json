@@ -1,0 +1,16 @@
+{
+  "arms": {
+    "baseline": {
+      "completed_updates": 4020,
+      "checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260913_memory350_online_kmeans16_critic_action/ppo/baseline_121/checkpoint_interrupted.pt",
+      "saved": true
+    },
+    "concat": {
+      "completed_updates": 3300,
+      "checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260913_memory350_online_kmeans16_critic_action/ppo/concat_121/checkpoint_interrupted.pt",
+      "saved": true
+    }
+  },
+  "all_eight_gpus_released": true,
+  "checked_at": 1789351520.127072
+}

@@ -1,0 +1,19 @@
+{
+  "scope": "four-GPU 8192-env/rank smoke, not dataset-performance evidence",
+  "completed_updates": 2,
+  "optimizer_steps": 8,
+  "counts": {
+    "encoder": 2026688,
+    "predictor": 19059798
+  },
+  "four_rank_parameter_agreement": true,
+  "finite_parameters_and_optimizer": true,
+  "wandb": {
+    "id": "m350scale-de8fd51e063c",
+    "state": "finished",
+    "group": "limb_context_20260911_memory350_encoder2x-stage1-smoke",
+    "url": "https://wandb.ai/2486344338-zhejiang-university/intact-forward-predictor/runs/m350scale-de8fd51e063c"
+  },
+  "passed": true,
+  "checked_at": 1789117827.9594939
+}

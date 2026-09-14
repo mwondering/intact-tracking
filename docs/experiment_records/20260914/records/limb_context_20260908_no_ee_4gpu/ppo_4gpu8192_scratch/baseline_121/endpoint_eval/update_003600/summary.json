@@ -1,0 +1,44 @@
+{
+  "completed_updates": 3600,
+  "checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260908_no_ee_4gpu/ppo_4gpu8192_scratch/baseline_121/checkpoint_update_003600.pt",
+  "checkpoint_sha256": "855895e4bcd82d3ff0d11f6d6f8b9a289f049d97abf5fc74512205e1c921df0e",
+  "protocol_sha256": "bebddc8ff4eb8005e513fc553561d841b809500b7ccb10ebf72a55d1e9e02fc2",
+  "metrics": {
+    "checkpoint_update": 3600,
+    "motions": 4096,
+    "all_0": {
+      "error_body_pos": 0.04072812400045535,
+      "error_joint_pos": 0.5767429543041405,
+      "error_anchor_pos": 0.16837231779202838,
+      "error_anchor_rot": 0.08437868455133021,
+      "error_body_rot": 0.1805425745816754,
+      "error_joint_vel": 3.227480433458151,
+      "error_anchor_lin_vel": 0.14780560509798005,
+      "error_anchor_ang_vel": 0.4027421589101933,
+      "error_body_lin_vel": 0.19049059068143426,
+      "error_body_ang_vel": 0.8180024548947405,
+      "failure_rate": 0.000732421875,
+      "coverage_fraction": 0.9996048212051392,
+      "mean_episode_return": 83.57911603855933,
+      "residual_saturation_fraction": 0.5570634844507321
+    },
+    "all_4": {
+      "error_body_pos": 0.07262640089099409,
+      "error_joint_pos": 0.9942065965414468,
+      "error_anchor_pos": 0.4405949623608937,
+      "error_anchor_rot": 0.1353469912076314,
+      "error_body_rot": 0.31279824430301006,
+      "error_joint_vel": 6.614372693342808,
+      "error_anchor_lin_vel": 0.3086655127971701,
+      "error_anchor_ang_vel": 0.787453281465462,
+      "error_body_lin_vel": 0.41507207291863224,
+      "error_body_ang_vel": 1.829468500123232,
+      "failure_rate": 0.113037109375,
+      "coverage_fraction": 0.9313840270042419,
+      "mean_episode_return": 66.5043121101083,
+      "residual_saturation_fraction": 0.6560031096306904
+    }
+  },
+  "unix_time": 1788896854.8029394,
+  "wall_seconds": 75.07758527062833
+}

@@ -1,0 +1,8 @@
+{
+  "source": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260913_memory350_online_kmeans16_critic_action/ppo/baseline_121/checkpoint_update_001000.pt",
+  "checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260914_fixed_dr_specialists8/analysis/compare_update_001000/reference_A/checkpoint_update_001000.pt",
+  "sha256": "b74413299ee4956d72620da766a8c41bbdbdac6168848809b9b9ba587b1a9d61",
+  "completed_updates": 1000,
+  "reason": "User requested equal update 1000 comparison",
+  "global_transitions": 786432000
+}

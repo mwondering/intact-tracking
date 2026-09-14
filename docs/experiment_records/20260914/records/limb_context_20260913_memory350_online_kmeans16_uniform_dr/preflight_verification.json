@@ -1,0 +1,277 @@
+{
+  "verified_at": 1789318558.6703897,
+  "arms": {
+    "baseline": {
+      "checks": {
+        "completed_full_scale_updates": true,
+        "four_rank_parameters_agree": true,
+        "finite_losses": true,
+        "independent_actor_critic_parameters": true,
+        "fp32": true,
+        "independent_uniform_dr": true,
+        "evaluation_finite": true,
+        "evaluation_complete": true
+      },
+      "input_audit": {
+        "action_std_initialization": 0.25,
+        "actor_compression": [
+          1645,
+          512,
+          256,
+          128
+        ],
+        "actor_compressor_sha256": "79577949de8dabd8042d78d2bdc63a574f34a2c81a784b6868bcbbeffdba9662",
+        "actor_critic_parameters_shared": false,
+        "actor_experts": 1,
+        "actor_head": [
+          157,
+          256,
+          128,
+          29
+        ],
+        "actor_initialization_seed": 10128,
+        "actor_original_features": 1645,
+        "actor_trainable_parameters": 1084090,
+        "critic_compression": [
+          6330,
+          1024,
+          512,
+          256,
+          128
+        ],
+        "critic_compressor_sha256": "dfadf550f769ad9c09076ffbfadbc97a2b1c1b6099c3847c0befef2d37e40603",
+        "critic_experts": 1,
+        "critic_head": [
+          128,
+          256,
+          128,
+          1
+        ],
+        "critic_initial_normalizer_sha256": "e70ad13a723dc9a70a89cec098e462d587b7e48a2f834d51241b3d22078f61cc",
+        "critic_initialization_seed": 20124,
+        "critic_original_features": 6330,
+        "critic_trainable_parameters": 7238017,
+        "each_side_shares_one_obs_encoder_across_its_experts": true,
+        "identical_initial_action": true,
+        "initial_value_independent_of_latent": true,
+        "latent_dimensions": 0,
+        "latent_use": "absent",
+        "router_has_trainable_parameters": false,
+        "routing_bootstrap": {
+          "policy": "deterministic frozen tracker",
+          "ppo_updates": 0,
+          "rank_seed": 2300121,
+          "same_bootstrap_in_baseline": true,
+          "steps": 500,
+          "trajectory_sha256": "4eda575f4311c31031d6f18efe069991afae2245f7cd6c350b2fd8e53f40704c"
+        },
+        "tracker_action_input_dim": 29
+      },
+      "timing": [
+        {
+          "collect_seconds": 3.255743980407715,
+          "learn_seconds": 1.5530204772949219
+        },
+        {
+          "collect_seconds": 3.2037484645843506,
+          "learn_seconds": 1.4217031002044678
+        }
+      ],
+      "router_metrics": null
+    },
+    "concat": {
+      "checks": {
+        "completed_full_scale_updates": true,
+        "four_rank_parameters_agree": true,
+        "finite_losses": true,
+        "independent_actor_critic_parameters": true,
+        "fp32": true,
+        "independent_uniform_dr": true,
+        "actor_critic_router_state_equal": true,
+        "router_updated_once_per_ppo_update": true,
+        "all_sixteen_experts_used": true,
+        "evaluation_finite": true,
+        "evaluation_complete": true
+      },
+      "input_audit": {
+        "action_std_initialization": 0.25,
+        "actor_compression": [
+          1645,
+          512,
+          256,
+          128
+        ],
+        "actor_compressor_sha256": "79577949de8dabd8042d78d2bdc63a574f34a2c81a784b6868bcbbeffdba9662",
+        "actor_critic_parameters_shared": false,
+        "actor_experts": 16,
+        "actor_head": [
+          157,
+          256,
+          128,
+          29
+        ],
+        "actor_initialization_seed": 10128,
+        "actor_original_features": 1645,
+        "actor_trainable_parameters": 2240365,
+        "critic_compression": [
+          6330,
+          1024,
+          512,
+          256,
+          128
+        ],
+        "critic_compressor_sha256": "dfadf550f769ad9c09076ffbfadbc97a2b1c1b6099c3847c0befef2d37e40603",
+        "critic_experts": 16,
+        "critic_head": [
+          128,
+          256,
+          128,
+          1
+        ],
+        "critic_initial_normalizer_sha256": "2214c8fbba2c398352d40bb79c79592a475423cc805e6e7aa33084c6acd712d8",
+        "critic_initialization_seed": 20124,
+        "critic_original_features": 6330,
+        "critic_trainable_parameters": 8228752,
+        "each_side_shares_one_obs_encoder_across_its_experts": true,
+        "identical_initial_action": true,
+        "initial_value_independent_of_latent": true,
+        "latent_dimensions": 64,
+        "latent_use": "online K-means hard routing only",
+        "router_has_trainable_parameters": false,
+        "routing_bootstrap": {
+          "bootstrap_counts": [
+            10384,
+            6448,
+            7966,
+            8392,
+            7147,
+            10170,
+            7100,
+            9083,
+            11491,
+            7894,
+            6557,
+            9097,
+            6535,
+            8167,
+            7107,
+            7534
+          ],
+          "bootstrap_inertia": 0.30682069063186646,
+          "bootstrap_samples": 131072,
+          "centers_sha256": "c734e3c1ce5cd67755c4e0a68cebccb9175eee1c73dd162c2bee8d99f5cbaa7b",
+          "policy": "deterministic frozen tracker",
+          "ppo_updates": 0,
+          "rank_seed": 2300121,
+          "same_bootstrap_in_baseline": true,
+          "steps": 500,
+          "trajectory_sha256": "f7963cbadc29945cde1f305a6b4d3b0465ea50066503e4949490f31d2d3840da"
+        },
+        "tracker_action_input_dim": 29
+      },
+      "timing": [
+        {
+          "collect_seconds": 5.547876358032227,
+          "learn_seconds": 1.8164634704589844
+        },
+        {
+          "collect_seconds": 5.632540702819824,
+          "learn_seconds": 1.6926982402801514
+        }
+      ],
+      "router_metrics": {
+        "router_center_shift_rms": 4.045889727422036e-05,
+        "router_center_update_switch_fraction": 0.00012715657552083334,
+        "router_center_effective_rate": 0.01,
+        "router_center_updates": 2.0,
+        "router_rollout_active_experts": 16.0,
+        "router_rollout_max_fraction": 0.08477401733398438,
+        "router_rollout_fraction_00": 0.07400131225585938,
+        "router_rollout_fraction_01": 0.048582714051008224,
+        "router_rollout_fraction_02": 0.0599721260368824,
+        "router_rollout_fraction_03": 0.06653976440429688,
+        "router_rollout_fraction_04": 0.056776683777570724,
+        "router_rollout_fraction_05": 0.07817459106445312,
+        "router_rollout_fraction_06": 0.0522562675178051,
+        "router_rollout_fraction_07": 0.06661096960306168,
+        "router_rollout_fraction_08": 0.08477401733398438,
+        "router_rollout_fraction_09": 0.06445185095071793,
+        "router_rollout_fraction_10": 0.0517120361328125,
+        "router_rollout_fraction_11": 0.0668843612074852,
+        "router_rollout_fraction_12": 0.049462635070085526,
+        "router_rollout_fraction_13": 0.06565221399068832,
+        "router_rollout_fraction_14": 0.05194854736328125,
+        "router_rollout_fraction_15": 0.0621999092400074,
+        "router_current_fraction_00": 0.07501220703125,
+        "router_current_fraction_01": 0.048248291015625,
+        "router_current_fraction_02": 0.059356689453125,
+        "router_current_fraction_03": 0.066009521484375,
+        "router_current_fraction_04": 0.05682373046875,
+        "router_current_fraction_05": 0.077728271484375,
+        "router_current_fraction_06": 0.052276611328125,
+        "router_current_fraction_07": 0.067840576171875,
+        "router_current_fraction_08": 0.084716796875,
+        "router_current_fraction_09": 0.06427001953125,
+        "router_current_fraction_10": 0.05133056640625,
+        "router_current_fraction_11": 0.0673828125,
+        "router_current_fraction_12": 0.049102783203125,
+        "router_current_fraction_13": 0.0654296875,
+        "router_current_fraction_14": 0.053192138671875,
+        "router_current_fraction_15": 0.061279296875,
+        "router_current_effective_experts": 15.775212287902832
+      }
+    }
+  },
+  "unit_tests": {
+    "passed": true,
+    "tests_passed": 21,
+    "test_files": [
+      "tests/test_memory350_moe.py",
+      "tests/test_memory350_policy_precision.py",
+      "tests/test_memory350_compressed_policy.py",
+      "tests/test_memory350_policy_results.py",
+      "tests/test_memory350_latent_usage_eval.py"
+    ],
+    "verified_at": 1789318329.5185733
+  },
+  "precision": {
+    "checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260913_memory350_online_kmeans16_uniform_dr/smoke/concat_121/checkpoint_2.pt",
+    "updates": 3,
+    "scope": "256 saved real observations tiled to the 8192 collection / 49152 update batch shapes",
+    "identical_expert_ids": true,
+    "active_experts_in_fixture": 16,
+    "action_mean_max_abs": 4.76837158203125e-06,
+    "logprob_max_abs": 6.508827209472656e-05,
+    "logprob_rms": 9.016047442855779e-06,
+    "ratio_max_abs_error": 6.508827209472656e-05,
+    "fraction_ratio_outside_clip": 0.0,
+    "passed": true
+  },
+  "matched_compressor_initialization": {
+    "actor_compressor_sha256": true,
+    "critic_compressor_sha256": true
+  },
+  "matched_physics": true,
+  "bootstrap_comparison": {
+    "same_policy_steps_and_seed_protocol": true,
+    "trajectory_bitwise_equal": false,
+    "critic_initial_normalization_bitwise_equal": false,
+    "scope": "Each arm initializes fresh moments from its actual post-bootstrap observations; equality of simulator trajectories after 500 steps is not asserted."
+  },
+  "resume_verification": {
+    "restoration": {
+      "checkpoint_update": 3,
+      "model_optimizer_state_sha256": "0c75983a4641a69c89d038f7c7aa8e6bcf1292414dcbfd7fcdda24576b52c6d3",
+      "passed": true
+    },
+    "completed_after_resume": 4,
+    "four_rank_parameters_agree": true,
+    "sampler_ranks_restored": [
+      0,
+      1,
+      2,
+      3
+    ]
+  },
+  "passed": true
+}

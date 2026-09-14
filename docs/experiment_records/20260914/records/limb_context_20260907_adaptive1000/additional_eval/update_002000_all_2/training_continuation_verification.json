@@ -1,0 +1,29 @@
+{
+  "verified_at": 1788861608.7174945,
+  "training_processes_unchanged": true,
+  "no_additional_resume": true,
+  "used_gpus": [
+    0,
+    1
+  ],
+  "jobs": {
+    "baseline_121": {
+      "pid": 59412,
+      "completed_updates": 2416,
+      "motion_sampling": {
+        "adaptive_enabled": true,
+        "failure_rewind_enabled": false,
+        "adaptive_after_update": 1000
+      }
+    },
+    "film_121": {
+      "pid": 59413,
+      "completed_updates": 2254,
+      "motion_sampling": {
+        "adaptive_enabled": true,
+        "failure_rewind_enabled": false,
+        "adaptive_after_update": 1000
+      }
+    }
+  }
+}

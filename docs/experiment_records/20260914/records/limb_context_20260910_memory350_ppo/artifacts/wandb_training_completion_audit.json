@@ -1,0 +1,37 @@
+{
+  "checked_at": 1789098485.3076365,
+  "passed": true,
+  "scope": "Both training runs and all update history; final comparison summary audited separately",
+  "runs": {
+    "baseline": {
+      "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/m350ppo-baseline-121-20260910",
+      "name": "baseline_no_latent_trackerdr_121",
+      "state": "finished",
+      "group": "memory350-trackerdr-residual-20260910",
+      "completed_updates": 5000,
+      "last_evaluated_checkpoint": 5000,
+      "adaptive_enabled": true,
+      "has_reward": true,
+      "checked_at": 1789098472.712025,
+      "history_update_count": 5000,
+      "all_1_to_5000_present": true,
+      "duplicate_updates": {},
+      "history_updates_sha256": "3c02a2a60745ea23e96878d8deba7c3c4b47d8b8d27444e04194be1b76150241"
+    },
+    "film": {
+      "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/m350ppo-film-121-20260910",
+      "name": "film_121_memory350_trackerdr",
+      "state": "finished",
+      "group": "memory350-trackerdr-residual-20260910",
+      "completed_updates": 5000,
+      "last_evaluated_checkpoint": 5000,
+      "adaptive_enabled": true,
+      "has_reward": true,
+      "checked_at": 1789098481.3404987,
+      "history_update_count": 5000,
+      "all_1_to_5000_present": true,
+      "duplicate_updates": {},
+      "history_updates_sha256": "3c02a2a60745ea23e96878d8deba7c3c4b47d8b8d27444e04194be1b76150241"
+    }
+  }
+}

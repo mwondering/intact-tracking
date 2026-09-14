@@ -1290,18 +1290,22 @@ class MultiMotionCommand(CommandTerm):
         self.motion_files = tuple(motion_files)
         fk_helper = self._build_fk_helper()
         self._reference_fk_helper = fk_helper
-        self.motion = MultiMotionLoader(
-            motion_files,
-            self.body_indexes,
-            motion_type=self.cfg.motion_type,
-            device=self.device,
-            fk_from_joint_pos=self.cfg.fk_from_joint_pos,
-            recompute_joint_vel_from_joint_pos=self.cfg.recompute_joint_vel_from_joint_pos,
-            load_compact_qpos=self.cfg.load_compact_qpos,
-            reference_storage_mode=self.cfg.reference_storage_mode,
-            fk_helper=fk_helper,
-            progress_log_interval_s=float(getattr(self.cfg, "motion_scan_log_interval_s", 10.0)),
-        )
+        from .shared_motion import shared_motion_arrays
+
+        self.motion = shared_motion_arrays(self.cfg, motion_files, self.body_indexes, self.device)
+        if self.motion is None:
+            self.motion = MultiMotionLoader(
+                motion_files,
+                self.body_indexes,
+                motion_type=self.cfg.motion_type,
+                device=self.device,
+                fk_from_joint_pos=self.cfg.fk_from_joint_pos,
+                recompute_joint_vel_from_joint_pos=self.cfg.recompute_joint_vel_from_joint_pos,
+                load_compact_qpos=self.cfg.load_compact_qpos,
+                reference_storage_mode=self.cfg.reference_storage_mode,
+                fk_helper=fk_helper,
+                progress_log_interval_s=float(getattr(self.cfg, "motion_scan_log_interval_s", 10.0)),
+            )
         if self.cfg.reference_storage_mode == REFERENCE_STORAGE_QPOS_ONLY_ACTOR_FK:
             _validate_qpos_actor_fps(self.motion.fps_list, float(self.cfg.actor_reference_fps))
 

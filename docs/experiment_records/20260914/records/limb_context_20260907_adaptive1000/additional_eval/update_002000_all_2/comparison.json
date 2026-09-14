@@ -1,0 +1,124 @@
+{
+  "completed_training_updates": 2000,
+  "fixed_masses": [
+    2,
+    2,
+    2,
+    2
+  ],
+  "motions": 4096,
+  "seed": 20001,
+  "steps": 500,
+  "comparison": {
+    "motions": 4096,
+    "means": {
+      "reference_body": 0.04206542300455209,
+      "reference_joint": 0.6439734661538596,
+      "candidate_body": 0.041887982497856996,
+      "candidate_joint": 0.6436927246262802,
+      "reference_failure": 0.00927734375,
+      "candidate_failure": 0.0087890625,
+      "reference_coverage": 0.9952717637104048,
+      "candidate_coverage": 0.9947878614503911,
+      "reference_return": 81.03807000741143,
+      "candidate_return": 81.10410769391089,
+      "reference_common_body": 0.04202854928685726,
+      "reference_common_joint": 0.6438030562862019,
+      "candidate_common_body": 0.04188455185976975,
+      "candidate_common_joint": 0.6436158347121587
+    },
+    "candidate_over_reference_body_joint": [
+      0.9957817966866541,
+      0.9995640479890326
+    ],
+    "body_joint_ratio_ci95": [
+      [
+        0.9911234790214499,
+        1.0008025267196867
+      ],
+      [
+        0.9969503563108738,
+        1.0024555129898713
+      ]
+    ],
+    "failure_rate_delta": -0.00048828125,
+    "failure_rate_delta_ci95": [
+      -0.0029296875,
+      0.002197265625
+    ],
+    "coverage_delta": -0.0004839022600137133,
+    "coverage_delta_ci95": [
+      -0.001755666838586939,
+      0.0007718340529879904
+    ],
+    "episode_return_delta": 0.06603768649945607,
+    "episode_return_delta_ci95": [
+      -0.03870538948357094,
+      0.16970740554814545
+    ],
+    "common_prefix_body_joint_ratio": [
+      0.99657381876056,
+      0.9997091943379032
+    ],
+    "common_prefix_body_joint_ratio_ci95": [
+      [
+        0.9923505196539586,
+        1.0009516766248123
+      ],
+      [
+        0.9974275820669275,
+        1.0021035434540602
+      ]
+    ],
+    "new_failure_episodes": 12,
+    "rescued_failure_episodes": 14,
+    "uncertainty": "paired motion bootstrap conditional on this training seed; not training-seed uncertainty",
+    "scope": "new starts and loads on the training motion catalog; not unseen-motion generalization"
+  },
+  "policies": {
+    "baseline_121": {
+      "mean": {
+        "error_body_pos": 0.04206542300455211,
+        "error_joint_pos": 0.6439734661538605,
+        "error_anchor_pos": 0.20979058572551382,
+        "error_anchor_rot": 0.08208824863151848,
+        "error_body_rot": 0.20178527392345702,
+        "error_joint_vel": 4.224460747599243,
+        "error_anchor_lin_vel": 0.1855752918808344,
+        "error_anchor_ang_vel": 0.4677519670230401,
+        "error_body_lin_vel": 0.26290108637437126,
+        "error_body_ang_vel": 1.2073118747919462
+      },
+      "failure_rate": 0.00927734375,
+      "coverage_fraction": 0.9952718019485474,
+      "mean_episode_return": 81.03807000741143,
+      "residual_saturation_fraction": 0.4863702918258229,
+      "checkpoint_sha256": "6aa87a967ef5a701f1bba3c421b72ba0558c2e0c292932e91d53b8255f6b7ea8",
+      "failure_count": 38
+    },
+    "film_121": {
+      "mean": {
+        "error_body_pos": 0.041887982497856996,
+        "error_joint_pos": 0.6436927246262802,
+        "error_anchor_pos": 0.20746346767878815,
+        "error_anchor_rot": 0.08701967234848004,
+        "error_body_rot": 0.20087536859589084,
+        "error_joint_vel": 4.273335554850387,
+        "error_anchor_lin_vel": 0.18270283985651914,
+        "error_anchor_ang_vel": 0.4790444374112447,
+        "error_body_lin_vel": 0.2622468471723124,
+        "error_body_ang_vel": 1.2056251317059052
+      },
+      "failure_rate": 0.0087890625,
+      "coverage_fraction": 0.994787871837616,
+      "mean_episode_return": 81.10410769391089,
+      "residual_saturation_fraction": 0.44465784921026563,
+      "checkpoint_sha256": "ce7d02bfc67ff9ceb8b6811cf2474f2f0063ec785550c5d42ca4e872f08505aa",
+      "failure_count": 36
+    }
+  },
+  "matching_motion_start_horizon_physics_reward_and_step_trace_audit_passed": true,
+  "same_motions_and_starts_as_0_and_4kg": true,
+  "complete": true,
+  "completed_at": 1788861608.71077
+}

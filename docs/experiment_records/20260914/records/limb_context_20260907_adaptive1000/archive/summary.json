@@ -1,0 +1,812 @@
+{
+  "archived": true,
+  "completed_paired_seeds": [
+    121
+  ],
+  "checkpoint_updates": 5000,
+  "full_three_seed_matrix_complete": false,
+  "full_catalog_iid_evaluation_complete": false,
+  "cases": {
+    "all_0": {
+      "frozen": {
+        "source": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907_adaptive1000/additional_eval/frozen_tracker_vs_update_004500_all_0_2_4/all_0/frozen.json",
+        "source_sha256": "1be9d20961c4cecea82a691d5ee0fa24db60b0f7b1298cadf17dd5a32af835e2",
+        "checkpoint_sha256": "fd7bd90d5552e573bbbce1417e9b415c64bb487a76b683ba3c20503b5ec77635",
+        "mean": {
+          "error_body_pos": 0.022479941344200817,
+          "error_joint_pos": 0.36920953592678096,
+          "error_anchor_pos": 0.09028990311866218,
+          "error_anchor_rot": 0.045063804143510744,
+          "error_body_rot": 0.08923149941641226,
+          "error_joint_vel": 2.6702636184682325,
+          "error_anchor_lin_vel": 0.10713953017242056,
+          "error_anchor_ang_vel": 0.2895969504707534,
+          "error_body_lin_vel": 0.14313923523973104,
+          "error_body_ang_vel": 0.6170109774759356
+        },
+        "failed": 2,
+        "episodes": 4096,
+        "failure_rate": 0.00048828125,
+        "coverage_fraction": 0.9997451305389404,
+        "mean_episode_return": 90.065124798001
+      },
+      "baseline_121": {
+        "source": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907_adaptive1000/archive/update_005000_all_0_2_4/all_0/baseline_121.json",
+        "source_sha256": "a6c818f98bc7b91b65383f0b1a8c1061ea80ae29e853af989cdfae9a2aff2841",
+        "checkpoint_sha256": "ee84c43a043c31d2bca3441593f5e7cc59fc654d57f55dbd1a86561154faa702",
+        "mean": {
+          "error_body_pos": 0.043861291169145986,
+          "error_joint_pos": 0.5979491696890267,
+          "error_anchor_pos": 0.1786680804829348,
+          "error_anchor_rot": 0.0839229942746744,
+          "error_body_rot": 0.18658769418672738,
+          "error_joint_vel": 3.3718173924849584,
+          "error_anchor_lin_vel": 0.15460886410036823,
+          "error_anchor_ang_vel": 0.42064157218323556,
+          "error_body_lin_vel": 0.19708033292268726,
+          "error_body_ang_vel": 0.8618482497113331
+        },
+        "failed": 3,
+        "episodes": 4096,
+        "failure_rate": 0.000732421875,
+        "coverage_fraction": 0.9996025562286377,
+        "mean_episode_return": 83.12359447129774
+      },
+      "film_121": {
+        "source": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907_adaptive1000/archive/update_005000_all_0_2_4/all_0/film_121.json",
+        "source_sha256": "0eb348a1262c08ab5afe8b350883e2670065f6e74087d0fbf9210a9e4eefd109",
+        "checkpoint_sha256": "874d23430fc105e5e1d2f76e64c7b05c1dcc837f44aead7b8f701a764b427dc8",
+        "mean": {
+          "error_body_pos": 0.03856279894843313,
+          "error_joint_pos": 0.568571993292948,
+          "error_anchor_pos": 0.13970626288204277,
+          "error_anchor_rot": 0.08212422052472468,
+          "error_body_rot": 0.17892157445862297,
+          "error_joint_vel": 3.424506417007019,
+          "error_anchor_lin_vel": 0.14298067245387078,
+          "error_anchor_ang_vel": 0.4214538751429757,
+          "error_body_lin_vel": 0.18933786331250974,
+          "error_body_ang_vel": 0.8699717548822675
+        },
+        "failed": 3,
+        "episodes": 4096,
+        "failure_rate": 0.000732421875,
+        "coverage_fraction": 0.999591588973999,
+        "mean_episode_return": 84.11116052140505
+      }
+    },
+    "all_2": {
+      "frozen": {
+        "source": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907_adaptive1000/additional_eval/frozen_tracker_vs_update_004500_all_0_2_4/all_2/frozen.json",
+        "source_sha256": "8ab37a9ca7591e056ea71a91ecee49e87ba5ad0836a7003666ba3f6f61335377",
+        "checkpoint_sha256": "fd7bd90d5552e573bbbce1417e9b415c64bb487a76b683ba3c20503b5ec77635",
+        "mean": {
+          "error_body_pos": 0.045419206962032777,
+          "error_joint_pos": 0.6072206497866011,
+          "error_anchor_pos": 0.284813228782516,
+          "error_anchor_rot": 0.07277547559334957,
+          "error_body_rot": 0.20353677490751376,
+          "error_joint_vel": 4.3626716286952405,
+          "error_anchor_lin_vel": 0.19821786212288775,
+          "error_anchor_ang_vel": 0.4478406984176022,
+          "error_body_lin_vel": 0.2818827408050887,
+          "error_body_ang_vel": 1.214971825619647
+        },
+        "failed": 38,
+        "episodes": 4096,
+        "failure_rate": 0.00927734375,
+        "coverage_fraction": 0.9945785403251648,
+        "mean_episode_return": 80.61199638766172
+      },
+      "baseline_121": {
+        "source": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907_adaptive1000/archive/update_005000_all_0_2_4/all_2/baseline_121.json",
+        "source_sha256": "02bf402700a921bba1818eaaf45c0e945c54c4c7562f7498600068a5fdc9bb44",
+        "checkpoint_sha256": "ee84c43a043c31d2bca3441593f5e7cc59fc654d57f55dbd1a86561154faa702",
+        "mean": {
+          "error_body_pos": 0.04539998031088617,
+          "error_joint_pos": 0.6912541205687852,
+          "error_anchor_pos": 0.20669825133981748,
+          "error_anchor_rot": 0.08778699184994504,
+          "error_body_rot": 0.21555750963468095,
+          "error_joint_vel": 4.444368229121521,
+          "error_anchor_lin_vel": 0.18926297595128821,
+          "error_anchor_ang_vel": 0.5086508439941525,
+          "error_body_lin_vel": 0.27041282009044515,
+          "error_body_ang_vel": 1.2684464854844613
+        },
+        "failed": 28,
+        "episodes": 4096,
+        "failure_rate": 0.0068359375,
+        "coverage_fraction": 0.9960283041000366,
+        "mean_episode_return": 80.17414021043454
+      },
+      "film_121": {
+        "source": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907_adaptive1000/archive/update_005000_all_0_2_4/all_2/film_121.json",
+        "source_sha256": "e9c656c75dd3e9b6ee620532102022f35def89ba5a4338ff36d114a41ea2ecca",
+        "checkpoint_sha256": "874d23430fc105e5e1d2f76e64c7b05c1dcc837f44aead7b8f701a764b427dc8",
+        "mean": {
+          "error_body_pos": 0.04379915769494418,
+          "error_joint_pos": 0.6798599019799895,
+          "error_anchor_pos": 0.19318435115722649,
+          "error_anchor_rot": 0.08247969527608806,
+          "error_body_rot": 0.2107084401259101,
+          "error_joint_vel": 4.542149366527332,
+          "error_anchor_lin_vel": 0.18455618567698456,
+          "error_anchor_ang_vel": 0.5183937082920804,
+          "error_body_lin_vel": 0.2663672719177872,
+          "error_body_ang_vel": 1.273252571269581
+        },
+        "failed": 36,
+        "episodes": 4096,
+        "failure_rate": 0.0087890625,
+        "coverage_fraction": 0.9949699640274048,
+        "mean_episode_return": 80.54500453855789
+      }
+    },
+    "all_4": {
+      "frozen": {
+        "source": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907_adaptive1000/additional_eval/frozen_tracker_vs_update_004500_all_0_2_4/all_4/frozen.json",
+        "source_sha256": "d1404ee046392c9f2acdf6ce614400a0265720c870e3d49c2470d7b45a71181e",
+        "checkpoint_sha256": "fd7bd90d5552e573bbbce1417e9b415c64bb487a76b683ba3c20503b5ec77635",
+        "mean": {
+          "error_body_pos": 0.08617257526879527,
+          "error_joint_pos": 1.095209150271024,
+          "error_anchor_pos": 0.6198625205816162,
+          "error_anchor_rot": 0.12348879090502965,
+          "error_body_rot": 0.33136760303146723,
+          "error_joint_vel": 7.0499623089601595,
+          "error_anchor_lin_vel": 0.3735577053753954,
+          "error_anchor_ang_vel": 0.8226102381719071,
+          "error_body_lin_vel": 0.4828373025118524,
+          "error_body_ang_vel": 1.933757043362506
+        },
+        "failed": 561,
+        "episodes": 4096,
+        "failure_rate": 0.136962890625,
+        "coverage_fraction": 0.9135375022888184,
+        "mean_episode_return": 62.63987460008002
+      },
+      "baseline_121": {
+        "source": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907_adaptive1000/archive/update_005000_all_0_2_4/all_4/baseline_121.json",
+        "source_sha256": "a9d0e602e5fc233397fbdaa80a792bb445700223c5f6ec9a6361a0aaace62e28",
+        "checkpoint_sha256": "ee84c43a043c31d2bca3441593f5e7cc59fc654d57f55dbd1a86561154faa702",
+        "mean": {
+          "error_body_pos": 0.07067606052010407,
+          "error_joint_pos": 0.9846415426161874,
+          "error_anchor_pos": 0.4180076155603773,
+          "error_anchor_rot": 0.1225951235317489,
+          "error_body_rot": 0.3108273817304228,
+          "error_joint_vel": 6.583311568312077,
+          "error_anchor_lin_vel": 0.3018282726930835,
+          "error_anchor_ang_vel": 0.7736103667698863,
+          "error_body_lin_vel": 0.406802780464687,
+          "error_body_ang_vel": 1.820859748509052
+        },
+        "failed": 413,
+        "episodes": 4096,
+        "failure_rate": 0.100830078125,
+        "coverage_fraction": 0.9404454231262207,
+        "mean_episode_return": 67.59053649880383
+      },
+      "film_121": {
+        "source": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907_adaptive1000/archive/update_005000_all_0_2_4/all_4/film_121.json",
+        "source_sha256": "20f692db1fcf48d2bbe7e5df7d5bd7a13e113051ef99080a4aacfe2bd7ee5ef4",
+        "checkpoint_sha256": "874d23430fc105e5e1d2f76e64c7b05c1dcc837f44aead7b8f701a764b427dc8",
+        "mean": {
+          "error_body_pos": 0.06901944163193523,
+          "error_joint_pos": 0.9687315427952412,
+          "error_anchor_pos": 0.38765263544918516,
+          "error_anchor_rot": 0.11314330825444288,
+          "error_body_rot": 0.305691520017641,
+          "error_joint_vel": 6.515652978416925,
+          "error_anchor_lin_vel": 0.2874704632721391,
+          "error_anchor_ang_vel": 0.7666581186542278,
+          "error_body_lin_vel": 0.39202019828651713,
+          "error_body_ang_vel": 1.7836785051387278
+        },
+        "failed": 370,
+        "episodes": 4096,
+        "failure_rate": 0.09033203125,
+        "coverage_fraction": 0.9469765424728394,
+        "mean_episode_return": 68.87104195197867
+      }
+    }
+  },
+  "comparisons": {
+    "all_0/film_121_vs_baseline_121": {
+      "motions": 4096,
+      "means": {
+        "reference_body": 0.043861291169146076,
+        "reference_joint": 0.5979491696890264,
+        "candidate_body": 0.0385627989484332,
+        "candidate_joint": 0.5685719932929468,
+        "reference_failure": 0.000732421875,
+        "candidate_failure": 0.000732421875,
+        "reference_coverage": 0.9996025795270753,
+        "candidate_coverage": 0.9995915550299453,
+        "reference_return": 83.12359447129774,
+        "candidate_return": 84.11116052140505,
+        "reference_common_body": 0.043861768972276234,
+        "reference_common_joint": 0.5979568467017299,
+        "candidate_common_body": 0.038566313357413964,
+        "candidate_common_joint": 0.5685890612362358
+      },
+      "candidate_over_reference_body_joint": [
+        0.879198899998638,
+        0.9508701108969552
+      ],
+      "body_joint_ratio_ci95": [
+        [
+          0.8761145348416837,
+          0.8822077705255779
+        ],
+        [
+          0.9488983112258619,
+          0.9529278608477499
+        ]
+      ],
+      "failure_rate_delta": 0.0,
+      "failure_rate_delta_ci95": [
+        -0.000732421875,
+        0.000732421875
+      ],
+      "coverage_delta": -1.1024497129974442e-05,
+      "coverage_delta_ci95": [
+        -0.0003248666274847656,
+        0.0002905475206611552
+      ],
+      "episode_return_delta": 0.9875660501073185,
+      "episode_return_delta_ci95": [
+        0.9422493021450009,
+        1.0323204177973637
+      ],
+      "common_prefix_body_joint_ratio": [
+        0.8792694471987809,
+        0.9508864466934631
+      ],
+      "common_prefix_body_joint_ratio_ci95": [
+        [
+          0.8761783837201376,
+          0.882197488135873
+        ],
+        [
+          0.9489353218383756,
+          0.9529356479486442
+        ]
+      ],
+      "new_failure_episodes": 1,
+      "rescued_failure_episodes": 1,
+      "uncertainty": "paired motion bootstrap conditional on this training seed; not training-seed uncertainty",
+      "scope": "new starts and loads on the training motion catalog; not unseen-motion generalization"
+    },
+    "all_0/baseline_121_vs_frozen": {
+      "motions": 4096,
+      "means": {
+        "reference_body": 0.022479941344200838,
+        "reference_joint": 0.3692095359267806,
+        "candidate_body": 0.043861291169146076,
+        "candidate_joint": 0.5979491696890264,
+        "reference_failure": 0.00048828125,
+        "candidate_failure": 0.000732421875,
+        "reference_coverage": 0.999745132670191,
+        "candidate_coverage": 0.9996025795270753,
+        "reference_return": 90.065124798001,
+        "candidate_return": 83.12359447129774,
+        "reference_common_body": 0.02248253743609504,
+        "reference_common_joint": 0.3692160152594308,
+        "candidate_common_body": 0.04385840117105941,
+        "candidate_common_joint": 0.5979244221532153
+      },
+      "candidate_over_reference_body_joint": [
+        1.951130142982379,
+        1.6195388025070083
+      ],
+      "body_joint_ratio_ci95": [
+        [
+          1.9319254402838042,
+          1.9711173121538463
+        ],
+        [
+          1.607784838321533,
+          1.6319021994262153
+        ]
+      ],
+      "failure_rate_delta": 0.000244140625,
+      "failure_rate_delta_ci95": [
+        0.0,
+        0.000732421875
+      ],
+      "coverage_delta": -0.0001425531431157312,
+      "coverage_delta_ci95": [
+        -0.00044830988025590656,
+        1.8159220041336077e-05
+      ],
+      "episode_return_delta": -6.941530326703258,
+      "episode_return_delta_ci95": [
+        -7.043467384549027,
+        -6.842928360927498
+      ],
+      "common_prefix_body_joint_ratio": [
+        1.9507762989708652,
+        1.6194433541380424
+      ],
+      "common_prefix_body_joint_ratio_ci95": [
+        [
+          1.9315185644436172,
+          1.9706103739066059
+        ],
+        [
+          1.6077543474762925,
+          1.6317818441680036
+        ]
+      ],
+      "new_failure_episodes": 1,
+      "rescued_failure_episodes": 0,
+      "uncertainty": "paired motion bootstrap conditional on this training seed; not training-seed uncertainty",
+      "scope": "new starts and loads on the training motion catalog; not unseen-motion generalization"
+    },
+    "all_0/film_121_vs_frozen": {
+      "motions": 4096,
+      "means": {
+        "reference_body": 0.022479941344200838,
+        "reference_joint": 0.3692095359267806,
+        "candidate_body": 0.0385627989484332,
+        "candidate_joint": 0.5685719932929468,
+        "reference_failure": 0.00048828125,
+        "candidate_failure": 0.000732421875,
+        "reference_coverage": 0.999745132670191,
+        "candidate_coverage": 0.9995915550299453,
+        "reference_return": 90.065124798001,
+        "candidate_return": 84.11116052140505,
+        "reference_common_body": 0.02248289111794027,
+        "reference_common_joint": 0.369227689133531,
+        "candidate_common_body": 0.038564058256264355,
+        "candidate_common_joint": 0.5685675815774547
+      },
+      "candidate_over_reference_body_joint": [
+        1.715431475464293,
+        1.5399710407417608
+      ],
+      "body_joint_ratio_ci95": [
+        [
+          1.7003220892364517,
+          1.730769182777371
+        ],
+        [
+          1.5287922631227588,
+          1.5514990183730955
+        ]
+      ],
+      "failure_rate_delta": 0.000244140625,
+      "failure_rate_delta_ci95": [
+        -0.00048828125,
+        0.0009765625
+      ],
+      "coverage_delta": -0.00015357764024570564,
+      "coverage_delta_ci95": [
+        -0.0006006419050681444,
+        0.00020829572466907198
+      ],
+      "episode_return_delta": -5.95396427659594,
+      "episode_return_delta_ci95": [
+        -6.047904524153752,
+        -5.860801821518837
+      ],
+      "common_prefix_body_joint_ratio": [
+        1.7152624212769543,
+        1.539883379038327
+      ],
+      "common_prefix_body_joint_ratio_ci95": [
+        [
+          1.700266687564626,
+          1.7306847605127476
+        ],
+        [
+          1.5286627648461297,
+          1.5514093072973585
+        ]
+      ],
+      "new_failure_episodes": 2,
+      "rescued_failure_episodes": 1,
+      "uncertainty": "paired motion bootstrap conditional on this training seed; not training-seed uncertainty",
+      "scope": "new starts and loads on the training motion catalog; not unseen-motion generalization"
+    },
+    "all_2/film_121_vs_baseline_121": {
+      "motions": 4096,
+      "means": {
+        "reference_body": 0.0453999803108861,
+        "reference_joint": 0.6912541205687853,
+        "candidate_body": 0.04379915769494422,
+        "candidate_joint": 0.6798599019799889,
+        "reference_failure": 0.0068359375,
+        "candidate_failure": 0.0087890625,
+        "reference_coverage": 0.9960282933314126,
+        "candidate_coverage": 0.9949699996072617,
+        "reference_return": 80.17414021043454,
+        "candidate_return": 80.54500453855789,
+        "reference_common_body": 0.045422799490738186,
+        "reference_common_joint": 0.6914238526550519,
+        "candidate_common_body": 0.04376734576762314,
+        "candidate_common_joint": 0.6795812786655486
+      },
+      "candidate_over_reference_body_joint": [
+        0.9647395746654535,
+        0.9835165993955727
+      ],
+      "body_joint_ratio_ci95": [
+        [
+          0.9606355271744041,
+          0.9687870379596742
+        ],
+        [
+          0.9809760051837305,
+          0.9859199053258508
+        ]
+      ],
+      "failure_rate_delta": 0.001953125,
+      "failure_rate_delta_ci95": [
+        -0.000244140625,
+        0.004150390625
+      ],
+      "coverage_delta": -0.0010582937241508938,
+      "coverage_delta_ci95": [
+        -0.0024458842989206753,
+        0.00031570527220020096
+      ],
+      "episode_return_delta": 0.37086432812334635,
+      "episode_return_delta_ci95": [
+        0.24467736743182336,
+        0.5019652442131711
+      ],
+      "common_prefix_body_joint_ratio": [
+        0.9635545641907739,
+        0.9828721934540904
+      ],
+      "common_prefix_body_joint_ratio_ci95": [
+        [
+          0.960040754013665,
+          0.9667119459767042
+        ],
+        [
+          0.9807919537778144,
+          0.9848463756907432
+        ]
+      ],
+      "new_failure_episodes": 16,
+      "rescued_failure_episodes": 8,
+      "uncertainty": "paired motion bootstrap conditional on this training seed; not training-seed uncertainty",
+      "scope": "new starts and loads on the training motion catalog; not unseen-motion generalization"
+    },
+    "all_2/baseline_121_vs_frozen": {
+      "motions": 4096,
+      "means": {
+        "reference_body": 0.045419206962032825,
+        "reference_joint": 0.6072206497866012,
+        "candidate_body": 0.0453999803108861,
+        "candidate_joint": 0.6912541205687853,
+        "reference_failure": 0.00927734375,
+        "candidate_failure": 0.0068359375,
+        "reference_coverage": 0.9945785363879279,
+        "candidate_coverage": 0.9960282933314126,
+        "reference_return": 80.61199638766172,
+        "candidate_return": 80.17414021043454,
+        "reference_common_body": 0.045408071620582996,
+        "reference_common_joint": 0.6069802232582308,
+        "candidate_common_body": 0.045365582504344956,
+        "candidate_common_joint": 0.691291796674364
+      },
+      "candidate_over_reference_body_joint": [
+        0.9995766845695303,
+        1.1383903376996756
+      ],
+      "body_joint_ratio_ci95": [
+        [
+          0.9921906125938826,
+          1.0070353062159165
+        ],
+        [
+          1.1322622158996545,
+          1.1443771771509765
+        ]
+      ],
+      "failure_rate_delta": -0.00244140625,
+      "failure_rate_delta_ci95": [
+        -0.005126953125,
+        0.0
+      ],
+      "coverage_delta": 0.0014497569434847035,
+      "coverage_delta_ci95": [
+        -5.7616392693185524e-05,
+        0.0030336801180310727
+      ],
+      "episode_return_delta": -0.4378561772271752,
+      "episode_return_delta_ci95": [
+        -0.6021600347236749,
+        -0.2697858195087445
+      ],
+      "common_prefix_body_joint_ratio": [
+        0.9990642827426571,
+        1.138903328618442
+      ],
+      "common_prefix_body_joint_ratio_ci95": [
+        [
+          0.991795088273832,
+          1.0064510387128334
+        ],
+        [
+          1.1330060810868006,
+          1.1448415963945167
+        ]
+      ],
+      "new_failure_episodes": 10,
+      "rescued_failure_episodes": 20,
+      "uncertainty": "paired motion bootstrap conditional on this training seed; not training-seed uncertainty",
+      "scope": "new starts and loads on the training motion catalog; not unseen-motion generalization"
+    },
+    "all_2/film_121_vs_frozen": {
+      "motions": 4096,
+      "means": {
+        "reference_body": 0.045419206962032825,
+        "reference_joint": 0.6072206497866012,
+        "candidate_body": 0.04379915769494422,
+        "candidate_joint": 0.6798599019799889,
+        "reference_failure": 0.00927734375,
+        "candidate_failure": 0.0087890625,
+        "reference_coverage": 0.9945785363879279,
+        "candidate_coverage": 0.9949699996072617,
+        "reference_return": 80.61199638766172,
+        "candidate_return": 80.54500453855789,
+        "reference_common_body": 0.045423590564950315,
+        "reference_common_joint": 0.6072945607384227,
+        "candidate_common_body": 0.04374218272974698,
+        "candidate_common_joint": 0.6798549877503683
+      },
+      "candidate_over_reference_body_joint": [
+        0.9643311855171128,
+        1.1196257937191625
+      ],
+      "body_joint_ratio_ci95": [
+        [
+          0.9572172431415534,
+          0.9713245975679038
+        ],
+        [
+          1.1135853638490125,
+          1.1254625863884962
+        ]
+      ],
+      "failure_rate_delta": -0.00048828125,
+      "failure_rate_delta_ci95": [
+        -0.003173828125,
+        0.0019592285156249667
+      ],
+      "coverage_delta": 0.0003914632193338097,
+      "coverage_delta_ci95": [
+        -0.0011358406669029486,
+        0.0020383130665530933
+      ],
+      "episode_return_delta": -0.06699184910382883,
+      "episode_return_delta_ci95": [
+        -0.2410790846395244,
+        0.10725924686867426
+      ],
+      "common_prefix_body_joint_ratio": [
+        0.9629838193262349,
+        1.1194814373501352
+      ],
+      "common_prefix_body_joint_ratio_ci95": [
+        [
+          0.9562296409169252,
+          0.9696411582221092
+        ],
+        [
+          1.1136780328426021,
+          1.1252058970393992
+        ]
+      ],
+      "new_failure_episodes": 15,
+      "rescued_failure_episodes": 17,
+      "uncertainty": "paired motion bootstrap conditional on this training seed; not training-seed uncertainty",
+      "scope": "new starts and loads on the training motion catalog; not unseen-motion generalization"
+    },
+    "all_4/film_121_vs_baseline_121": {
+      "motions": 4096,
+      "means": {
+        "reference_body": 0.0706760605201041,
+        "reference_joint": 0.984641542616185,
+        "candidate_body": 0.06901944163193528,
+        "candidate_joint": 0.9687315427952427,
+        "reference_failure": 0.100830078125,
+        "candidate_failure": 0.09033203125,
+        "reference_coverage": 0.9404454153527602,
+        "candidate_coverage": 0.9469765604050189,
+        "reference_return": 67.59053649880383,
+        "candidate_return": 68.87104195197867,
+        "reference_common_body": 0.07028935166876661,
+        "reference_common_joint": 0.9816284452909997,
+        "candidate_common_body": 0.0683867661957721,
+        "candidate_common_joint": 0.9644136289256329
+      },
+      "candidate_over_reference_body_joint": [
+        0.976560395755256,
+        0.983841835701275
+      ],
+      "body_joint_ratio_ci95": [
+        [
+          0.9711885522319815,
+          0.9820128358212238
+        ],
+        [
+          0.9803212682535473,
+          0.9874311458611633
+        ]
+      ],
+      "failure_rate_delta": -0.010498046875,
+      "failure_rate_delta_ci95": [
+        -0.017333984375,
+        -0.00390625
+      ],
+      "coverage_delta": 0.006531145052258713,
+      "coverage_delta_ci95": [
+        0.002971021346068434,
+        0.010215649824915286
+      ],
+      "episode_return_delta": 1.2805054531748397,
+      "episode_return_delta_ci95": [
+        1.0132846685134538,
+        1.550288496738636
+      ],
+      "common_prefix_body_joint_ratio": [
+        0.9729320952914702,
+        0.9824630017111378
+      ],
+      "common_prefix_body_joint_ratio_ci95": [
+        [
+          0.9684895818946719,
+          0.9772772454918688
+        ],
+        [
+          0.9794896970019266,
+          0.9853967262360722
+        ]
+      ],
+      "new_failure_episodes": 80,
+      "rescued_failure_episodes": 123,
+      "uncertainty": "paired motion bootstrap conditional on this training seed; not training-seed uncertainty",
+      "scope": "new starts and loads on the training motion catalog; not unseen-motion generalization"
+    },
+    "all_4/baseline_121_vs_frozen": {
+      "motions": 4096,
+      "means": {
+        "reference_body": 0.08617257526879536,
+        "reference_joint": 1.0952091502710215,
+        "candidate_body": 0.0706760605201041,
+        "candidate_joint": 0.984641542616185,
+        "reference_failure": 0.136962890625,
+        "candidate_failure": 0.100830078125,
+        "reference_coverage": 0.9135375290728358,
+        "candidate_coverage": 0.9404454153527602,
+        "reference_return": 62.63987460008003,
+        "candidate_return": 67.59053649880383,
+        "reference_common_body": 0.08591390636563644,
+        "reference_common_joint": 1.0932178615322687,
+        "candidate_common_body": 0.06887966474965644,
+        "candidate_common_joint": 0.970007002547234
+      },
+      "candidate_over_reference_body_joint": [
+        0.8201688332934988,
+        0.899044298865221
+      ],
+      "body_joint_ratio_ci95": [
+        [
+          0.8140296594029228,
+          0.8263076277737197
+        ],
+        [
+          0.8937101690252551,
+          0.9041811118837859
+        ]
+      ],
+      "failure_rate_delta": -0.0361328125,
+      "failure_rate_delta_ci95": [
+        -0.044677734375,
+        -0.027587890625
+      ],
+      "coverage_delta": 0.026907886279924353,
+      "coverage_delta_ci95": [
+        0.022130391867150545,
+        0.031972481894149356
+      ],
+      "episode_return_delta": 4.950661898723801,
+      "episode_return_delta_ci95": [
+        4.581124041855334,
+        5.35126507984481
+      ],
+      "common_prefix_body_joint_ratio": [
+        0.8017289361342171,
+        0.8872952379205178
+      ],
+      "common_prefix_body_joint_ratio_ci95": [
+        [
+          0.7965530002703906,
+          0.8070499638554076
+        ],
+        [
+          0.8827209935527058,
+          0.8917774553134639
+        ]
+      ],
+      "new_failure_episodes": 78,
+      "rescued_failure_episodes": 226,
+      "uncertainty": "paired motion bootstrap conditional on this training seed; not training-seed uncertainty",
+      "scope": "new starts and loads on the training motion catalog; not unseen-motion generalization"
+    },
+    "all_4/film_121_vs_frozen": {
+      "motions": 4096,
+      "means": {
+        "reference_body": 0.08617257526879536,
+        "reference_joint": 1.0952091502710215,
+        "candidate_body": 0.06901944163193528,
+        "candidate_joint": 0.9687315427952427,
+        "reference_failure": 0.136962890625,
+        "candidate_failure": 0.09033203125,
+        "reference_coverage": 0.9135375290728358,
+        "candidate_coverage": 0.9469765604050189,
+        "reference_return": 62.63987460008003,
+        "candidate_return": 68.87104195197867,
+        "reference_common_body": 0.0860449202774383,
+        "reference_common_joint": 1.0942236072517084,
+        "candidate_common_body": 0.06727535106307908,
+        "candidate_common_joint": 0.9546645493499488
+      },
+      "candidate_over_reference_body_joint": [
+        0.8009444004272257,
+        0.8845173933723247
+      ],
+      "body_joint_ratio_ci95": [
+        [
+          0.7947710921819103,
+          0.8067938198091649
+        ],
+        [
+          0.8792426835194943,
+          0.8895414293417117
+        ]
+      ],
+      "failure_rate_delta": -0.046630859375,
+      "failure_rate_delta_ci95": [
+        -0.0556640625,
+        -0.038330078125
+      ],
+      "coverage_delta": 0.03343903133218307,
+      "coverage_delta_ci95": [
+        0.028495065725978156,
+        0.038675087602674435
+      ],
+      "episode_return_delta": 6.231167351898641,
+      "episode_return_delta_ci95": [
+        5.824448533469937,
+        6.65566586723811
+      ],
+      "common_prefix_body_joint_ratio": [
+        0.7818631343507588,
+        0.8724583741596645
+      ],
+      "common_prefix_body_joint_ratio_ci95": [
+        [
+          0.7768426926524529,
+          0.7869607671365865
+        ],
+        [
+          0.8678045041789808,
+          0.8769516074599992
+        ]
+      ],
+      "new_failure_episodes": 61,
+      "rescued_failure_episodes": 252,
+      "uncertainty": "paired motion bootstrap conditional on this training seed; not training-seed uncertainty",
+      "scope": "new starts and loads on the training motion catalog; not unseen-motion generalization"
+    }
+  },
+  "unix_time": 1788879850.2740023
+}

@@ -1,0 +1,5810 @@
+{
+  "actor_initialization": "fresh residual MLP; random hidden layers, zero output layer, fresh scalar action std 0.25",
+  "arguments": {
+    "actor_lr": 0.0001,
+    "adaptive_after_update": 0,
+    "context_checkpoint": null,
+    "critic_lr": 0.0005,
+    "device": null,
+    "distributed_backend": null,
+    "dr_bank": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260914_fixed_dr_specialists8_uniform_unbounded_wrist10/protocols/dr_bank.json",
+    "dr_profile": "tracker_dr_plus_limb_payload",
+    "dr_sampling": "independent_uniform",
+    "endpoint_eval_protocol": null,
+    "entropy_coef": 0.0002,
+    "episode_steps": 1000,
+    "epochs": 5,
+    "eval_interval": 1000,
+    "eval_motion_manifest": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260914_fixed_dr_specialists8_uniform_unbounded_wrist10/protocols/evaluation_motions.txt",
+    "eval_seed": 20001,
+    "eval_steps": 1000,
+    "fusion": "baseline",
+    "iterations": null,
+    "mini_batches": 4,
+    "motion_file": null,
+    "motion_path": "/data_zcy/wxy/motion_data_correct/motion_data_full",
+    "motion_sampling": "uniform",
+    "num_envs": 8192,
+    "num_experts": 16,
+    "output_dir": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260914_fixed_dr_specialists8_uniform_unbounded_wrist10/ppo/B07_right_hand_2p5_shin_4kg",
+    "policy_precision": "fp32",
+    "residual_scale": 1.0,
+    "resume": null,
+    "rollout_steps": 24,
+    "router_bootstrap_steps": 500,
+    "router_center_rate": 0.01,
+    "router_max_switch_fraction": 0.02,
+    "save_interval": 100,
+    "seed": 121,
+    "specialist_id": 7,
+    "tracker_checkpoint": "/data_zcy/wxy/SP_Tracking/logs/rsl_rl/g1_tracking/2026-09-02_04-48-42_SPTracking-G1-BFM-SPV5-2AActor-HEFTCritic-HEFTReward_8gpu_12288env_motion_data_correct/checkpoint_72000.pt",
+    "training_ranks": 1,
+    "training_terminations": "original",
+    "until_user_stop": true,
+    "wandb_entity": "2486344338-zhejiang-university",
+    "wandb_group": "limb_context_20260914_fixed_dr_specialists8_uniform_unbounded_wrist10",
+    "wandb_name": "limb_context_20260914_fixed_dr_specialists8_uniform_unbounded_wrist10-B07_right_hand_2p5_shin_4kg",
+    "wandb_project": "intact-preview-v2"
+  },
+  "context_checkpoint": null,
+  "context_normalization_frozen": true,
+  "context_protocol": "short50_disjoint_chunk10_long30_cross_reset_v1",
+  "context_sha256": null,
+  "critic_initialization": "fresh random MLP; no source critic weights",
+  "critic_normalization_initialization": "fresh moments from one pooled initial observation batch; then updated online",
+  "dataset": {
+    "archive_bytes": 86401833542,
+    "coverage": "all recursive *.npz files; no exclusions or active subset",
+    "groups": {
+      "AMASS_LAFAN_Qingtong": 42,
+      "sonic_filtered": 129785
+    },
+    "loaded_frames": 48085337,
+    "loaded_motion_count": 129827,
+    "loaded_motion_counts_per_rank": [
+      129827
+    ],
+    "manifest_hash_kind": "relative-path,size,mtime_ns",
+    "manifest_sha256": "df31b45ef2a32dbda7107c57f55bb90b2d300a182bcc05ef62c19e1959d85978",
+    "motion_count": 129827,
+    "rank_partition": "sorted files [rank::world_size]; single-file smoke replicated",
+    "reference_storage_mode": "qpos_only_actor_fk",
+    "root": "/data_zcy/wxy/motion_data_correct/motion_data_full"
+  },
+  "distributed": {
+    "advantage_normalization": "global rollout mean and sample standard deviation",
+    "critic_normalization": "global pooled sums, squared sums and count at every environment step",
+    "global_num_envs": 8192,
+    "gradient_synchronization": "mean across all ranks at each optimizer step",
+    "num_envs_per_rank": 8192,
+    "rank_seed_formula": "seed + 1000003 * rank",
+    "world_size": 1
+  },
+  "dr_profile": "tracker_dr_plus_limb_payload",
+  "dr_sampling": "independent_uniform",
+  "encoder_frozen": true,
+  "episode_length_control_steps": 1000,
+  "evaluation_module": "intact_tracking.cli.residual_uniform_eval",
+  "execution_protocol": "memory350_1_gpu_scratch_v1",
+  "extra_current_state_physics_privilege": false,
+  "frozen_inference": "cached chunk and long summaries; final short-context attention every control step",
+  "frozen_tracker_role": "pretrained base action and original 1645-dimensional preprocessing",
+  "fusion": "baseline",
+  "initialization_protocol": "residual_actor_and_critic_from_scratch_v3",
+  "initialization_seeds": {
+    "actor": 10128,
+    "critic": 20124
+  },
+  "input_audit": {
+    "action_std_initialization": 0.25,
+    "actor_compression": [
+      1645,
+      512,
+      256,
+      128
+    ],
+    "actor_compressor_sha256": "79577949de8dabd8042d78d2bdc63a574f34a2c81a784b6868bcbbeffdba9662",
+    "actor_critic_parameters_shared": false,
+    "actor_experts": 1,
+    "actor_head": [
+      157,
+      256,
+      128,
+      29
+    ],
+    "actor_initialization_seed": 10128,
+    "actor_original_features": 1645,
+    "actor_trainable_parameters": 1084090,
+    "critic_bootstrap_tracker_action": "recomputed on final next-state observation",
+    "critic_compression": [
+      6330,
+      1024,
+      512,
+      256,
+      128
+    ],
+    "critic_compressor_sha256": "dfadf550f769ad9c09076ffbfadbc97a2b1c1b6099c3847c0befef2d37e40603",
+    "critic_experts": 1,
+    "critic_head": [
+      157,
+      256,
+      128,
+      1
+    ],
+    "critic_initial_normalizer_sha256": "119a6cf8dcf4f688152ef22de093260faab3b2bcec6520ef0034f480728ab20c",
+    "critic_initialization_seed": 20124,
+    "critic_original_features": 6330,
+    "critic_tracker_action_input_dim": 29,
+    "critic_tracker_action_matches_actor": true,
+    "critic_tracker_action_normalization": "unmodified raw action; appended after obs compression",
+    "critic_tracker_action_source": "same current raw deterministic tracker mean used by actor; stored in rollout observations",
+    "critic_trainable_parameters": 7245441,
+    "each_side_shares_one_obs_encoder_across_its_experts": true,
+    "identical_initial_action": true,
+    "initial_value_independent_of_latent": true,
+    "latent_dimensions": 0,
+    "latent_use": "absent",
+    "router_has_trainable_parameters": false,
+    "routing_bootstrap": {
+      "policy": "deterministic frozen tracker",
+      "ppo_updates": 0,
+      "rank_seed": 2300121,
+      "same_bootstrap_in_baseline": true,
+      "steps": 500,
+      "trajectory_sha256": "d2111d85d1c732f6a4c5fefe8dff078eb5c8b1d9d9c30cbe3e40428bb2660456"
+    },
+    "tracker_action_input_dim": 29
+  },
+  "maximum_updates": null,
+  "motion_count": 129827,
+  "motion_file": null,
+  "motion_path": "/data_zcy/wxy/motion_data_correct/motion_data_full",
+  "motion_sampling": {
+    "active_mode": "uniform",
+    "adaptive_after_update": 0,
+    "adaptive_bin_snapshot_interval_iterations": 0,
+    "adaptive_sampling": {
+      "random_probability": 0.5,
+      "strategy": "branch",
+      "temperature": 0.25
+    },
+    "failure_rewind_enabled": false,
+    "parameters": {
+      "adaptive_bin_width_s": 1.0,
+      "adaptive_bin_width_steps": null,
+      "adaptive_failure_rate_ema_iterations": 1000,
+      "adaptive_failure_rate_window_iterations": null,
+      "adaptive_max_prob_per_bin": "auto",
+      "adaptive_max_prob_per_motion": "auto",
+      "adaptive_pre_failure_sample_window_steps": 100,
+      "adaptive_prior_failure_count": 0.0,
+      "adaptive_prior_visit_count": 1.0,
+      "adaptive_probability_max_over_mean": 500.0,
+      "adaptive_sequence_length_agnostic": false,
+      "adaptive_uniform_ratio": 0.1
+    },
+    "requested_mode": "uniform",
+    "scope": "Uniform motion sampling; independent hand [0,2.5] / shin [0,4] kg or the selected complete fixed DR",
+    "statistics": "Uniform throughout; no adaptive curriculum or failure rewind",
+    "version": "limb_motion_sampling_curriculum_v1"
+  },
+  "physics": {
+    "dr_profile": "tracker_dr_plus_limb_payload",
+    "effective_events": {
+      "base_com": {
+        "function": "intact_tracking.fixed_dr_profiles.FixedStaticRandomization",
+        "interval_range_s": null,
+        "is_global_time": false,
+        "min_step_count_between_reset": 0,
+        "mode": "startup",
+        "params": {
+          "asset_cfg": {
+            "actuator_names": null,
+            "body_names": [
+              "torso_link"
+            ],
+            "geom_names": null,
+            "joint_names": null,
+            "name": "robot",
+            "preserve_order": false,
+            "site_names": null
+          },
+          "fixed_event": "base_com",
+          "fixed_seed": 20567978,
+          "operation": "add",
+          "ranges": {
+            "0": [
+              -0.075,
+              0.075
+            ],
+            "1": [
+              -0.075,
+              0.075
+            ],
+            "2": [
+              -0.075,
+              0.075
+            ]
+          }
+        }
+      },
+      "base_mass": {
+        "function": "intact_tracking.fixed_dr_profiles.FixedStaticRandomization",
+        "interval_range_s": null,
+        "is_global_time": false,
+        "min_step_count_between_reset": 0,
+        "mode": "startup",
+        "params": {
+          "asset_cfg": {
+            "actuator_names": null,
+            "body_names": [
+              "torso_link"
+            ],
+            "geom_names": null,
+            "joint_names": null,
+            "name": "robot",
+            "preserve_order": false,
+            "site_names": null
+          },
+          "fixed_event": "base_mass",
+          "fixed_seed": 20568987,
+          "operation": "add",
+          "ranges": [
+            -1.0,
+            1.0
+          ]
+        }
+      },
+      "context_uniform_limb_payload": {
+        "function": "intact_tracking.residual_uniform_protocol.CappedLimbPayload",
+        "interval_range_s": null,
+        "is_global_time": false,
+        "min_step_count_between_reset": 0,
+        "mode": "startup",
+        "params": {
+          "fixed_masses": [
+            0,
+            2.5,
+            0,
+            4
+          ],
+          "seed": 91404
+        }
+      },
+      "encoder_bias": {
+        "function": "intact_tracking.fixed_dr_profiles.FixedStaticRandomization",
+        "interval_range_s": null,
+        "is_global_time": false,
+        "min_step_count_between_reset": 0,
+        "mode": "startup",
+        "params": {
+          "asset_cfg": {
+            "actuator_names": null,
+            "body_names": null,
+            "geom_names": null,
+            "joint_names": null,
+            "name": "robot",
+            "preserve_order": false,
+            "site_names": null
+          },
+          "bias_range": [
+            -0.01,
+            0.01
+          ],
+          "fixed_event": "encoder_bias",
+          "fixed_seed": 20569996
+        }
+      },
+      "foot_friction": {
+        "function": "intact_tracking.fixed_dr_profiles.FixedStaticRandomization",
+        "interval_range_s": null,
+        "is_global_time": false,
+        "min_step_count_between_reset": 0,
+        "mode": "startup",
+        "params": {
+          "asset_cfg": {
+            "actuator_names": null,
+            "body_names": null,
+            "geom_names": "^(left|right)_foot[1-7]_collision$",
+            "joint_names": null,
+            "name": "robot",
+            "preserve_order": false,
+            "site_names": null
+          },
+          "fixed_event": "foot_friction",
+          "fixed_seed": 20571005,
+          "operation": "abs",
+          "ranges": [
+            0.3,
+            2.0
+          ],
+          "shared_random": true
+        }
+      },
+      "motor_params_implicit": {
+        "function": "intact_tracking.fixed_dr_profiles.FixedStaticRandomization",
+        "interval_range_s": null,
+        "is_global_time": false,
+        "min_step_count_between_reset": 0,
+        "mode": "startup",
+        "params": {
+          "armature_range": {
+            ".*": [
+              0.8,
+              1.2
+            ]
+          },
+          "fixed_event": "motor_params_implicit",
+          "fixed_seed": 20572014,
+          "mode": "uniform"
+        }
+      },
+      "push_robot": {
+        "function": "intact_tracking.environment.mdp.randomizations.body_force_pulse",
+        "interval_range_s": null,
+        "is_global_time": false,
+        "min_step_count_between_reset": 0,
+        "mode": "step",
+        "params": {
+          "body_name": "torso_link",
+          "duration_range_s": [
+            0.3,
+            0.5
+          ],
+          "force_abs_range_n": [
+            0.0,
+            10.0
+          ],
+          "interval_range_s": [
+            3.0,
+            6.0
+          ]
+        }
+      }
+    },
+    "fixed_dr": {
+      "bank": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260914_fixed_dr_specialists8_uniform_unbounded_wrist10/protocols/dr_bank.json",
+      "bank_sha256": "0343a7b60f763492ec14a543d3481b94411496f5c7da4b3bf67a99d1b83e4a38",
+      "id": 7,
+      "masses_kg": [
+        0,
+        2.5,
+        0,
+        4
+      ],
+      "name": "right_hand_2p5_shin_4kg",
+      "physics_fingerprint": "32ec66fe131812ed2d314ea70ec3cd949865abd2f47322516c6ed2176d764117",
+      "prototype_fields": {
+        "actuator_biasprm": [
+          [
+            0.0,
+            -14.250622749328613,
+            -0.9072228670120239,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            -14.250622749328613,
+            -0.9072228670120239,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            -14.250622749328613,
+            -0.9072228670120239,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            -14.250622749328613,
+            -0.9072228670120239,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            -14.250622749328613,
+            -0.9072228670120239,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            -14.250622749328613,
+            -0.9072228670120239,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            -14.250622749328613,
+            -0.9072228670120239,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            -14.250622749328613,
+            -0.9072228670120239,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            -14.250622749328613,
+            -0.9072228670120239,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            -14.250622749328613,
+            -0.9072228670120239,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            -40.179237365722656,
+            -2.557889699935913,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            -40.179237365722656,
+            -2.557889699935913,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            -40.179237365722656,
+            -2.557889699935913,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            -40.179237365722656,
+            -2.557889699935913,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            -40.179237365722656,
+            -2.557889699935913,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            -99.09842681884766,
+            -6.308801651000977,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            -99.09842681884766,
+            -6.308801651000977,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            -99.09842681884766,
+            -6.308801651000977,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            -99.09842681884766,
+            -6.308801651000977,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            -16.77832794189453,
+            -1.0681414604187012,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            -16.77832794189453,
+            -1.0681414604187012,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            -16.77832794189453,
+            -1.0681414604187012,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            -16.77832794189453,
+            -1.0681414604187012,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            -28.501245498657227,
+            -1.8144457340240479,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            -28.501245498657227,
+            -1.8144457340240479,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            -28.501245498657227,
+            -1.8144457340240479,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            -28.501245498657227,
+            -1.8144457340240479,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            -28.501245498657227,
+            -1.8144457340240479,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            -28.501245498657227,
+            -1.8144457340240479,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "actuator_gainprm": [
+          [
+            14.250622749328613,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            14.250622749328613,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            14.250622749328613,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            14.250622749328613,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            14.250622749328613,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            14.250622749328613,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            14.250622749328613,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            14.250622749328613,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            14.250622749328613,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            14.250622749328613,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            40.179237365722656,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            40.179237365722656,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            40.179237365722656,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            40.179237365722656,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            40.179237365722656,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            99.09842681884766,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            99.09842681884766,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            99.09842681884766,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            99.09842681884766,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            16.77832794189453,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            16.77832794189453,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            16.77832794189453,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            16.77832794189453,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            28.501245498657227,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            28.501245498657227,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            28.501245498657227,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            28.501245498657227,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            28.501245498657227,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            28.501245498657227,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "body_inertia": [
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.010549000464379787,
+            0.009308899752795696,
+            0.007918399758636951
+          ],
+          [
+            0.0018151700496673584,
+            0.001534219947643578,
+            0.0011621200246736407
+          ],
+          [
+            0.0025498599279671907,
+            0.0024116900749504566,
+            0.0014875499764457345
+          ],
+          [
+            0.007761660031974316,
+            0.007175750099122524,
+            0.0016013899585232139
+          ],
+          [
+            0.011380399577319622,
+            0.011277800425887108,
+            0.0014645799528807402
+          ],
+          [
+            1.8900000213761814e-05,
+            1.4080499568080995e-05,
+            6.919499810464913e-06
+          ],
+          [
+            0.00167218002025038,
+            0.0016160999657586217,
+            0.00021762099640909582
+          ],
+          [
+            0.0018151700496673584,
+            0.001534219947643578,
+            0.0011621200246736407
+          ],
+          [
+            0.0025498599279671907,
+            0.0024116900749504566,
+            0.0014875499764457345
+          ],
+          [
+            0.007761660031974316,
+            0.007175750099122524,
+            0.0016013899585232139
+          ],
+          [
+            0.00697849178686738,
+            0.017933057621121407,
+            0.019160479307174683
+          ],
+          [
+            1.8900000213761814e-05,
+            1.4080499568080995e-05,
+            6.919499810464913e-06
+          ],
+          [
+            0.00167218002025038,
+            0.0016160999657586217,
+            0.00021762099640909582
+          ],
+          [
+            0.00016353100363630801,
+            0.00010771399684017524,
+            0.00010220499825663865
+          ],
+          [
+            8.244999662565533e-06,
+            7.079000170051586e-06,
+            6.338999810395762e-06
+          ],
+          [
+            0.121847003698349,
+            0.109825000166893,
+            0.027373500168323517
+          ],
+          [
+            0.0004658639954868704,
+            0.000432842003647238,
+            0.0004063940141350031
+          ],
+          [
+            0.0006913110264576972,
+            0.0006180109921842813,
+            0.00038897700142115355
+          ],
+          [
+            0.0010618700180202723,
+            0.0010321700247004628,
+            0.0004006609960924834
+          ],
+          [
+            0.0004430350090842694,
+            0.00042161199962720275,
+            0.0002593529934529215
+          ],
+          [
+            5.4821099183754995e-05,
+            4.9664598918752745e-05,
+            3.577980169211514e-05
+          ],
+          [
+            0.00043035298585891724,
+            0.0004298730054870248,
+            0.00016464799409732223
+          ],
+          [
+            0.0006461130105890334,
+            0.00055999297183007,
+            0.00014756599557586014
+          ],
+          [
+            0.0004658639954868704,
+            0.000432842003647238,
+            0.0004063940141350031
+          ],
+          [
+            0.0006913110264576972,
+            0.0006180109921842813,
+            0.00038897700142115355
+          ],
+          [
+            0.0010618700180202723,
+            0.0010321700247004628,
+            0.0004006609960924834
+          ],
+          [
+            0.0004430350090842694,
+            0.00042161199962720275,
+            0.0002593529934529215
+          ],
+          [
+            5.4821099183754995e-05,
+            4.9664598918752745e-05,
+            3.577980169211514e-05
+          ],
+          [
+            0.00043035298585891724,
+            0.0004298730054870248,
+            0.00016464799409732223
+          ],
+          [
+            0.002816710853949189,
+            0.004535458516329527,
+            0.004620181862264872
+          ]
+        ],
+        "body_ipos": [
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            -0.07604999840259552
+          ],
+          [
+            0.0027409999165683985,
+            0.047791000455617905,
+            -0.02606000006198883
+          ],
+          [
+            0.029812000691890717,
+            -0.0010450000409036875,
+            -0.08793400228023529
+          ],
+          [
+            -0.05770900100469589,
+            -0.010981000028550625,
+            -0.15078000724315643
+          ],
+          [
+            0.005456999875605106,
+            0.003963999915868044,
+            -0.12073999643325806
+          ],
+          [
+            -0.007269000168889761,
+            0.0,
+            0.011137000285089016
+          ],
+          [
+            0.0265050008893013,
+            0.0,
+            -0.01642500050365925
+          ],
+          [
+            0.0027409999165683985,
+            -0.047791000455617905,
+            -0.02606000006198883
+          ],
+          [
+            0.029812000691890717,
+            0.0010450000409036875,
+            -0.08793400228023529
+          ],
+          [
+            -0.05770900100469589,
+            0.010981000028550625,
+            -0.15078000724315643
+          ],
+          [
+            0.0017772965366020799,
+            -0.0012910397490486503,
+            -0.14047028124332428
+          ],
+          [
+            -0.007269000168889761,
+            0.0,
+            0.011137000285089016
+          ],
+          [
+            0.0265050008893013,
+            0.0,
+            -0.01642500050365925
+          ],
+          [
+            0.0034940000623464584,
+            0.00023299999884329736,
+            0.01803399994969368
+          ],
+          [
+            0.0,
+            2.300000051036477e-05,
+            0.0
+          ],
+          [
+            0.03646288067102432,
+            0.034000564366579056,
+            0.2301277220249176
+          ],
+          [
+            0.0,
+            0.035891998559236526,
+            -0.011628000065684319
+          ],
+          [
+            -0.00022699999681208283,
+            0.007269999943673611,
+            -0.06324300169944763
+          ],
+          [
+            0.010773000307381153,
+            -0.0029490001033991575,
+            -0.07200899720191956
+          ],
+          [
+            0.06495600193738937,
+            0.004453999921679497,
+            -0.010061999782919884
+          ],
+          [
+            0.01713939942419529,
+            0.0005375909968279302,
+            4.886400120085455e-07
+          ],
+          [
+            0.022999899461865425,
+            -0.001116849947720766,
+            -0.0011165799805894494
+          ],
+          [
+            0.07082439959049225,
+            0.0001917449990287423,
+            0.0016174199990928173
+          ],
+          [
+            0.0,
+            -0.035891998559236526,
+            -0.011628000065684319
+          ],
+          [
+            -0.00022699999681208283,
+            -0.007269999943673611,
+            -0.06324300169944763
+          ],
+          [
+            0.010773000307381153,
+            0.0029490001033991575,
+            -0.07200899720191956
+          ],
+          [
+            0.06495600193738937,
+            -0.004453999921679497,
+            -0.010061999782919884
+          ],
+          [
+            0.01713939942419529,
+            -0.0005375909968279302,
+            4.886400120085455e-07
+          ],
+          [
+            0.022999899461865425,
+            0.001116849947720766,
+            -0.0011165799805894494
+          ],
+          [
+            0.11545522511005402,
+            -1.7720940377330408e-05,
+            0.00014948083844501525
+          ]
+        ],
+        "body_iquat": [
+          [
+            1.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            1.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.9999999403953552,
+            0.0,
+            -0.0003991479752585292,
+            0.0
+          ],
+          [
+            0.9548624753952026,
+            0.293964147567749,
+            0.030255615711212158,
+            0.03012201562523842
+          ],
+          [
+            0.9778077602386475,
+            -1.9711895220098086e-05,
+            0.20557595789432526,
+            -0.04037928953766823
+          ],
+          [
+            0.6005979180335999,
+            0.15831997990608215,
+            0.22348196804523468,
+            0.75118088722229
+          ],
+          [
+            0.923417866230011,
+            -0.03276989609003067,
+            0.01582459732890129,
+            0.382066935300827
+          ],
+          [
+            0.6030529737472534,
+            0.36922499537467957,
+            0.36922499537467957,
+            0.6030529737472534
+          ],
+          [
+            -0.0004810918471775949,
+            0.7284817695617676,
+            -0.0006189667619764805,
+            0.6850647330284119
+          ],
+          [
+            0.9548624753952026,
+            -0.293964147567749,
+            0.030255615711212158,
+            -0.03012201562523842
+          ],
+          [
+            0.9778077602386475,
+            1.9711895220098086e-05,
+            0.20557595789432526,
+            0.04037928953766823
+          ],
+          [
+            0.75118088722229,
+            0.22348196804523468,
+            0.15831997990608215,
+            0.6005979180335999
+          ],
+          [
+            0.5275091528892517,
+            -0.4786390960216522,
+            -0.4848857820034027,
+            -0.5074686408042908
+          ],
+          [
+            0.6030529737472534,
+            0.36922499537467957,
+            0.36922499537467957,
+            0.6030529737472534
+          ],
+          [
+            0.0004810918471775949,
+            0.7284817695617676,
+            0.0006189667619764805,
+            0.6850647330284119
+          ],
+          [
+            0.28969699144363403,
+            0.5910009741783142,
+            -0.3377949893474579,
+            0.6728209853172302
+          ],
+          [
+            0.5,
+            0.5,
+            -0.5,
+            0.5
+          ],
+          [
+            0.9998025894165039,
+            -6.033187310094945e-05,
+            0.019825590774416924,
+            0.0013198594097048044
+          ],
+          [
+            0.6541519165039062,
+            0.013045798055827618,
+            -0.32626694440841675,
+            0.682249903678894
+          ],
+          [
+            0.7012560367584229,
+            -0.019622299820184708,
+            -0.007103170268237591,
+            0.7126040458679199
+          ],
+          [
+            0.7168787121772766,
+            -0.09648285806179047,
+            -0.06799416989088058,
+            0.6871337294578552
+          ],
+          [
+            0.5417652130126953,
+            0.6361322999000549,
+            0.38882115483283997,
+            0.38812917470932007
+          ],
+          [
+            0.5753383636474609,
+            0.41166725754737854,
+            -0.5749063491821289,
+            0.4110942780971527
+          ],
+          [
+            0.2499978244304657,
+            0.6613625288009644,
+            0.2930358052253723,
+            0.6436075568199158
+          ],
+          [
+            0.5105708241462708,
+            0.5262948274612427,
+            0.4680778682231903,
+            0.4931878447532654
+          ],
+          [
+            0.682249903678894,
+            -0.32626694440841675,
+            0.013045798055827618,
+            0.6541519165039062
+          ],
+          [
+            0.7126040458679199,
+            -0.007103170268237591,
+            -0.019622299820184708,
+            0.7012560367584229
+          ],
+          [
+            0.6871337294578552,
+            -0.06799416989088058,
+            -0.09648285806179047,
+            0.7168787121772766
+          ],
+          [
+            0.38812917470932007,
+            0.38882115483283997,
+            0.6361322999000549,
+            0.5417652130126953
+          ],
+          [
+            0.41166725754737854,
+            0.5753383636474609,
+            -0.4110942780971527,
+            0.5749063491821289
+          ],
+          [
+            0.6436075568199158,
+            0.2930358052253723,
+            0.6613625288009644,
+            0.2499978244304657
+          ],
+          [
+            0.7237838506698608,
+            0.6899242997169495,
+            0.010835947468876839,
+            0.004901242908090353
+          ]
+        ],
+        "body_mass": [
+          0.0,
+          0.0,
+          3.812999963760376,
+          1.350000023841858,
+          1.5199999809265137,
+          1.7020000219345093,
+          1.9320000410079956,
+          0.07400000095367432,
+          0.6079999804496765,
+          1.350000023841858,
+          1.5199999809265137,
+          1.7020000219345093,
+          5.932000160217285,
+          0.07400000095367432,
+          0.6079999804496765,
+          0.21400000154972076,
+          0.0860000029206276,
+          7.261390686035156,
+          0.7179999947547913,
+          0.6430000066757202,
+          0.734000027179718,
+          0.6000000238418579,
+          0.08544500172138214,
+          0.4840500056743622,
+          0.2545759975910187,
+          0.7179999947547913,
+          0.6430000066757202,
+          0.734000027179718,
+          0.6000000238418579,
+          0.08544500172138214,
+          0.4840500056743622,
+          2.7545759677886963
+        ],
+        "dof_armature": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.011849691160023212,
+          0.026093631982803345,
+          0.011335809715092182,
+          0.028826773166656494,
+          0.006176298949867487,
+          0.008496470749378204,
+          0.011453150771558285,
+          0.021191678941249847,
+          0.009357447735965252,
+          0.023709792643785477,
+          0.007472778670489788,
+          0.007940627634525299,
+          0.011412774212658405,
+          0.007668670732527971,
+          0.006075644865632057,
+          0.003643421456217766,
+          0.004191643092781305,
+          0.0029675145633518696,
+          0.002894781297072768,
+          0.0035127769224345684,
+          0.003540130564942956,
+          0.0034302743151783943,
+          0.0038518267683684826,
+          0.003045294201001525,
+          0.0030894603114575148,
+          0.004310885909944773,
+          0.003654950065538287,
+          0.004029897507280111,
+          0.004492674954235554
+        ],
+        "dof_damping": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "dof_frictionloss": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "encoder_bias": [
+          0.0051520345732569695,
+          0.00391951110213995,
+          0.0012396834790706635,
+          -0.0014387713745236397,
+          -0.00977408792823553,
+          -0.007155558094382286,
+          -0.0023639779537916183,
+          0.001168418675661087,
+          0.0075971819460392,
+          0.009603135287761688,
+          0.007378954440355301,
+          -0.003942753653973341,
+          -0.008081831969320774,
+          0.005421550944447517,
+          -0.003930533304810524,
+          0.007461195811629295,
+          0.009292962029576302,
+          0.007777942344546318,
+          0.0005598841235041618,
+          0.007415374740958214,
+          -0.0015930840745568275,
+          0.001131550408899784,
+          0.009626870974898338,
+          -0.008402432315051556,
+          0.009722592309117317,
+          0.00363757461309433,
+          8.614547550678253e-05,
+          -0.007462431211024523,
+          0.006113898009061813
+        ],
+        "geom_friction": [
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.2813935279846191,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.2813935279846191,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.2813935279846191,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.2813935279846191,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.2813935279846191,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.2813935279846191,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.2813935279846191,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.2813935279846191,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.2813935279846191,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.2813935279846191,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.2813935279846191,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.2813935279846191,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.2813935279846191,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.2813935279846191,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ],
+          [
+            1.0,
+            0.004999999888241291,
+            9.999999747378752e-05
+          ]
+        ],
+        "jnt_pos": [
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "motor_obs_arm_scale": [
+          1.1643004417419434,
+          1.039507269859314,
+          1.1138086318969727,
+          1.1483889818191528,
+          0.8555082082748413,
+          1.1768862009048462,
+          1.125338077545166,
+          0.844225287437439,
+          0.9194231629371643,
+          0.9445408582687378,
+          1.0350897312164307,
+          1.0998936891555786,
+          1.121370792388916,
+          1.0622236728668213,
+          0.8415661454200745,
+          1.009334921836853,
+          1.1612083911895752,
+          0.8220887780189514,
+          0.8019395470619202,
+          0.9731425046920776,
+          0.8329718708992004,
+          0.8071233034133911,
+          1.0670692920684814,
+          0.8436360359191895,
+          0.8558713793754578,
+          1.1942421197891235,
+          1.012528657913208,
+          0.9482110738754272,
+          1.0570999383926392
+        ],
+        "motor_obs_frictionloss": [],
+        "motor_obs_kd_scale": [],
+        "motor_obs_kp_scale": []
+      },
+      "static_seed": 20267977
+    },
+    "fixed_masses": [
+      0,
+      2.5,
+      0,
+      4
+    ],
+    "limbs": {
+      "left_hand": {
+        "body": "left_wrist_yaw_link",
+        "position": [
+          0.12,
+          0.0,
+          0.0
+        ],
+        "size": [
+          0.1,
+          0.08,
+          0.08
+        ]
+      },
+      "left_shin": {
+        "body": "left_knee_link",
+        "position": [
+          0.0,
+          0.0,
+          -0.15
+        ],
+        "size": [
+          0.1,
+          0.08,
+          0.1
+        ]
+      },
+      "right_hand": {
+        "body": "right_wrist_yaw_link",
+        "position": [
+          0.12,
+          0.0,
+          0.0
+        ],
+        "size": [
+          0.1,
+          0.08,
+          0.08
+        ]
+      },
+      "right_shin": {
+        "body": "right_knee_link",
+        "position": [
+          0.0,
+          0.0,
+          -0.15
+        ],
+        "size": [
+          0.1,
+          0.08,
+          0.1
+        ]
+      }
+    },
+    "observation_corruption": {
+      "estimator_history": true,
+      "estimator_target": false,
+      "foot_contact_target": false,
+      "policy": true,
+      "priv": false,
+      "reference_encoder_input": false,
+      "reference_encoder_target": false,
+      "robot_key_body": false,
+      "robot_root_quat": false
+    },
+    "original_events": {
+      "base_com": {
+        "function": "mjlab.envs.mdp.dr.body.body_com_offset",
+        "interval_range_s": null,
+        "is_global_time": false,
+        "min_step_count_between_reset": 0,
+        "mode": "startup",
+        "params": {
+          "asset_cfg": {
+            "actuator_names": null,
+            "body_names": [
+              "torso_link"
+            ],
+            "geom_names": null,
+            "joint_names": null,
+            "name": "robot",
+            "preserve_order": false,
+            "site_names": null
+          },
+          "operation": "add",
+          "ranges": {
+            "0": [
+              -0.075,
+              0.075
+            ],
+            "1": [
+              -0.075,
+              0.075
+            ],
+            "2": [
+              -0.075,
+              0.075
+            ]
+          }
+        }
+      },
+      "base_mass": {
+        "function": "mjlab.envs.mdp.dr.body.body_mass",
+        "interval_range_s": null,
+        "is_global_time": false,
+        "min_step_count_between_reset": 0,
+        "mode": "startup",
+        "params": {
+          "asset_cfg": {
+            "actuator_names": null,
+            "body_names": [
+              "torso_link"
+            ],
+            "geom_names": null,
+            "joint_names": null,
+            "name": "robot",
+            "preserve_order": false,
+            "site_names": null
+          },
+          "operation": "add",
+          "ranges": [
+            -1.0,
+            1.0
+          ]
+        }
+      },
+      "encoder_bias": {
+        "function": "mjlab.envs.mdp.dr.joint.encoder_bias",
+        "interval_range_s": null,
+        "is_global_time": false,
+        "min_step_count_between_reset": 0,
+        "mode": "startup",
+        "params": {
+          "asset_cfg": {
+            "actuator_names": null,
+            "body_names": null,
+            "geom_names": null,
+            "joint_names": null,
+            "name": "robot",
+            "preserve_order": false,
+            "site_names": null
+          },
+          "bias_range": [
+            -0.01,
+            0.01
+          ]
+        }
+      },
+      "foot_friction": {
+        "function": "mjlab.envs.mdp.dr.geom.geom_friction",
+        "interval_range_s": null,
+        "is_global_time": false,
+        "min_step_count_between_reset": 0,
+        "mode": "startup",
+        "params": {
+          "asset_cfg": {
+            "actuator_names": null,
+            "body_names": null,
+            "geom_names": "^(left|right)_foot[1-7]_collision$",
+            "joint_names": null,
+            "name": "robot",
+            "preserve_order": false,
+            "site_names": null
+          },
+          "operation": "abs",
+          "ranges": [
+            0.3,
+            2.0
+          ],
+          "shared_random": true
+        }
+      },
+      "motor_params_implicit": {
+        "function": "intact_tracking.environment.mdp.randomizations.motor_params_implicit",
+        "interval_range_s": null,
+        "is_global_time": false,
+        "min_step_count_between_reset": 0,
+        "mode": "startup",
+        "params": {
+          "armature_range": {
+            ".*": [
+              0.8,
+              1.2
+            ]
+          },
+          "mode": "uniform"
+        }
+      },
+      "push_robot": {
+        "function": "intact_tracking.environment.mdp.randomizations.body_force_pulse",
+        "interval_range_s": null,
+        "is_global_time": false,
+        "min_step_count_between_reset": 0,
+        "mode": "step",
+        "params": {
+          "body_name": "torso_link",
+          "duration_range_s": [
+            0.3,
+            0.5
+          ],
+          "force_abs_range_n": [
+            0.0,
+            10.0
+          ],
+          "interval_range_s": [
+            3.0,
+            6.0
+          ]
+        }
+      }
+    },
+    "original_reset_callbacks": "preserved, including force-pulse timer resets",
+    "profile": "frozen-tracker-complete-fixed-static-dr-plus-limb-payload",
+    "removed_disturbances": [],
+    "residual_physics_contract": {
+      "limb_max_masses_kg": [
+        2.5,
+        2.5,
+        4.0,
+        4.0
+      ],
+      "motion_sampling": "uniform",
+      "pd_gains": "preserved",
+      "tracker_action_scale": "preserved from frozen tracker",
+      "version": "residual_uniform_wrist10_hand2p5_unbounded_v1",
+      "wrist_pitch_yaw_effort_limit_nm": 10.0
+    },
+    "runtime_audits_by_rank": [
+      {
+        "episode_length_control_steps": 1000,
+        "loaded_frames": 48085337,
+        "motion_count": 129827,
+        "physics": {
+          "action_order": [
+            "left_hip_pitch_joint",
+            "left_hip_roll_joint",
+            "left_hip_yaw_joint",
+            "left_knee_joint",
+            "left_ankle_pitch_joint",
+            "left_ankle_roll_joint",
+            "right_hip_pitch_joint",
+            "right_hip_roll_joint",
+            "right_hip_yaw_joint",
+            "right_knee_joint",
+            "right_ankle_pitch_joint",
+            "right_ankle_roll_joint",
+            "waist_yaw_joint",
+            "waist_roll_joint",
+            "waist_pitch_joint",
+            "left_shoulder_pitch_joint",
+            "left_shoulder_roll_joint",
+            "left_shoulder_yaw_joint",
+            "left_elbow_joint",
+            "left_wrist_roll_joint",
+            "left_wrist_pitch_joint",
+            "left_wrist_yaw_joint",
+            "right_shoulder_pitch_joint",
+            "right_shoulder_roll_joint",
+            "right_shoulder_yaw_joint",
+            "right_elbow_joint",
+            "right_wrist_roll_joint",
+            "right_wrist_pitch_joint",
+            "right_wrist_yaw_joint"
+          ],
+          "actual_mass_sha256": "3ab6cf0fd2b39fe98b928c1630bfc64691b18f4fc65b56987a4a2c3f0478bf09",
+          "fixed_dr": {
+            "bank": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260914_fixed_dr_specialists8_uniform_unbounded_wrist10/protocols/dr_bank.json",
+            "bank_sha256": "0343a7b60f763492ec14a543d3481b94411496f5c7da4b3bf67a99d1b83e4a38",
+            "id": 7,
+            "masses_kg": [
+              0,
+              2.5,
+              0,
+              4
+            ],
+            "name": "right_hand_2p5_shin_4kg",
+            "physics_fingerprint": "32ec66fe131812ed2d314ea70ec3cd949865abd2f47322516c6ed2176d764117",
+            "prototype_fields": {
+              "actuator_biasprm": [
+                [
+                  0.0,
+                  -14.250622749328613,
+                  -0.9072228670120239,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  -14.250622749328613,
+                  -0.9072228670120239,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  -14.250622749328613,
+                  -0.9072228670120239,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  -14.250622749328613,
+                  -0.9072228670120239,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  -14.250622749328613,
+                  -0.9072228670120239,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  -14.250622749328613,
+                  -0.9072228670120239,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  -14.250622749328613,
+                  -0.9072228670120239,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  -14.250622749328613,
+                  -0.9072228670120239,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  -14.250622749328613,
+                  -0.9072228670120239,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  -14.250622749328613,
+                  -0.9072228670120239,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  -40.179237365722656,
+                  -2.557889699935913,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  -40.179237365722656,
+                  -2.557889699935913,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  -40.179237365722656,
+                  -2.557889699935913,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  -40.179237365722656,
+                  -2.557889699935913,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  -40.179237365722656,
+                  -2.557889699935913,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  -99.09842681884766,
+                  -6.308801651000977,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  -99.09842681884766,
+                  -6.308801651000977,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  -99.09842681884766,
+                  -6.308801651000977,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  -99.09842681884766,
+                  -6.308801651000977,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  -16.77832794189453,
+                  -1.0681414604187012,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  -16.77832794189453,
+                  -1.0681414604187012,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  -16.77832794189453,
+                  -1.0681414604187012,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  -16.77832794189453,
+                  -1.0681414604187012,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  -28.501245498657227,
+                  -1.8144457340240479,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  -28.501245498657227,
+                  -1.8144457340240479,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  -28.501245498657227,
+                  -1.8144457340240479,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  -28.501245498657227,
+                  -1.8144457340240479,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  -28.501245498657227,
+                  -1.8144457340240479,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  -28.501245498657227,
+                  -1.8144457340240479,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              ],
+              "actuator_gainprm": [
+                [
+                  14.250622749328613,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  14.250622749328613,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  14.250622749328613,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  14.250622749328613,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  14.250622749328613,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  14.250622749328613,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  14.250622749328613,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  14.250622749328613,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  14.250622749328613,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  14.250622749328613,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  40.179237365722656,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  40.179237365722656,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  40.179237365722656,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  40.179237365722656,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  40.179237365722656,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  99.09842681884766,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  99.09842681884766,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  99.09842681884766,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  99.09842681884766,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  16.77832794189453,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  16.77832794189453,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  16.77832794189453,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  16.77832794189453,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  28.501245498657227,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  28.501245498657227,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  28.501245498657227,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  28.501245498657227,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  28.501245498657227,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  28.501245498657227,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              ],
+              "body_inertia": [
+                [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.010549000464379787,
+                  0.009308899752795696,
+                  0.007918399758636951
+                ],
+                [
+                  0.0018151700496673584,
+                  0.001534219947643578,
+                  0.0011621200246736407
+                ],
+                [
+                  0.0025498599279671907,
+                  0.0024116900749504566,
+                  0.0014875499764457345
+                ],
+                [
+                  0.007761660031974316,
+                  0.007175750099122524,
+                  0.0016013899585232139
+                ],
+                [
+                  0.011380399577319622,
+                  0.011277800425887108,
+                  0.0014645799528807402
+                ],
+                [
+                  1.8900000213761814e-05,
+                  1.4080499568080995e-05,
+                  6.919499810464913e-06
+                ],
+                [
+                  0.00167218002025038,
+                  0.0016160999657586217,
+                  0.00021762099640909582
+                ],
+                [
+                  0.0018151700496673584,
+                  0.001534219947643578,
+                  0.0011621200246736407
+                ],
+                [
+                  0.0025498599279671907,
+                  0.0024116900749504566,
+                  0.0014875499764457345
+                ],
+                [
+                  0.007761660031974316,
+                  0.007175750099122524,
+                  0.0016013899585232139
+                ],
+                [
+                  0.00697849178686738,
+                  0.017933057621121407,
+                  0.019160479307174683
+                ],
+                [
+                  1.8900000213761814e-05,
+                  1.4080499568080995e-05,
+                  6.919499810464913e-06
+                ],
+                [
+                  0.00167218002025038,
+                  0.0016160999657586217,
+                  0.00021762099640909582
+                ],
+                [
+                  0.00016353100363630801,
+                  0.00010771399684017524,
+                  0.00010220499825663865
+                ],
+                [
+                  8.244999662565533e-06,
+                  7.079000170051586e-06,
+                  6.338999810395762e-06
+                ],
+                [
+                  0.121847003698349,
+                  0.109825000166893,
+                  0.027373500168323517
+                ],
+                [
+                  0.0004658639954868704,
+                  0.000432842003647238,
+                  0.0004063940141350031
+                ],
+                [
+                  0.0006913110264576972,
+                  0.0006180109921842813,
+                  0.00038897700142115355
+                ],
+                [
+                  0.0010618700180202723,
+                  0.0010321700247004628,
+                  0.0004006609960924834
+                ],
+                [
+                  0.0004430350090842694,
+                  0.00042161199962720275,
+                  0.0002593529934529215
+                ],
+                [
+                  5.4821099183754995e-05,
+                  4.9664598918752745e-05,
+                  3.577980169211514e-05
+                ],
+                [
+                  0.00043035298585891724,
+                  0.0004298730054870248,
+                  0.00016464799409732223
+                ],
+                [
+                  0.0006461130105890334,
+                  0.00055999297183007,
+                  0.00014756599557586014
+                ],
+                [
+                  0.0004658639954868704,
+                  0.000432842003647238,
+                  0.0004063940141350031
+                ],
+                [
+                  0.0006913110264576972,
+                  0.0006180109921842813,
+                  0.00038897700142115355
+                ],
+                [
+                  0.0010618700180202723,
+                  0.0010321700247004628,
+                  0.0004006609960924834
+                ],
+                [
+                  0.0004430350090842694,
+                  0.00042161199962720275,
+                  0.0002593529934529215
+                ],
+                [
+                  5.4821099183754995e-05,
+                  4.9664598918752745e-05,
+                  3.577980169211514e-05
+                ],
+                [
+                  0.00043035298585891724,
+                  0.0004298730054870248,
+                  0.00016464799409732223
+                ],
+                [
+                  0.002816710853949189,
+                  0.004535458516329527,
+                  0.004620181862264872
+                ]
+              ],
+              "body_ipos": [
+                [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  0.0,
+                  -0.07604999840259552
+                ],
+                [
+                  0.0027409999165683985,
+                  0.047791000455617905,
+                  -0.02606000006198883
+                ],
+                [
+                  0.029812000691890717,
+                  -0.0010450000409036875,
+                  -0.08793400228023529
+                ],
+                [
+                  -0.05770900100469589,
+                  -0.010981000028550625,
+                  -0.15078000724315643
+                ],
+                [
+                  0.005456999875605106,
+                  0.003963999915868044,
+                  -0.12073999643325806
+                ],
+                [
+                  -0.007269000168889761,
+                  0.0,
+                  0.011137000285089016
+                ],
+                [
+                  0.0265050008893013,
+                  0.0,
+                  -0.01642500050365925
+                ],
+                [
+                  0.0027409999165683985,
+                  -0.047791000455617905,
+                  -0.02606000006198883
+                ],
+                [
+                  0.029812000691890717,
+                  0.0010450000409036875,
+                  -0.08793400228023529
+                ],
+                [
+                  -0.05770900100469589,
+                  0.010981000028550625,
+                  -0.15078000724315643
+                ],
+                [
+                  0.0017772965366020799,
+                  -0.0012910397490486503,
+                  -0.14047028124332428
+                ],
+                [
+                  -0.007269000168889761,
+                  0.0,
+                  0.011137000285089016
+                ],
+                [
+                  0.0265050008893013,
+                  0.0,
+                  -0.01642500050365925
+                ],
+                [
+                  0.0034940000623464584,
+                  0.00023299999884329736,
+                  0.01803399994969368
+                ],
+                [
+                  0.0,
+                  2.300000051036477e-05,
+                  0.0
+                ],
+                [
+                  0.03646288067102432,
+                  0.034000564366579056,
+                  0.2301277220249176
+                ],
+                [
+                  0.0,
+                  0.035891998559236526,
+                  -0.011628000065684319
+                ],
+                [
+                  -0.00022699999681208283,
+                  0.007269999943673611,
+                  -0.06324300169944763
+                ],
+                [
+                  0.010773000307381153,
+                  -0.0029490001033991575,
+                  -0.07200899720191956
+                ],
+                [
+                  0.06495600193738937,
+                  0.004453999921679497,
+                  -0.010061999782919884
+                ],
+                [
+                  0.01713939942419529,
+                  0.0005375909968279302,
+                  4.886400120085455e-07
+                ],
+                [
+                  0.022999899461865425,
+                  -0.001116849947720766,
+                  -0.0011165799805894494
+                ],
+                [
+                  0.07082439959049225,
+                  0.0001917449990287423,
+                  0.0016174199990928173
+                ],
+                [
+                  0.0,
+                  -0.035891998559236526,
+                  -0.011628000065684319
+                ],
+                [
+                  -0.00022699999681208283,
+                  -0.007269999943673611,
+                  -0.06324300169944763
+                ],
+                [
+                  0.010773000307381153,
+                  0.0029490001033991575,
+                  -0.07200899720191956
+                ],
+                [
+                  0.06495600193738937,
+                  -0.004453999921679497,
+                  -0.010061999782919884
+                ],
+                [
+                  0.01713939942419529,
+                  -0.0005375909968279302,
+                  4.886400120085455e-07
+                ],
+                [
+                  0.022999899461865425,
+                  0.001116849947720766,
+                  -0.0011165799805894494
+                ],
+                [
+                  0.11545522511005402,
+                  -1.7720940377330408e-05,
+                  0.00014948083844501525
+                ]
+              ],
+              "body_iquat": [
+                [
+                  1.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  1.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.9999999403953552,
+                  0.0,
+                  -0.0003991479752585292,
+                  0.0
+                ],
+                [
+                  0.9548624753952026,
+                  0.293964147567749,
+                  0.030255615711212158,
+                  0.03012201562523842
+                ],
+                [
+                  0.9778077602386475,
+                  -1.9711895220098086e-05,
+                  0.20557595789432526,
+                  -0.04037928953766823
+                ],
+                [
+                  0.6005979180335999,
+                  0.15831997990608215,
+                  0.22348196804523468,
+                  0.75118088722229
+                ],
+                [
+                  0.923417866230011,
+                  -0.03276989609003067,
+                  0.01582459732890129,
+                  0.382066935300827
+                ],
+                [
+                  0.6030529737472534,
+                  0.36922499537467957,
+                  0.36922499537467957,
+                  0.6030529737472534
+                ],
+                [
+                  -0.0004810918471775949,
+                  0.7284817695617676,
+                  -0.0006189667619764805,
+                  0.6850647330284119
+                ],
+                [
+                  0.9548624753952026,
+                  -0.293964147567749,
+                  0.030255615711212158,
+                  -0.03012201562523842
+                ],
+                [
+                  0.9778077602386475,
+                  1.9711895220098086e-05,
+                  0.20557595789432526,
+                  0.04037928953766823
+                ],
+                [
+                  0.75118088722229,
+                  0.22348196804523468,
+                  0.15831997990608215,
+                  0.6005979180335999
+                ],
+                [
+                  0.5275091528892517,
+                  -0.4786390960216522,
+                  -0.4848857820034027,
+                  -0.5074686408042908
+                ],
+                [
+                  0.6030529737472534,
+                  0.36922499537467957,
+                  0.36922499537467957,
+                  0.6030529737472534
+                ],
+                [
+                  0.0004810918471775949,
+                  0.7284817695617676,
+                  0.0006189667619764805,
+                  0.6850647330284119
+                ],
+                [
+                  0.28969699144363403,
+                  0.5910009741783142,
+                  -0.3377949893474579,
+                  0.6728209853172302
+                ],
+                [
+                  0.5,
+                  0.5,
+                  -0.5,
+                  0.5
+                ],
+                [
+                  0.9998025894165039,
+                  -6.033187310094945e-05,
+                  0.019825590774416924,
+                  0.0013198594097048044
+                ],
+                [
+                  0.6541519165039062,
+                  0.013045798055827618,
+                  -0.32626694440841675,
+                  0.682249903678894
+                ],
+                [
+                  0.7012560367584229,
+                  -0.019622299820184708,
+                  -0.007103170268237591,
+                  0.7126040458679199
+                ],
+                [
+                  0.7168787121772766,
+                  -0.09648285806179047,
+                  -0.06799416989088058,
+                  0.6871337294578552
+                ],
+                [
+                  0.5417652130126953,
+                  0.6361322999000549,
+                  0.38882115483283997,
+                  0.38812917470932007
+                ],
+                [
+                  0.5753383636474609,
+                  0.41166725754737854,
+                  -0.5749063491821289,
+                  0.4110942780971527
+                ],
+                [
+                  0.2499978244304657,
+                  0.6613625288009644,
+                  0.2930358052253723,
+                  0.6436075568199158
+                ],
+                [
+                  0.5105708241462708,
+                  0.5262948274612427,
+                  0.4680778682231903,
+                  0.4931878447532654
+                ],
+                [
+                  0.682249903678894,
+                  -0.32626694440841675,
+                  0.013045798055827618,
+                  0.6541519165039062
+                ],
+                [
+                  0.7126040458679199,
+                  -0.007103170268237591,
+                  -0.019622299820184708,
+                  0.7012560367584229
+                ],
+                [
+                  0.6871337294578552,
+                  -0.06799416989088058,
+                  -0.09648285806179047,
+                  0.7168787121772766
+                ],
+                [
+                  0.38812917470932007,
+                  0.38882115483283997,
+                  0.6361322999000549,
+                  0.5417652130126953
+                ],
+                [
+                  0.41166725754737854,
+                  0.5753383636474609,
+                  -0.4110942780971527,
+                  0.5749063491821289
+                ],
+                [
+                  0.6436075568199158,
+                  0.2930358052253723,
+                  0.6613625288009644,
+                  0.2499978244304657
+                ],
+                [
+                  0.7237838506698608,
+                  0.6899242997169495,
+                  0.010835947468876839,
+                  0.004901242908090353
+                ]
+              ],
+              "body_mass": [
+                0.0,
+                0.0,
+                3.812999963760376,
+                1.350000023841858,
+                1.5199999809265137,
+                1.7020000219345093,
+                1.9320000410079956,
+                0.07400000095367432,
+                0.6079999804496765,
+                1.350000023841858,
+                1.5199999809265137,
+                1.7020000219345093,
+                5.932000160217285,
+                0.07400000095367432,
+                0.6079999804496765,
+                0.21400000154972076,
+                0.0860000029206276,
+                7.261390686035156,
+                0.7179999947547913,
+                0.6430000066757202,
+                0.734000027179718,
+                0.6000000238418579,
+                0.08544500172138214,
+                0.4840500056743622,
+                0.2545759975910187,
+                0.7179999947547913,
+                0.6430000066757202,
+                0.734000027179718,
+                0.6000000238418579,
+                0.08544500172138214,
+                0.4840500056743622,
+                2.7545759677886963
+              ],
+              "dof_armature": [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.011849691160023212,
+                0.026093631982803345,
+                0.011335809715092182,
+                0.028826773166656494,
+                0.006176298949867487,
+                0.008496470749378204,
+                0.011453150771558285,
+                0.021191678941249847,
+                0.009357447735965252,
+                0.023709792643785477,
+                0.007472778670489788,
+                0.007940627634525299,
+                0.011412774212658405,
+                0.007668670732527971,
+                0.006075644865632057,
+                0.003643421456217766,
+                0.004191643092781305,
+                0.0029675145633518696,
+                0.002894781297072768,
+                0.0035127769224345684,
+                0.003540130564942956,
+                0.0034302743151783943,
+                0.0038518267683684826,
+                0.003045294201001525,
+                0.0030894603114575148,
+                0.004310885909944773,
+                0.003654950065538287,
+                0.004029897507280111,
+                0.004492674954235554
+              ],
+              "dof_damping": [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              "dof_frictionloss": [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              "encoder_bias": [
+                0.0051520345732569695,
+                0.00391951110213995,
+                0.0012396834790706635,
+                -0.0014387713745236397,
+                -0.00977408792823553,
+                -0.007155558094382286,
+                -0.0023639779537916183,
+                0.001168418675661087,
+                0.0075971819460392,
+                0.009603135287761688,
+                0.007378954440355301,
+                -0.003942753653973341,
+                -0.008081831969320774,
+                0.005421550944447517,
+                -0.003930533304810524,
+                0.007461195811629295,
+                0.009292962029576302,
+                0.007777942344546318,
+                0.0005598841235041618,
+                0.007415374740958214,
+                -0.0015930840745568275,
+                0.001131550408899784,
+                0.009626870974898338,
+                -0.008402432315051556,
+                0.009722592309117317,
+                0.00363757461309433,
+                8.614547550678253e-05,
+                -0.007462431211024523,
+                0.006113898009061813
+              ],
+              "geom_friction": [
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.2813935279846191,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.2813935279846191,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.2813935279846191,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.2813935279846191,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.2813935279846191,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.2813935279846191,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.2813935279846191,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.2813935279846191,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.2813935279846191,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.2813935279846191,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.2813935279846191,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.2813935279846191,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.2813935279846191,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.2813935279846191,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ],
+                [
+                  1.0,
+                  0.004999999888241291,
+                  9.999999747378752e-05
+                ]
+              ],
+              "jnt_pos": [
+                [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              ],
+              "motor_obs_arm_scale": [
+                1.1643004417419434,
+                1.039507269859314,
+                1.1138086318969727,
+                1.1483889818191528,
+                0.8555082082748413,
+                1.1768862009048462,
+                1.125338077545166,
+                0.844225287437439,
+                0.9194231629371643,
+                0.9445408582687378,
+                1.0350897312164307,
+                1.0998936891555786,
+                1.121370792388916,
+                1.0622236728668213,
+                0.8415661454200745,
+                1.009334921836853,
+                1.1612083911895752,
+                0.8220887780189514,
+                0.8019395470619202,
+                0.9731425046920776,
+                0.8329718708992004,
+                0.8071233034133911,
+                1.0670692920684814,
+                0.8436360359191895,
+                0.8558713793754578,
+                1.1942421197891235,
+                1.012528657913208,
+                0.9482110738754272,
+                1.0570999383926392
+              ],
+              "motor_obs_frictionloss": [],
+              "motor_obs_kd_scale": [],
+              "motor_obs_kp_scale": []
+            },
+            "replica_max_errors": {
+              "actuator_biasprm": 0.0,
+              "actuator_gainprm": 0.0,
+              "body_inertia": 0.0,
+              "body_ipos": 0.0,
+              "body_iquat": 0.0,
+              "body_mass": 0.0,
+              "dof_armature": 0.0,
+              "dof_damping": 0.0,
+              "dof_frictionloss": 0.0,
+              "encoder_bias": 0.0,
+              "geom_friction": 0.0,
+              "jnt_pos": 0.0,
+              "motor_obs_arm_scale": 0.0,
+              "motor_obs_frictionloss": 0.0,
+              "motor_obs_kd_scale": 0.0,
+              "motor_obs_kp_scale": 0.0
+            },
+            "replicas": 8192,
+            "static_seed": 20267977
+          },
+          "hardest_worlds": 0,
+          "max_kg": 4.0,
+          "min_kg": 0.0,
+          "nominal_worlds": 0,
+          "observation_corruption": {
+            "estimator_history": true,
+            "estimator_target": false,
+            "foot_contact_target": false,
+            "policy": true,
+            "priv": false,
+            "reference_encoder_input": false,
+            "reference_encoder_target": false,
+            "robot_key_body": false,
+            "robot_root_quat": false
+          },
+          "original_events": {
+            "base_com": {
+              "function": "mjlab.envs.mdp.dr.body.body_com_offset",
+              "interval_range_s": null,
+              "is_global_time": false,
+              "min_step_count_between_reset": 0,
+              "mode": "startup",
+              "params": {
+                "asset_cfg": {
+                  "actuator_names": null,
+                  "body_names": [
+                    "torso_link"
+                  ],
+                  "geom_names": null,
+                  "joint_names": null,
+                  "name": "robot",
+                  "preserve_order": false,
+                  "site_names": null
+                },
+                "operation": "add",
+                "ranges": {
+                  "0": [
+                    -0.075,
+                    0.075
+                  ],
+                  "1": [
+                    -0.075,
+                    0.075
+                  ],
+                  "2": [
+                    -0.075,
+                    0.075
+                  ]
+                }
+              }
+            },
+            "base_mass": {
+              "function": "mjlab.envs.mdp.dr.body.body_mass",
+              "interval_range_s": null,
+              "is_global_time": false,
+              "min_step_count_between_reset": 0,
+              "mode": "startup",
+              "params": {
+                "asset_cfg": {
+                  "actuator_names": null,
+                  "body_names": [
+                    "torso_link"
+                  ],
+                  "geom_names": null,
+                  "joint_names": null,
+                  "name": "robot",
+                  "preserve_order": false,
+                  "site_names": null
+                },
+                "operation": "add",
+                "ranges": [
+                  -1.0,
+                  1.0
+                ]
+              }
+            },
+            "encoder_bias": {
+              "function": "mjlab.envs.mdp.dr.joint.encoder_bias",
+              "interval_range_s": null,
+              "is_global_time": false,
+              "min_step_count_between_reset": 0,
+              "mode": "startup",
+              "params": {
+                "asset_cfg": {
+                  "actuator_names": null,
+                  "body_names": null,
+                  "geom_names": null,
+                  "joint_names": null,
+                  "name": "robot",
+                  "preserve_order": false,
+                  "site_names": null
+                },
+                "bias_range": [
+                  -0.01,
+                  0.01
+                ]
+              }
+            },
+            "foot_friction": {
+              "function": "mjlab.envs.mdp.dr.geom.geom_friction",
+              "interval_range_s": null,
+              "is_global_time": false,
+              "min_step_count_between_reset": 0,
+              "mode": "startup",
+              "params": {
+                "asset_cfg": {
+                  "actuator_names": null,
+                  "body_names": null,
+                  "geom_names": "^(left|right)_foot[1-7]_collision$",
+                  "joint_names": null,
+                  "name": "robot",
+                  "preserve_order": false,
+                  "site_names": null
+                },
+                "operation": "abs",
+                "ranges": [
+                  0.3,
+                  2.0
+                ],
+                "shared_random": true
+              }
+            },
+            "motor_params_implicit": {
+              "function": "intact_tracking.environment.mdp.randomizations.motor_params_implicit",
+              "interval_range_s": null,
+              "is_global_time": false,
+              "min_step_count_between_reset": 0,
+              "mode": "startup",
+              "params": {
+                "armature_range": {
+                  ".*": [
+                    0.8,
+                    1.2
+                  ]
+                },
+                "mode": "uniform"
+              }
+            },
+            "push_robot": {
+              "function": "intact_tracking.environment.mdp.randomizations.body_force_pulse",
+              "interval_range_s": null,
+              "is_global_time": false,
+              "min_step_count_between_reset": 0,
+              "mode": "step",
+              "params": {
+                "body_name": "torso_link",
+                "duration_range_s": [
+                  0.3,
+                  0.5
+                ],
+                "force_abs_range_n": [
+                  0.0,
+                  10.0
+                ],
+                "interval_range_s": [
+                  3.0,
+                  6.0
+                ]
+              }
+            }
+          },
+          "pd_gains_and_tracker_action_scale_verified": true,
+          "per_limb_max_kg": [
+            0.0,
+            2.5,
+            0.0,
+            4.0
+          ],
+          "per_limb_mean_kg": [
+            0.0,
+            2.5,
+            0.0,
+            4.0
+          ],
+          "per_limb_min_kg": [
+            0.0,
+            2.5,
+            0.0,
+            4.0
+          ],
+          "residual_physics_contract": {
+            "limb_max_masses_kg": [
+              2.5,
+              2.5,
+              4.0,
+              4.0
+            ],
+            "motion_sampling": "uniform",
+            "pd_gains": "preserved",
+            "tracker_action_scale": "preserved from frozen tracker",
+            "version": "residual_uniform_wrist10_hand2p5_unbounded_v1",
+            "wrist_pitch_yaw_effort_limit_nm": 10.0
+          },
+          "wrist_force_ranges_nm": [
+            [
+              -10.0,
+              10.0
+            ],
+            [
+              -10.0,
+              10.0
+            ],
+            [
+              -10.0,
+              10.0
+            ],
+            [
+              -10.0,
+              10.0
+            ]
+          ]
+        },
+        "rank": 0,
+        "seed": 121
+      }
+    ],
+    "sampling": "All worlds repeat one fixed static DR; motion, phase, noise and push events remain independent",
+    "total_added_mass_range_kg": [
+      0,
+      13.0
+    ]
+  },
+  "policy_precision": "fp32",
+  "policy_precision_audit": {
+    "collection_update_and_evaluation_use_same_setting": true,
+    "context_inference_autocast": "bfloat16 on CUDA; frozen context stored in float32",
+    "policy_matmul_precision": "ieee",
+    "policy_parameter_dtype": "float32",
+    "policy_precision": "fp32",
+    "torch_version": "2.13.0+cu130"
+  },
+  "predictor_executed_in_ppo": false,
+  "research_source_sha256": {
+    "src/intact_tracking/cli/memory350_policy_train.py": "daa22e8251e2ec4febf4cba0d27f62d5e8af07b02adf2e5c2179fe7673b50947",
+    "src/intact_tracking/cli/residual_uniform_eval.py": "9c125dfdafef1fabf0eb6e05e71ce393787d11d97017ce443300d887c3ee1245",
+    "src/intact_tracking/cli/residual_uniform_train.py": "fe15fde3554f5085fcda952bcbf7c59fe425eeb0494d25fea4e9fcf794da0c90",
+    "src/intact_tracking/limb_context_checkpoint_eval.py": "50e6f9bfd3bb00c51d05e7d40bbca10fd553dbef239836751c44a1436672f46e",
+    "src/intact_tracking/limb_context_distributed.py": "7aa08fe83dd60f33d0ab94199c4d8227934fca34e1938f628f97c3850449cb2f",
+    "src/intact_tracking/limb_context_dr.py": "d5e853de7f16dc01dd9e42d87dac0727058ce3392f6c478eea2adb689668267c",
+    "src/intact_tracking/limb_context_env.py": "5ac109d3b27bfa44d1b0994dad0227b9e03b7ba15022822f0b11ff127c58c506",
+    "src/intact_tracking/limb_context_grouped_dr.py": "8e1c667eec3fa60d27ddd8f15af3b6b425fdc1fddf86c046d42bcee0b1236c23",
+    "src/intact_tracking/limb_context_policy.py": "349eaeb2a32b3cb4ce6a104708deed6c83f7f8793077fdd783663d7e88e60f35",
+    "src/intact_tracking/limb_context_protocol.py": "7267526fd490c8dd815aa1513461e97280b22226b378367f000a6ac2d34c0c3c",
+    "src/intact_tracking/limb_context_results.py": "0b46f757377852bdd81ba31160d26c25f1d05df8105eb1fb5e2a1f699c7241f6",
+    "src/intact_tracking/limb_context_sampling.py": "75d7bd063238782316b21e9484c084093dc09f2731096ce301e8c2e29b6e2588",
+    "src/intact_tracking/limb_context_terminations.py": "f23169b44694935b9c07247ae4c8ad634d12a3b05d63c5075434727c36aa54fb",
+    "src/intact_tracking/limb_context_validation.py": "6a9680dd473e3510d185fb42f6510666020c7d3bd99d15c422162a6cf28dbfcc",
+    "src/intact_tracking/memory350_bank.py": "426279ef3cb9f788cc598264b0b9f6d5c33758a50436b7612c7daf1b85907d26",
+    "src/intact_tracking/memory350_compressed_policy.py": "f5b7a78d45c4b04c2a11f190f5f721313c8c614722e226e89381aa1163ac70f0",
+    "src/intact_tracking/memory350_inference.py": "b9da5dafef0ca6c54517c98986a406ba459fb465722c4bd3e9956c06cfd3fdd6",
+    "src/intact_tracking/memory350_latent_usage_eval.py": "7ee9a996c3c7cf257f36435f88f53d55eca31b379854380fcd682f6ecad397db",
+    "src/intact_tracking/memory350_model.py": "fe78c63753d0c79ffdc52a977ca77ccf72002c3a70f72a9735dbb30313e11645",
+    "src/intact_tracking/memory350_moe_critic_action.py": "fd94818aa40378856ccd36efe4d7140ba7bba653b46526bad86a9336a487e4ea",
+    "src/intact_tracking/memory350_moe_policy.py": "ce8e5b2307dba498041ae0a1c78271745c5aade89ca01637cfc62956b4252577",
+    "src/intact_tracking/memory350_moe_training.py": "9f0da11ce792a7ec753044fd7617309436f57e9dd379d412e8f9f17d8a666dcc",
+    "src/intact_tracking/memory350_nominal_rollout.py": "30591e9e75d6a2ba07750937dda3312b7684e8ef2e2393d1fcff5589e04f9b63",
+    "src/intact_tracking/memory350_objective.py": "1c50bf41fd1047c7496a4da9155228a55d099752af9d29a7f58b53902da43228",
+    "src/intact_tracking/memory350_online_kmeans.py": "1616317242be5199609dbd6e20d5086ba1c164a5927615af09532e08714e9ee2",
+    "src/intact_tracking/memory350_policy_checkpoint_eval.py": "ca3261319f74b89084e1de8ea68eb42cc12f063270c3564a74c0bf0c7589d8ea",
+    "src/intact_tracking/memory350_policy_env.py": "db5cae24651249ce706aa385401c767b46830fdba10a199e7a5da0c3c5f9985c",
+    "src/intact_tracking/memory350_policy_inference.py": "8b58cf9b974e792bcb0fc818734a830bd95dd43472e6fd7b0ff197a344c58fdc",
+    "src/intact_tracking/memory350_policy_precision.py": "fc3b9a4314efe669984699adcc6e8402bcef4246e31429137790bb72b0c6645e",
+    "src/intact_tracking/memory350_policy_protocol.py": "7f3033fd8c414f25a6d0bd71323a3d22d45ecba9c69ea6656a95ccaf74a7fcb7",
+    "src/intact_tracking/memory350_policy_results.py": "0e4b86a90fee13c255e192c995a67341049c0d9210556374665cff8be92eb84e",
+    "src/intact_tracking/memory350_replay.py": "d2f06d09e8e745e8519ce498dd3cf2fa41c3dcfb9dad84b1bc0b6243ed138fb0",
+    "src/intact_tracking/memory350_response_window.py": "a504ee54bb82ecc83cb05ef616355a863e75979ad96930454c8cfcd20c8091e9",
+    "src/intact_tracking/memory350_rollout.py": "fef3d9d6e5ef722865ad1dcf22f7bbb43964188a23e7327a76134d7ba8c5e6d9",
+    "src/intact_tracking/memory350_scale_comparison.py": "6a9e689a4374d8a176bdfb6d35e76eb53b102449d03ebded83e7129f7fdfba19",
+    "src/intact_tracking/memory350_scale_model.py": "0d295de4fe351dede549ae6efc1753de8e14b3e1be0537a4fc3b61cfcb12f096",
+    "src/intact_tracking/memory350_scale_nominal_comparison.py": "b3ec342f263f3846c4be785d51c7ae76c79fd5c679f6e76255bb4525a048e42e",
+    "src/intact_tracking/memory350_weak_margin_tuning.py": "ad735a154e3fb930bf68bb980ceba13108fd55670c60f04fcf7a6ed0ccdc7609",
+    "src/intact_tracking/memory350_weak_pairs.py": "0495b6f3c869ccdd00d90d38b2fd89644187293f3cab1c8d2cc9a852cb77a7ad",
+    "src/intact_tracking/memory350_weak_tuning.py": "f51ded26be2b229e6031a7d610d322c27019e4f7493b64431599692100839351",
+    "src/intact_tracking/residual_policy.py": "47ea7173d327a2443fe89882f92f81642bb2193521700f9b08f53151429a5862",
+    "src/intact_tracking/residual_runner.py": "14059f465351fcf3912a6076081a9b5d7613b97762c6aee4f13a29cafc5bdfa9",
+    "src/intact_tracking/residual_uniform_monitor.py": "0603a4b2409fc47d0462f17f488e6d37872a96bb86a629d148c25524084b1ecd",
+    "src/intact_tracking/residual_uniform_protocol.py": "768539311da4e777b3261a4da995da2ba539103c9b2c9ae56a58c81b6d3f5399"
+  },
+  "residual_output": {
+    "activation": "linear",
+    "actuator_force_limits": "retained; wrist pitch/yaw 10 Nm",
+    "bounded": false,
+    "formula": "action_mean = frozen_tracker_action + residual_mlp(inputs)",
+    "scale": 1.0
+  },
+  "resume_contract": "restore model optimizer normalizers and update count; restart simulator episodes",
+  "reward_changes": {},
+  "reward_contract": {
+    "definition": {
+      "decimation": 4,
+      "simulation_dt": 0.005,
+      "terms": {
+        "action_rate_l2": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:action_rate_l2",
+              "source_sha256": "635165f8a9cb725ccc1d517761f4efea67bc9d71dbb187e63eb304d0c0bd775d"
+            },
+            "params": {},
+            "weight": 0.2
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "feet_air_time_ref": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:feet_air_time_ref",
+              "source_sha256": "d01ed891a498a14a128c02a48a2d00fec4376ef870d3d226f9a3b2ce03893483"
+            },
+            "params": {
+              "command_name": "motion",
+              "sensor_name": "contact_forces",
+              "thres": 0.25
+            },
+            "weight": 2.5
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "feet_air_time_ref_dense": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:feet_air_time_ref_dense",
+              "source_sha256": "aa14392ccb551602e30a2a7864f00db66134f1652c1272abae5600d22772d4cf"
+            },
+            "params": {
+              "air_h_high": 0.155,
+              "air_h_low": 0.035,
+              "command_name": "motion",
+              "contact_h_high": 0.125,
+              "contact_h_low": 0.035,
+              "sensor_name": "contact_forces",
+              "toe_specs": [
+                {
+                  "body_name": "left_ankle_roll_link",
+                  "local_pos": [
+                    0.1,
+                    0.0,
+                    0.0
+                  ],
+                  "name": "left_toe"
+                },
+                {
+                  "body_name": "right_ankle_roll_link",
+                  "local_pos": [
+                    0.1,
+                    0.0,
+                    0.0
+                  ],
+                  "name": "right_toe"
+                }
+              ]
+            },
+            "weight": 1.0
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "feet_link_height_tracking": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:global_link_height_tracking",
+              "source_sha256": "ff396ac4e311a68876f542b5426b95cc50b670a7c54a70fa0e2cf7eb709a7307"
+            },
+            "params": {
+              "body_names": [
+                "left_ankle_roll_link",
+                "right_ankle_roll_link"
+              ],
+              "command_name": "motion",
+              "sigma": [
+                0.3
+              ]
+            },
+            "weight": 1.0
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "joint_pos_limits": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:joint_pos_limits",
+              "source_sha256": "63c45b1279c9dffc0de984ea3c2cc146c2da532ad475d51ffd525bb65135be89"
+            },
+            "params": {
+              "joint_names": ".*",
+              "soft_factor": 0.9
+            },
+            "weight": 1.0
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "joint_pos_tracking": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:joint_pos_tracking",
+              "source_sha256": "fec9d489699442aa7aa22ff5020def9b2765a4a68885c1b98e32bdca1ffa122b"
+            },
+            "params": {
+              "command_name": "motion",
+              "sigma": [
+                0.5
+              ]
+            },
+            "weight": 1.0
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "joint_torque_limits": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:joint_torque_limits",
+              "source_sha256": "fe9153eefc1893c551cb63f4f5a3bd443bee90dce7dcaaa70ce119ba016a67d0"
+            },
+            "params": {
+              "joint_names": ".*",
+              "soft_factor": 0.75
+            },
+            "weight": 0.01
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "joint_vel_l2": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:joint_vel_l2",
+              "source_sha256": "c23d85af78e7464e1e8f63588436a80309d0fd65d3386f69c7b25b30fd55984e"
+            },
+            "params": {},
+            "weight": 0.00025
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "joint_vel_tracking": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:joint_vel_tracking",
+              "source_sha256": "a538aa05599e7b8a053b9237a33a9e28d31a0680b81161576e674e6a9fab47e2"
+            },
+            "params": {
+              "command_name": "motion",
+              "sigma": [
+                3.0
+              ]
+            },
+            "weight": 0.5
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "keypoint_angvel_tracking": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:keypoint_angvel_tracking",
+              "source_sha256": "2da1a517db6e66a0a8d99a5979a6ceaa66ad85c7b890bc30f78a40f9b55c7a6a"
+            },
+            "params": {
+              "command_name": "motion",
+              "keypoint_specs": [
+                {
+                  "body_name": "left_hip_yaw_link",
+                  "name": "left_hip"
+                },
+                {
+                  "body_name": "left_knee_link",
+                  "name": "left_knee"
+                },
+                {
+                  "body_name": "left_ankle_roll_link",
+                  "name": "left_foot"
+                },
+                {
+                  "body_name": "right_hip_yaw_link",
+                  "name": "right_hip"
+                },
+                {
+                  "body_name": "right_knee_link",
+                  "name": "right_knee"
+                },
+                {
+                  "body_name": "right_ankle_roll_link",
+                  "name": "right_foot"
+                },
+                {
+                  "body_name": "torso_link",
+                  "local_pos": [
+                    0.01,
+                    0.0,
+                    0.41
+                  ],
+                  "name": "head"
+                },
+                {
+                  "body_name": "left_shoulder_yaw_link",
+                  "name": "left_shoulder"
+                },
+                {
+                  "body_name": "left_wrist_roll_link",
+                  "name": "left_wrist"
+                },
+                {
+                  "body_name": "left_wrist_yaw_link",
+                  "correction_body_name": "left_wrist_pitch_link",
+                  "correction_local_pos": [
+                    0.005,
+                    0.0,
+                    0.0
+                  ],
+                  "local_pos": [
+                    0.116,
+                    0.0,
+                    0.0
+                  ],
+                  "name": "left_hand"
+                },
+                {
+                  "body_name": "right_shoulder_yaw_link",
+                  "name": "right_shoulder"
+                },
+                {
+                  "body_name": "right_wrist_roll_link",
+                  "name": "right_wrist"
+                },
+                {
+                  "body_name": "right_wrist_yaw_link",
+                  "correction_body_name": "right_wrist_pitch_link",
+                  "correction_local_pos": [
+                    0.005,
+                    0.0,
+                    0.0
+                  ],
+                  "local_pos": [
+                    0.116,
+                    0.0,
+                    0.0
+                  ],
+                  "name": "right_hand"
+                }
+              ],
+              "sigma": [
+                3.0
+              ]
+            },
+            "weight": 1.0
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "keypoint_pos_tracking": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:keypoint_pos_tracking",
+              "source_sha256": "f61653e9ae9a095b0e71bc9e0cd7af9463e3d697494a9f3f72c7583b26775e1f"
+            },
+            "params": {
+              "command_name": "motion",
+              "keypoint_specs": [
+                {
+                  "body_name": "left_hip_yaw_link",
+                  "name": "left_hip"
+                },
+                {
+                  "body_name": "left_knee_link",
+                  "name": "left_knee"
+                },
+                {
+                  "body_name": "left_ankle_roll_link",
+                  "name": "left_foot"
+                },
+                {
+                  "body_name": "right_hip_yaw_link",
+                  "name": "right_hip"
+                },
+                {
+                  "body_name": "right_knee_link",
+                  "name": "right_knee"
+                },
+                {
+                  "body_name": "right_ankle_roll_link",
+                  "name": "right_foot"
+                },
+                {
+                  "body_name": "torso_link",
+                  "local_pos": [
+                    0.01,
+                    0.0,
+                    0.41
+                  ],
+                  "name": "head"
+                },
+                {
+                  "body_name": "left_shoulder_yaw_link",
+                  "name": "left_shoulder"
+                },
+                {
+                  "body_name": "left_wrist_roll_link",
+                  "name": "left_wrist"
+                },
+                {
+                  "body_name": "left_wrist_yaw_link",
+                  "correction_body_name": "left_wrist_pitch_link",
+                  "correction_local_pos": [
+                    0.005,
+                    0.0,
+                    0.0
+                  ],
+                  "local_pos": [
+                    0.116,
+                    0.0,
+                    0.0
+                  ],
+                  "name": "left_hand"
+                },
+                {
+                  "body_name": "right_shoulder_yaw_link",
+                  "name": "right_shoulder"
+                },
+                {
+                  "body_name": "right_wrist_roll_link",
+                  "name": "right_wrist"
+                },
+                {
+                  "body_name": "right_wrist_yaw_link",
+                  "correction_body_name": "right_wrist_pitch_link",
+                  "correction_local_pos": [
+                    0.005,
+                    0.0,
+                    0.0
+                  ],
+                  "local_pos": [
+                    0.116,
+                    0.0,
+                    0.0
+                  ],
+                  "name": "right_hand"
+                }
+              ],
+              "sigma": [
+                0.3
+              ]
+            },
+            "weight": 2.0
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "keypoint_rot_tracking": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:keypoint_rot_tracking",
+              "source_sha256": "d59392c1bda5e5872d655db7e3fa0580856c11f92fb022de2a69418d79e523d7"
+            },
+            "params": {
+              "command_name": "motion",
+              "keypoint_specs": [
+                {
+                  "body_name": "left_hip_yaw_link",
+                  "name": "left_hip"
+                },
+                {
+                  "body_name": "left_knee_link",
+                  "name": "left_knee"
+                },
+                {
+                  "body_name": "left_ankle_roll_link",
+                  "name": "left_foot"
+                },
+                {
+                  "body_name": "right_hip_yaw_link",
+                  "name": "right_hip"
+                },
+                {
+                  "body_name": "right_knee_link",
+                  "name": "right_knee"
+                },
+                {
+                  "body_name": "right_ankle_roll_link",
+                  "name": "right_foot"
+                },
+                {
+                  "body_name": "torso_link",
+                  "local_pos": [
+                    0.01,
+                    0.0,
+                    0.41
+                  ],
+                  "name": "head"
+                },
+                {
+                  "body_name": "left_shoulder_yaw_link",
+                  "name": "left_shoulder"
+                },
+                {
+                  "body_name": "left_wrist_roll_link",
+                  "name": "left_wrist"
+                },
+                {
+                  "body_name": "left_wrist_yaw_link",
+                  "correction_body_name": "left_wrist_pitch_link",
+                  "correction_local_pos": [
+                    0.005,
+                    0.0,
+                    0.0
+                  ],
+                  "local_pos": [
+                    0.116,
+                    0.0,
+                    0.0
+                  ],
+                  "name": "left_hand"
+                },
+                {
+                  "body_name": "right_shoulder_yaw_link",
+                  "name": "right_shoulder"
+                },
+                {
+                  "body_name": "right_wrist_roll_link",
+                  "name": "right_wrist"
+                },
+                {
+                  "body_name": "right_wrist_yaw_link",
+                  "correction_body_name": "right_wrist_pitch_link",
+                  "correction_local_pos": [
+                    0.005,
+                    0.0,
+                    0.0
+                  ],
+                  "local_pos": [
+                    0.116,
+                    0.0,
+                    0.0
+                  ],
+                  "name": "right_hand"
+                }
+              ],
+              "sigma": [
+                0.4
+              ]
+            },
+            "weight": 2.0
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "keypoint_vel_tracking": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:keypoint_vel_tracking",
+              "source_sha256": "dd2587621326b8d377bbd315d9906cf2da1904c361642f84412398ebcdf6c58b"
+            },
+            "params": {
+              "command_name": "motion",
+              "keypoint_specs": [
+                {
+                  "body_name": "left_hip_yaw_link",
+                  "name": "left_hip"
+                },
+                {
+                  "body_name": "left_knee_link",
+                  "name": "left_knee"
+                },
+                {
+                  "body_name": "left_ankle_roll_link",
+                  "name": "left_foot"
+                },
+                {
+                  "body_name": "right_hip_yaw_link",
+                  "name": "right_hip"
+                },
+                {
+                  "body_name": "right_knee_link",
+                  "name": "right_knee"
+                },
+                {
+                  "body_name": "right_ankle_roll_link",
+                  "name": "right_foot"
+                },
+                {
+                  "body_name": "torso_link",
+                  "local_pos": [
+                    0.01,
+                    0.0,
+                    0.41
+                  ],
+                  "name": "head"
+                },
+                {
+                  "body_name": "left_shoulder_yaw_link",
+                  "name": "left_shoulder"
+                },
+                {
+                  "body_name": "left_wrist_roll_link",
+                  "name": "left_wrist"
+                },
+                {
+                  "body_name": "left_wrist_yaw_link",
+                  "correction_body_name": "left_wrist_pitch_link",
+                  "correction_local_pos": [
+                    0.005,
+                    0.0,
+                    0.0
+                  ],
+                  "local_pos": [
+                    0.116,
+                    0.0,
+                    0.0
+                  ],
+                  "name": "left_hand"
+                },
+                {
+                  "body_name": "right_shoulder_yaw_link",
+                  "name": "right_shoulder"
+                },
+                {
+                  "body_name": "right_wrist_roll_link",
+                  "name": "right_wrist"
+                },
+                {
+                  "body_name": "right_wrist_yaw_link",
+                  "correction_body_name": "right_wrist_pitch_link",
+                  "correction_local_pos": [
+                    0.005,
+                    0.0,
+                    0.0
+                  ],
+                  "local_pos": [
+                    0.116,
+                    0.0,
+                    0.0
+                  ],
+                  "name": "right_hand"
+                }
+              ],
+              "sigma": [
+                1.0
+              ]
+            },
+            "weight": 1.0
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "root_ang_vel_tracking": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:root_ang_vel_tracking",
+              "source_sha256": "dc92ed590abe95d9a8e63a5db90e180dffe2aa1a11d3d06e9500db181e15010e"
+            },
+            "params": {
+              "command_name": "motion",
+              "sigma": [
+                3.0
+              ]
+            },
+            "weight": 1.0
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "root_pos_tracking": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:root_pos_tracking",
+              "source_sha256": "e357a36bcae77384efebc9fda1fa9681b2e7035441de980c2abc0f4ad8da04e1"
+            },
+            "params": {
+              "command_name": "motion",
+              "sigma": [
+                0.3
+              ]
+            },
+            "weight": 1.0
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "root_rot_tracking": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:root_rot_tracking",
+              "source_sha256": "d89c22f13b7a1380d930bf4d74d58993be509bd81d630d80196f965419d7d179"
+            },
+            "params": {
+              "command_name": "motion",
+              "sigma": [
+                0.4
+              ]
+            },
+            "weight": 1.0
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "root_vel_tracking": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:root_vel_tracking",
+              "source_sha256": "213bd6b98275afff2f9cf189b1bb9c1c2439be4deec030e87094dac3ecc0d585"
+            },
+            "params": {
+              "command_name": "motion",
+              "sigma": [
+                1.0
+              ]
+            },
+            "weight": 1.0
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "survival": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:survival",
+              "source_sha256": "5d509a90834d083da9f334025aba2b76710e0b0d538ea7dc2d69737dafb9ff89"
+            },
+            "params": {},
+            "weight": 3.0
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "waist_action_rate_l2": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.rewards:joint_action_rate_l2",
+              "source_sha256": "5459bf83fd6d5b6926afb9363866bf521e4e8b7d38b8dabe43d4e6ab8862aad1"
+            },
+            "params": {
+              "action_name": "joint_pos",
+              "asset_cfg": {
+                "fields": {
+                  "actuator_ids": {
+                    "slice": [
+                      null,
+                      null,
+                      null
+                    ]
+                  },
+                  "actuator_names": null,
+                  "body_ids": {
+                    "slice": [
+                      null,
+                      null,
+                      null
+                    ]
+                  },
+                  "body_names": null,
+                  "camera_ids": {
+                    "slice": [
+                      null,
+                      null,
+                      null
+                    ]
+                  },
+                  "camera_names": null,
+                  "geom_ids": {
+                    "slice": [
+                      null,
+                      null,
+                      null
+                    ]
+                  },
+                  "geom_names": null,
+                  "joint_ids": {
+                    "slice": [
+                      null,
+                      null,
+                      null
+                    ]
+                  },
+                  "joint_names": [
+                    "waist_yaw_joint",
+                    "waist_roll_joint",
+                    "waist_pitch_joint"
+                  ],
+                  "light_ids": {
+                    "slice": [
+                      null,
+                      null,
+                      null
+                    ]
+                  },
+                  "light_names": null,
+                  "material_ids": {
+                    "slice": [
+                      null,
+                      null,
+                      null
+                    ]
+                  },
+                  "material_names": null,
+                  "name": "robot",
+                  "pair_ids": {
+                    "slice": [
+                      null,
+                      null,
+                      null
+                    ]
+                  },
+                  "pair_names": null,
+                  "preserve_order": false,
+                  "site_ids": {
+                    "slice": [
+                      null,
+                      null,
+                      null
+                    ]
+                  },
+                  "site_names": null,
+                  "tendon_ids": {
+                    "slice": [
+                      null,
+                      null,
+                      null
+                    ]
+                  },
+                  "tendon_names": null
+                },
+                "type": "mjlab.managers.scene_entity_config:SceneEntityCfg"
+              }
+            },
+            "weight": -0.5
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        },
+        "wrist_link_height_tracking": {
+          "fields": {
+            "func": {
+              "function": "intact_tracking.environment.mdp.sp:global_link_height_tracking",
+              "source_sha256": "ff396ac4e311a68876f542b5426b95cc50b670a7c54a70fa0e2cf7eb709a7307"
+            },
+            "params": {
+              "body_names": [
+                "left_wrist_yaw_link",
+                "right_wrist_yaw_link"
+              ],
+              "command_name": "motion",
+              "sigma": [
+                0.3
+              ]
+            },
+            "weight": 1.0
+          },
+          "type": "mjlab.managers.reward_manager:RewardTermCfg"
+        }
+      }
+    },
+    "sha256": "abee73632d079f08c160584b04ace15532ecf6bd9dfa8139979af518d8a1553c",
+    "version": "original_task_reward_locked_v1"
+  },
+  "stop_contract": "finish current update and save; total completed count is authoritative",
+  "tracker_checkpoint": "/data_zcy/wxy/SP_Tracking/logs/rsl_rl/g1_tracking/2026-09-02_04-48-42_SPTracking-G1-BFM-SPV5-2AActor-HEFTCritic-HEFTReward_8gpu_12288env_motion_data_correct/checkpoint_72000.pt",
+  "tracker_sha256": "fd7bd90d5552e573bbbce1417e9b415c64bb487a76b683ba3c20503b5ec77635",
+  "training_starts": {
+    "after": {
+      "init_noise": {},
+      "joint_position_range": [
+        -0.1,
+        0.1
+      ],
+      "pose_range": {
+        "pitch": [
+          -0.1,
+          0.1
+        ],
+        "roll": [
+          -0.1,
+          0.1
+        ],
+        "x": [
+          -0.05,
+          0.05
+        ],
+        "y": [
+          -0.05,
+          0.05
+        ],
+        "yaw": [
+          -0.2,
+          0.2
+        ],
+        "z": [
+          -0.01,
+          0.01
+        ]
+      },
+      "velocity_range": {
+        "pitch": [
+          -0.52,
+          0.52
+        ],
+        "roll": [
+          -0.52,
+          0.52
+        ],
+        "x": [
+          -0.5,
+          0.5
+        ],
+        "y": [
+          -0.5,
+          0.5
+        ],
+        "yaw": [
+          -0.78,
+          0.78
+        ],
+        "z": [
+          -0.2,
+          0.2
+        ]
+      }
+    },
+    "before": {
+      "init_noise": {},
+      "joint_position_range": [
+        -0.1,
+        0.1
+      ],
+      "pose_range": {
+        "pitch": [
+          -0.1,
+          0.1
+        ],
+        "roll": [
+          -0.1,
+          0.1
+        ],
+        "x": [
+          -0.05,
+          0.05
+        ],
+        "y": [
+          -0.05,
+          0.05
+        ],
+        "yaw": [
+          -0.2,
+          0.2
+        ],
+        "z": [
+          -0.01,
+          0.01
+        ]
+      },
+      "velocity_range": {
+        "pitch": [
+          -0.52,
+          0.52
+        ],
+        "roll": [
+          -0.52,
+          0.52
+        ],
+        "x": [
+          -0.5,
+          0.5
+        ],
+        "y": [
+          -0.5,
+          0.5
+        ],
+        "yaw": [
+          -0.78,
+          0.78
+        ],
+        "z": [
+          -0.2,
+          0.2
+        ]
+      }
+    },
+    "contract": "Training reset curriculum only; no changes to physical DR, sensors, motions, terminations, or evaluation",
+    "mode": "original"
+  },
+  "training_termination_runtime_audits": [
+    {
+      "active_terms": [
+        "time_out",
+        "anchor_pos",
+        "anchor_ori",
+        "ee_body_pos"
+      ],
+      "ee_body_pos_enabled": true,
+      "passed": true
+    }
+  ],
+  "training_terminations": {
+    "active_terms": [
+      {
+        "name": "time_out",
+        "term": "time_out",
+        "time_out": true
+      },
+      {
+        "name": "anchor_pos",
+        "params": {
+          "anchor_body_name": "pelvis",
+          "command_name": "motion",
+          "threshold": 0.5
+        },
+        "term": "bad_anchor_pos_z_only"
+      },
+      {
+        "name": "anchor_ori",
+        "params": {
+          "anchor_body_name": "pelvis",
+          "asset_cfg": {
+            "entity_name": "robot"
+          },
+          "command_name": "motion",
+          "threshold": 0.8
+        },
+        "term": "bad_anchor_ori"
+      },
+      {
+        "name": "ee_body_pos",
+        "params": {
+          "anchor_body_name": "pelvis",
+          "body_names": [
+            "left_ankle_roll_link",
+            "right_ankle_roll_link",
+            "left_wrist_yaw_link",
+            "right_wrist_yaw_link"
+          ],
+          "command_name": "motion",
+          "threshold": 0.5
+        },
+        "term": "bad_motion_body_pos_z_only"
+      }
+    ],
+    "disabled_terms": [],
+    "evaluation_profile": "original",
+    "original_terms": [
+      {
+        "name": "time_out",
+        "term": "time_out",
+        "time_out": true
+      },
+      {
+        "name": "anchor_pos",
+        "params": {
+          "anchor_body_name": "pelvis",
+          "command_name": "motion",
+          "threshold": 0.5
+        },
+        "term": "bad_anchor_pos_z_only"
+      },
+      {
+        "name": "anchor_ori",
+        "params": {
+          "anchor_body_name": "pelvis",
+          "asset_cfg": {
+            "entity_name": "robot"
+          },
+          "command_name": "motion",
+          "threshold": 0.8
+        },
+        "term": "bad_anchor_ori"
+      },
+      {
+        "name": "ee_body_pos",
+        "params": {
+          "anchor_body_name": "pelvis",
+          "body_names": [
+            "left_ankle_roll_link",
+            "right_ankle_roll_link",
+            "left_wrist_yaw_link",
+            "right_wrist_yaw_link"
+          ],
+          "command_name": "motion",
+          "threshold": 0.5
+        },
+        "term": "bad_motion_body_pos_z_only"
+      }
+    ],
+    "profile": "original",
+    "version": "limb_training_terminations_v1"
+  },
+  "version": "residual_uniform_wrist10_hand2p5_unbounded_v1"
+}

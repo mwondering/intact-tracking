@@ -1,0 +1,78 @@
+{
+  "passed": true,
+  "arms": [
+    {
+      "gpu": 0,
+      "id": "uniform-specialist-79e87ef35ab1",
+      "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/uniform-specialist-79e87ef35ab1",
+      "state": "running",
+      "server_completed_updates": 15,
+      "server_global_transitions": 2949120,
+      "checked_at": 1789361587.2196572
+    },
+    {
+      "gpu": 1,
+      "id": "uniform-specialist-11ba765e613b",
+      "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/uniform-specialist-11ba765e613b",
+      "state": "running",
+      "server_completed_updates": 14,
+      "server_global_transitions": 2752512,
+      "checked_at": 1789361586.715482
+    },
+    {
+      "gpu": 2,
+      "id": "uniform-specialist-6b53bcac06c3",
+      "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/uniform-specialist-6b53bcac06c3",
+      "state": "running",
+      "server_completed_updates": 15,
+      "server_global_transitions": 2949120,
+      "checked_at": 1789361586.8094623
+    },
+    {
+      "gpu": 3,
+      "id": "uniform-specialist-79c51abab88e",
+      "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/uniform-specialist-79c51abab88e",
+      "state": "running",
+      "server_completed_updates": 15,
+      "server_global_transitions": 2949120,
+      "checked_at": 1789361586.6579428
+    },
+    {
+      "gpu": 4,
+      "id": "uniform-specialist-b7b225c3df5f",
+      "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/uniform-specialist-b7b225c3df5f",
+      "state": "running",
+      "server_completed_updates": 15,
+      "server_global_transitions": 2949120,
+      "checked_at": 1789361591.2039018
+    },
+    {
+      "gpu": 5,
+      "id": "uniform-specialist-6d97d8ba03ad",
+      "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/uniform-specialist-6d97d8ba03ad",
+      "state": "running",
+      "server_completed_updates": 14,
+      "server_global_transitions": 2752512,
+      "checked_at": 1789361591.822254
+    },
+    {
+      "gpu": 6,
+      "id": "uniform-specialist-1a8b8772894c",
+      "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/uniform-specialist-1a8b8772894c",
+      "state": "running",
+      "server_completed_updates": 15,
+      "server_global_transitions": 2949120,
+      "checked_at": 1789361591.1848893
+    },
+    {
+      "gpu": 7,
+      "id": "uniform-specialist-1faebc352d7f",
+      "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/uniform-specialist-1faebc352d7f",
+      "state": "running",
+      "server_completed_updates": 15,
+      "server_global_transitions": 2949120,
+      "checked_at": 1789361591.1867383
+    }
+  ],
+  "checked_at": 1789361591.8226786
+}

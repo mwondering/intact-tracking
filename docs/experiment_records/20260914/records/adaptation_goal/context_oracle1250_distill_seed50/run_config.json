@@ -1,0 +1,64 @@
+{
+  "version": "deployable_context_distillation_v1",
+  "arguments": {
+    "teacher_checkpoint": "runs/adaptation_goal/oracle_features_tracking4_seed44/checkpoint_1250.pt",
+    "tracker_checkpoint": "/data_zcy/wxy/SP_Tracking/logs/rsl_rl/g1_tracking/2026-09-02_04-48-42_SPTracking-G1-BFM-SPV5-2AActor-HEFTCritic-HEFTReward_8gpu_12288env_motion_data_correct/checkpoint_72000.pt",
+    "motion_path": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong",
+    "output_dir": "runs/adaptation_goal/context_oracle1250_distill_seed50",
+    "device": "cuda:0",
+    "seed": 50,
+    "num_envs": 1024,
+    "iterations": 3000,
+    "rollout_steps": 4,
+    "gradient_steps": 4,
+    "batch_size": 2048,
+    "replay_capacity": 32768,
+    "teacher_mix_updates": 1500,
+    "latent_loss_weight": 0.0,
+    "learning_rate": 0.0003,
+    "save_interval": 250,
+    "sampling_mode": "uniform"
+  },
+  "teacher_sha256": "0010c6187d245ca4d15f5d0b6149cef0b742e2a111601493d6e822327a1aeffb",
+  "physics": {
+    "physics": "dr",
+    "details": {
+      "payload": {
+        "enabled": true,
+        "event_name": "right_hand_payload",
+        "body_name": "right_wrist_yaw_link",
+        "mass_range_kg": [
+          1.0,
+          3.0
+        ],
+        "position_body_frame_m": [
+          0.12,
+          0.0,
+          0.0
+        ],
+        "cuboid_size_m": [
+          0.1,
+          0.08,
+          0.08
+        ],
+        "physics_model": "rigid cuboid composite inertia (mass, COM, principal inertia and inertial frame); no payload collision geometry"
+      }
+    },
+    "removed_disturbances": [
+      "push_robot"
+    ],
+    "cleared_exclusions": [
+      "[/data_zcy/wxy/motion_filter/0827/invalid_motions_0827_v1.json,/data_zcy/wxy/SP_Tracking/logs/motion_benchmark_10000.json,/data_zcy/wxy/SP_Tracking/logs/motion_benchmark_0830_22000.json,/data_zcy/wxy/SP_Tracking/benchmark_0831_36000.json,/data_zcy/wxy/SP_Tracking/benchmark_0901_44000.json,/data_zcy/wxy/SP_Tracking/benchmark_0902_59000.json]"
+    ]
+  },
+  "actor_inputs": [
+    "robot_root_quat",
+    "estimator_history",
+    "reference_encoder_input",
+    "robot_key_body"
+  ],
+  "context_inputs": "50-frame measured q, qdot, gravity, gyro, known command and torque history",
+  "privileged_actor_inputs": [],
+  "action_distillation": "student-visited states with an annealed per-world teacher mixture",
+  "latent_loss_weight": 0.0
+}

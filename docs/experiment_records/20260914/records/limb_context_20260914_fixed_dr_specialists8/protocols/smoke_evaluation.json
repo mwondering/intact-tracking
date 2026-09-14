@@ -1,0 +1,16 @@
+{
+  "version": "complete_fixed_dr_specialist_monitor_v1",
+  "motion_manifest": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260914_fixed_dr_specialists8/protocols/smoke_motions.txt",
+  "manifest_sha256": "ba8f56c38cf4df5ba5776acec7f13cdb0da4bd41b450d3304c4c760409d843ea",
+  "motions": 2,
+  "motion_path": "/data_zcy/wxy/motion_data_correct/motion_data_full",
+  "steps": 40,
+  "seed": 20001,
+  "interval_updates": 1,
+  "dr_bank": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260914_fixed_dr_specialists8/protocols/dr_bank.json",
+  "dr_bank_sha256": "3e6eb43abcee3e5c74e2bfb62f5c4dd368901991232c04cf88fb6ad8619c4ef4",
+  "reference_checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260913_memory350_online_kmeans16_critic_action/ppo/baseline_121/checkpoint_update_003900.pt",
+  "reference_sha256": "47b4015b94c76648acfe8bdf7df6eb90a27979aa30f2850b686c65a4ec1e9b26",
+  "reference_update": 3900,
+  "reference_evaluations": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260914_fixed_dr_specialists8/smoke/A_evaluation"
+}

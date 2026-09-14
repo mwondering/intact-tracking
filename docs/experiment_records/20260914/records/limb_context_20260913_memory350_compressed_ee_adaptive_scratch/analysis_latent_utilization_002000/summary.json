@@ -1,0 +1,184 @@
+{
+  "scope": "Existing checkpoints, training diagnostics and endpoint traces only; no training changes or new GPU rollouts.",
+  "diagnostic_definition": "On current per-rank observations, hold each observation fixed and roll latent by one world. Report the mean of four per-rank RMS action changes. Donors are not matched for motion/phase. This measures action sensitivity, not beneficial use of environment information.",
+  "training_diagnostics": {
+    "baseline": [
+      {
+        "residual_action_rms": 0.12186957895755768,
+        "latent_shuffle_action_delta_rms": 0.0,
+        "latent_zero_action_delta_rms": 0.0,
+        "residual_saturation_fraction": 0.03132927464321256,
+        "dynamics_latent_rms": null,
+        "completed_updates": 100,
+        "shuffle_delta_to_residual_rms_ratio": 0.0
+      },
+      {
+        "residual_action_rms": 0.18284356594085693,
+        "latent_shuffle_action_delta_rms": 0.0,
+        "latent_zero_action_delta_rms": 0.0,
+        "residual_saturation_fraction": 0.33020738512277603,
+        "dynamics_latent_rms": null,
+        "completed_updates": 500,
+        "shuffle_delta_to_residual_rms_ratio": 0.0
+      },
+      {
+        "residual_action_rms": 0.19353250786662102,
+        "latent_shuffle_action_delta_rms": 0.0,
+        "latent_zero_action_delta_rms": 0.0,
+        "residual_saturation_fraction": 0.3840479329228401,
+        "dynamics_latent_rms": null,
+        "completed_updates": 1000,
+        "shuffle_delta_to_residual_rms_ratio": 0.0
+      },
+      {
+        "residual_action_rms": 0.20712467655539513,
+        "latent_shuffle_action_delta_rms": 0.0,
+        "latent_zero_action_delta_rms": 0.0,
+        "residual_saturation_fraction": 0.48735450208187103,
+        "dynamics_latent_rms": null,
+        "completed_updates": 2000,
+        "shuffle_delta_to_residual_rms_ratio": 0.0
+      },
+      {
+        "residual_action_rms": 0.2155180647969246,
+        "latent_shuffle_action_delta_rms": 0.0,
+        "latent_zero_action_delta_rms": 0.0,
+        "residual_saturation_fraction": 0.5684705674648285,
+        "dynamics_latent_rms": null,
+        "completed_updates": 3000,
+        "shuffle_delta_to_residual_rms_ratio": 0.0
+      }
+    ],
+    "concat": [
+      {
+        "residual_action_rms": 0.08760127425193787,
+        "latent_shuffle_action_delta_rms": 0.01602571504190564,
+        "latent_zero_action_delta_rms": 0.012780332937836647,
+        "residual_saturation_fraction": 0.0011259933817200363,
+        "dynamics_latent_rms": 0.9002352356910706,
+        "completed_updates": 100,
+        "shuffle_delta_to_residual_rms_ratio": 0.18293929145158672
+      },
+      {
+        "residual_action_rms": 0.15625856071710587,
+        "latent_shuffle_action_delta_rms": 0.030490179546177387,
+        "latent_zero_action_delta_rms": 0.022648461628705263,
+        "residual_saturation_fraction": 0.13872642070055008,
+        "dynamics_latent_rms": 0.9010284543037415,
+        "completed_updates": 500,
+        "shuffle_delta_to_residual_rms_ratio": 0.19512645839211024
+      },
+      {
+        "residual_action_rms": 0.17541715502738953,
+        "latent_shuffle_action_delta_rms": 0.03784566093236208,
+        "latent_zero_action_delta_rms": 0.028616345021873713,
+        "residual_saturation_fraction": 0.24506597220897675,
+        "dynamics_latent_rms": 0.9010676592588425,
+        "completed_updates": 1000,
+        "shuffle_delta_to_residual_rms_ratio": 0.2157466350794076
+      },
+      {
+        "residual_action_rms": 0.1972709521651268,
+        "latent_shuffle_action_delta_rms": 0.03551749512553215,
+        "latent_zero_action_delta_rms": 0.028293607756495476,
+        "residual_saturation_fraction": 0.3877817764878273,
+        "dynamics_latent_rms": 0.901149719953537,
+        "completed_updates": 2000,
+        "shuffle_delta_to_residual_rms_ratio": 0.1800442221001804
+      },
+      {
+        "residual_action_rms": 0.20958751067519188,
+        "latent_shuffle_action_delta_rms": 0.03725840523838997,
+        "latent_zero_action_delta_rms": 0.031450239941477776,
+        "residual_saturation_fraction": 0.5024559795856476,
+        "dynamics_latent_rms": 0.9011184871196747,
+        "completed_updates": 3000,
+        "shuffle_delta_to_residual_rms_ratio": 0.1777701596739281
+      }
+    ]
+  },
+  "checkpoint_latent_columns": {
+    "0": {
+      "path": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260913_memory350_compressed_ee_adaptive_scratch/ppo/concat_121/checkpoint_update_000000.pt",
+      "sha256": "e5e8292b82ada095ec9b01ec9658ba2bdf8df75e215aa870ac1165adaa3e0e1d",
+      "networks": {
+        "actor": {
+          "latent_column_rms": 0.0,
+          "latent_column_nonzero_count": 0
+        },
+        "critic": {
+          "latent_column_rms": 0.0,
+          "latent_column_nonzero_count": 0
+        }
+      }
+    },
+    "2000": {
+      "path": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260913_memory350_compressed_ee_adaptive_scratch/ppo/concat_121/checkpoint_update_002000.pt",
+      "sha256": "8bd03f298f356372bdbbd2d7460c75d0d1b20875e487fb58739530c5e6553306",
+      "networks": {
+        "actor": {
+          "latent_column_rms": 0.018736574798822403,
+          "latent_column_nonzero_count": 16384,
+          "adam_step": 40000.0,
+          "latent_exp_avg_rms": 2.7374551791581325e-05,
+          "latent_exp_avg_sq_mean": 3.9567350285096836e-08
+        },
+        "critic": {
+          "latent_column_rms": 0.163737952709198,
+          "latent_column_nonzero_count": 16384,
+          "adam_step": 40000.0,
+          "latent_exp_avg_rms": 4.2774350731633604e-05,
+          "latent_exp_avg_sq_mean": 9.252162413986298e-08
+        }
+      }
+    }
+  },
+  "zero_payload_three_way_common_prefix": {
+    "all_0_cold": {
+      "body_error_cm": {
+        "frozen_tracker_u0": 2.332378519111426,
+        "baseline_u2000": 4.397233144032168,
+        "latent_u2000": 3.5462498865162977
+      },
+      "episodes": 512,
+      "common_steps": 180376,
+      "source_json_sha256": {
+        "frozen_tracker_u0": "cd4a8fdfa47d2d2659cb76ecd6c7c73035e1468dd3e1f11ffdd8e9be67fb124e",
+        "baseline_u2000": "9589dba37fa34e7650ff6ddc75a7c1b74a7e09bbfb7c0efa2ca080b6ea10b80d",
+        "latent_u2000": "10dfc5283e50bd1e01cbcdc9f81ae4c1facf0cec06d369fd25e3f38455c012b6"
+      },
+      "note": "Zero added limb payload; original tracker DR is still active. Not a fully nominal environment. u0 residual mean is exactly zero, as verified in startup audit. This comparison establishes body-error degradation, not degradation of every reward/metric."
+    },
+    "all_0_warm": {
+      "body_error_cm": {
+        "frozen_tracker_u0": 2.31430624821758,
+        "baseline_u2000": 4.389722819866618,
+        "latent_u2000": 3.5346802839182248
+      },
+      "episodes": 512,
+      "common_steps": 180433,
+      "source_json_sha256": {
+        "frozen_tracker_u0": "26bdfda8e2421ee388ffdb746e440fd4ba73809a1970df87693b9b1932791f7f",
+        "baseline_u2000": "1ee81fb4c2faca8cdc3bb42a9c1e094a3a580cdb51931c2a5b503e05436a0d32",
+        "latent_u2000": "307d40d41bd36f033ebad525806d18b940e20119291b1f2bb6f188fa9a0ab721"
+      },
+      "note": "Zero added limb payload; original tracker DR is still active. Not a fully nominal environment. u0 residual mean is exactly zero, as verified in startup audit. This comparison establishes body-error degradation, not degradation of every reward/metric."
+    }
+  },
+  "training_contract": {
+    "encoder_frozen": true,
+    "predictor_executed_in_ppo": false,
+    "dr_profile": "frozen-tracker-dr-plus-hands-shins-independent-uniform-0-4kg",
+    "payload_sampling": "Four independent U(0,4 kg) payloads, fixed per world; no explicit zero/all-four-4kg strata.",
+    "nominal50_in_ppo": false,
+    "residual_mean": "0.25 * tanh(residual_mlp); saturation statistic means abs(mean) >= 0.2375, not actuator torque saturation.",
+    "latent_detach": "Freezes the encoder, not the downstream latent-input weights."
+  },
+  "limitations": [
+    "No matched cross-environment latent intervention rollout was run in this audit.",
+    "Nonzero Adam moments establish gradient history, not a logged current-batch gradient norm.",
+    "Weight magnitudes and action sensitivity do not prove causal tracking benefit or that latent encodes the relevant physical parameters.",
+    "Different trained policies and adaptive sampling trajectories cannot isolate the information content of latent."
+  ],
+  "script_sha256": "78da3c0d954f157fd183f0d30733a2cab557adc58ae931bde30cc2fb98bfda38"
+}

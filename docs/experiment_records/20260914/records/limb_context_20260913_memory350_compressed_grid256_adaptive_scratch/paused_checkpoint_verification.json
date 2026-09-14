@@ -1,0 +1,21 @@
+{
+  "paused_for": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260913_memory350_compressed_grid256_tracker_action_adaptive_scratch",
+  "verified_at": 1789304697.9363203,
+  "arms": {
+    "baseline": {
+      "checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260913_memory350_compressed_grid256_adaptive_scratch/ppo/baseline_121/checkpoint_final.pt",
+      "completed_updates": 1097,
+      "sha256": "1bac2e4149b3b88cbd31ae67f4aa95840422942711dad3dc5e218a7989421946",
+      "optimizer_and_sampling_state_preserved": true,
+      "four_rank_agreement_passed": true
+    },
+    "concat": {
+      "checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260913_memory350_compressed_grid256_adaptive_scratch/ppo/concat_121/checkpoint_final.pt",
+      "completed_updates": 900,
+      "sha256": "ee2bd5772185c28534f8a8e1343e76090ea1c993e49674b5512aa4adedc02794",
+      "optimizer_and_sampling_state_preserved": true,
+      "four_rank_agreement_passed": true
+    }
+  },
+  "passed": true
+}

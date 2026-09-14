@@ -1,0 +1,24 @@
+{
+  "verified_at": 1788852038.6844745,
+  "runtime_motion_sampling_mode": "uniform",
+  "adaptive_motion_sampling_enabled": false,
+  "failure_rewind_enabled": false,
+  "payload_sampling": "independent U(0,4 kg) per environment and limb; fixed at startup",
+  "source_file": "src/intact_tracking/limb_context_protocol.py",
+  "source_sha256": "7267526fd490c8dd815aa1513461e97280b22226b378367f000a6ac2d34c0c3c",
+  "checkpoint_task_config_note": "cfg.task is copied from the source tracker and still says adaptive; the live environment is separately built from prepared.env after configure_load_only sets uniform and disables rewind.",
+  "runs": {
+    "baseline_121": {
+      "training_source_sha256_matches": true,
+      "checkpoint_verified_update": 600,
+      "source_task_sampling_mode": "adaptive",
+      "source_task_rewind_enabled": true
+    },
+    "film_121": {
+      "training_source_sha256_matches": true,
+      "checkpoint_verified_update": 600,
+      "source_task_sampling_mode": "adaptive",
+      "source_task_rewind_enabled": true
+    }
+  }
+}

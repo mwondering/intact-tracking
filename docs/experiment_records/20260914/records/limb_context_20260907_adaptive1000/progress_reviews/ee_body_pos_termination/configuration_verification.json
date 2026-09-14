@@ -1,0 +1,102 @@
+{
+  "passed": true,
+  "unix_time": 1788878333.494649,
+  "verification": "CPU configuration and saved-checkpoint validation; no new PPO training or evaluation rollout",
+  "new_training_contract": {
+    "version": "limb_training_terminations_v1",
+    "profile": "no_ee_body_pos",
+    "disabled_terms": [
+      "ee_body_pos"
+    ],
+    "original_terms": [
+      {
+        "name": "time_out",
+        "term": "time_out",
+        "time_out": true
+      },
+      {
+        "name": "anchor_pos",
+        "term": "bad_anchor_pos_z_only",
+        "params": {
+          "command_name": "motion",
+          "threshold": 0.5,
+          "anchor_body_name": "pelvis"
+        }
+      },
+      {
+        "name": "anchor_ori",
+        "term": "bad_anchor_ori",
+        "params": {
+          "command_name": "motion",
+          "threshold": 0.8,
+          "anchor_body_name": "pelvis",
+          "asset_cfg": {
+            "entity_name": "robot"
+          }
+        }
+      },
+      {
+        "name": "ee_body_pos",
+        "term": "bad_motion_body_pos_z_only",
+        "params": {
+          "command_name": "motion",
+          "threshold": 0.5,
+          "body_names": [
+            "left_ankle_roll_link",
+            "right_ankle_roll_link",
+            "left_wrist_yaw_link",
+            "right_wrist_yaw_link"
+          ],
+          "anchor_body_name": "pelvis"
+        }
+      }
+    ],
+    "active_terms": [
+      {
+        "name": "time_out",
+        "term": "time_out",
+        "time_out": true
+      },
+      {
+        "name": "anchor_pos",
+        "term": "bad_anchor_pos_z_only",
+        "params": {
+          "command_name": "motion",
+          "threshold": 0.5,
+          "anchor_body_name": "pelvis"
+        }
+      },
+      {
+        "name": "anchor_ori",
+        "term": "bad_anchor_ori",
+        "params": {
+          "command_name": "motion",
+          "threshold": 0.8,
+          "anchor_body_name": "pelvis",
+          "asset_cfg": {
+            "entity_name": "robot"
+          }
+        }
+      }
+    ],
+    "evaluation_profile": "original"
+  },
+  "unchanged_evaluation_terms": [
+    "time_out",
+    "anchor_pos",
+    "anchor_ori",
+    "ee_body_pos"
+  ],
+  "legacy_checkpoint_audits": {
+    "baseline_121": {
+      "checkpoint_update": 5000,
+      "original_resume_passed": true,
+      "silent_termination_change_rejected": true
+    },
+    "film_121": {
+      "checkpoint_update": 5000,
+      "original_resume_passed": true,
+      "silent_termination_change_rejected": true
+    }
+  }
+}

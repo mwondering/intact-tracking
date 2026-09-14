@@ -1,0 +1,77 @@
+{
+  "verified_at": 1789319406.670406,
+  "source_files_checked": 174,
+  "source_mismatches": [],
+  "supervisor_pid": 20814,
+  "arms": {
+    "baseline": {
+      "checks": {
+        "at_least_five_updates": true,
+        "all_logged_losses_finite": true,
+        "every_update_fp32": true,
+        "full_dataset": true,
+        "four_ranks_8192_each": true,
+        "unlimited": true,
+        "uniform_dr": true,
+        "adaptive_from_zero": true,
+        "original_ee_termination": true,
+        "independent_encoders": true,
+        "context_encoder_frozen": true,
+        "latent_free_single_heads": true
+      },
+      "completed_updates": 42,
+      "gpus": "0,1,2,3",
+      "trainable_parameters": 8322107,
+      "latest_timing": {
+        "collect_seconds": 3.5354111194610596,
+        "learn_seconds": 1.4306480884552002
+      },
+      "router": {},
+      "wandb": {
+        "id": "m350moe-ad17c9dc015e",
+        "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/m350moe-ad17c9dc015e",
+        "project": "intact-preview-v2",
+        "group": "limb_context_20260913_memory350_online_kmeans16_uniform_dr"
+      }
+    },
+    "concat": {
+      "checks": {
+        "at_least_five_updates": true,
+        "all_logged_losses_finite": true,
+        "every_update_fp32": true,
+        "full_dataset": true,
+        "four_ranks_8192_each": true,
+        "unlimited": true,
+        "uniform_dr": true,
+        "adaptive_from_zero": true,
+        "original_ee_termination": true,
+        "independent_encoders": true,
+        "context_encoder_frozen": true,
+        "sixteen_actor_and_critic_experts": true,
+        "centers_update_once_per_ppo_update": true,
+        "all_experts_receiving_samples": true,
+        "centers_switch_cap_respected": true
+      },
+      "completed_updates": 17,
+      "gpus": "4,5,6,7",
+      "trainable_parameters": 10469117,
+      "latest_timing": {
+        "collect_seconds": 5.367246627807617,
+        "learn_seconds": 1.6897835731506348
+      },
+      "router": {
+        "router_center_update_switch_fraction": 0.0006891886393229166,
+        "router_center_updates": 17.0,
+        "router_rollout_active_experts": 16.0,
+        "router_rollout_max_fraction": 0.08955129235982895
+      },
+      "wandb": {
+        "id": "m350moe-1242df5c99bc",
+        "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/m350moe-1242df5c99bc",
+        "project": "intact-preview-v2",
+        "group": "limb_context_20260913_memory350_online_kmeans16_uniform_dr"
+      }
+    }
+  },
+  "passed": true
+}

@@ -1,0 +1,102 @@
+{
+  "arguments": {
+    "action_rate_multiplier": 0.25,
+    "actor_lr": 3e-05,
+    "critic_lr": 0.0005,
+    "device": "cuda:0",
+    "entropy_coef": 0.0005,
+    "epochs": 5,
+    "hidden_dims": [
+      512,
+      256,
+      128
+    ],
+    "initialize_from": "runs/adaptation_goal/compact_unfrozen_tracking2_seed42/checkpoint_750.pt",
+    "iterations": 4000,
+    "latent_dim": 64,
+    "metric_reward_shape": "linear",
+    "metric_tracking_weight": 10.0,
+    "motion_path": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong",
+    "num_envs": 4096,
+    "oracle_tracking_features": false,
+    "output_dir": "runs/adaptation_goal/metric_linear_compact_seed45",
+    "physics": "dr",
+    "privilege_schema": "critic",
+    "privileged": true,
+    "residual_scale": 1.0,
+    "resume": null,
+    "rollout_steps": 24,
+    "sampling_mode": "uniform",
+    "save_interval": 250,
+    "seed": 45,
+    "tracker_checkpoint": "/data_zcy/wxy/SP_Tracking/logs/rsl_rl/g1_tracking/2026-09-02_04-48-42_SPTracking-G1-BFM-SPV5-2AActor-HEFTCritic-HEFTReward_8gpu_12288env_motion_data_correct/checkpoint_72000.pt",
+    "tracking_multiplier": 1.0,
+    "train_base_policy": false
+  },
+  "motion_count": 42,
+  "motion_path": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong",
+  "physics": {
+    "cleared_exclusions": [
+      "[/data_zcy/wxy/motion_filter/0827/invalid_motions_0827_v1.json,/data_zcy/wxy/SP_Tracking/logs/motion_benchmark_10000.json,/data_zcy/wxy/SP_Tracking/logs/motion_benchmark_0830_22000.json,/data_zcy/wxy/SP_Tracking/benchmark_0831_36000.json,/data_zcy/wxy/SP_Tracking/benchmark_0901_44000.json,/data_zcy/wxy/SP_Tracking/benchmark_0902_59000.json]"
+    ],
+    "details": {
+      "payload": {
+        "body_name": "right_wrist_yaw_link",
+        "cuboid_size_m": [
+          0.1,
+          0.08,
+          0.08
+        ],
+        "enabled": true,
+        "event_name": "right_hand_payload",
+        "mass_range_kg": [
+          1.0,
+          3.0
+        ],
+        "physics_model": "rigid cuboid composite inertia (mass, COM, principal inertia and inertial frame); no payload collision geometry",
+        "position_body_frame_m": [
+          0.12,
+          0.0,
+          0.0
+        ]
+      }
+    },
+    "physics": "dr",
+    "removed_disturbances": [
+      "push_robot"
+    ]
+  },
+  "privileged": true,
+  "research_source_sha256": {
+    "src/intact_tracking/adaptation_policy.py": "1f3c1a837cf8cd464b6906196d66145b2468bd8e19ed5b2d76367e558614f122",
+    "src/intact_tracking/adaptation_rewards.py": "a004219255da98d9d7e619112b9feb35a7a65c9ea26c069289cd0d0058cec1d0",
+    "src/intact_tracking/cli/adaptation_eval.py": "6fac717a6eee1a13278161d6aa3dc9a9e2bc1f80d85a113ed73e929397dddda5",
+    "src/intact_tracking/cli/adaptation_train.py": "4f6f77e2f786ae676b84b00070f6cb08681f6d3590126d161e166c99386fbfe3"
+  },
+  "reward_changes": {
+    "action_rate_l2": {
+      "from": 0.2,
+      "to": 0.05
+    },
+    "adaptation_balanced_body": {
+      "from": 0.0,
+      "scale": 0.03,
+      "shape": "linear",
+      "to": 10.0
+    },
+    "adaptation_joint_l2": {
+      "from": 0.0,
+      "scale": 0.4,
+      "shape": "linear",
+      "to": 10.0
+    },
+    "waist_action_rate_l2": {
+      "from": -0.5,
+      "to": -0.125
+    }
+  },
+  "student_contract": "replace all privileged actor inputs by deployable context and observations",
+  "tracker_checkpoint": "/data_zcy/wxy/SP_Tracking/logs/rsl_rl/g1_tracking/2026-09-02_04-48-42_SPTracking-G1-BFM-SPV5-2AActor-HEFTCritic-HEFTReward_8gpu_12288env_motion_data_correct/checkpoint_72000.pt",
+  "tracker_sha256": "fd7bd90d5552e573bbbce1417e9b415c64bb487a76b683ba3c20503b5ec77635",
+  "version": "adaptation_teacher_v1"
+}

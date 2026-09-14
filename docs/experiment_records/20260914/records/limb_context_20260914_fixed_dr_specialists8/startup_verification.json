@@ -1,0 +1,169 @@
+{
+  "passed": true,
+  "checked_at": 1789352426.9434807,
+  "A_update": 4000,
+  "arms": [
+    {
+      "gpu": 0,
+      "pid": 15588,
+      "name": "all_0kg",
+      "completed_updates": 13,
+      "motion_count": 129827,
+      "frames": 48085337,
+      "static_profile_fingerprint": "89e4a46065df96b2d29b34b90b3261c33f486554f3a2331f56153ff4fd1a96ae",
+      "fixed_replicas": 8192,
+      "seconds_per_update_last5": 4.7490396976470945,
+      "finite_losses": true,
+      "independent_process_verified": true,
+      "matched_A_architecture_optimizer_initialization": true,
+      "wandb": {
+        "id": "dr-specialist-db3922625121",
+        "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/dr-specialist-db3922625121",
+        "project": "intact-preview-v2",
+        "group": "limb_context_20260914_fixed_dr_specialists8"
+      }
+    },
+    {
+      "gpu": 1,
+      "pid": 15589,
+      "name": "all_1kg",
+      "completed_updates": 11,
+      "motion_count": 129827,
+      "frames": 48085337,
+      "static_profile_fingerprint": "301ea1a2e783aa98554318a4d27b0fff8bef0c0d258d508a4673d9c177fa270e",
+      "fixed_replicas": 8192,
+      "seconds_per_update_last5": 5.212850952148438,
+      "finite_losses": true,
+      "independent_process_verified": true,
+      "matched_A_architecture_optimizer_initialization": true,
+      "wandb": {
+        "id": "dr-specialist-ab223a3f994e",
+        "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/dr-specialist-ab223a3f994e",
+        "project": "intact-preview-v2",
+        "group": "limb_context_20260914_fixed_dr_specialists8"
+      }
+    },
+    {
+      "gpu": 2,
+      "pid": 15348,
+      "name": "all_2kg",
+      "completed_updates": 13,
+      "motion_count": 129827,
+      "frames": 48085337,
+      "static_profile_fingerprint": "be4aa13f3ab76784e6e575e93f22eb7e5d112cb0497e0fbc55bce528d60989cd",
+      "fixed_replicas": 8192,
+      "seconds_per_update_last5": 4.6902909755706785,
+      "finite_losses": true,
+      "independent_process_verified": true,
+      "matched_A_architecture_optimizer_initialization": true,
+      "wandb": {
+        "id": "dr-specialist-4807a028f1cc",
+        "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/dr-specialist-4807a028f1cc",
+        "project": "intact-preview-v2",
+        "group": "limb_context_20260914_fixed_dr_specialists8"
+      }
+    },
+    {
+      "gpu": 3,
+      "pid": 15597,
+      "name": "all_4kg",
+      "completed_updates": 12,
+      "motion_count": 129827,
+      "frames": 48085337,
+      "static_profile_fingerprint": "3d0059490fc570860cce91d00229f2278d4291f82b95901507f2bad23cf2af73",
+      "fixed_replicas": 8192,
+      "seconds_per_update_last5": 4.764850378036499,
+      "finite_losses": true,
+      "independent_process_verified": true,
+      "matched_A_architecture_optimizer_initialization": true,
+      "wandb": {
+        "id": "dr-specialist-2c3373f33b0a",
+        "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/dr-specialist-2c3373f33b0a",
+        "project": "intact-preview-v2",
+        "group": "limb_context_20260914_fixed_dr_specialists8"
+      }
+    },
+    {
+      "gpu": 4,
+      "pid": 15598,
+      "name": "arms_4kg",
+      "completed_updates": 12,
+      "motion_count": 129827,
+      "frames": 48085337,
+      "static_profile_fingerprint": "56ad139774d1baeb441e90fb842b405b51dd99ac308e0a15685d5b7f14a65ba3",
+      "fixed_replicas": 8192,
+      "seconds_per_update_last5": 4.744736576080323,
+      "finite_losses": true,
+      "independent_process_verified": true,
+      "matched_A_architecture_optimizer_initialization": true,
+      "wandb": {
+        "id": "dr-specialist-f59ea52d1451",
+        "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/dr-specialist-f59ea52d1451",
+        "project": "intact-preview-v2",
+        "group": "limb_context_20260914_fixed_dr_specialists8"
+      }
+    },
+    {
+      "gpu": 5,
+      "pid": 15601,
+      "name": "shins_4kg",
+      "completed_updates": 13,
+      "motion_count": 129827,
+      "frames": 48085337,
+      "static_profile_fingerprint": "77d3d1c9a607d786913cdd3c6241205ffcc3502680319cf5e6c431895eeeee5d",
+      "fixed_replicas": 8192,
+      "seconds_per_update_last5": 4.8931190967559814,
+      "finite_losses": true,
+      "independent_process_verified": true,
+      "matched_A_architecture_optimizer_initialization": true,
+      "wandb": {
+        "id": "dr-specialist-0a6e501403dc",
+        "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/dr-specialist-0a6e501403dc",
+        "project": "intact-preview-v2",
+        "group": "limb_context_20260914_fixed_dr_specialists8"
+      }
+    },
+    {
+      "gpu": 6,
+      "pid": 15604,
+      "name": "left_4kg",
+      "completed_updates": 11,
+      "motion_count": 129827,
+      "frames": 48085337,
+      "static_profile_fingerprint": "37a95f46f1d811bf1feae3a3c764e9bd04b397143eef0ada4905f1996ea69f6f",
+      "fixed_replicas": 8192,
+      "seconds_per_update_last5": 4.936059951782227,
+      "finite_losses": true,
+      "independent_process_verified": true,
+      "matched_A_architecture_optimizer_initialization": true,
+      "wandb": {
+        "id": "dr-specialist-26289d79e79d",
+        "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/dr-specialist-26289d79e79d",
+        "project": "intact-preview-v2",
+        "group": "limb_context_20260914_fixed_dr_specialists8"
+      }
+    },
+    {
+      "gpu": 7,
+      "pid": 15606,
+      "name": "right_4kg",
+      "completed_updates": 12,
+      "motion_count": 129827,
+      "frames": 48085337,
+      "static_profile_fingerprint": "efde8fa4ee8118d114997c45cc9fbb62ad0f04cb20723e4a57fa4bf778cae3e0",
+      "fixed_replicas": 8192,
+      "seconds_per_update_last5": 4.838744640350342,
+      "finite_losses": true,
+      "independent_process_verified": true,
+      "matched_A_architecture_optimizer_initialization": true,
+      "wandb": {
+        "id": "dr-specialist-e6d58fa5fe5a",
+        "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/dr-specialist-e6d58fa5fe5a",
+        "project": "intact-preview-v2",
+        "group": "limb_context_20260914_fixed_dr_specialists8"
+      }
+    }
+  ],
+  "eight_independent_full_catalog_fixed_DR_runs": true,
+  "source_and_protocol_pins_unchanged": true
+}

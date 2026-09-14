@@ -1,0 +1,172 @@
+{
+  "common": {
+    "passed": true,
+    "checks": [
+      {
+        "model": "memory350",
+        "step": 400,
+        "samples": 1024,
+        "max_abs_difference": 0.0,
+        "raw_element_rms_difference": 0.0,
+        "unit_rms_difference": 0.0,
+        "mean_cosine": 1.0,
+        "bitwise_equal": true
+      },
+      {
+        "model": "memory350",
+        "step": 3200,
+        "samples": 1024,
+        "max_abs_difference": 0.0,
+        "raw_element_rms_difference": 0.0,
+        "unit_rms_difference": 0.0,
+        "mean_cosine": 1.0,
+        "bitwise_equal": true
+      },
+      {
+        "model": "nominal_u1800",
+        "step": 400,
+        "samples": 1024,
+        "max_abs_difference": 0.0,
+        "raw_element_rms_difference": 0.0,
+        "unit_rms_difference": 0.0,
+        "mean_cosine": 1.0,
+        "bitwise_equal": true
+      },
+      {
+        "model": "nominal_u1800",
+        "step": 3200,
+        "samples": 1024,
+        "max_abs_difference": 0.0,
+        "raw_element_rms_difference": 0.0,
+        "unit_rms_difference": 0.0,
+        "mean_cosine": 1.0,
+        "bitwise_equal": true
+      },
+      {
+        "model": "alldr_u5000",
+        "step": 400,
+        "samples": 1024,
+        "max_abs_difference": 0.0,
+        "raw_element_rms_difference": 0.0,
+        "unit_rms_difference": 0.0,
+        "mean_cosine": 1.0,
+        "bitwise_equal": true
+      },
+      {
+        "model": "alldr_u5000",
+        "step": 3200,
+        "samples": 1024,
+        "max_abs_difference": 0.0,
+        "raw_element_rms_difference": 0.0,
+        "unit_rms_difference": 0.0,
+        "mean_cosine": 1.0,
+        "bitwise_equal": true
+      },
+      {
+        "model": "alldr_u22700",
+        "step": 400,
+        "samples": 1024,
+        "max_abs_difference": 0.0,
+        "raw_element_rms_difference": 0.0,
+        "unit_rms_difference": 0.0,
+        "mean_cosine": 1.0,
+        "bitwise_equal": true
+      },
+      {
+        "model": "alldr_u22700",
+        "step": 3200,
+        "samples": 1024,
+        "max_abs_difference": 0.0,
+        "raw_element_rms_difference": 0.0,
+        "unit_rms_difference": 0.0,
+        "mean_cosine": 1.0,
+        "bitwise_equal": true
+      }
+    ]
+  },
+  "memory_training": {
+    "passed": true,
+    "checks": [
+      {
+        "model": "memory350",
+        "step": 400,
+        "samples": 512,
+        "max_abs_difference": 0.0,
+        "raw_element_rms_difference": 0.0,
+        "unit_rms_difference": 0.0,
+        "mean_cosine": 1.0,
+        "bitwise_equal": true
+      },
+      {
+        "model": "memory350",
+        "step": 3200,
+        "samples": 512,
+        "max_abs_difference": 0.0,
+        "raw_element_rms_difference": 0.0,
+        "unit_rms_difference": 0.0,
+        "mean_cosine": 1.0,
+        "bitwise_equal": true
+      },
+      {
+        "model": "nominal_u1800",
+        "step": 400,
+        "samples": 512,
+        "max_abs_difference": 0.0,
+        "raw_element_rms_difference": 0.0,
+        "unit_rms_difference": 0.0,
+        "mean_cosine": 1.0,
+        "bitwise_equal": true
+      },
+      {
+        "model": "nominal_u1800",
+        "step": 3200,
+        "samples": 512,
+        "max_abs_difference": 0.0,
+        "raw_element_rms_difference": 0.0,
+        "unit_rms_difference": 0.0,
+        "mean_cosine": 1.0,
+        "bitwise_equal": true
+      },
+      {
+        "model": "alldr_u5000",
+        "step": 400,
+        "samples": 512,
+        "max_abs_difference": 0.0,
+        "raw_element_rms_difference": 0.0,
+        "unit_rms_difference": 0.0,
+        "mean_cosine": 1.0,
+        "bitwise_equal": true
+      },
+      {
+        "model": "alldr_u5000",
+        "step": 3200,
+        "samples": 512,
+        "max_abs_difference": 0.0,
+        "raw_element_rms_difference": 0.0,
+        "unit_rms_difference": 0.0,
+        "mean_cosine": 1.0,
+        "bitwise_equal": true
+      },
+      {
+        "model": "alldr_u22700",
+        "step": 400,
+        "samples": 512,
+        "max_abs_difference": 0.0,
+        "raw_element_rms_difference": 0.0,
+        "unit_rms_difference": 0.0,
+        "mean_cosine": 1.0,
+        "bitwise_equal": true
+      },
+      {
+        "model": "alldr_u22700",
+        "step": 3200,
+        "samples": 512,
+        "max_abs_difference": 0.0,
+        "raw_element_rms_difference": 0.0,
+        "unit_rms_difference": 0.0,
+        "mean_cosine": 1.0,
+        "bitwise_equal": true
+      }
+    ]
+  }
+}

@@ -1,0 +1,162 @@
+{
+  "arguments": {
+    "action_rate_multiplier": 1.0,
+    "actor_lr": 2e-05,
+    "auxiliary_tracking_weight": 8.0,
+    "critic_lr": 0.0005,
+    "device": "cuda:0",
+    "entropy_coef": 0.0005,
+    "epochs": 5,
+    "hidden_dims": [
+      512,
+      256,
+      128
+    ],
+    "initial_action_std": null,
+    "initialize_from": "runs/adaptation_goal/oracle_base_merge025/checkpoint_0.pt",
+    "iterations": 2500,
+    "latent_dim": 64,
+    "metric_reference_offset": 1,
+    "metric_reward_shape": "exp",
+    "metric_tracking_weight": 2.0,
+    "motion_path": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong",
+    "num_envs": 4096,
+    "oracle_tracking_features": false,
+    "output_dir": "runs/adaptation_goal/oracle_merged_timealign_seed52",
+    "physics": "dr",
+    "privilege_schema": "critic",
+    "privileged": true,
+    "residual_scale": 1.0,
+    "resume": null,
+    "rollout_steps": 24,
+    "sampling_mode": "original",
+    "save_interval": 250,
+    "seed": 52,
+    "tracker_checkpoint": "/data_zcy/wxy/SP_Tracking/logs/rsl_rl/g1_tracking/2026-09-02_04-48-42_SPTracking-G1-BFM-SPV5-2AActor-HEFTCritic-HEFTReward_8gpu_12288env_motion_data_correct/checkpoint_72000.pt",
+    "tracking_multiplier": 4.0,
+    "train_base_policy": false
+  },
+  "motion_count": 42,
+  "motion_path": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong",
+  "physics": {
+    "cleared_exclusions": [
+      "[/data_zcy/wxy/motion_filter/0827/invalid_motions_0827_v1.json,/data_zcy/wxy/SP_Tracking/logs/motion_benchmark_10000.json,/data_zcy/wxy/SP_Tracking/logs/motion_benchmark_0830_22000.json,/data_zcy/wxy/SP_Tracking/benchmark_0831_36000.json,/data_zcy/wxy/SP_Tracking/benchmark_0901_44000.json,/data_zcy/wxy/SP_Tracking/benchmark_0902_59000.json]"
+    ],
+    "details": {
+      "payload": {
+        "body_name": "right_wrist_yaw_link",
+        "cuboid_size_m": [
+          0.1,
+          0.08,
+          0.08
+        ],
+        "enabled": true,
+        "event_name": "right_hand_payload",
+        "mass_range_kg": [
+          1.0,
+          3.0
+        ],
+        "physics_model": "rigid cuboid composite inertia (mass, COM, principal inertia and inertial frame); no payload collision geometry",
+        "position_body_frame_m": [
+          0.12,
+          0.0,
+          0.0
+        ]
+      }
+    },
+    "physics": "dr",
+    "removed_disturbances": [
+      "push_robot"
+    ]
+  },
+  "privileged": true,
+  "research_source_sha256": {
+    "src/intact_tracking/adaptation_policy.py": "28b4e94422bea14011227129be310f38204e3db13462b973f27dfdf7a4de82ad",
+    "src/intact_tracking/adaptation_rewards.py": "ed66d09fa66a179d0c191680d4ada718332d86c39251b43f77256be7e477afa6",
+    "src/intact_tracking/cli/adaptation_eval.py": "47e0ee7fc29f08f1472a80ff6ab252dc97be56af76ad7fd0fdfe7fba5cd94a7d",
+    "src/intact_tracking/cli/adaptation_train.py": "f39bc11286637c3de229170a39426b92908f9e5d269e83602ee08bebc64e76bc"
+  },
+  "reward_changes": {
+    "adaptation_auxiliary_tracking": {
+      "from": 0.0,
+      "reference_offset": 1,
+      "scales": [
+        0.25,
+        0.075,
+        0.125,
+        4.4,
+        0.21,
+        0.45,
+        0.267,
+        1.07
+      ],
+      "to": 8.0
+    },
+    "adaptation_balanced_body": {
+      "from": 0.0,
+      "reference_offset": 1,
+      "scale": 0.03,
+      "shape": "exp",
+      "to": 2.0
+    },
+    "adaptation_joint_l2": {
+      "from": 0.0,
+      "reference_offset": 1,
+      "scale": 0.4,
+      "shape": "exp",
+      "to": 2.0
+    },
+    "feet_link_height_tracking": {
+      "from": 1.0,
+      "to": 4.0
+    },
+    "joint_pos_tracking": {
+      "from": 1.0,
+      "to": 4.0
+    },
+    "joint_vel_tracking": {
+      "from": 0.5,
+      "to": 2.0
+    },
+    "keypoint_angvel_tracking": {
+      "from": 1.0,
+      "to": 4.0
+    },
+    "keypoint_pos_tracking": {
+      "from": 2.0,
+      "to": 8.0
+    },
+    "keypoint_rot_tracking": {
+      "from": 2.0,
+      "to": 8.0
+    },
+    "keypoint_vel_tracking": {
+      "from": 1.0,
+      "to": 4.0
+    },
+    "root_ang_vel_tracking": {
+      "from": 1.0,
+      "to": 4.0
+    },
+    "root_pos_tracking": {
+      "from": 1.0,
+      "to": 4.0
+    },
+    "root_rot_tracking": {
+      "from": 1.0,
+      "to": 4.0
+    },
+    "root_vel_tracking": {
+      "from": 1.0,
+      "to": 4.0
+    },
+    "wrist_link_height_tracking": {
+      "from": 1.0,
+      "to": 4.0
+    }
+  },
+  "student_contract": "replace all privileged actor inputs by deployable context and observations",
+  "tracker_checkpoint": "/data_zcy/wxy/SP_Tracking/logs/rsl_rl/g1_tracking/2026-09-02_04-48-42_SPTracking-G1-BFM-SPV5-2AActor-HEFTCritic-HEFTReward_8gpu_12288env_motion_data_correct/checkpoint_72000.pt",
+  "tracker_sha256": "fd7bd90d5552e573bbbce1417e9b415c64bb487a76b683ba3c20503b5ec77635",
+  "version": "adaptation_teacher_v1"
+}

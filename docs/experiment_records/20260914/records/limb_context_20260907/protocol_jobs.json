@@ -1,0 +1,1016 @@
+[
+  {
+    "name": "nominal_audit",
+    "phase": "audit",
+    "gpus_needed": 1,
+    "command": [
+      "-m",
+      "intact_tracking.cli.limb_context_nominal_audit",
+      "--motion-file",
+      "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/dance1_subject2.motion.npz",
+      "--output",
+      "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/smoke/nominal_audit.json"
+    ],
+    "output": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/smoke",
+    "completion_file": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/smoke/nominal_audit.json",
+    "gpu_pool": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "status": "complete",
+    "completion": {
+      "protocol": "zero-payload nominal A minus action-matched nominal B",
+      "training_data": false,
+      "valid_five_step_windows": 3792,
+      "a_physics": {
+        "profile": "hands-shins-independent-uniform-0-4kg",
+        "nominal_configuration": {
+          "enabled": true,
+          "contract": "compiled nominal model with persistent DR and stochastic action DR disabled",
+          "removed_events": [
+            {
+              "name": "base_com",
+              "mode": "startup",
+              "function": "body_com_offset"
+            },
+            {
+              "name": "base_mass",
+              "mode": "startup",
+              "function": "body_mass"
+            },
+            {
+              "name": "encoder_bias",
+              "mode": "startup",
+              "function": "encoder_bias"
+            },
+            {
+              "name": "foot_friction",
+              "mode": "startup",
+              "function": "geom_friction"
+            },
+            {
+              "name": "motor_params_implicit",
+              "mode": "startup",
+              "function": "motor_params_implicit"
+            }
+          ],
+          "removed_model_fields": [
+            "actuator_biasprm",
+            "actuator_gainprm",
+            "body_invweight0",
+            "body_ipos",
+            "body_mass",
+            "body_subtreemass",
+            "dof_armature",
+            "dof_frictionloss",
+            "dof_invweight0",
+            "geom_friction",
+            "tendon_invweight0",
+            "tendon_length0"
+          ],
+          "action_randomization_overrides": {},
+          "observation_corruption_preserved": true,
+          "motion_and_state_resets_preserved": true
+        },
+        "removed_disturbances": [
+          "push_robot"
+        ],
+        "observation_noise": false,
+        "sampling": "independent U(0,4) per limb and world, fixed at startup",
+        "fixed_masses": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "limbs": {
+          "left_hand": {
+            "body": "left_wrist_yaw_link",
+            "position": [
+              0.12,
+              0.0,
+              0.0
+            ],
+            "size": [
+              0.1,
+              0.08,
+              0.08
+            ]
+          },
+          "right_hand": {
+            "body": "right_wrist_yaw_link",
+            "position": [
+              0.12,
+              0.0,
+              0.0
+            ],
+            "size": [
+              0.1,
+              0.08,
+              0.08
+            ]
+          },
+          "left_shin": {
+            "body": "left_knee_link",
+            "position": [
+              0.0,
+              0.0,
+              -0.15
+            ],
+            "size": [
+              0.1,
+              0.08,
+              0.1
+            ]
+          },
+          "right_shin": {
+            "body": "right_knee_link",
+            "position": [
+              0.0,
+              0.0,
+              -0.15
+            ],
+            "size": [
+              0.1,
+              0.08,
+              0.1
+            ]
+          }
+        },
+        "total_added_mass_range_kg": [
+          0,
+          16
+        ],
+        "runtime_audit": {
+          "per_limb_mean_kg": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "min_kg": 0.0,
+          "max_kg": 0.0,
+          "nominal_worlds": 128,
+          "hardest_worlds": 0,
+          "actual_mass_sha256": "e5a00aa9991ac8a5ee3109844d84a55583bd20572ad3ffcd42792f3c36b183ad",
+          "sampled_mass_sha256": "e5a00aa9991ac8a5ee3109844d84a55583bd20572ad3ffcd42792f3c36b183ad",
+          "per_limb_min_kg": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "per_limb_max_kg": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "nominal_field_max_errors": {
+            "geom_friction": 0.0,
+            "dof_armature": 0.0,
+            "dof_damping": 0.0,
+            "dof_frictionloss": 0.0,
+            "actuator_gainprm": 0.0,
+            "actuator_biasprm": 0.0,
+            "jnt_pos": 0.0
+          }
+        }
+      },
+      "b_repeat": {
+        "pose": {
+          "mean": 7.383350748568773e-07,
+          "p50": 2.384185791015625e-07,
+          "p95": 1.4107677088759374e-06,
+          "p99": 1.5310066373785958e-05,
+          "max": 1.84476375579834e-05
+        },
+        "full_state": {
+          "mean": 4.1361730836797506e-05,
+          "p50": 9.804964065551758e-06,
+          "p95": 0.00011003616964444518,
+          "p99": 0.0003904406330548227,
+          "max": 0.002119302749633789
+        },
+        "worst_pose": {
+          "pair_index": 127,
+          "horizon": 5,
+          "state_index": 31,
+          "state_component": "joint_position",
+          "abs_error": 1.84476375579834e-05
+        },
+        "worst_full_state": {
+          "pair_index": 127,
+          "horizon": 5,
+          "state_index": 60,
+          "state_component": "joint_velocity",
+          "abs_error": 0.002119302749633789
+        }
+      },
+      "components": {
+        "root_position_m": {
+          "rms": 1.1616371921263635e-05,
+          "max": 0.0015564560890197754
+        },
+        "quaternion": {
+          "rms": 2.4756895072641782e-05,
+          "max": 0.003462362801656127
+        },
+        "root_linear_velocity": {
+          "rms": 0.00037789606722071767,
+          "max": 0.04369693994522095
+        },
+        "root_angular_velocity": {
+          "rms": 0.002269748132675886,
+          "max": 0.2471940517425537
+        },
+        "joint_position_rad": {
+          "rms": 0.0003064483171328902,
+          "max": 0.09850811958312988
+        },
+        "joint_velocity": {
+          "rms": 0.009480034001171589,
+          "max": 3.6699376106262207
+        }
+      },
+      "restore_max_abs_error": 1.430511474609375e-06,
+      "passed": true
+    }
+  },
+  {
+    "name": "smoke_stage1",
+    "phase": "encoder",
+    "gpus_needed": 4,
+    "command": [
+      "-m",
+      "torch.distributed.run",
+      "--standalone",
+      "--nproc-per-node=4",
+      "-m",
+      "intact_tracking.cli.forward_predictor_train",
+      "--checkpoint-file",
+      "/data_zcy/wxy/SP_Tracking/logs/rsl_rl/g1_tracking/2026-09-02_04-48-42_SPTracking-G1-BFM-SPV5-2AActor-HEFTCritic-HEFTReward_8gpu_12288env_motion_data_correct/checkpoint_72000.pt",
+      "--motion-file",
+      "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/dance1_subject2.motion.npz",
+      "--output-dir",
+      "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/smoke/stage1",
+      "--limb-payload-only",
+      "--no-payload",
+      "--nominal-fraction",
+      "0",
+      "--no-wandb",
+      "--seed",
+      "717",
+      "--num-envs",
+      "1152",
+      "--validation-worlds",
+      "128",
+      "--updates",
+      "2",
+      "--continuation-min-learning-rate",
+      "0.00001",
+      "--warmup-steps",
+      "500",
+      "--batch-size",
+      "1024",
+      "--micro-batch-size",
+      "256",
+      "--fixed-probe-batch-size",
+      "512",
+      "--checkpoint-interval",
+      "250",
+      "--validation-interval",
+      "100"
+    ],
+    "output": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/smoke/stage1",
+    "dependencies": [
+      "nominal_audit"
+    ],
+    "gpu_pool": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "status": "complete",
+    "completion": {
+      "best_validation_dr_nmse": 1.0624339580535889,
+      "completed_updates": 2,
+      "converged": false,
+      "hit_cap": true,
+      "optimizer_steps": 8,
+      "selected_checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/smoke/stage1/best.pt",
+      "stopped": false,
+      "unix_time": 1788827748.0556965
+    }
+  },
+  {
+    "name": "smoke_baseline",
+    "phase": "ppo",
+    "gpus_needed": 2,
+    "command": [
+      "-m",
+      "torch.distributed.run",
+      "--standalone",
+      "--nproc-per-node=2",
+      "-m",
+      "intact_tracking.cli.limb_context_train",
+      "--fusion",
+      "baseline",
+      "--output-dir",
+      "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/smoke_2gpu8192_scratch/baseline",
+      "--iterations",
+      "3",
+      "--num-envs",
+      "8192",
+      "--motion-file",
+      "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/dance1_subject2.motion.npz"
+    ],
+    "output": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/smoke_2gpu8192_scratch/baseline",
+    "dependencies": [
+      "stage1"
+    ],
+    "gpu_pool": [
+      0,
+      1
+    ],
+    "status": "complete",
+    "completion": {
+      "target_updates": 3,
+      "completed_updates": 3,
+      "complete": true,
+      "stopped": false,
+      "distributed_parameter_agreement": {
+        "passed": true,
+        "world_size": 2,
+        "ranks": [
+          {
+            "rank": 0,
+            "completed_updates": 3,
+            "actor_trainable_sha256": "6aa6ced09fc2cb14483b41c42b392ea6fe9ead872ae0fa617a721b6788ed80a4",
+            "critic_trainable_sha256": "284db913d78e813e48a7cab55add81a64ff24a71bdfd4135dcf848788b40e3f1",
+            "critic_normalizer_sha256": "e9a45ccd8d0904abafae82ea8dc55cd532a885b40aa16545b730f4c948ed4ce4",
+            "finite": true
+          },
+          {
+            "rank": 1,
+            "completed_updates": 3,
+            "actor_trainable_sha256": "6aa6ced09fc2cb14483b41c42b392ea6fe9ead872ae0fa617a721b6788ed80a4",
+            "critic_trainable_sha256": "284db913d78e813e48a7cab55add81a64ff24a71bdfd4135dcf848788b40e3f1",
+            "critic_normalizer_sha256": "e9a45ccd8d0904abafae82ea8dc55cd532a885b40aa16545b730f4c948ed4ce4",
+            "finite": true
+          }
+        ]
+      },
+      "initialization_protocol": "residual_actor_and_critic_from_scratch_v3",
+      "distributed": {
+        "world_size": 2,
+        "num_envs_per_rank": 8192,
+        "global_num_envs": 16384,
+        "rank_seed_formula": "seed + 1000003 * rank",
+        "gradient_synchronization": "mean across all ranks at each optimizer step",
+        "advantage_normalization": "global rollout mean and sample standard deviation",
+        "critic_normalization": "global pooled sums, squared sums and count at every environment step"
+      },
+      "unix_time": 1788843841.119236
+    }
+  },
+  {
+    "name": "smoke_constant",
+    "phase": "ppo",
+    "gpus_needed": 2,
+    "command": [
+      "-m",
+      "torch.distributed.run",
+      "--standalone",
+      "--nproc-per-node=2",
+      "-m",
+      "intact_tracking.cli.limb_context_train",
+      "--fusion",
+      "constant",
+      "--output-dir",
+      "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/smoke_2gpu8192_scratch/constant",
+      "--iterations",
+      "3",
+      "--num-envs",
+      "8192",
+      "--motion-file",
+      "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/dance1_subject2.motion.npz"
+    ],
+    "output": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/smoke_2gpu8192_scratch/constant",
+    "dependencies": [
+      "stage1"
+    ],
+    "gpu_pool": [
+      0,
+      1
+    ],
+    "status": "complete",
+    "completion": {
+      "target_updates": 3,
+      "completed_updates": 3,
+      "complete": true,
+      "stopped": false,
+      "distributed_parameter_agreement": {
+        "passed": true,
+        "world_size": 2,
+        "ranks": [
+          {
+            "rank": 0,
+            "completed_updates": 3,
+            "actor_trainable_sha256": "62dfb928b9468ca1463f29874ed9825537475434124637b677868475d4283520",
+            "critic_trainable_sha256": "e3da335a3d098915e254fb3df1bb1353e02d9785c77e24b88538917d9df2dab0",
+            "critic_normalizer_sha256": "dc8a41c483b102a7e5eb26b179a2be01b5a9302e5378ccb6e3a51a26725ddabb",
+            "finite": true
+          },
+          {
+            "rank": 1,
+            "completed_updates": 3,
+            "actor_trainable_sha256": "62dfb928b9468ca1463f29874ed9825537475434124637b677868475d4283520",
+            "critic_trainable_sha256": "e3da335a3d098915e254fb3df1bb1353e02d9785c77e24b88538917d9df2dab0",
+            "critic_normalizer_sha256": "dc8a41c483b102a7e5eb26b179a2be01b5a9302e5378ccb6e3a51a26725ddabb",
+            "finite": true
+          }
+        ]
+      },
+      "initialization_protocol": "residual_actor_and_critic_from_scratch_v3",
+      "distributed": {
+        "world_size": 2,
+        "num_envs_per_rank": 8192,
+        "global_num_envs": 16384,
+        "rank_seed_formula": "seed + 1000003 * rank",
+        "gradient_synchronization": "mean across all ranks at each optimizer step",
+        "advantage_normalization": "global rollout mean and sample standard deviation",
+        "critic_normalization": "global pooled sums, squared sums and count at every environment step"
+      },
+      "unix_time": 1788843894.5055034
+    }
+  },
+  {
+    "name": "smoke_film",
+    "phase": "ppo",
+    "gpus_needed": 2,
+    "command": [
+      "-m",
+      "torch.distributed.run",
+      "--standalone",
+      "--nproc-per-node=2",
+      "-m",
+      "intact_tracking.cli.limb_context_train",
+      "--fusion",
+      "film",
+      "--output-dir",
+      "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/smoke_2gpu8192_scratch/film",
+      "--iterations",
+      "3",
+      "--num-envs",
+      "8192",
+      "--motion-file",
+      "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/dance1_subject2.motion.npz",
+      "--context-checkpoint",
+      "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/stage1/best.pt"
+    ],
+    "output": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/smoke_2gpu8192_scratch/film",
+    "dependencies": [
+      "stage1"
+    ],
+    "gpu_pool": [
+      2,
+      3
+    ],
+    "status": "complete",
+    "completion": {
+      "target_updates": 3,
+      "completed_updates": 3,
+      "complete": true,
+      "stopped": false,
+      "distributed_parameter_agreement": {
+        "passed": true,
+        "world_size": 2,
+        "ranks": [
+          {
+            "rank": 0,
+            "completed_updates": 3,
+            "actor_trainable_sha256": "fd70b12e129d4ae2e7c24326c0a37126bd543a7f08b4c2d15331823c76219792",
+            "critic_trainable_sha256": "aa75be190237f3cccb18dad6c5751334bb234df4283e3477d2b0224c018ec420",
+            "critic_normalizer_sha256": "66859acae3083a3c05948f11b2d0a3b095ccbb7baec043302fb453dd8bedc984",
+            "finite": true
+          },
+          {
+            "rank": 1,
+            "completed_updates": 3,
+            "actor_trainable_sha256": "fd70b12e129d4ae2e7c24326c0a37126bd543a7f08b4c2d15331823c76219792",
+            "critic_trainable_sha256": "aa75be190237f3cccb18dad6c5751334bb234df4283e3477d2b0224c018ec420",
+            "critic_normalizer_sha256": "66859acae3083a3c05948f11b2d0a3b095ccbb7baec043302fb453dd8bedc984",
+            "finite": true
+          }
+        ]
+      },
+      "initialization_protocol": "residual_actor_and_critic_from_scratch_v3",
+      "distributed": {
+        "world_size": 2,
+        "num_envs_per_rank": 8192,
+        "global_num_envs": 16384,
+        "rank_seed_formula": "seed + 1000003 * rank",
+        "gradient_synchronization": "mean across all ranks at each optimizer step",
+        "advantage_normalization": "global rollout mean and sample standard deviation",
+        "critic_normalization": "global pooled sums, squared sums and count at every environment step"
+      },
+      "unix_time": 1788843843.5311425
+    }
+  },
+  {
+    "name": "smoke_concat",
+    "phase": "ppo",
+    "gpus_needed": 2,
+    "command": [
+      "-m",
+      "torch.distributed.run",
+      "--standalone",
+      "--nproc-per-node=2",
+      "-m",
+      "intact_tracking.cli.limb_context_train",
+      "--fusion",
+      "concat",
+      "--output-dir",
+      "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/smoke_2gpu8192_scratch/concat",
+      "--iterations",
+      "3",
+      "--num-envs",
+      "8192",
+      "--motion-file",
+      "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/dance1_subject2.motion.npz",
+      "--context-checkpoint",
+      "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/stage1/best.pt"
+    ],
+    "output": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/smoke_2gpu8192_scratch/concat",
+    "dependencies": [
+      "stage1"
+    ],
+    "gpu_pool": [
+      2,
+      3
+    ],
+    "status": "complete",
+    "completion": {
+      "target_updates": 3,
+      "completed_updates": 3,
+      "complete": true,
+      "stopped": false,
+      "distributed_parameter_agreement": {
+        "passed": true,
+        "world_size": 2,
+        "ranks": [
+          {
+            "rank": 0,
+            "completed_updates": 3,
+            "actor_trainable_sha256": "16d8de1809bf638ce84c8e246d91bfcc72abac69781ac4d06ed6acc90178ed6f",
+            "critic_trainable_sha256": "62e9dd1bdc63722a115d7fc6fefc6493eaa64ee5baa59f734c061b0d849fb102",
+            "critic_normalizer_sha256": "2ee113008a172e77b42122399f5c20f9a907a6628dc07d6f9761108a0651d144",
+            "finite": true
+          },
+          {
+            "rank": 1,
+            "completed_updates": 3,
+            "actor_trainable_sha256": "16d8de1809bf638ce84c8e246d91bfcc72abac69781ac4d06ed6acc90178ed6f",
+            "critic_trainable_sha256": "62e9dd1bdc63722a115d7fc6fefc6493eaa64ee5baa59f734c061b0d849fb102",
+            "critic_normalizer_sha256": "2ee113008a172e77b42122399f5c20f9a907a6628dc07d6f9761108a0651d144",
+            "finite": true
+          }
+        ]
+      },
+      "initialization_protocol": "residual_actor_and_critic_from_scratch_v3",
+      "distributed": {
+        "world_size": 2,
+        "num_envs_per_rank": 8192,
+        "global_num_envs": 16384,
+        "rank_seed_formula": "seed + 1000003 * rank",
+        "gradient_synchronization": "mean across all ranks at each optimizer step",
+        "advantage_normalization": "global rollout mean and sample standard deviation",
+        "critic_normalization": "global pooled sums, squared sums and count at every environment step"
+      },
+      "unix_time": 1788843895.8723874
+    }
+  },
+  {
+    "name": "stage1",
+    "phase": "encoder",
+    "gpus_needed": 4,
+    "command": [
+      "-m",
+      "torch.distributed.run",
+      "--standalone",
+      "--nproc-per-node=4",
+      "-m",
+      "intact_tracking.cli.forward_predictor_train",
+      "--checkpoint-file",
+      "/data_zcy/wxy/SP_Tracking/logs/rsl_rl/g1_tracking/2026-09-02_04-48-42_SPTracking-G1-BFM-SPV5-2AActor-HEFTCritic-HEFTReward_8gpu_12288env_motion_data_correct/checkpoint_72000.pt",
+      "--motion-path",
+      "/data_zcy/wxy/motion_data_correct/motion_data_full",
+      "--output-dir",
+      "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/stage1",
+      "--limb-payload-only",
+      "--no-payload",
+      "--nominal-fraction",
+      "0",
+      "--no-wandb",
+      "--seed",
+      "717",
+      "--num-envs",
+      "1152",
+      "--validation-worlds",
+      "128",
+      "--updates",
+      "8000",
+      "--until-user-stop",
+      "--continuation-min-learning-rate",
+      "0.00001",
+      "--warmup-steps",
+      "500",
+      "--batch-size",
+      "1024",
+      "--micro-batch-size",
+      "256",
+      "--fixed-probe-batch-size",
+      "512",
+      "--checkpoint-interval",
+      "250",
+      "--validation-interval",
+      "100"
+    ],
+    "output": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/stage1",
+    "dependencies": [
+      "smoke_stage1"
+    ],
+    "gpu_pool": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "status": "complete",
+    "completion": {
+      "automatic_plateau_detected": false,
+      "best_validation_dr_nmse": 0.01791882677935064,
+      "completed_updates": 8116,
+      "converged": false,
+      "hit_cap": false,
+      "optimizer_steps": 32464,
+      "selected_checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/stage1/best.pt",
+      "stopped": true,
+      "stopping_mode": "until_user_stop",
+      "target_updates": null,
+      "unix_time": 1788843709.7197518
+    }
+  },
+  {
+    "name": "baseline_121",
+    "phase": "ppo",
+    "gpus_needed": 2,
+    "command": [
+      "-m",
+      "torch.distributed.run",
+      "--standalone",
+      "--nproc-per-node=2",
+      "-m",
+      "intact_tracking.cli.limb_context_train",
+      "--fusion",
+      "baseline",
+      "--seed",
+      "121",
+      "--output-dir",
+      "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/ppo_2gpu8192_scratch/baseline_121",
+      "--iterations",
+      "5000",
+      "--motion-path",
+      "/data_zcy/wxy/motion_data_correct/motion_data_full",
+      "--num-envs",
+      "8192",
+      "--save-interval",
+      "100",
+      "--endpoint-eval-protocol",
+      "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/periodic_endpoints.json",
+      "--resume",
+      "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/ppo_2gpu8192_scratch/baseline_121/checkpoint_update_000203.pt"
+    ],
+    "output": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/ppo_2gpu8192_scratch/baseline_121",
+    "dependencies": [
+      "smoke_baseline",
+      "smoke_constant",
+      "smoke_film",
+      "smoke_concat",
+      "stage1"
+    ],
+    "gpu_pool": [
+      0,
+      1
+    ],
+    "status": "pending"
+  },
+  {
+    "name": "film_121",
+    "phase": "ppo",
+    "gpus_needed": 2,
+    "command": [
+      "-m",
+      "torch.distributed.run",
+      "--standalone",
+      "--nproc-per-node=2",
+      "-m",
+      "intact_tracking.cli.limb_context_train",
+      "--fusion",
+      "film",
+      "--seed",
+      "121",
+      "--output-dir",
+      "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/ppo_2gpu8192_scratch/film_121",
+      "--iterations",
+      "5000",
+      "--motion-path",
+      "/data_zcy/wxy/motion_data_correct/motion_data_full",
+      "--num-envs",
+      "8192",
+      "--save-interval",
+      "100",
+      "--endpoint-eval-protocol",
+      "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/periodic_endpoints.json",
+      "--context-checkpoint",
+      "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/stage1/best.pt",
+      "--resume",
+      "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/ppo_2gpu8192_scratch/film_121/checkpoint_update_000164.pt"
+    ],
+    "output": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/ppo_2gpu8192_scratch/film_121",
+    "dependencies": [
+      "smoke_baseline",
+      "smoke_constant",
+      "smoke_film",
+      "smoke_concat",
+      "stage1"
+    ],
+    "gpu_pool": [
+      2,
+      3
+    ],
+    "status": "pending"
+  },
+  {
+    "name": "baseline_122",
+    "phase": "ppo",
+    "gpus_needed": 2,
+    "command": [
+      "-m",
+      "torch.distributed.run",
+      "--standalone",
+      "--nproc-per-node=2",
+      "-m",
+      "intact_tracking.cli.limb_context_train",
+      "--fusion",
+      "baseline",
+      "--seed",
+      "122",
+      "--output-dir",
+      "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/ppo_2gpu8192_scratch/baseline_122",
+      "--iterations",
+      "5000",
+      "--motion-path",
+      "/data_zcy/wxy/motion_data_correct/motion_data_full",
+      "--num-envs",
+      "8192",
+      "--save-interval",
+      "100",
+      "--endpoint-eval-protocol",
+      "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/periodic_endpoints.json"
+    ],
+    "output": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/ppo_2gpu8192_scratch/baseline_122",
+    "dependencies": [
+      "smoke_baseline",
+      "smoke_constant",
+      "smoke_film",
+      "smoke_concat",
+      "stage1"
+    ],
+    "gpu_pool": [
+      0,
+      1
+    ],
+    "status": "pending"
+  },
+  {
+    "name": "film_122",
+    "phase": "ppo",
+    "gpus_needed": 2,
+    "command": [
+      "-m",
+      "torch.distributed.run",
+      "--standalone",
+      "--nproc-per-node=2",
+      "-m",
+      "intact_tracking.cli.limb_context_train",
+      "--fusion",
+      "film",
+      "--seed",
+      "122",
+      "--output-dir",
+      "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/ppo_2gpu8192_scratch/film_122",
+      "--iterations",
+      "5000",
+      "--motion-path",
+      "/data_zcy/wxy/motion_data_correct/motion_data_full",
+      "--num-envs",
+      "8192",
+      "--save-interval",
+      "100",
+      "--endpoint-eval-protocol",
+      "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/periodic_endpoints.json",
+      "--context-checkpoint",
+      "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/stage1/best.pt"
+    ],
+    "output": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/ppo_2gpu8192_scratch/film_122",
+    "dependencies": [
+      "smoke_baseline",
+      "smoke_constant",
+      "smoke_film",
+      "smoke_concat",
+      "stage1"
+    ],
+    "gpu_pool": [
+      2,
+      3
+    ],
+    "status": "pending"
+  },
+  {
+    "name": "baseline_123",
+    "phase": "ppo",
+    "gpus_needed": 2,
+    "command": [
+      "-m",
+      "torch.distributed.run",
+      "--standalone",
+      "--nproc-per-node=2",
+      "-m",
+      "intact_tracking.cli.limb_context_train",
+      "--fusion",
+      "baseline",
+      "--seed",
+      "123",
+      "--output-dir",
+      "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/ppo_2gpu8192_scratch/baseline_123",
+      "--iterations",
+      "5000",
+      "--motion-path",
+      "/data_zcy/wxy/motion_data_correct/motion_data_full",
+      "--num-envs",
+      "8192",
+      "--save-interval",
+      "100",
+      "--endpoint-eval-protocol",
+      "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/periodic_endpoints.json"
+    ],
+    "output": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/ppo_2gpu8192_scratch/baseline_123",
+    "dependencies": [
+      "smoke_baseline",
+      "smoke_constant",
+      "smoke_film",
+      "smoke_concat",
+      "stage1"
+    ],
+    "gpu_pool": [
+      0,
+      1
+    ],
+    "status": "pending"
+  },
+  {
+    "name": "film_123",
+    "phase": "ppo",
+    "gpus_needed": 2,
+    "command": [
+      "-m",
+      "torch.distributed.run",
+      "--standalone",
+      "--nproc-per-node=2",
+      "-m",
+      "intact_tracking.cli.limb_context_train",
+      "--fusion",
+      "film",
+      "--seed",
+      "123",
+      "--output-dir",
+      "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/ppo_2gpu8192_scratch/film_123",
+      "--iterations",
+      "5000",
+      "--motion-path",
+      "/data_zcy/wxy/motion_data_correct/motion_data_full",
+      "--num-envs",
+      "8192",
+      "--save-interval",
+      "100",
+      "--endpoint-eval-protocol",
+      "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/periodic_endpoints.json",
+      "--context-checkpoint",
+      "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/stage1/best.pt"
+    ],
+    "output": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/ppo_2gpu8192_scratch/film_123",
+    "dependencies": [
+      "smoke_baseline",
+      "smoke_constant",
+      "smoke_film",
+      "smoke_concat",
+      "stage1"
+    ],
+    "gpu_pool": [
+      2,
+      3
+    ],
+    "status": "pending"
+  },
+  {
+    "name": "concat_121",
+    "phase": "ppo",
+    "gpus_needed": 2,
+    "command": [
+      "-m",
+      "torch.distributed.run",
+      "--standalone",
+      "--nproc-per-node=2",
+      "-m",
+      "intact_tracking.cli.limb_context_train",
+      "--fusion",
+      "concat",
+      "--seed",
+      "121",
+      "--output-dir",
+      "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/ppo_2gpu8192_scratch/concat_121",
+      "--iterations",
+      "5000",
+      "--motion-path",
+      "/data_zcy/wxy/motion_data_correct/motion_data_full",
+      "--num-envs",
+      "8192",
+      "--save-interval",
+      "100",
+      "--endpoint-eval-protocol",
+      "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/periodic_endpoints.json",
+      "--context-checkpoint",
+      "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/stage1/best.pt"
+    ],
+    "output": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/ppo_2gpu8192_scratch/concat_121",
+    "dependencies": [
+      "smoke_baseline",
+      "smoke_constant",
+      "smoke_film",
+      "smoke_concat",
+      "stage1"
+    ],
+    "gpu_pool": [
+      2,
+      3
+    ],
+    "status": "pending"
+  },
+  {
+    "name": "constant_121",
+    "phase": "ppo",
+    "gpus_needed": 2,
+    "command": [
+      "-m",
+      "torch.distributed.run",
+      "--standalone",
+      "--nproc-per-node=2",
+      "-m",
+      "intact_tracking.cli.limb_context_train",
+      "--fusion",
+      "constant",
+      "--seed",
+      "121",
+      "--output-dir",
+      "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/ppo_2gpu8192_scratch/constant_121",
+      "--iterations",
+      "5000",
+      "--motion-path",
+      "/data_zcy/wxy/motion_data_correct/motion_data_full",
+      "--num-envs",
+      "8192",
+      "--save-interval",
+      "100",
+      "--endpoint-eval-protocol",
+      "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/periodic_endpoints.json"
+    ],
+    "output": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/ppo_2gpu8192_scratch/constant_121",
+    "dependencies": [
+      "smoke_baseline",
+      "smoke_constant",
+      "smoke_film",
+      "smoke_concat",
+      "stage1"
+    ],
+    "gpu_pool": [
+      0,
+      1
+    ],
+    "status": "pending"
+  }
+]

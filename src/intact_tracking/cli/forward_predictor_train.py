@@ -7,6 +7,8 @@ import importlib.metadata
 import json
 import os
 import random
+import shutil
+import signal
 import time
 from contextlib import nullcontext
 from dataclasses import asdict
@@ -32,6 +34,7 @@ from intact_tracking.forward_predictor_objective import (
     ForwardPredictorLossConfig,
     ForwardPredictorObjective,
 )
+from intact_tracking.forward_predictor_schedule import extend_cosine_schedule
 from intact_tracking.rollout import (
     FixedDRRolloutConfig,
     FixedDRTrackerRollout,
@@ -56,6 +59,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--device")
     parser.add_argument("--distributed-backend", choices=("nccl", "gloo"))
     parser.add_argument("--seed", type=int, default=0)
+    limb_profile = parser.add_mutually_exclusive_group()
+    limb_profile.add_argument("--limb-payload-only", action="store_true")
+    limb_profile.add_argument("--tracker-dr-plus-limb-payload", action="store_true",
+                              help="Preserve the frozen tracker's full DR and add four independent U(0,4) kg loads")
+    parser.add_argument("--validation-worlds", type=int, default=0,
+                        help="Last N independently sampled worlds per rank are excluded from training replay")
+    parser.add_argument("--validation-interval", type=int, default=100)
+    parser.add_argument("--resume", help="Restore optimizer/model/stats; simulator and replay restart")
     parser.add_argument("--stochastic-policy", action="store_true")
     parser.add_argument(
         "--randomize-initial-episode-phase",
@@ -102,7 +113,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     parser.add_argument("--warmup-steps", type=int, default=100)
     parser.add_argument("--max-warmup-steps", type=int, default=10_000)
-    parser.add_argument("--updates", type=int, default=10_000)
+    parser.add_argument("--updates", type=int, default=10_000,
+                        help="Update limit; with --until-user-stop, only the cosine decay horizon")
+    parser.add_argument("--until-user-stop", action="store_true",
+                        help="No update cap or automatic plateau stopping; stop only on a signal")
+    parser.add_argument("--continuation-min-learning-rate", type=float, default=1e-5)
     parser.add_argument("--rollout-steps-per-update", type=int, default=5)
     parser.add_argument("--gradient-steps-per-update", type=int, default=4)
     parser.add_argument(
@@ -169,6 +184,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--contact-force-weight", type=float, default=1.0)
     parser.add_argument("--contact-binary-weight", type=float, default=1.0)
     parser.add_argument("--representation-weight", type=float, default=0.01)
+    parser.add_argument("--representation-relation-weight", type=float, default=1.0,
+                        help="Multiplier on cross-world response geometry, inside representation-weight")
     parser.add_argument("--response-distance-scale", type=float, default=1.0)
     parser.add_argument(
         "--positive-offset-steps",
@@ -189,6 +206,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--wandb-tag", action="append", default=[])
     parser.add_argument("--wandb-mode", choices=("online", "offline"), default="online")
     return parser
+
+
+def _limb_experiment(args: argparse.Namespace) -> bool:
+    return args.limb_payload_only or getattr(args, "tracker_dr_plus_limb_payload", False)
 
 
 def _validate_arguments(args: argparse.Namespace) -> None:
@@ -233,8 +254,15 @@ def _validate_arguments(args: argparse.Namespace) -> None:
         raise ValueError("Forward Predictor history-steps is fixed to ten")
     if args.context_history_steps < args.history_steps:
         raise ValueError("context-history-steps must be at least history-steps")
-    if args.nominal_fraction != 0.5:
+    if _limb_experiment(args):
+        if args.nominal_fraction or args.payload:
+            raise ValueError("Four-limb profiles require --nominal-fraction 0 --no-payload")
+        if not 0 < args.validation_worlds < args.num_envs:
+            raise ValueError("Four-limb profiles require disjoint validation worlds")
+    elif args.nominal_fraction != 0.5:
         raise ValueError("This task requires --nominal-fraction=0.5")
+    if args.until_user_stop and not 0 < args.continuation_min_learning_rate <= args.model_learning_rate:
+        raise ValueError("Manual stopping requires a positive continuation LR no larger than the initial LR")
     if args.num_envs % 2:
         raise ValueError("num-envs must be even for the 50/50 nominal/DR A batch")
     if args.positive_offset_steps != 5:
@@ -261,6 +289,7 @@ def _validate_arguments(args: argparse.Namespace) -> None:
         "contact_force_weight",
         "contact_binary_weight",
         "representation_weight",
+        "representation_relation_weight",
         "recursive_weight",
     ):
         if getattr(args, name) < 0.0:
@@ -314,7 +343,7 @@ def _main_process_call(distributed: DistributedContext, action: Callable[[], T])
 def _prepare_paths(args: argparse.Namespace) -> dict[str, str]:
     output = Path(args.output_dir).expanduser().resolve()
     output.mkdir(parents=True, exist_ok=True)
-    if (output / "last.pt").exists() or (output / "run_config.json").exists():
+    if not args.resume and ((output / "last.pt").exists() or (output / "run_config.json").exists()):
         raise FileExistsError(f"Refusing to overwrite an existing run in {output}")
     checkpoint = Path(args.checkpoint_file).expanduser().resolve()
     if not checkpoint.is_file():
@@ -382,6 +411,14 @@ _CORE_PROBE_METRICS = (
     "latent_shuffle_dr_error_ratio",
     "dr_counterfactual_rms",
     "nominal_counterfactual_rms",
+)
+
+_REPRESENTATION_PROBE_METRICS = (
+    "representation_positive_loss", "representation_relation_loss", "latent_relation_pairs",
+    "latent_distance_mean", "latent_target_distance_mean",
+    "latent_distance_batch_p10", "latent_distance_batch_p50", "latent_distance_batch_p90",
+    "latent_target_distance_batch_p10", "latent_target_distance_batch_p50",
+    "latent_target_distance_batch_p90",
 )
 
 
@@ -462,6 +499,10 @@ def _save_checkpoint(
     numbered: bool,
 ) -> None:
     state = {
+        "nominal_counterfactual_representation_supervision": True,
+        "load_only_experiment": rollout.config.limb_payload_only,
+        "dr_profile": rollout.payload_configuration.get("dr_profile"),
+        "training_physics": rollout.payload_configuration,
         "architecture_version": model_config.architecture_version,
         "update": update,
         "optimizer_steps": optimizer_steps,
@@ -519,7 +560,9 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
     if amp_enabled and not torch.cuda.is_bf16_supported():
         raise RuntimeError("--amp-dtype=bfloat16 requires a CUDA device with BF16 support")
     world_id_offset = distributed.rank * args.num_envs
-    global_world_ids = tuple(range(args.num_envs * distributed.world_size))
+    training_worlds = args.num_envs - args.validation_worlds
+    global_world_ids = tuple(rank * args.num_envs + i for rank in range(distributed.world_size)
+                             for i in range(training_worlds))
     dimensions = RolloutDimensions()
 
     rollout = FixedDRTrackerRollout(
@@ -541,8 +584,21 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             payload_mass_range_kg=tuple(args.payload_mass_range_kg),
             payload_position_body_m=tuple(args.payload_position_body_m),
             payload_size_m=tuple(args.payload_size_m),
+            limb_payload_only=args.limb_payload_only,
+            tracker_dr_plus_limb_payload=args.tracker_dr_plus_limb_payload,
         )
     )
+    dataset = None
+    if _limb_experiment(args):
+        from intact_tracking.preview_protocol import dataset_identity
+        files, dataset = dataset_identity(args.motion_file, args.motion_path)
+        expected = files[distributed.rank::distributed.world_size] if len(files) > 1 else files
+        if tuple(map(str, expected)) != rollout.motion_files:
+            rollout.close()
+            raise ValueError("Stage 1 shard differs from the complete requested dataset")
+        dataset.update(rank_partition="sorted files [rank::world_size], union equals full catalog",
+                       loaded_local_motion_count=len(rollout.motion_files),
+                       loaded_local_frames=int(rollout.motion_command.motion.file_lengths.sum()))
     if rollout.predictor_action_transform is None:
         error = rollout.predictor_action_transform_error or "unknown action-chain error"
         rollout.close()
@@ -568,7 +624,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         rollout.close()
         raise
     replay = ForwardPredictorReplayBuffer(
-        num_worlds=args.num_envs,
+        num_worlds=training_worlds,
         dimensions=dimensions,
         capacity=args.replay_capacity,
         history_steps=args.history_steps,
@@ -579,6 +635,17 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         world_id_offset=world_id_offset,
         device=device,
     )
+    validation_replay = None
+    collector_replay = replay
+    if args.validation_worlds:
+        from intact_tracking.limb_context_validation import SplitWorldReplay
+        validation_replay = ForwardPredictorReplayBuffer(
+            num_worlds=args.validation_worlds, dimensions=dimensions,
+            capacity=max(32768, args.fixed_probe_batch_size * 8),
+            history_steps=args.history_steps, context_history_steps=args.context_history_steps,
+            positive_offset_steps=args.positive_offset_steps, sampling_mode=args.replay_sampling,
+            seed=rank_seed + 908177, world_id_offset=world_id_offset + training_worlds, device=device)
+        collector_replay = SplitWorldReplay(replay, validation_replay)
     # Simulator construction intentionally uses a rank-independent dynamics
     # seed. Restore the rank seed before model initialization and replay draws.
     _seed_everything(rank_seed)
@@ -607,6 +674,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         contact_force_weight=args.contact_force_weight,
         contact_binary_weight=args.contact_binary_weight,
         representation_weight=args.representation_weight,
+        representation_relation_weight=args.representation_relation_weight,
         response_distance_scale=args.response_distance_scale,
         huber_delta=args.huber_delta,
     )
@@ -636,6 +704,24 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         optimizer,
         T_max=optimizer_steps_target,
     )
+    resumed = None
+    schedule_extension = None
+    if args.resume:
+        resumed = torch.load(args.resume, map_location=device, weights_only=False)
+        resumed_loss_config = asdict(ForwardPredictorLossConfig(**resumed["loss_config"]))
+        if resumed["model_config"] != asdict(model_config) or resumed_loss_config != asdict(loss_config):
+            raise ValueError("Resume model/loss configuration changed")
+        if resumed["tracker"]["checkpoint_sha256"] != tracker_sha256:
+            raise ValueError("Resume tracker changed")
+        model.load_state_dict(resumed["model"], strict=True)
+        optimizer.load_state_dict(resumed["optimizer"])
+        scheduler.load_state_dict(resumed["scheduler"])
+        schedule_extension = extend_cosine_schedule(scheduler, optimizer_steps_target)
+    if args.until_user_stop:
+        for group in optimizer.param_groups:
+            group["lr"] = max(group["lr"], args.continuation_min_learning_rate)
+        scheduler._last_lr = [group["lr"] for group in optimizer.param_groups]
+        scheduler.continuation_min_learning_rate = args.continuation_min_learning_rate
     parameter_count = sum(parameter.numel() for parameter in model.parameters())
     payload_contract = (
         f"DR worlds additionally carry one fixed rigid payload on {args.payload_body_name}, "
@@ -716,7 +802,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             "sampling": args.replay_sampling,
             "positive_pairs": (
                 "same A world/episode/motion, exact +/-5-frame context-window shift; both "
-                "contexts must contain all 100 frames"
+                f"contexts must contain all {args.context_history_steps} frames"
             ),
             "response_pairs": (
                 "cross-world broad-replay pairs; normalized latent distance continuously matches "
@@ -730,11 +816,88 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             "teacher_forced_weight": 1.0,
             "recursive_weight": args.recursive_weight,
             "representation_weight": args.representation_weight,
+            "representation_relation_weight": args.representation_relation_weight,
+            "effective_positive_weight": args.representation_weight,
+            "effective_relation_weight": args.representation_weight * args.representation_relation_weight,
             "response_distance_scale": args.response_distance_scale,
         },
-        "reported_probe_metrics": list(_CORE_PROBE_METRICS),
+        "reported_probe_metrics": list(_CORE_PROBE_METRICS + _REPRESENTATION_PROBE_METRICS),
+        "representation_distance_diagnostics": (
+            "Quantiles use eligible pairs in each rank's probe batch; distributed logs average "
+            "rank-local quantiles and do not represent pooled global quantiles. Zero valid "
+            "pairs produce zero diagnostics; inspect latent_relation_pairs alongside distances."
+        ),
+        "research_source_sha256": {
+            str(p.relative_to(Path(__file__).resolve().parents[3])): _sha256(p) for p in (
+                Path(__file__).resolve(),
+                Path(__file__).resolve().parents[1] / "forward_predictor.py",
+                Path(__file__).resolve().parents[1] / "forward_predictor_objective.py",
+                Path(__file__).resolve().parents[1] / "forward_predictor_schedule.py",
+                Path(__file__).resolve().parents[1] / "data/predictor_online.py",
+                Path(__file__).resolve().parents[1] / "rollout/online.py",
+                Path(__file__).resolve().parents[1] / "rollout/nominal.py")},
     }
-    _main_process_call(distributed, lambda: _write_json(output_dir / "run_config.json", run_config))
+    if _limb_experiment(args):
+        run_config["dataset"] = dataset
+        run_config["method"] = "four-limb independent uniform nominal-counterfactual context"
+        run_config["architecture"]["physics"] = (
+            "all A worlds independently sample each hand/mid-shin U(0,4kg), no other DR/noise; "
+            "B restores every exact A start into nominal physics and replays identical PD targets")
+        if args.tracker_dr_plus_limb_payload:
+            run_config["architecture"]["physics"] = (
+                "A preserves frozen-tracker DR, observation noise, action settings and force pulses, "
+                "plus independent hand/mid-shin U(0,4kg); B restores each exact A start into "
+                "nominal physics without pulses and replays identical physical PD targets")
+        run_config["dr_profile"] = rollout.payload_configuration["dr_profile"]
+        run_config["validation"] = {
+            "worlds_per_rank": args.validation_worlds,
+            "training_worlds_per_rank": training_worlds,
+            "contract": "disjoint physical world IDs, independent loads/motions/starts/history; excluded from training and normalization",
+            "selection": "minimum held-out five-step DR NMSE on broad contexts, including incomplete histories",
+            "representation_probe": "separate held-out full-context positive pairs",
+            "interval": args.validation_interval,
+            "convergence": "at least 2000 updates; <1% best NMSE improvement over 1000 updates and latent diagnostic ranges <0.1",
+            "nominal_metrics": "no nominal A validation samples; masked zero metrics are omitted, not reported as perfect",
+        }
+    run_config["training_control"] = {
+        "mode": "until_user_stop" if args.until_user_stop else "automatic_budget_or_plateau",
+        "maximum_updates": None if args.until_user_stop else args.updates,
+        "automatic_early_stopping": not args.until_user_stop,
+        "cosine_horizon_updates": args.updates,
+        "continuation_min_learning_rate": args.continuation_min_learning_rate if args.until_user_stop else None,
+        "stage2_requires_explicit_user_convergence_decision": args.until_user_stop,
+    }
+    if args.resume:
+        old_config = json.loads((output_dir / "run_config.json").read_text())
+        for name in ("num_envs", "validation_worlds", "seed", "batch_size", "gradient_steps_per_update",
+                     "motion_path", "motion_file", "limb_payload_only", "nominal_fraction"):
+            if old_config["arguments"][name] != vars(args)[name]:
+                raise ValueError(f"Resume changed {name}")
+        if old_config["arguments"].get("tracker_dr_plus_limb_payload", False) != args.tracker_dr_plus_limb_payload:
+            raise ValueError("Resume changed the original tracker DR profile")
+        if args.updates < old_config["arguments"]["updates"]:
+            raise ValueError("Resume cannot reduce the training budget")
+        run_config["resume_history"] = old_config.get("resume_history", []) + [{
+            "checkpoint": str(Path(args.resume).resolve()), "completed_update": resumed["update"],
+            "checkpoint_sha256": _sha256(Path(args.resume)),
+            "optimizer_steps": resumed["optimizer_steps"],
+            "previous_update_limit": None if old_config["arguments"].get("until_user_stop") else old_config["arguments"]["updates"],
+            "update_limit": None if args.until_user_stop else args.updates,
+            "schedule_extension": schedule_extension, "training_control": run_config["training_control"],
+            "simulator_and_replay_restarted": True, "normalization_and_validation_preserved": True,
+            "unix_time": time.time()}]
+
+        def save_resume_config():
+            initial = output_dir / "run_config.initial.json"
+            if not initial.exists():
+                _write_json(initial, old_config)
+            _write_json(output_dir / "run_config.json", run_config)
+
+        _main_process_call(distributed, save_resume_config)
+        if distributed.is_main:
+            print(json.dumps({"event": "forward_predictor_resume", **run_config["resume_history"][-1]}), flush=True)
+    else:
+        _main_process_call(distributed, lambda: _write_json(output_dir / "run_config.json", run_config))
     if distributed.is_main:
         print(
             json.dumps(
@@ -781,9 +944,22 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         rollout.close()
         raise
 
-    history: list[dict[str, Any]] = []
+    history: list[dict[str, Any]] = (
+        json.loads((output_dir / "history.json").read_text()) if args.resume else [])
     metrics_path = output_dir / "metrics.jsonl"
-    optimizer_steps = 0
+    optimizer_steps = resumed["optimizer_steps"] if resumed else 0
+    first_update = resumed["update"] + 1 if resumed else 1
+    stop_requested = False
+    converged = False
+    plateau_detected = False
+    handlers = {}
+
+    def stop(signum, frame):
+        nonlocal stop_requested
+        stop_requested = True
+
+    for signum in (signal.SIGTERM, signal.SIGINT):
+        handlers[signum] = signal.signal(signum, stop)
     completed = False
     try:
         warmup_started = time.monotonic()
@@ -795,6 +971,8 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                     args.batch_size if args.fixed_batch_overfit else args.fixed_probe_batch_size
                 )
                 ready = replay.can_sample_positive_pairs(positive_batch)
+            if ready and validation_replay is not None:
+                ready = validation_replay.can_sample_positive_pairs(args.fixed_probe_batch_size)
             if distributed.all_true(ready):
                 break
             if rollout.collector_step >= args.max_warmup_steps:
@@ -802,7 +980,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                     "Forward Predictor warmup exhausted before every rank had a full batch: "
                     f"steps={rollout.collector_step}, replay={len(replay)}"
                 )
-            nominal_diagnostics = _collect_counterfactual_block(rollout, nominal_rollout, replay)
+            nominal_diagnostics = _collect_counterfactual_block(rollout, nominal_rollout, collector_replay)
             if distributed.is_main and (
                 rollout.collector_step == 5
                 or rollout.collector_step % args.warmup_log_interval == 0
@@ -822,13 +1000,30 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                     flush=True,
                 )
 
-        normalization = _global_normalization(distributed, replay, global_world_ids)
+        normalization = (ForwardPredictorNormalizationStats(**resumed["normalization"]) if resumed
+                         else _global_normalization(distributed, replay, global_world_ids))
         replay.normalizer.freeze()
-        fixed_probe_batch = replay.sample_batch(
+        fixed_probe_batch = (validation_replay if validation_replay is not None else replay).sample_batch(
             args.fixed_probe_batch_size,
             normalization,
             positive_ready_only=args.representation_weight > 0.0,
         )
+        broad_probe_batch = fixed_probe_batch
+        if validation_replay is not None:
+            broad_probe_batch = validation_replay.sample_batch(args.fixed_probe_batch_size, normalization)
+            probe_file = output_dir / f"validation_rank_{distributed.rank}.pt"
+            broad_file = output_dir / f"validation_broad_rank_{distributed.rank}.pt"
+            if args.resume:
+                fixed_probe_batch = torch.load(probe_file, map_location=device, weights_only=False)
+                broad_probe_batch = torch.load(broad_file, map_location=device, weights_only=False)
+            else:
+                torch.save({k: v.cpu() if isinstance(v, torch.Tensor) else v
+                            for k, v in fixed_probe_batch.items()}, probe_file)
+                torch.save({k: v.cpu() if isinstance(v, torch.Tensor) else v
+                            for k, v in broad_probe_batch.items()}, broad_file)
+            collector_replay.collect_validation = False
+        run_config["nominal_pair_numerical_audit"] = nominal_rollout.metadata.get("repeat_diagnostics")
+        _main_process_call(distributed, lambda: _write_json(output_dir / "run_config.json", run_config))
         fixed_train_batch = (
             replay.sample_batch(
                 args.batch_size,
@@ -850,10 +1045,13 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                 ),
                 flush=True,
             )
-        for update in range(1, args.updates + 1):
+        update = first_update - 1
+        best_score = min((r["fixed_probe"]["dr_five_step_nmse"] for r in history), default=float("inf"))
+        from intact_tracking.forward_predictor_schedule import training_update_indices, advance_predictor_schedule
+        for update in training_update_indices(first_update, args.updates, args.until_user_stop):
             if update > 1 and not args.fixed_batch_overfit:
                 model.eval()
-                _collect_counterfactual_block(rollout, nominal_rollout, replay)
+                _collect_counterfactual_block(rollout, nominal_rollout, collector_replay)
 
             training_module.train()
             step_losses: list[dict[str, torch.Tensor]] = []
@@ -899,12 +1097,18 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                         accumulated_losses[name] = (
                             accumulated_losses.get(name, torch.zeros_like(weighted)) + weighted
                         )
+                # Infinite max norm checks finiteness without clipping any finite gradient.
+                gradient_norm = torch.nn.utils.clip_grad_norm_(parameters, float("inf"), error_if_nonfinite=True)
+                accumulated_losses["gradient_norm"] = gradient_norm.detach().float()
                 optimizer.step()
-                scheduler.step()
+                advance_predictor_schedule(scheduler,
+                    args.continuation_min_learning_rate if args.until_user_stop else None)
                 optimizer_steps += 1
                 step_losses.append(accumulated_losses)
 
-            should_report = update == 1 or update % args.log_interval == 0 or update == args.updates
+            report_interval = args.validation_interval if validation_replay is not None else args.log_interval
+            should_report = update == first_update or update % report_interval == 0 or update == args.updates
+            improved = False
             if should_report:
                 local_optimization_train = _scalar_tensors_to_floats(
                     {
@@ -921,13 +1125,18 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                 )
                 with torch.inference_mode(), autocast_context:
                     probe_output = objective(
-                        fixed_probe_batch,
+                        broad_probe_batch,
                         recursive_weight=args.recursive_weight,
                         validate_batch=False,
                     )
-                    local_probe = _scalar_tensors_to_floats(
-                        {name: probe_output[name] for name in _CORE_PROBE_METRICS}
-                    )
+                    if validation_replay is not None:
+                        full_output = objective(fixed_probe_batch, recursive_weight=args.recursive_weight,
+                                                validate_batch=False)
+                        for name in ("latent_positive_cosine", "latent_response_correlation", "latent_shuffle_dr_error_ratio",
+                                     *_REPRESENTATION_PROBE_METRICS):
+                            probe_output[name] = full_output[name]
+                    local_probe = _scalar_tensors_to_floats({name: probe_output[name] for name in _CORE_PROBE_METRICS + _REPRESENTATION_PROBE_METRICS
+                        if not _limb_experiment(args) or name not in ("nominal_five_step_nmse", "nominal_counterfactual_rms")})
                 fixed_probe = distributed.mean_scalars(local_probe)
                 counts = distributed.sum_integers(
                     {
@@ -943,15 +1152,27 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                     "learning_rate_model": optimizer.param_groups[0]["lr"],
                     "optimization_train": optimization_train,
                     "fixed_probe": fixed_probe,
+                    "unix_time": time.time(),
+                    "elapsed_seconds": time.monotonic() - warmup_started,
+                    "validation_context_full_fraction": float(broad_probe_batch["context_full"].float().mean()),
+                    "training_context_full_fraction": float(train_batch["context_full"].float().mean()),
                 }
+                improved = fixed_probe["dr_five_step_nmse"] < best_score
+                best_score = min(best_score, fixed_probe["dr_five_step_nmse"])
+                history.append(record)
+                if _limb_experiment(args):
+                    from intact_tracking.limb_context_validation import validation_plateau
+                    plateau_detected = validation_plateau(history, update)
+                    converged = plateau_detected and not args.until_user_stop
+                    record["automatic_plateau_detected"] = plateau_detected
                 if distributed.is_main:
-                    history.append(record)
                     with metrics_path.open("a") as handle:
                         handle.write(json.dumps(record, sort_keys=True) + "\n")
                     wandb_logger.log(_wandb_payload(record), step=update)
                     print(json.dumps(record, sort_keys=True), flush=True)
 
-            if args.checkpoint_interval and update % args.checkpoint_interval == 0:
+            interrupted = not distributed.all_true(not stop_requested)
+            if improved or (args.checkpoint_interval and update % args.checkpoint_interval == 0) or interrupted or converged:
                 _save_checkpoint(
                     distributed=distributed,
                     output_dir=output_dir,
@@ -969,11 +1190,15 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                     wandb_logger=wandb_logger,
                     numbered=True,
                 )
+                if improved:
+                    _main_process_call(distributed, lambda: shutil.copy2(output_dir / "last.pt", output_dir / "best.pt"))
+            if interrupted or converged:
+                break
 
         _save_checkpoint(
             distributed=distributed,
             output_dir=output_dir,
-            update=args.updates,
+            update=update,
             optimizer_steps=optimizer_steps,
             model=model,
             optimizer=optimizer,
@@ -988,9 +1213,19 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             numbered=False,
         )
         distributed.barrier()
+        _main_process_call(distributed, lambda: _write_json(output_dir / "completion.json", {
+            "completed_updates": update, "optimizer_steps": optimizer_steps, "converged": converged,
+            "target_updates": None if args.until_user_stop else args.updates,
+            "stopping_mode": "until_user_stop" if args.until_user_stop else "automatic_budget_or_plateau",
+            "automatic_plateau_detected": plateau_detected,
+            "stopped": interrupted if update >= first_update else False,
+            "hit_cap": not args.until_user_stop and update >= args.updates, "best_validation_dr_nmse": best_score,
+            "selected_checkpoint": str(output_dir / "best.pt"), "unix_time": time.time()}))
         completed = True
         return output_dir / "last.pt"
     finally:
+        for signum, handler in handlers.items():
+            signal.signal(signum, handler)
         wandb_logger.finish(exit_code=0 if completed else 1)
         nominal_rollout.close()
         rollout.close()

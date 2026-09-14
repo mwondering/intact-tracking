@@ -1,0 +1,17 @@
+{
+  "created_at": 1789348846.1970332,
+  "passed": true,
+  "update": 3000,
+  "evaluations_reused": "Automatically executed 3000-update assessments, completed during this check. Provenance and paired trajectories independently verified; no duplicate GPU evaluation launched.",
+  "checkpoint_sha256": {
+    "baseline": "7152b0f66f4049e79dea338080412798f157b8a4c8ba7fa7cb38142d82de4ea1",
+    "concat": "4066acec36647b27cf1e51e05a1564e549a845cb8b3f0e6600ced16c538df4dc"
+  },
+  "files": {
+    "paired_results.json": "296474df102b8d1e155003b8cf5ecb4909e1255d0ad0be290bad83962dfdf059",
+    "latent_usage_comparison.json": "3bba8bb54f28d4897af6858fafadbf365446ccbe98f6d0de2f268cea5e38fe58",
+    "router_audit.json": "43b296820a2d3064e2d655bd097390bf285b2d22b10f0179b5840fe7cd108d32",
+    "report.md": "604f4177cfb9e879c0469abf1a81a4144aa6b8d731d63ad540f432438dd552b6",
+    "metrics.csv": "a333437d99ef27673a4bb9aa364e6fc8145cfbe66c3dc6d5db983597961cf3fd"
+  }
+}

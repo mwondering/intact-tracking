@@ -1,0 +1,18 @@
+{
+  "verified_at": 1789320207.6397433,
+  "arms": {
+    "baseline": {
+      "completed_updates": 100,
+      "checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260913_memory350_online_kmeans16_uniform_dr/paused_for_critic_action/baseline_update_000100.pt",
+      "sha256": "140b0d315016f87736f3aebc3f6ad3dc6df585815307029f04e91059675c89e6",
+      "four_rank_agreement": true
+    },
+    "concat": {
+      "completed_updates": 65,
+      "checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260913_memory350_online_kmeans16_uniform_dr/paused_for_critic_action/concat_update_000065.pt",
+      "sha256": "325dcaeb97efc671f1aee371cebf66e69b91c3a3c0684cbe59bc4222d5dc162c",
+      "four_rank_agreement": true
+    }
+  },
+  "passed": true
+}

@@ -1,0 +1,10 @@
+{
+  "limb_context_20260908_no_ee_4gpu/film_123": {
+    "same_process": true,
+    "same_resume_history": true
+  },
+  "limb_context_20260909_context200/stage1": {
+    "same_process": true,
+    "same_resume_history": true
+  }
+}

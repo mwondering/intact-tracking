@@ -33,8 +33,8 @@ class NominalPairRolloutConfig:
     def __post_init__(self) -> None:
         if self.num_envs < 1:
             raise ValueError("nominal pair num_envs must be positive")
-        if self.horizon != 5:
-            raise ValueError("nominal pair rollout is fixed to five steps")
+        if self.horizon not in (5, 10):
+            raise ValueError("nominal response rollout supports five or ten steps")
         if self.restore_atol <= 0.0:
             raise ValueError("nominal restore_atol must be positive")
         if bool(self.motion_path) == bool(self.motion_file):
@@ -410,6 +410,7 @@ class NominalPairRollout:
             self._last_repeat_pose_error = float(diagnostics["pose"]["max"])
             self._last_repeat_full_state_p99_error = float(diagnostics["full_state"]["p99"])
             self._last_repeat_pose_p99_error = float(diagnostics["pose"]["p99"])
+            self.metadata["repeat_diagnostics"] = diagnostics
             if (
                 self._last_repeat_pose_error > self.config.restore_atol
                 or self._last_repeat_error > 10.0 * self.config.restore_atol
@@ -419,6 +420,8 @@ class NominalPairRollout:
         return target, {
             "restore_max_abs_error": restore_error,
             "repeat_max_abs_error": self._last_repeat_error,
+            "repeat_pose_max_abs_error": self._last_repeat_pose_error,
+            "repeat_pose_p99_abs_error": self._last_repeat_pose_p99_error,
             "repeat_warning": self._last_repeat_warning,
         }
 

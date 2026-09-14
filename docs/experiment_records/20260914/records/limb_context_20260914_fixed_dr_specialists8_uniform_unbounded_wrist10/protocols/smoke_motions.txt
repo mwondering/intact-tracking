@@ -1,0 +1,2 @@
+/data_zcy/wxy/motion_data_correct/motion_data_full/sonic_filtered/230124/no_hear_002__A144.motion.npz
+/data_zcy/wxy/motion_data_correct/motion_data_full/sonic_filtered/230425/dancing_routine_V001_003__A350.motion.npz

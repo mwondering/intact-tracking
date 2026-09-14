@@ -1,0 +1,12 @@
+{
+  "source": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260913_memory350_online_kmeans16_critic_action/ppo/baseline_121/checkpoint_update_004000.pt",
+  "checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260914_fixed_dr_specialists8/reference_A/checkpoint_update_004000.pt",
+  "sha256": "0711896c9b502694f5e200a5e0b0f5f212519dc00e6a182b345cc7408ebaacbe",
+  "update": 4000,
+  "selected_at": 1789350944.1887755,
+  "selection_rule": "Preselected latest round 4000 checkpoint before any specialist training result; same A for all eight profiles",
+  "world_size": 4,
+  "num_envs_per_rank": 8192,
+  "transitions": 3145728000,
+  "architecture_and_optimizer_match_smoke": true
+}

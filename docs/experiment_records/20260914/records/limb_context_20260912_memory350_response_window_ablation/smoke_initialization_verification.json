@@ -1,0 +1,88 @@
+{
+  "passed": true,
+  "input_audits": {
+    "baseline": {
+      "action_std_initialization": 0.25,
+      "actor_common_trunk_sha256": "eb449f3c5663ed8ba7dd14ebc8c8b695730f3122cedcd0a8677da46dbeda08ec",
+      "actor_compression": [
+        1645,
+        512,
+        256,
+        128
+      ],
+      "actor_initialization_seed": 10128,
+      "actor_original_features": 1645,
+      "actor_trainable_parameters": 1093050,
+      "baseline_latent_slot": "zeros before the common residual/value heads",
+      "critic_common_trunk_sha256": "87bbb196b38335d55c02dcfc59896d973adf93fe35cefc17d7dd22bdd077e76b",
+      "critic_compression": [
+        6330,
+        1024,
+        512,
+        256,
+        128
+      ],
+      "critic_initial_normalizer_count": 512.0,
+      "critic_initial_normalizer_sha256": "1a919dcf58a37ff512d2f4ab9fcbd485ec11e194465de2a66a1294fee351cc9e",
+      "critic_initialization_seed": 20124,
+      "critic_original_features": 6330,
+      "critic_trainable_parameters": 7254401,
+      "fusion_input_dim": 192,
+      "identical_initial_action": true,
+      "initial_value_independent_of_latent": true,
+      "latent_dimensions": 0,
+      "latent_slot_dim": 64
+    },
+    "concat": {
+      "action_std_initialization": 0.25,
+      "actor_common_trunk_sha256": "eb449f3c5663ed8ba7dd14ebc8c8b695730f3122cedcd0a8677da46dbeda08ec",
+      "actor_compression": [
+        1645,
+        512,
+        256,
+        128
+      ],
+      "actor_initialization_seed": 10128,
+      "actor_original_features": 1645,
+      "actor_trainable_parameters": 1093050,
+      "baseline_latent_slot": "zeros before the common residual/value heads",
+      "critic_common_trunk_sha256": "87bbb196b38335d55c02dcfc59896d973adf93fe35cefc17d7dd22bdd077e76b",
+      "critic_compression": [
+        6330,
+        1024,
+        512,
+        256,
+        128
+      ],
+      "critic_initial_normalizer_count": 512.0,
+      "critic_initial_normalizer_sha256": "1fa1589b21ac04c6fc0458e803e9b72130c56cd0b4ae60d5de0a3cf531a325cb",
+      "critic_initialization_seed": 20124,
+      "critic_original_features": 6330,
+      "critic_trainable_parameters": 7254401,
+      "fusion_input_dim": 192,
+      "identical_initial_action": true,
+      "initial_value_independent_of_latent": true,
+      "latent_dimensions": 64,
+      "latent_slot_dim": 64
+    }
+  },
+  "world_size": 4,
+  "initial_weights_bitwise_equal": true,
+  "normalizer_statistics_numerically_equal": {
+    "obs_normalizer.sum": {
+      "max_abs": 1.9073486328125e-06,
+      "rms": 3.93008967591868e-08
+    },
+    "obs_normalizer.ssq": {
+      "max_abs": 3.0517578125e-05,
+      "rms": 3.835731376966578e-07
+    },
+    "obs_normalizer.count": {
+      "max_abs": 0.0,
+      "rms": 0.0
+    }
+  },
+  "normalizer_rtol": 1e-06,
+  "normalizer_atol": 0.0001,
+  "time": 1789228211.8885293
+}

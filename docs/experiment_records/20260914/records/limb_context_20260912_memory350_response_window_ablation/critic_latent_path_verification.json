@@ -1,0 +1,109 @@
+{
+  "passed": true,
+  "verified_at": 1789230762.225117,
+  "scope": "CPU synthetic observation intervention through the actual critic class, using existing PPO smoke checkpoints; verifies information and gradient paths, not tracking performance",
+  "raw_observation_dim": 6330,
+  "compressed_dim": 128,
+  "latent_dim": 64,
+  "value_head_input_dim": 192,
+  "results": {
+    "concat": {
+      "checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260912_memory350_response_window_ablation/smoke/concat_121/checkpoint_final.pt",
+      "completed_updates": 14,
+      "strict_state_load": true,
+      "compression_layers": [
+        [
+          6330,
+          1024
+        ],
+        [
+          1024,
+          512
+        ],
+        [
+          512,
+          256
+        ],
+        [
+          256,
+          128
+        ]
+      ],
+      "head_layers": [
+        [
+          192,
+          256
+        ],
+        [
+          256,
+          128
+        ],
+        [
+          128,
+          1
+        ]
+      ],
+      "head_latent_matches_input": true,
+      "head_latent_all_zero": false,
+      "compressed_obs_unchanged_when_latent_changes": true,
+      "value_change_when_latent_zeroed": {
+        "mean_abs": 0.0182265043258667,
+        "max_abs": 0.08746588230133057
+      },
+      "latent_columns_gradient_abs_sum": 27.640493392944336,
+      "compressor_gradient_abs_sum": 44741.46484375,
+      "latent_input_gradient_detached": true,
+      "learned_latent_columns_abs_sum": 77.4578628540039
+    },
+    "baseline": {
+      "checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260912_memory350_response_window_ablation/smoke/baseline_121/checkpoint_final.pt",
+      "completed_updates": 16,
+      "strict_state_load": true,
+      "compression_layers": [
+        [
+          6330,
+          1024
+        ],
+        [
+          1024,
+          512
+        ],
+        [
+          512,
+          256
+        ],
+        [
+          256,
+          128
+        ]
+      ],
+      "head_layers": [
+        [
+          192,
+          256
+        ],
+        [
+          256,
+          128
+        ],
+        [
+          128,
+          1
+        ]
+      ],
+      "head_latent_matches_input": false,
+      "head_latent_all_zero": true,
+      "compressed_obs_unchanged_when_latent_changes": true,
+      "value_change_when_latent_zeroed": {
+        "mean_abs": 0.0,
+        "max_abs": 0.0
+      },
+      "latent_columns_gradient_abs_sum": 0.0,
+      "compressor_gradient_abs_sum": 134479.796875,
+      "latent_input_gradient_detached": true,
+      "learned_latent_columns_abs_sum": 0.0
+    }
+  },
+  "ppo_ready_source_hashes_unchanged": true,
+  "pinned_source_count": 152
+}

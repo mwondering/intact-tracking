@@ -1,0 +1,19 @@
+{
+  "config_verified": true,
+  "run_id": "m350margin-f6b71edf715f",
+  "url": "https://wandb.ai/2486344338-zhejiang-university/intact-forward-predictor/runs/m350margin-f6b71edf715f",
+  "state": "running",
+  "loss": {
+    "weak_positive_weight": 0.008,
+    "weak_negative_weight": 0.008,
+    "weak_negative_margin": 1.1,
+    "response_distance_scale": 0.3
+  },
+  "remote_update": 10001,
+  "remote_optimizer_steps": 40004,
+  "remote_learning_rate": null,
+  "remote_prediction_loss": 0.16813812032341957,
+  "remote_weak_negative_loss": 0.016648015473037958,
+  "unix_time": 1789221476.0527647,
+  "metrics_uploaded": true
+}

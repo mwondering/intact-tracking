@@ -1,0 +1,35 @@
+{
+  "passed": true,
+  "email": "2486344338@qq.com",
+  "runs": {
+    "baseline_121": {
+      "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/limb-6ffeb6f1ef9b",
+      "group": "limb_context_20260908_no_ee_4gpu-stage2-4gpu8192-scratch",
+      "completed_updates": 37,
+      "training_termination_profile": "no_ee_body_pos",
+      "global_envs": 32768
+    },
+    "film_121": {
+      "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/limb-c45439c3fc2c",
+      "group": "limb_context_20260908_no_ee_4gpu-stage2-4gpu8192-scratch",
+      "completed_updates": 29,
+      "training_termination_profile": "no_ee_body_pos",
+      "global_envs": 32768
+    },
+    "smoke_baseline": {
+      "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/limb-c4652ff6aad1",
+      "group": "limb_context_20260908_no_ee_4gpu-stage2-4gpu8192-scratch-smoke",
+      "completed_updates": 3,
+      "training_termination_profile": "no_ee_body_pos",
+      "global_envs": 32768
+    },
+    "smoke_film": {
+      "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/limb-66b6b9026dfc",
+      "group": "limb_context_20260908_no_ee_4gpu-stage2-4gpu8192-scratch-smoke",
+      "completed_updates": 3,
+      "training_termination_profile": "no_ee_body_pos",
+      "global_envs": 32768
+    }
+  },
+  "unix_time": 1788880310.9977083
+}

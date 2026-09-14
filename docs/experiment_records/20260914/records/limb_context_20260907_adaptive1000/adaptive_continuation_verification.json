@@ -1,0 +1,172 @@
+{
+  "passed": true,
+  "checked_at": 1788854796.583898,
+  "account_email": "2486344338@qq.com",
+  "policies": {
+    "baseline_121": {
+      "pid": 59412,
+      "gpus": [
+        0,
+        1
+      ],
+      "first_adaptive_update": 1001,
+      "latest_update_at_check": 1025,
+      "selected_checkpoint_sha256": "999754a62665dd87131c3cb0eeab9cb386a7fb96d6d24eea31360cb5f315e756",
+      "restoration_audit": {
+        "checkpoint_update": 1000,
+        "model_optimizer_state_sha256": "ebb07011a98b03d800ea7f852588dbf3d22af116891061664ea4ab0b2c935ea2",
+        "passed": true
+      },
+      "sampling": {
+        "active_mode": "adaptive",
+        "adaptive_after_update": 1000,
+        "adaptive_bin_snapshot_interval_iterations": 0,
+        "adaptive_sampling": {
+          "random_probability": 0.5,
+          "strategy": "branch",
+          "temperature": 0.25
+        },
+        "failure_rewind_enabled": false,
+        "parameters": {
+          "adaptive_bin_width_s": 1.0,
+          "adaptive_bin_width_steps": null,
+          "adaptive_failure_rate_ema_iterations": 1000,
+          "adaptive_failure_rate_window_iterations": null,
+          "adaptive_max_prob_per_bin": "auto",
+          "adaptive_max_prob_per_motion": "auto",
+          "adaptive_pre_failure_sample_window_steps": 100,
+          "adaptive_prior_failure_count": 0.0,
+          "adaptive_prior_visit_count": 1.0,
+          "adaptive_probability_max_over_mean": 500.0,
+          "adaptive_sequence_length_agnostic": false,
+          "adaptive_uniform_ratio": 0.1
+        },
+        "requested_mode": "adaptive",
+        "scope": "motion/bin sampling only; per-world independent limb payloads remain U(0,4)",
+        "statistics": "rank-local motion shards; adaptive statistics begin from priors at the phase boundary",
+        "version": "limb_motion_sampling_curriculum_v1"
+      },
+      "sampling_metrics": {
+        "Metrics/motion/sampling_adaptive_top1_over_uniform": 500.11402829488117,
+        "Metrics/motion/sampling_failure_probability_max": 0.8531554155051708,
+        "Metrics/motion/sampling_failure_probability_mean": 0.00014862659660745217,
+        "Metrics/motion/sampling_reset_adaptive": 0.5884515239546696,
+        "Metrics/motion/sampling_reset_rewind": 0.0,
+        "Metrics/motion/sampling_reset_uniform": 0.4115485002597173,
+        "Metrics/motion/sampling_uniform_branch_probability": 0.5
+      },
+      "dataset": {
+        "archive_bytes": 86401833542,
+        "coverage": "all recursive *.npz files; no exclusions or active subset",
+        "groups": {
+          "AMASS_LAFAN_Qingtong": 42,
+          "sonic_filtered": 129785
+        },
+        "loaded_frames": 48085337,
+        "loaded_motion_count": 129827,
+        "loaded_motion_counts_per_rank": [
+          64914,
+          64913
+        ],
+        "manifest_hash_kind": "relative-path,size,mtime_ns",
+        "manifest_sha256": "df31b45ef2a32dbda7107c57f55bb90b2d300a182bcc05ef62c19e1959d85978",
+        "motion_count": 129827,
+        "rank_partition": "sorted files [rank::world_size]; single-file smoke replicated",
+        "reference_storage_mode": "qpos_only_actor_fk",
+        "root": "/data_zcy/wxy/motion_data_correct/motion_data_full"
+      },
+      "wandb_url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/limb-c09fe09a2baa",
+      "wandb_group": "limb_context_20260907_adaptive1000-stage2-2gpu8192-scratch",
+      "wandb_first_adaptive_history": {
+        "motion_sampling/adaptive_enabled": true,
+        "motion_sampling/failure_rewind_enabled": false,
+        "_step": 1001,
+        "update": 1001
+      },
+      "wandb_latest_update": 1022
+    },
+    "film_121": {
+      "pid": 59413,
+      "gpus": [
+        2,
+        3
+      ],
+      "first_adaptive_update": 1001,
+      "latest_update_at_check": 1022,
+      "selected_checkpoint_sha256": "1e65dd0e88ef0ef43b1374bf72003e3f15387356a1e0133fa7fac7a0e5c1d440",
+      "restoration_audit": {
+        "checkpoint_update": 1000,
+        "model_optimizer_state_sha256": "fe364bdfae059041d85c9e9d0af12256f8abe7b72bfe5685196c2ff4ee375c8c",
+        "passed": true
+      },
+      "sampling": {
+        "active_mode": "adaptive",
+        "adaptive_after_update": 1000,
+        "adaptive_bin_snapshot_interval_iterations": 0,
+        "adaptive_sampling": {
+          "random_probability": 0.5,
+          "strategy": "branch",
+          "temperature": 0.25
+        },
+        "failure_rewind_enabled": false,
+        "parameters": {
+          "adaptive_bin_width_s": 1.0,
+          "adaptive_bin_width_steps": null,
+          "adaptive_failure_rate_ema_iterations": 1000,
+          "adaptive_failure_rate_window_iterations": null,
+          "adaptive_max_prob_per_bin": "auto",
+          "adaptive_max_prob_per_motion": "auto",
+          "adaptive_pre_failure_sample_window_steps": 100,
+          "adaptive_prior_failure_count": 0.0,
+          "adaptive_prior_visit_count": 1.0,
+          "adaptive_probability_max_over_mean": 500.0,
+          "adaptive_sequence_length_agnostic": false,
+          "adaptive_uniform_ratio": 0.1
+        },
+        "requested_mode": "adaptive",
+        "scope": "motion/bin sampling only; per-world independent limb payloads remain U(0,4)",
+        "statistics": "rank-local motion shards; adaptive statistics begin from priors at the phase boundary",
+        "version": "limb_motion_sampling_curriculum_v1"
+      },
+      "sampling_metrics": {
+        "Metrics/motion/sampling_adaptive_top1_over_uniform": 438.16686693827313,
+        "Metrics/motion/sampling_failure_probability_max": 0.7657434567809105,
+        "Metrics/motion/sampling_failure_probability_mean": 0.0001341109335347331,
+        "Metrics/motion/sampling_reset_adaptive": 0.6059009004384279,
+        "Metrics/motion/sampling_reset_rewind": 0.0,
+        "Metrics/motion/sampling_reset_uniform": 0.394099119429787,
+        "Metrics/motion/sampling_uniform_branch_probability": 0.5
+      },
+      "dataset": {
+        "archive_bytes": 86401833542,
+        "coverage": "all recursive *.npz files; no exclusions or active subset",
+        "groups": {
+          "AMASS_LAFAN_Qingtong": 42,
+          "sonic_filtered": 129785
+        },
+        "loaded_frames": 48085337,
+        "loaded_motion_count": 129827,
+        "loaded_motion_counts_per_rank": [
+          64914,
+          64913
+        ],
+        "manifest_hash_kind": "relative-path,size,mtime_ns",
+        "manifest_sha256": "df31b45ef2a32dbda7107c57f55bb90b2d300a182bcc05ef62c19e1959d85978",
+        "motion_count": 129827,
+        "rank_partition": "sorted files [rank::world_size]; single-file smoke replicated",
+        "reference_storage_mode": "qpos_only_actor_fk",
+        "root": "/data_zcy/wxy/motion_data_correct/motion_data_full"
+      },
+      "wandb_url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/limb-b1d4c93971a0",
+      "wandb_group": "limb_context_20260907_adaptive1000-stage2-2gpu8192-scratch",
+      "wandb_first_adaptive_history": {
+        "_step": 1001,
+        "update": 1001,
+        "motion_sampling/adaptive_enabled": true,
+        "motion_sampling/failure_rewind_enabled": false
+      },
+      "wandb_latest_update": 1021
+    }
+  },
+  "paired_protocol_equal": true
+}

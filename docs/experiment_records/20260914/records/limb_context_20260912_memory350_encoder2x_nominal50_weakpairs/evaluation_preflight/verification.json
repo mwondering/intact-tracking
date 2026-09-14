@@ -1,0 +1,21 @@
+{
+  "passed": true,
+  "prediction_same_checkpoint_ratio": 1,
+  "previous_baseline_prediction_reproduced": true,
+  "checks": [
+    {
+      "profile": "common",
+      "raw_query_reconstruction_unit_rms": 0.0,
+      "same_checkpoint_readout_gain_pp": 0,
+      "baseline_readout": 0.10501269035532995,
+      "shuffled_readout": 0.0025380710659898475
+    },
+    {
+      "profile": "memory_training",
+      "raw_query_reconstruction_unit_rms": 0.0,
+      "same_checkpoint_readout_gain_pp": 0,
+      "baseline_readout": 0.21224194132560667,
+      "shuffled_readout": 0.002897500905469033
+    }
+  ]
+}

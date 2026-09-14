@@ -1,0 +1,51 @@
+{
+  "checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260911_memory350_nominal50/stage1_8192/update_005000.pt",
+  "checkpoint_sha256": "3dc73222312b308c62636d5468142f02bdca22ba6d3054e2b2ea8c8f0a488041",
+  "rows": [
+    {
+      "rank": 0,
+      "samples": 512,
+      "five_step_nmse": 0.03482947126030922,
+      "dr_samples": 255,
+      "nominal_samples": 257,
+      "online_vs_direct_unit_rms": 0.0001024582888931036,
+      "online_vs_direct_mean_cosine": 1.0,
+      "online_vs_direct_min_cosine": 0.9999972581863403
+    },
+    {
+      "rank": 1,
+      "samples": 512,
+      "five_step_nmse": 0.04135848209261894,
+      "dr_samples": 255,
+      "nominal_samples": 257,
+      "online_vs_direct_unit_rms": 0.0,
+      "online_vs_direct_mean_cosine": 1.0,
+      "online_vs_direct_min_cosine": 0.9999997615814209
+    },
+    {
+      "rank": 2,
+      "samples": 512,
+      "five_step_nmse": 0.04734352231025696,
+      "dr_samples": 253,
+      "nominal_samples": 259,
+      "online_vs_direct_unit_rms": 0.0003520265163388103,
+      "online_vs_direct_mean_cosine": 0.9999999403953552,
+      "online_vs_direct_min_cosine": 0.9999948740005493
+    },
+    {
+      "rank": 3,
+      "samples": 512,
+      "five_step_nmse": 0.041277993470430374,
+      "dr_samples": 267,
+      "nominal_samples": 245,
+      "online_vs_direct_unit_rms": 0.0,
+      "online_vs_direct_mean_cosine": 1.0,
+      "online_vs_direct_min_cosine": 0.9999998211860657
+    }
+  ],
+  "recorded_five_step_nmse": 0.04120237100869417,
+  "reproduced_five_step_nmse": 0.04120236728340387,
+  "relative_difference": -9.04144642488447e-08,
+  "online_roundtrip": "Saved normalized history denormalized into raw online memory bank, then encoded with the exact collector inference class.",
+  "passed": true
+}

@@ -1,0 +1,63 @@
+{
+  "passed": true,
+  "smoke": false,
+  "seed": 121,
+  "policies": {
+    "baseline": {
+      "loaded_motion_count": 129827,
+      "motion_counts_per_rank": [
+        32457,
+        32457,
+        32457,
+        32456
+      ],
+      "world_size": 4,
+      "global_num_envs": 32768,
+      "active_terminations": [
+        "time_out",
+        "anchor_pos",
+        "anchor_ori"
+      ],
+      "context_sha256": null,
+      "initial_checkpoint_update": 0
+    },
+    "film": {
+      "loaded_motion_count": 129827,
+      "motion_counts_per_rank": [
+        32457,
+        32457,
+        32457,
+        32456
+      ],
+      "world_size": 4,
+      "global_num_envs": 32768,
+      "active_terminations": [
+        "time_out",
+        "anchor_pos",
+        "anchor_ori"
+      ],
+      "context_sha256": "ed48887b11a6f46e6491a4e709841858e7bb378090a0cc053299a54f734ca5f6",
+      "initial_checkpoint_update": 0
+    }
+  },
+  "common_trunks_identical": true,
+  "critic_initial_normalization": {
+    "passed": true,
+    "sample_count_equal": true,
+    "rtol": 1e-06,
+    "atol": 1e-08,
+    "comparison_units": "first and second moments (sum/count and ssq/count)",
+    "exact_equal": false,
+    "differences": {
+      "sum": {
+        "max_absolute_difference": 1.52587890625e-05,
+        "max_moment_difference": 4.656612873077393e-10
+      },
+      "ssq": {
+        "max_absolute_difference": 0.0,
+        "max_moment_difference": 0.0
+      }
+    }
+  },
+  "unix_time": 1788880259.9087143
+}

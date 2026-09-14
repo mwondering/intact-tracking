@@ -1,0 +1,49 @@
+{
+  "version": "memory350_periodic_tracking_v1",
+  "interval_updates": 100,
+  "motion_manifest": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260910_memory350_ppo/protocols/periodic_motions.txt",
+  "manifest_sha256": "84f2d51105dfcf3826bc45b2b047e5a4b669ab1874c7bca22d55e5e30c3f6c30",
+  "motions": 512,
+  "steps": 1000,
+  "warmup_steps": 500,
+  "seed": 20001,
+  "motion_path": "/data_zcy/wxy/motion_data_correct/motion_data_full",
+  "cases": {
+    "all_0_cold": {
+      "masses": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "memory_start": "cold"
+    },
+    "all_4_cold": {
+      "masses": [
+        4,
+        4,
+        4,
+        4
+      ],
+      "memory_start": "cold"
+    },
+    "all_0_warm": {
+      "masses": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "memory_start": "warm"
+    },
+    "all_4_warm": {
+      "masses": [
+        4,
+        4,
+        4,
+        4
+      ],
+      "memory_start": "warm"
+    }
+  }
+}

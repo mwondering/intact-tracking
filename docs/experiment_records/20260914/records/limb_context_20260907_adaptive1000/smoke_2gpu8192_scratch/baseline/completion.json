@@ -1,0 +1,69 @@
+{
+  "target_updates": 4,
+  "completed_updates": 4,
+  "complete": true,
+  "stopped": false,
+  "distributed_parameter_agreement": {
+    "passed": true,
+    "world_size": 2,
+    "ranks": [
+      {
+        "rank": 0,
+        "completed_updates": 4,
+        "actor_trainable_sha256": "44a95c57d07fa47a434baf8bb6af7c90b5597a3077acf6048bd63d88b07aa44f",
+        "critic_trainable_sha256": "ce2573484770ab92e1c2ea07e82f28899a7bd4d8ca746db9f6a6b4bb669aa43a",
+        "critic_normalizer_sha256": "6e36466b7c427fcdec1184bdd33e1f10e2d2fc13da7fe40adb74170d0fb22d98",
+        "finite": true
+      },
+      {
+        "rank": 1,
+        "completed_updates": 4,
+        "actor_trainable_sha256": "44a95c57d07fa47a434baf8bb6af7c90b5597a3077acf6048bd63d88b07aa44f",
+        "critic_trainable_sha256": "ce2573484770ab92e1c2ea07e82f28899a7bd4d8ca746db9f6a6b4bb669aa43a",
+        "critic_normalizer_sha256": "6e36466b7c427fcdec1184bdd33e1f10e2d2fc13da7fe40adb74170d0fb22d98",
+        "finite": true
+      }
+    ]
+  },
+  "planned_sampling_transition": false,
+  "motion_sampling": {
+    "version": "limb_motion_sampling_curriculum_v1",
+    "requested_mode": "adaptive",
+    "adaptive_after_update": 0,
+    "active_mode": "adaptive",
+    "failure_rewind_enabled": false,
+    "adaptive_bin_snapshot_interval_iterations": 0,
+    "adaptive_sampling": {
+      "random_probability": 0.5,
+      "strategy": "branch",
+      "temperature": 0.25
+    },
+    "parameters": {
+      "adaptive_uniform_ratio": 0.1,
+      "adaptive_bin_width_s": 1.0,
+      "adaptive_bin_width_steps": null,
+      "adaptive_prior_visit_count": 1.0,
+      "adaptive_prior_failure_count": 0.0,
+      "adaptive_failure_rate_ema_iterations": 1000,
+      "adaptive_failure_rate_window_iterations": null,
+      "adaptive_probability_max_over_mean": 500.0,
+      "adaptive_sequence_length_agnostic": false,
+      "adaptive_max_prob_per_bin": "auto",
+      "adaptive_max_prob_per_motion": "auto",
+      "adaptive_pre_failure_sample_window_steps": 100
+    },
+    "scope": "motion/bin sampling only; per-world independent limb payloads remain U(0,4)",
+    "statistics": "rank-local motion shards; adaptive statistics begin from priors at the phase boundary"
+  },
+  "initialization_protocol": "residual_actor_and_critic_from_scratch_v3",
+  "distributed": {
+    "world_size": 2,
+    "num_envs_per_rank": 8192,
+    "global_num_envs": 16384,
+    "rank_seed_formula": "seed + 1000003 * rank",
+    "gradient_synchronization": "mean across all ranks at each optimizer step",
+    "advantage_normalization": "global rollout mean and sample standard deviation",
+    "critic_normalization": "global pooled sums, squared sums and count at every environment step"
+  },
+  "unix_time": 1788854196.1109378
+}

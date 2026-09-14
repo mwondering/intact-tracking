@@ -1,0 +1,71 @@
+{
+  "verified_at": 1788846604.9690454,
+  "runs": {
+    "baseline_121": {
+      "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/limb-f4d55e6d56b7",
+      "config_verified": true,
+      "first_endpoint_history": {
+        "endpoint_eval/all_0/failure_rate": 0.000732421875,
+        "endpoint_eval/all_4/failure_rate": 0.088134765625,
+        "endpoint_eval/training_state_preserved": true,
+        "_step": 204,
+        "update": 204,
+        "endpoint_eval/checkpoint_update": 203,
+        "endpoint_eval/all_0/error_body_pos": 0.03521721772386708,
+        "endpoint_eval/all_4/error_body_pos": 0.06212020429788392
+      },
+      "resume_history": {
+        "unix_time": 1788846184.4865358,
+        "checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/ppo_2gpu8192_scratch/baseline_121/checkpoint_update_000203.pt",
+        "checkpoint_sha256": "63ca6b80d2c5e66097578aa9395c58213506668734eed31ef7adb4871ee6c2f0",
+        "completed_updates": 203,
+        "simulator_episodes_restarted": true,
+        "model_optimizer_and_normalization_restored": true
+      },
+      "first_scheduled_endpoint_history": {
+        "endpoint_eval/all_0/failure_rate": 0.000732421875,
+        "endpoint_eval/all_4/failure_rate": 0.083251953125,
+        "endpoint_eval/training_state_preserved": true,
+        "_step": 300,
+        "update": 300,
+        "endpoint_eval/checkpoint_update": 300,
+        "endpoint_eval/all_0/error_body_pos": 0.036127467774809366,
+        "endpoint_eval/all_4/error_body_pos": 0.06090640856351406
+      },
+      "scheduled_endpoint_verified_at": 1788847327.0020797
+    },
+    "film_121": {
+      "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/limb-289b81d74806",
+      "config_verified": true,
+      "first_endpoint_history": {
+        "endpoint_eval/checkpoint_update": 164,
+        "endpoint_eval/all_0/error_body_pos": 0.02852350205969297,
+        "endpoint_eval/all_4/error_body_pos": 0.06732097680431905,
+        "endpoint_eval/all_0/failure_rate": 0.00048828125,
+        "endpoint_eval/all_4/failure_rate": 0.099853515625,
+        "endpoint_eval/training_state_preserved": true,
+        "_step": 165,
+        "update": 165
+      },
+      "resume_history": {
+        "unix_time": 1788846184.9534948,
+        "checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/ppo_2gpu8192_scratch/film_121/checkpoint_update_000164.pt",
+        "checkpoint_sha256": "2e0559879a830f52e834f538d5fcd80aa05b90e2ff568962425ff0e28a223b29",
+        "completed_updates": 164,
+        "simulator_episodes_restarted": true,
+        "model_optimizer_and_normalization_restored": true
+      },
+      "first_scheduled_endpoint_history": {
+        "_step": 200,
+        "update": 200,
+        "endpoint_eval/checkpoint_update": 200,
+        "endpoint_eval/all_0/error_body_pos": 0.02862621341422086,
+        "endpoint_eval/all_4/error_body_pos": 0.06573254532523977,
+        "endpoint_eval/all_0/failure_rate": 0.00048828125,
+        "endpoint_eval/all_4/failure_rate": 0.09521484375,
+        "endpoint_eval/training_state_preserved": true
+      },
+      "scheduled_endpoint_verified_at": 1788847114.880917
+    }
+  }
+}

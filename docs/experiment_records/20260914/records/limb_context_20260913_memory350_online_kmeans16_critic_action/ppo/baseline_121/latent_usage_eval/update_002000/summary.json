@@ -1,0 +1,37 @@
+{
+  "completed_updates": 2000,
+  "checkpoint_sha256": "5cfe5347e8be082bde390987fac5bffa520ad5a79c27e05668816d68dd88e668",
+  "fusion": "baseline",
+  "policy_precision": "fp32",
+  "protocol": {
+    "version": "memory350_matched_latent_usage_v1",
+    "interval_updates": 1000,
+    "motion_manifest": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260913_memory350_compressed_grid256_tracker_action_adaptive_scratch/protocols/latent_usage_motions.txt",
+    "manifest_sha256": "952f3ef6e8004aa703b90fb9916966354b566223f5fc56a7fd68e7b97ec38ced",
+    "motions": 128,
+    "motion_path": "/data_zcy/wxy/motion_data_correct/motion_data_full",
+    "seed": 22001,
+    "steps": 1000,
+    "warmup_steps": 500,
+    "evaluation_module": "intact_tracking.cli.memory350_moe_critic_action_eval"
+  },
+  "metrics": {
+    "correct": {
+      "error_body_pos": 0.042890142228528154,
+      "error_joint_pos": 0.6456384914925581,
+      "error_anchor_pos": 0.2145053310175844,
+      "error_anchor_rot": 0.07122034156671508,
+      "error_body_rot": 0.18948226310480792,
+      "error_joint_vel": 3.745969438994459,
+      "error_anchor_lin_vel": 0.17302234694665358,
+      "error_anchor_ang_vel": 0.4268705812694986,
+      "error_body_lin_vel": 0.22647014294168955,
+      "error_body_ang_vel": 1.0074343188996098,
+      "failure_rate": 0.00390625,
+      "coverage_fraction": 0.996797502040863,
+      "mean_episode_return": 97.9761791794781
+    }
+  },
+  "paired_motion_bootstrap": null,
+  "scope": "Warm history; 2 matched-phase worlds per motion; independently sampled continuous DR. Swap only while both histories are full and both worlds are active. Ratios above one mean swapped latent worsens tracking."
+}

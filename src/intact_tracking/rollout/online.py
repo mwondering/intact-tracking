@@ -109,8 +109,17 @@ class FixedDRRolloutConfig:
     payload_mass_range_kg: tuple[float, float] = DEFAULT_PAYLOAD_MASS_RANGE_KG
     payload_position_body_m: tuple[float, float, float] = DEFAULT_PAYLOAD_POSITION_BODY_M
     payload_size_m: tuple[float, float, float] = DEFAULT_PAYLOAD_SIZE_M
+    limb_payload_only: bool = False
+    tracker_dr_plus_limb_payload: bool = False
+    limb_fixed_masses: tuple[float, float, float, float] | None = None
 
     def __post_init__(self) -> None:
+        if self.limb_payload_only and self.tracker_dr_plus_limb_payload:
+            raise ValueError("Select exactly one limb DR profile")
+        if self.limb_fixed_masses is not None and not self.limb_payload_experiment:
+            raise ValueError("Fixed evaluation masses require a limb payload profile")
+        if self.limb_payload_experiment and (self.nominal_fraction or self.payload_enabled or self.dynamics_classes):
+            raise ValueError("Limb worlds must all sample independently, with no extra payload/nominal subset")
         if self.num_envs < 1:
             raise ValueError("num_envs must be positive")
         if self.world_id_offset < 0:
@@ -148,6 +157,10 @@ class FixedDRRolloutConfig:
             math.isfinite(value) and value > 0.0 for value in self.payload_size_m
         ):
             raise ValueError("payload_size_m must contain three positive finite values")
+
+    @property
+    def limb_payload_experiment(self) -> bool:
+        return self.limb_payload_only or self.tracker_dr_plus_limb_payload
 
 
 @dataclass(frozen=True)
@@ -369,6 +382,11 @@ def _capture_privileged_dynamics_targets(env: Any) -> PrivilegedDynamicsTargets:
                 [f"added_mass_kg/{func.body_name}"],
                 func.observe(),
             )
+            continue
+
+        if func_name == "UniformLimbPayload":
+            from intact_tracking.limb_context_protocol import LIMBS
+            append(event_name, [f"added_mass_kg/{name}" for name in LIMBS], func.observe())
             continue
 
         # These affect the policy-to-target or observation chain, not dynamics
@@ -908,9 +926,26 @@ class FixedDRTrackerRollout:
             rewind_cfg = getattr(motion_cfg, "rewind", None)
             if rewind_cfg is not None:
                 rewind_cfg.enabled = False
-        self.payload_configuration = _add_payload_startup_event(prepared.env, config)
+        if config.limb_payload_experiment:
+            from intact_tracking.limb_context_dr import LOAD_ONLY, TRACKER_DR, configure_limb_dr
+            from intact_tracking.adaptation_curriculum import configure_training_starts
+            if config.tracker_dr_plus_limb_payload:
+                from intact_tracking.limb_context_protocol import TRACKER_SHA256
+                from intact_tracking.rollout.mjlab_adapter import _sha256
+                if _sha256(checkpoint) != TRACKER_SHA256:
+                    raise ValueError("Wrong frozen tracker checkpoint for the original DR profile")
+            self.payload_configuration = configure_limb_dr(
+                prepared.env, dynamics_seed, fixed_masses=config.limb_fixed_masses,
+                profile=TRACKER_DR if config.tracker_dr_plus_limb_payload else LOAD_ONLY)
+            configure_training_starts(prepared.env, "original" if config.tracker_dr_plus_limb_payload else "reference")
+        else:
+            self.payload_configuration = _add_payload_startup_event(prepared.env, config)
         self.cleared_motion_exclusions = _clear_missing_motion_exclusions(prepared.env)
-        self.startup_events, self.removed_non_startup_events = _keep_startup_events(prepared.env)
+        if config.tracker_dr_plus_limb_payload:
+            self.startup_events = sorted(name for name, term in prepared.env.events.items() if term.mode == "startup")
+            self.removed_non_startup_events = []
+        else:
+            self.startup_events, self.removed_non_startup_events = _keep_startup_events(prepared.env)
         self.device = config.device or ("cuda:0" if torch.cuda.is_available() else "cpu")
         self.config = config
         self.checkpoint_path = checkpoint
@@ -924,6 +959,9 @@ class FixedDRTrackerRollout:
         self.closed = False
         try:
             self.env = self._runtime.env
+            if config.limb_payload_experiment:
+                from intact_tracking.limb_context_dr import audit_limb_dr
+                self.payload_configuration["runtime_audit"] = audit_limb_dr(self.env, self.payload_configuration)
             motion_command = self.env.command_manager.get_term("motion")
             self.motion_command = motion_command
             motion_files = getattr(motion_command, "motion_files", None)
@@ -935,7 +973,8 @@ class FixedDRTrackerRollout:
             self.motion_files = tuple(
                 str(Path(path).expanduser().resolve()) for path in motion_files
             )
-            self.disabled_startup_reset_callbacks = _disable_startup_reset_callbacks(self.env)
+            self.disabled_startup_reset_callbacks = (
+                [] if config.tracker_dr_plus_limb_payload else _disable_startup_reset_callbacks(self.env))
             self.dynamics_grouping: dict[str, Any] | None = None
             if config.dynamics_classes is not None:
                 self.dynamics_grouping = _tile_fixed_dynamics_prototypes(

@@ -1,0 +1,213 @@
+{
+  "table": [
+    {
+      "policy": "A",
+      "endpoint": "nominal",
+      "body_error": 0.029638552235324144,
+      "joint_error": 0.45430440146259565,
+      "coverage_fraction": 0.9983958204587301,
+      "failures": 3,
+      "episodes": 960
+    },
+    {
+      "policy": "A",
+      "endpoint": "hardest",
+      "body_error": 0.1251228386857304,
+      "joint_error": 1.2867879946948018,
+      "coverage_fraction": 0.7480291724205017,
+      "failures": 411,
+      "episodes": 960
+    },
+    {
+      "policy": "B",
+      "endpoint": "nominal",
+      "body_error": 0.06398781627684276,
+      "joint_error": 0.7866000385547568,
+      "coverage_fraction": 0.9972166816393534,
+      "failures": 9,
+      "episodes": 960
+    },
+    {
+      "policy": "B",
+      "endpoint": "hardest",
+      "body_error": 0.05625335497392472,
+      "joint_error": 0.8954404211216748,
+      "coverage_fraction": 0.9756062825520834,
+      "failures": 40,
+      "episodes": 960
+    },
+    {
+      "policy": "C",
+      "endpoint": "nominal",
+      "body_error": 0.044713945209674526,
+      "joint_error": 0.7451208981168912,
+      "coverage_fraction": 0.9984604318936666,
+      "failures": 3,
+      "episodes": 960
+    },
+    {
+      "policy": "C",
+      "endpoint": "hardest",
+      "body_error": 0.05992595586287323,
+      "joint_error": 1.000133566756223,
+      "coverage_fraction": 0.9575312336285909,
+      "failures": 73,
+      "episodes": 960
+    },
+    {
+      "policy": "frozen",
+      "endpoint": "nominal",
+      "body_error": 0.03069561326309785,
+      "joint_error": 0.48454496350582144,
+      "coverage_fraction": 0.9995437661806742,
+      "failures": 1,
+      "episodes": 960
+    },
+    {
+      "policy": "frozen",
+      "endpoint": "hardest",
+      "body_error": 0.11198076146642631,
+      "joint_error": 1.2339573268210533,
+      "coverage_fraction": 0.8479750355084738,
+      "failures": 263,
+      "episodes": 960
+    }
+  ],
+  "C_vs_A_nominal": {
+    "reference": "A",
+    "endpoint": "nominal",
+    "reference_body_joint": [
+      0.029638552235324134,
+      0.45430440146259565
+    ],
+    "C_body_joint": [
+      0.04471394520967451,
+      0.7451208981168914
+    ],
+    "C_over_reference": [
+      1.50864134167738,
+      1.640135767379836
+    ],
+    "ratio_ci95_low": [
+      1.4361974382594938,
+      1.5871669773731654
+    ],
+    "ratio_ci95_high": [
+      1.5840828667919706,
+      1.6964652596378411
+    ],
+    "reference_failure_rate": 0.003125,
+    "C_failure_rate": 0.003125,
+    "failure_delta_ci95": [
+      -0.0031249999999999997,
+      0.0031249999999999997
+    ],
+    "C_new_failure_episodes": 2,
+    "C_rescued_failure_episodes": 2,
+    "both_errors_significantly_higher_this_training_seed": true,
+    "uncertainty": "paired bootstrap over motion, averaging three evaluation seeds; one training seed"
+  },
+  "C_vs_B_hardest": {
+    "reference": "B",
+    "endpoint": "hardest",
+    "reference_body_joint": [
+      0.05625335497392471,
+      0.8954404211216749
+    ],
+    "C_body_joint": [
+      0.05992595586287325,
+      1.000133566756223
+    ],
+    "C_over_reference": [
+      1.0652867885062307,
+      1.1169180474379345
+    ],
+    "ratio_ci95_low": [
+      1.036925065271322,
+      1.093410768051444
+    ],
+    "ratio_ci95_high": [
+      1.095402143527211,
+      1.141525659467158
+    ],
+    "reference_failure_rate": 0.04166666666666667,
+    "C_failure_rate": 0.07604166666666666,
+    "failure_delta_ci95": [
+      0.015625000000000003,
+      0.05416666666666667
+    ],
+    "C_new_failure_episodes": 45,
+    "C_rescued_failure_episodes": 12,
+    "both_errors_significantly_higher_this_training_seed": true,
+    "uncertainty": "paired bootstrap over motion, averaging three evaluation seeds; one training seed"
+  },
+  "C_vs_frozen_nominal": {
+    "reference": "frozen",
+    "endpoint": "nominal",
+    "reference_body_joint": [
+      0.03069561326309785,
+      0.4845449635058213
+    ],
+    "C_body_joint": [
+      0.04471394520967451,
+      0.7451208981168914
+    ],
+    "C_over_reference": [
+      1.456688446861215,
+      1.5377745188511067
+    ],
+    "ratio_ci95_low": [
+      1.3977785130796867,
+      1.5035341650541911
+    ],
+    "ratio_ci95_high": [
+      1.5129498414513987,
+      1.5730147760963398
+    ],
+    "reference_failure_rate": 0.0010416666666666667,
+    "C_failure_rate": 0.003125,
+    "failure_delta_ci95": [
+      0.0,
+      0.005208333333333334
+    ],
+    "C_new_failure_episodes": 2,
+    "C_rescued_failure_episodes": 0,
+    "both_errors_significantly_higher_this_training_seed": true,
+    "uncertainty": "paired bootstrap over motion, averaging three evaluation seeds; one training seed"
+  },
+  "C_vs_frozen_hardest": {
+    "reference": "frozen",
+    "endpoint": "hardest",
+    "reference_body_joint": [
+      0.11198076146642628,
+      1.2339573268210535
+    ],
+    "C_body_joint": [
+      0.05992595586287325,
+      1.000133566756223
+    ],
+    "C_over_reference": [
+      0.5351451006237358,
+      0.8105090386981111
+    ],
+    "ratio_ci95_low": [
+      0.49592075560047433,
+      0.7775152570223757
+    ],
+    "ratio_ci95_high": [
+      0.5757611447962068,
+      0.8414066181578974
+    ],
+    "reference_failure_rate": 0.2739583333333333,
+    "C_failure_rate": 0.07604166666666666,
+    "failure_delta_ci95": [
+      -0.25416666666666665,
+      -0.14583333333333334
+    ],
+    "C_new_failure_episodes": 9,
+    "C_rescued_failure_episodes": 199,
+    "both_errors_significantly_higher_this_training_seed": false,
+    "uncertainty": "paired bootstrap over motion, averaging three evaluation seeds; one training seed"
+  },
+  "scope": "LaFAN in-distribution fine-tuning, not from-scratch nominal/DR training"
+}

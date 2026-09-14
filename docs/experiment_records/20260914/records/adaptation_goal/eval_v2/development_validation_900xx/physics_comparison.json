@@ -1,0 +1,181 @@
+{
+  "reference_files": [
+    "runs/adaptation_goal/eval_v2/development_validation_900xx/nominal_seed90001.json",
+    "runs/adaptation_goal/eval_v2/development_validation_900xx/nominal_seed90002.json",
+    "runs/adaptation_goal/eval_v2/development_validation_900xx/nominal_seed90003.json"
+  ],
+  "candidate_files": [
+    "runs/adaptation_goal/eval_v2/development_validation_900xx/physics_ppo750_seed90001.json",
+    "runs/adaptation_goal/eval_v2/development_validation_900xx/physics_ppo750_seed90002.json",
+    "runs/adaptation_goal/eval_v2/development_validation_900xx/physics_ppo750_seed90003.json"
+  ],
+  "seeds": [
+    {
+      "seed": 90001,
+      "reference": "runs/adaptation_goal/eval_v2/development_validation_900xx/nominal_seed90001.json",
+      "candidate": "runs/adaptation_goal/eval_v2/development_validation_900xx/physics_ppo750_seed90001.json",
+      "ratios": {
+        "error_body_pos": 1.013818815149993,
+        "error_joint_pos": 1.033758615332855,
+        "error_anchor_pos": 1.0485000366152184,
+        "error_anchor_rot": 1.0187750368941806,
+        "error_body_rot": 1.0679423192088298,
+        "error_joint_vel": 1.0178321414035767,
+        "error_anchor_lin_vel": 1.0523936985311637,
+        "error_anchor_ang_vel": 1.0489575083620455,
+        "error_body_lin_vel": 1.0447648011138553,
+        "error_body_ang_vel": 1.0511259492167553
+      },
+      "failure_difference": 0.0029761905316263437
+    },
+    {
+      "seed": 90002,
+      "reference": "runs/adaptation_goal/eval_v2/development_validation_900xx/nominal_seed90002.json",
+      "candidate": "runs/adaptation_goal/eval_v2/development_validation_900xx/physics_ppo750_seed90002.json",
+      "ratios": {
+        "error_body_pos": 1.0164633151227995,
+        "error_joint_pos": 1.0498167221839492,
+        "error_anchor_pos": 1.1161981798734182,
+        "error_anchor_rot": 1.0269068686230716,
+        "error_body_rot": 1.0849170094652023,
+        "error_joint_vel": 1.028725596144288,
+        "error_anchor_lin_vel": 1.0625108762308855,
+        "error_anchor_ang_vel": 1.0572447701723044,
+        "error_body_lin_vel": 1.05927846041831,
+        "error_body_ang_vel": 1.0622693337967473
+      },
+      "failure_difference": 0.0059523810632526875
+    },
+    {
+      "seed": 90003,
+      "reference": "runs/adaptation_goal/eval_v2/development_validation_900xx/nominal_seed90003.json",
+      "candidate": "runs/adaptation_goal/eval_v2/development_validation_900xx/physics_ppo750_seed90003.json",
+      "ratios": {
+        "error_body_pos": 1.0167988868326165,
+        "error_joint_pos": 1.0424875897051236,
+        "error_anchor_pos": 1.0549465383223986,
+        "error_anchor_rot": 1.0128721940058778,
+        "error_body_rot": 1.0766519083971178,
+        "error_joint_vel": 1.0259959474148443,
+        "error_anchor_lin_vel": 1.055393414787221,
+        "error_anchor_ang_vel": 1.0505695930263763,
+        "error_body_lin_vel": 1.051349364644507,
+        "error_body_ang_vel": 1.0571739557509283
+      },
+      "failure_difference": 0.0059523810632526875
+    }
+  ],
+  "metrics": {
+    "error_body_pos": {
+      "reference": 0.030621089707425882,
+      "candidate": 0.03110163186493343,
+      "ratio": 1.0156931762422228,
+      "paired_motion_seed_bootstrap_95pct": [
+        0.9945933751059981,
+        1.0368960213153156
+      ]
+    },
+    "error_joint_pos": {
+      "reference": 0.47862008969745795,
+      "candidate": 0.49874490568174373,
+      "ratio": 1.0420475788991785,
+      "paired_motion_seed_bootstrap_95pct": [
+        1.0133837038414437,
+        1.0739406264358786
+      ]
+    },
+    "error_anchor_pos": {
+      "reference": 0.24313861759398703,
+      "candidate": 0.26077457671387966,
+      "ratio": 1.0725345866255709,
+      "paired_motion_seed_bootstrap_95pct": [
+        1.0012124762268397,
+        1.1515179187230755
+      ]
+    },
+    "error_anchor_rot": {
+      "reference": 0.0705431276651983,
+      "candidate": 0.07192453892879058,
+      "ratio": 1.0195825066071431,
+      "paired_motion_seed_bootstrap_95pct": [
+        0.9898512852188623,
+        1.0514853818899208
+      ]
+    },
+    "error_body_rot": {
+      "reference": 0.12337130465362069,
+      "candidate": 0.1328141250487107,
+      "ratio": 1.0765398438607896,
+      "paired_motion_seed_bootstrap_95pct": [
+        1.0507207000693706,
+        1.1070124993465364
+      ]
+    },
+    "error_joint_vel": {
+      "reference": 4.339062032699973,
+      "candidate": 4.444124614726426,
+      "ratio": 1.024213201202168,
+      "paired_motion_seed_bootstrap_95pct": [
+        0.9963637821902623,
+        1.056766052887773
+      ]
+    },
+    "error_anchor_lin_vel": {
+      "reference": 0.2077306088343941,
+      "candidate": 0.21952301082460077,
+      "ratio": 1.0567677630965195,
+      "paired_motion_seed_bootstrap_95pct": [
+        1.0356650247364851,
+        1.0786840650966294
+      ]
+    },
+    "error_anchor_ang_vel": {
+      "reference": 0.44429172519439725,
+      "candidate": 0.4675211799186272,
+      "ratio": 1.0522842389514817,
+      "paired_motion_seed_bootstrap_95pct": [
+        1.0317227217405056,
+        1.0750128673263781
+      ]
+    },
+    "error_body_lin_vel": {
+      "reference": 0.2635623339606655,
+      "candidate": 0.2772196998037944,
+      "ratio": 1.0518183521821718,
+      "paired_motion_seed_bootstrap_95pct": [
+        1.0300462518561064,
+        1.075823724962918
+      ]
+    },
+    "error_body_ang_vel": {
+      "reference": 1.0526874152159365,
+      "candidate": 1.1125801964448787,
+      "ratio": 1.056895124196632,
+      "paired_motion_seed_bootstrap_95pct": [
+        1.0328263366233732,
+        1.0854535964399332
+      ]
+    }
+  },
+  "reference_failure_rate": 0.0,
+  "candidate_failure_rate": 0.00496031746031746,
+  "failure_difference": 0.00496031746031746,
+  "failure_difference_paired_bootstrap_95pct": [
+    0.0,
+    0.011904761904761904
+  ],
+  "failure_upper_95pct_within_margin": false,
+  "margin": 1.02,
+  "evaluation_protocol": "balanced_fixed_starts_v2_isolated_resets",
+  "valid_acceptance_protocol": true,
+  "matched_single_policy_identity": true,
+  "acceptance_conditions": true,
+  "numerical_point_estimate_pass": false,
+  "point_estimate_pass": false,
+  "primary_upper_95pct_within_margin": false,
+  "all_metrics_point_estimate_pass": false,
+  "all_metrics_upper_95pct_within_margin": false,
+  "confirmation_seeds_used": false,
+  "confirmation_seed_set_complete": false,
+  "warning": "Primary metrics alone do not establish whole-tracking equivalence."
+}

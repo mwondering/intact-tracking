@@ -1,0 +1,8 @@
+{
+  "inherited_source_files_checked": 174,
+  "inherited_source_changes": [],
+  "prior_actor_precision_verification": "runs/limb_context_20260913_memory350_online_kmeans16_uniform_dr/precision_verification.json",
+  "actor_class_unchanged": "intact_tracking.memory350_moe_policy:HardMoEActor",
+  "scope": "Prior formal-batch actor precision audit applies to unchanged actor implementation/configuration. Critic action plumbing is separately covered by v2 runtime tests.",
+  "passed": true
+}

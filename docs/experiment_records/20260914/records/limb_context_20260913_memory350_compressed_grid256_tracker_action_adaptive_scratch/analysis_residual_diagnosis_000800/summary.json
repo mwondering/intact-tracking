@@ -1,0 +1,364 @@
+{
+  "update": 800,
+  "experiment": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260913_memory350_compressed_grid256_tracker_action_adaptive_scratch",
+  "training_seed_count": 1,
+  "created_at": 1789312542.4709938,
+  "cases": {
+    "all_0_cold": {
+      "baseline_vs_latent": {
+        "motions": 512,
+        "means": {
+          "reference_body": 0.04260417824526175,
+          "reference_joint": 0.5459480342290753,
+          "candidate_body": 0.03266155657213278,
+          "candidate_joint": 0.47587963911976966,
+          "reference_failure": 0.0,
+          "candidate_failure": 0.001953125,
+          "reference_coverage": 1.0,
+          "candidate_coverage": 0.9990571120689655,
+          "reference_return": 97.48015893855336,
+          "candidate_return": 99.7188191772002,
+          "reference_common_body": 0.04282138840365019,
+          "reference_common_joint": 0.5464931809887916,
+          "candidate_common_body": 0.03266155657213278,
+          "candidate_common_joint": 0.47587963911976966
+        },
+        "candidate_over_reference_body_joint": [
+          0.7666280143723991,
+          0.8716573909671674
+        ],
+        "body_joint_ratio_ci95": [
+          [
+            0.7490107857286356,
+            0.7875667755156418
+          ],
+          [
+            0.8645655837461166,
+            0.8789378389020865
+          ]
+        ],
+        "failure_rate_delta": 0.001953125,
+        "failure_rate_delta_ci95": [
+          0.0,
+          0.005859375
+        ],
+        "coverage_delta": -0.0009428879310344751,
+        "coverage_delta_ci95": [
+          -0.0028286637931034253,
+          0.0
+        ],
+        "episode_return_delta": 2.238660238646844,
+        "episode_return_delta_ci95": [
+          2.0547380695901665,
+          2.4381738000911355
+        ],
+        "common_prefix_body_joint_ratio": [
+          0.7627393176571695,
+          0.8707878811200204
+        ],
+        "common_prefix_body_joint_ratio_ci95": [
+          [
+            0.7489395801265376,
+            0.7762516806084605
+          ],
+          [
+            0.8636021842773903,
+            0.8781488800118495
+          ]
+        ],
+        "new_failure_episodes": 1,
+        "rescued_failure_episodes": 0,
+        "uncertainty": "paired motion bootstrap conditional on this training seed; not training-seed uncertainty",
+        "scope": "new starts and loads on the training motion catalog; not unseen-motion generalization"
+      },
+      "three_way_common_prefix": {
+        "frozen": {
+          "common_body_cm": 2.339666883055595,
+          "common_joint": 0.3775590424324964,
+          "failure_rate": 0.0,
+          "residual_saturation_fraction": 0.0
+        },
+        "baseline": {
+          "common_body_cm": 4.282138840365019,
+          "common_joint": 0.5464931809887912,
+          "failure_rate": 0.0,
+          "residual_saturation_fraction": 0.26254991550622453
+        },
+        "latent": {
+          "common_body_cm": 3.26615565721328,
+          "common_joint": 0.47587963911976994,
+          "failure_rate": 0.001953125,
+          "residual_saturation_fraction": 0.10644363827368197
+        }
+      },
+      "mean_three_way_common_steps": 352.244140625
+    },
+    "all_0_warm": {
+      "baseline_vs_latent": {
+        "motions": 512,
+        "means": {
+          "reference_body": 0.04259967052938474,
+          "reference_joint": 0.5457944440222043,
+          "candidate_body": 0.032939223231585775,
+          "candidate_joint": 0.47953879734446986,
+          "reference_failure": 0.0,
+          "candidate_failure": 0.0,
+          "reference_coverage": 1.0,
+          "candidate_coverage": 1.0,
+          "reference_return": 97.49350497449268,
+          "candidate_return": 99.68045045644794,
+          "reference_common_body": 0.04259967052938474,
+          "reference_common_joint": 0.5457944440222043,
+          "candidate_common_body": 0.032939223231585775,
+          "candidate_common_joint": 0.47953879734446986
+        },
+        "candidate_over_reference_body_joint": [
+          0.7732271827986251,
+          0.8786069601781453
+        ],
+        "body_joint_ratio_ci95": [
+          [
+            0.7580651330966224,
+            0.7893580651441494
+          ],
+          [
+            0.8708721395874766,
+            0.8868651483883552
+          ]
+        ],
+        "failure_rate_delta": 0.0,
+        "failure_rate_delta_ci95": [
+          0.0,
+          0.0
+        ],
+        "coverage_delta": 0.0,
+        "coverage_delta_ci95": [
+          0.0,
+          0.0
+        ],
+        "episode_return_delta": 2.186945481955263,
+        "episode_return_delta_ci95": [
+          2.0188112545827153,
+          2.369125422807201
+        ],
+        "common_prefix_body_joint_ratio": [
+          0.7732271827986251,
+          0.8786069601781453
+        ],
+        "common_prefix_body_joint_ratio_ci95": [
+          [
+            0.7580651330966224,
+            0.7893580651441494
+          ],
+          [
+            0.8708721395874766,
+            0.8868651483883552
+          ]
+        ],
+        "new_failure_episodes": 0,
+        "rescued_failure_episodes": 0,
+        "uncertainty": "paired motion bootstrap conditional on this training seed; not training-seed uncertainty",
+        "scope": "new starts and loads on the training motion catalog; not unseen-motion generalization"
+      },
+      "three_way_common_prefix": {
+        "frozen": {
+          "common_body_cm": 2.314890235261246,
+          "common_joint": 0.3771541392644129,
+          "failure_rate": 0.0,
+          "residual_saturation_fraction": 0.0
+        },
+        "baseline": {
+          "common_body_cm": 4.2599670529384746,
+          "common_joint": 0.5457944440222042,
+          "failure_rate": 0.0,
+          "residual_saturation_fraction": 0.26252347386245045
+        },
+        "latent": {
+          "common_body_cm": 3.2939223231585726,
+          "common_joint": 0.4795387973444702,
+          "failure_rate": 0.0,
+          "residual_saturation_fraction": 0.11374046715624646
+        }
+      },
+      "mean_three_way_common_steps": 352.408203125
+    },
+    "all_4_cold": {
+      "baseline_vs_latent": {
+        "motions": 512,
+        "means": {
+          "reference_body": 0.06036157291434058,
+          "reference_joint": 0.8489520528707026,
+          "candidate_body": 0.06332702528437098,
+          "candidate_joint": 0.8621025491539414,
+          "reference_failure": 0.060546875,
+          "candidate_failure": 0.076171875,
+          "reference_coverage": 0.9624673041130284,
+          "candidate_coverage": 0.9557164955852786,
+          "reference_return": 80.91640534975161,
+          "candidate_return": 80.22207461337746,
+          "reference_common_body": 0.0603878940483078,
+          "reference_common_joint": 0.8472151706059476,
+          "candidate_common_body": 0.06300569706304518,
+          "candidate_common_joint": 0.860254259403337
+        },
+        "candidate_over_reference_body_joint": [
+          1.0491281493648068,
+          1.0154902697258
+        ],
+        "body_joint_ratio_ci95": [
+          [
+            1.0308084889408964,
+            1.0673062640039253
+          ],
+          [
+            1.0038683046204704,
+            1.027084874591459
+          ]
+        ],
+        "failure_rate_delta": 0.015625,
+        "failure_rate_delta_ci95": [
+          0.0,
+          0.033203125
+        ],
+        "coverage_delta": -0.006750808527749785,
+        "coverage_delta_ci95": [
+          -0.015656163050585464,
+          0.0012834866762889425
+        ],
+        "episode_return_delta": -0.6943307363741553,
+        "episode_return_delta_ci95": [
+          -1.3706702573462117,
+          -0.048460988150595186
+        ],
+        "common_prefix_body_joint_ratio": [
+          1.0433497981009778,
+          1.0153905279907387
+        ],
+        "common_prefix_body_joint_ratio_ci95": [
+          [
+            1.027615219876062,
+            1.0587279027149419
+          ],
+          [
+            1.0050510800189678,
+            1.0251497549242565
+          ]
+        ],
+        "new_failure_episodes": 13,
+        "rescued_failure_episodes": 5,
+        "uncertainty": "paired motion bootstrap conditional on this training seed; not training-seed uncertainty",
+        "scope": "new starts and loads on the training motion catalog; not unseen-motion generalization"
+      },
+      "three_way_common_prefix": {
+        "frozen": {
+          "common_body_cm": 8.308997774814555,
+          "common_joint": 1.0675583197706162,
+          "failure_rate": 0.10546875,
+          "residual_saturation_fraction": 0.0
+        },
+        "baseline": {
+          "common_body_cm": 5.9043176568629745,
+          "common_joint": 0.8349750130890337,
+          "failure_rate": 0.060546875,
+          "residual_saturation_fraction": 0.39535469569872994
+        },
+        "latent": {
+          "common_body_cm": 6.1487833301166654,
+          "common_joint": 0.846977004341902,
+          "failure_rate": 0.076171875,
+          "residual_saturation_fraction": 0.23518934807491726
+        }
+      },
+      "mean_three_way_common_steps": 322.400390625
+    },
+    "all_4_warm": {
+      "baseline_vs_latent": {
+        "motions": 512,
+        "means": {
+          "reference_body": 0.060611024049424936,
+          "reference_joint": 0.8500723858242265,
+          "candidate_body": 0.06305235390568496,
+          "candidate_joint": 0.8658900099591176,
+          "reference_failure": 0.06640625,
+          "candidate_failure": 0.0859375,
+          "reference_coverage": 0.9590135708850577,
+          "candidate_coverage": 0.950575160716023,
+          "reference_return": 80.8417657339748,
+          "candidate_return": 79.55746459506486,
+          "reference_common_body": 0.0604725425474913,
+          "reference_common_joint": 0.8492728243514404,
+          "candidate_common_body": 0.06273332560354147,
+          "candidate_common_joint": 0.862642605371785
+        },
+        "candidate_over_reference_body_joint": [
+          1.040278643935619,
+          1.018607384969404
+        ],
+        "body_joint_ratio_ci95": [
+          [
+            1.0217066452763075,
+            1.0598565044236103
+          ],
+          [
+            1.0081163315852704,
+            1.0303739667317207
+          ]
+        ],
+        "failure_rate_delta": 0.01953125,
+        "failure_rate_delta_ci95": [
+          0.00390625,
+          0.037109375
+        ],
+        "coverage_delta": -0.008438410169034682,
+        "coverage_delta_ci95": [
+          -0.01707596891119647,
+          -4.39677310347591e-05
+        ],
+        "episode_return_delta": -1.2843011389099388,
+        "episode_return_delta_ci95": [
+          -2.2124254395620797,
+          -0.42999337010166955
+        ],
+        "common_prefix_body_joint_ratio": [
+          1.0373852819942984,
+          1.0157426219666863
+        ],
+        "common_prefix_body_joint_ratio_ci95": [
+          [
+            1.0217768010107369,
+            1.0542442503100584
+          ],
+          [
+            1.0064523731696264,
+            1.025799612129222
+          ]
+        ],
+        "new_failure_episodes": 15,
+        "rescued_failure_episodes": 5,
+        "uncertainty": "paired motion bootstrap conditional on this training seed; not training-seed uncertainty",
+        "scope": "new starts and loads on the training motion catalog; not unseen-motion generalization"
+      },
+      "three_way_common_prefix": {
+        "frozen": {
+          "common_body_cm": 8.263791437264315,
+          "common_joint": 1.0628511213463923,
+          "failure_rate": 0.11328125,
+          "residual_saturation_fraction": 0.0
+        },
+        "baseline": {
+          "common_body_cm": 5.8968251785505,
+          "common_joint": 0.8352859330214949,
+          "failure_rate": 0.06640625,
+          "residual_saturation_fraction": 0.39508379064235455
+        },
+        "latent": {
+          "common_body_cm": 6.1074320540358205,
+          "common_joint": 0.8488652264391392,
+          "failure_rate": 0.0859375,
+          "residual_saturation_fraction": 0.2500280066500045
+        }
+      },
+      "mean_three_way_common_steps": 321.95703125
+    }
+  }
+}

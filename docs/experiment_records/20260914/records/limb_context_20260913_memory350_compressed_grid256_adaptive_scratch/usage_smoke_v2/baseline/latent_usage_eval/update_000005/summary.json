@@ -1,0 +1,35 @@
+{
+  "completed_updates": 5,
+  "checkpoint_sha256": "7d8f338b897bf5f8575906f08733bf2db6b6d82eba98f9351aa826e102da36f6",
+  "fusion": "baseline",
+  "protocol": {
+    "version": "memory350_matched_latent_usage_v1",
+    "interval_updates": 1000,
+    "motion_manifest": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260913_memory350_compressed_grid256_adaptive_scratch/protocols/latent_usage_smoke_motions.txt",
+    "manifest_sha256": "d1066aadcbcffb5a846e139f20ad8c8a2127c8eeb141087de768eb52b4012ff9",
+    "motions": 8,
+    "motion_path": "/data_zcy/wxy/motion_data_correct/motion_data_full",
+    "seed": 22001,
+    "steps": 200,
+    "warmup_steps": 500
+  },
+  "metrics": {
+    "correct": {
+      "error_body_pos": 0.05587230626061052,
+      "error_joint_pos": 0.7134142785612495,
+      "error_anchor_pos": 0.13035002128235648,
+      "error_anchor_rot": 0.11459929142259613,
+      "error_body_rot": 0.23850141411027811,
+      "error_joint_vel": 4.43400288523939,
+      "error_anchor_lin_vel": 0.2101773034529059,
+      "error_anchor_ang_vel": 0.5178940449020891,
+      "error_body_lin_vel": 0.2814034944650634,
+      "error_body_ang_vel": 1.2280160599076846,
+      "failure_rate": 0.0,
+      "coverage_fraction": 1.0,
+      "mean_episode_return": 50.55889061000198
+    }
+  },
+  "paired_motion_bootstrap": null,
+  "scope": "Warm history; 2 matched-phase worlds per motion; independently sampled continuous DR. Swap only while both histories are full and both worlds are active. Ratios above one mean swapped latent worsens tracking."
+}

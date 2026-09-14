@@ -1,0 +1,67 @@
+{
+  "passed": true,
+  "checked_at": 1789118549.2987995,
+  "scope": "actual full-dataset startup; predictive benefit not established",
+  "progress": {
+    "completed_updates": 34,
+    "optimizer_steps": 136,
+    "unbounded": true,
+    "unix_time": 1789118547.8557296
+  },
+  "checkpoint_audited_update": 1,
+  "checkpoint_sha256": "bc2fee5467f7c9c39da46579212b4981cc005427cf12623e33218045a603ad21",
+  "parameter_counts": {
+    "total": 21086486,
+    "context_encoder": 2026688,
+    "predictor": 19059798
+  },
+  "four_rank_parameter_agreement": true,
+  "finite_model_and_optimizer": true,
+  "normalization_sha256": "4c4b8ac8e3048e52ecc6069e3a50e7dabe369dff73e654eb0392a85772902db0",
+  "shared_validation_sha256": {
+    "validation_rank_0.pt": "962d57107b74be223832d565952242ee748d16b904fb6e1f0b4d74fe42ff38fb",
+    "validation_broad_rank_0.pt": "2d833e70b3ac9fafbb5a1dc26d06a18261b0a04ff211090ece8ef76156717f1e",
+    "validation_rank_1.pt": "6f813e3b4ac7015fb28a8524940ade21ba3939dbd5a1365e26b5df283edf9f81",
+    "validation_broad_rank_1.pt": "fdf8a512ce235c36f576dda14489a17e9ed36efd604de8cd8fb05a12d95aa261",
+    "validation_rank_2.pt": "1fcb295a04be3f640be6a670f62556f71719dc07de3ae2fa02b8a0025887b52c",
+    "validation_broad_rank_2.pt": "de2b391bcd8cf9fe22edb6969012db33189e61f2720a33c8a87537e6842ab83a",
+    "validation_rank_3.pt": "0229ea6f45d0861e189d732f73368cf1b7bc83a1667f05116b874e74caca5278",
+    "validation_broad_rank_3.pt": "b3f532e4ab0b4577ed40cb1828f5b3a4efbe7b60d4b22a7e2b12cec1a805b850"
+  },
+  "training_and_physics_contract_match": true,
+  "motion_count": 129827,
+  "loaded_frames": 48085337,
+  "ranks": [
+    {
+      "rank": 0,
+      "physical_gpu": "0",
+      "num_envs": 8192,
+      "motion_count": 32457
+    },
+    {
+      "rank": 1,
+      "physical_gpu": "1",
+      "num_envs": 8192,
+      "motion_count": 32457
+    },
+    {
+      "rank": 2,
+      "physical_gpu": "2",
+      "num_envs": 8192,
+      "motion_count": 32457
+    },
+    {
+      "rank": 3,
+      "physical_gpu": "3",
+      "num_envs": 8192,
+      "motion_count": 32456
+    }
+  ],
+  "wandb": {
+    "id": "m350scale-12b5f4c4b590",
+    "url": "https://wandb.ai/2486344338-zhejiang-university/intact-forward-predictor/runs/m350scale-12b5f4c4b590",
+    "state": "running",
+    "group": "limb_context_20260911_memory350_encoder2x-stage1",
+    "latest_remote_update": 20
+  }
+}

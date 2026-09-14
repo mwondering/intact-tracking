@@ -1,0 +1,11 @@
+{
+  "passed": true,
+  "checked_at": 1789135625.313702,
+  "update": 100,
+  "nominal_a_fraction": 0.5,
+  "same_normalization": true,
+  "same_validation": true,
+  "dr_samples": 1030,
+  "nominal_samples": 1018,
+  "scope": "First equal-update prediction evaluation completed; update 100 is too early for a convergence claim"
+}

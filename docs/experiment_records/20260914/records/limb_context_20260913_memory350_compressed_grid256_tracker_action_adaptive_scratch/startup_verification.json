@@ -1,0 +1,59 @@
+{
+  "passed": true,
+  "initialization": "scratch",
+  "adaptive_after_update": 0,
+  "maximum_updates": null,
+  "original_ee_height_termination": true,
+  "actor_initial_weights_identical": true,
+  "critic_initial_trainable_weights_identical": true,
+  "critic_initial_normalizer_max_abs_difference": {
+    "obs_normalizer.sum": 200.065673828125,
+    "obs_normalizer.ssq": 16354.5,
+    "obs_normalizer.count": 0.0
+  },
+  "optimizer_states_initially_empty": true,
+  "context_encoder_and_normalization_frozen": true,
+  "critic_normalizers_fresh_independent_first_batches": true,
+  "critic_normalizers_bitwise_equal": false,
+  "arms": {
+    "baseline": {
+      "progress": {
+        "completed_updates": 18,
+        "unix_time": 1789305537.3020298
+      },
+      "first_six_updates_finite_and_adaptive": true,
+      "initial_endpoint_training_state_preserved": true,
+      "initial_endpoint_wall_seconds": 241.48888289742172,
+      "wandb": {
+        "id": "m350compressed-4b51834d343d",
+        "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/m350compressed-4b51834d343d",
+        "project": "intact-preview-v2",
+        "group": "limb_context_20260913_memory350_compressed_grid256_tracker_action_adaptive_scratch"
+      }
+    },
+    "concat": {
+      "progress": {
+        "completed_updates": 7,
+        "unix_time": 1789305536.5789013
+      },
+      "first_six_updates_finite_and_adaptive": true,
+      "initial_endpoint_training_state_preserved": true,
+      "initial_endpoint_wall_seconds": 267.06415047869086,
+      "wandb": {
+        "id": "m350compressed-7f1f8ba06224",
+        "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/m350compressed-7f1f8ba06224",
+        "project": "intact-preview-v2",
+        "group": "limb_context_20260913_memory350_compressed_grid256_tracker_action_adaptive_scratch"
+      }
+    }
+  },
+  "verified_at": 1789305541.2332034,
+  "grouped_dr": {
+    "passed": true,
+    "profiles": 256,
+    "replicas_per_profile_all_ranks": 128,
+    "replicas_per_profile_per_rank": 32,
+    "static_bank_sha256": "d0808422cf301be59698c6cde9081223fbf5cf79000a288083f05b5f314a580e"
+  },
+  "same_static_dr_bank_across_both_arms": true
+}

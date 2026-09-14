@@ -1,0 +1,99 @@
+{
+  "stage1": {
+    "url": "https://wandb.ai/2486344338-zhejiang-university/intact-forward-predictor/runs/limb-7fdd4c20fbf2",
+    "project": "intact-forward-predictor",
+    "group": "limb_context_20260907-stage1",
+    "last_update": 3600,
+    "target_updates": 8000,
+    "distributed": {
+      "enabled": true,
+      "rank_seed": "seed + rank",
+      "world_size": 4,
+      "effective_batch_size_global": 4096
+    },
+    "history_rows": [
+      {
+        "_step": 3600,
+        "update": 3600
+      }
+    ]
+  },
+  "smoke_baseline": {
+    "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/limb-c886922f75fa",
+    "project": "intact-preview-v2",
+    "group": "limb_context_20260907-stage2-4gpu8192-smoke",
+    "last_update": 3,
+    "target_updates": 3,
+    "distributed": {
+      "world_size": 4,
+      "global_num_envs": 32768,
+      "num_envs_per_rank": 8192,
+      "rank_seed_formula": "seed + 1000003 * rank",
+      "critic_normalization": "global pooled sums, squared sums and count at every environment step",
+      "advantage_normalization": "global rollout mean and sample standard deviation",
+      "gradient_synchronization": "mean across all ranks at each optimizer step"
+    },
+    "history_rows": [
+      {
+        "_step": 2,
+        "update": 2
+      },
+      {
+        "update": 3,
+        "_step": 3
+      }
+    ]
+  },
+  "smoke_constant": {
+    "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/limb-19d665a92160",
+    "project": "intact-preview-v2",
+    "group": "limb_context_20260907-stage2-4gpu8192-smoke",
+    "last_update": 3,
+    "target_updates": 3,
+    "distributed": {
+      "world_size": 4,
+      "global_num_envs": 32768,
+      "num_envs_per_rank": 8192,
+      "rank_seed_formula": "seed + 1000003 * rank",
+      "critic_normalization": "global pooled sums, squared sums and count at every environment step",
+      "advantage_normalization": "global rollout mean and sample standard deviation",
+      "gradient_synchronization": "mean across all ranks at each optimizer step"
+    },
+    "history_rows": [
+      {
+        "_step": 2,
+        "update": 2
+      },
+      {
+        "_step": 3,
+        "update": 3
+      }
+    ]
+  },
+  "smoke_film": {
+    "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/limb-f2c91b9910d8",
+    "project": "intact-preview-v2",
+    "group": "limb_context_20260907-stage2-4gpu8192-smoke",
+    "last_update": 3,
+    "target_updates": 3,
+    "distributed": {
+      "world_size": 4,
+      "global_num_envs": 32768,
+      "num_envs_per_rank": 8192,
+      "rank_seed_formula": "seed + 1000003 * rank",
+      "critic_normalization": "global pooled sums, squared sums and count at every environment step",
+      "advantage_normalization": "global rollout mean and sample standard deviation",
+      "gradient_synchronization": "mean across all ranks at each optimizer step"
+    },
+    "history_rows": [
+      {
+        "_step": 2,
+        "update": 2
+      },
+      {
+        "update": 3,
+        "_step": 3
+      }
+    ]
+  }
+}

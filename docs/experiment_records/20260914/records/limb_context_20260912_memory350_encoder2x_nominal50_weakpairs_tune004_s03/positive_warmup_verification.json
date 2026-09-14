@@ -1,0 +1,15 @@
+{
+  "passed": true,
+  "diagnostic_scope": "rank0 training diagnostics",
+  "first_nonzero_positive_update": 8050,
+  "verified_update": 8080,
+  "positive_pairs": 56.125,
+  "negative_pairs": 2405.5,
+  "weak_positive_loss": 0.08839257061481476,
+  "weak_negative_loss": 0.008987748995423317,
+  "weighted_loss": 0.0003895213012583554,
+  "expected_weighted_loss": 0.0003895212784409523,
+  "both_losses_active_with_doubled_coefficients": true,
+  "learning_rate": 1e-05,
+  "unix_time": 1789212844.7512896
+}

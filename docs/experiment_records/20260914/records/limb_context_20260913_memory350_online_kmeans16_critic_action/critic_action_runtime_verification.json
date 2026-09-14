@@ -1,0 +1,120 @@
+{
+  "verified_at": 1789320654.3610952,
+  "arms": {
+    "baseline": {
+      "all_critic_heads_learned_all_tracker_action_columns": true,
+      "changes": [
+        {
+          "expert": 0,
+          "action_weight_delta_rms": 0.004048385191708803,
+          "action_weight_max_change": 0.012567704543471336,
+          "changed_action_columns": 29
+        }
+      ],
+      "total_trainable_parameters": 8329531
+    },
+    "concat": {
+      "all_critic_heads_learned_all_tracker_action_columns": true,
+      "changes": [
+        {
+          "expert": 0,
+          "action_weight_delta_rms": 0.003659941954538226,
+          "action_weight_max_change": 0.011675594374537468,
+          "changed_action_columns": 29
+        },
+        {
+          "expert": 1,
+          "action_weight_delta_rms": 0.003729796502739191,
+          "action_weight_max_change": 0.00986289419233799,
+          "changed_action_columns": 29
+        },
+        {
+          "expert": 2,
+          "action_weight_delta_rms": 0.003521118313074112,
+          "action_weight_max_change": 0.013718539848923683,
+          "changed_action_columns": 29
+        },
+        {
+          "expert": 3,
+          "action_weight_delta_rms": 0.0035530675668269396,
+          "action_weight_max_change": 0.009850602596998215,
+          "changed_action_columns": 29
+        },
+        {
+          "expert": 4,
+          "action_weight_delta_rms": 0.0035963444970548153,
+          "action_weight_max_change": 0.008686729706823826,
+          "changed_action_columns": 29
+        },
+        {
+          "expert": 5,
+          "action_weight_delta_rms": 0.003556023584678769,
+          "action_weight_max_change": 0.008227510377764702,
+          "changed_action_columns": 29
+        },
+        {
+          "expert": 6,
+          "action_weight_delta_rms": 0.004416400101035833,
+          "action_weight_max_change": 0.010435636155307293,
+          "changed_action_columns": 29
+        },
+        {
+          "expert": 7,
+          "action_weight_delta_rms": 0.003669216763228178,
+          "action_weight_max_change": 0.010874886065721512,
+          "changed_action_columns": 29
+        },
+        {
+          "expert": 8,
+          "action_weight_delta_rms": 0.0035873213782906532,
+          "action_weight_max_change": 0.008593281731009483,
+          "changed_action_columns": 29
+        },
+        {
+          "expert": 9,
+          "action_weight_delta_rms": 0.003569640452042222,
+          "action_weight_max_change": 0.012515032663941383,
+          "changed_action_columns": 29
+        },
+        {
+          "expert": 10,
+          "action_weight_delta_rms": 0.004676315933465958,
+          "action_weight_max_change": 0.009969953447580338,
+          "changed_action_columns": 29
+        },
+        {
+          "expert": 11,
+          "action_weight_delta_rms": 0.004343148320913315,
+          "action_weight_max_change": 0.009441390633583069,
+          "changed_action_columns": 29
+        },
+        {
+          "expert": 12,
+          "action_weight_delta_rms": 0.004613184370100498,
+          "action_weight_max_change": 0.009626351296901703,
+          "changed_action_columns": 29
+        },
+        {
+          "expert": 13,
+          "action_weight_delta_rms": 0.0035411883145570755,
+          "action_weight_max_change": 0.010908439755439758,
+          "changed_action_columns": 29
+        },
+        {
+          "expert": 14,
+          "action_weight_delta_rms": 0.004441866651177406,
+          "action_weight_max_change": 0.008466176688671112,
+          "changed_action_columns": 29
+        },
+        {
+          "expert": 15,
+          "action_weight_delta_rms": 0.0036735148169100285,
+          "action_weight_max_change": 0.01050972193479538,
+          "changed_action_columns": 29
+        }
+      ],
+      "total_trainable_parameters": 10587901
+    }
+  },
+  "passed": true
+}

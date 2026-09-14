@@ -1,0 +1,240 @@
+{
+  "plan": {
+    "identities": {
+      "reference": {
+        "path": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/fixed_reward_lowrank_seed77/checkpoint_500.pt",
+        "sha256": "132ec7f57bece83012ba4565002a77d4c6277dd6da59280dd2ee7c9b07679219"
+      },
+      "candidate": {
+        "path": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/fixed_reward_lowrank_context_transfer_seed94/checkpoint_1500.pt",
+        "sha256": "461017433cd4696066f69f622eb87a86d3eb1ec105d37a1de8b46eab6544306a"
+      }
+    },
+    "evaluation_seeds": [
+      95001,
+      95002,
+      95003
+    ],
+    "scope": "Frozen true7-physics teacher and development-selected student, identical controller/preprocessing. New worlds/starts verify causal context estimates replacing simulator parameters. Teacher remains unqualified versus fixed nominal target; this is intermediate replacement evidence, not full stage-two acceptance."
+  },
+  "same_physics_worlds_audited": true,
+  "legacy_reference_configuration_audit": null,
+  "actor_input_only_training_audit": null,
+  "context_replacement_audit": {
+    "controller_and_preprocessing_tensors_bitwise_equal": 102,
+    "teacher_checkpoint_sha256": "132ec7f57bece83012ba4565002a77d4c6277dd6da59280dd2ee7c9b07679219",
+    "scope": "Only direct true7 physics code is replaced by causal deployable-context estimates; controller and preprocessing are bitwise preserved. Teacher itself remains unqualified against fixed nominal target."
+  },
+  "statistics": {
+    "reference_files": [
+      "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/context_replacement_950xx/reference_seed95001.json",
+      "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/context_replacement_950xx/reference_seed95002.json",
+      "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/context_replacement_950xx/reference_seed95003.json"
+    ],
+    "candidate_files": [
+      "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/context_replacement_950xx/candidate_seed95001.json",
+      "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/context_replacement_950xx/candidate_seed95002.json",
+      "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/context_replacement_950xx/candidate_seed95003.json"
+    ],
+    "seeds": [
+      {
+        "seed": 95001,
+        "reference": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/context_replacement_950xx/reference_seed95001.json",
+        "candidate": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/context_replacement_950xx/candidate_seed95001.json",
+        "ratios": {
+          "error_body_pos": 0.9979774514339762,
+          "error_joint_pos": 0.9972573907495673,
+          "error_anchor_pos": 0.9899249935618921,
+          "error_anchor_rot": 0.9956100850730092,
+          "error_body_rot": 0.9966877878274297,
+          "error_joint_vel": 1.0041281435437197,
+          "error_anchor_lin_vel": 1.0042511805076995,
+          "error_anchor_ang_vel": 1.0052179283895315,
+          "error_body_lin_vel": 1.0040117752326814,
+          "error_body_ang_vel": 1.0039966225682897
+        },
+        "failure_difference": -0.008928571594879031
+      },
+      {
+        "seed": 95002,
+        "reference": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/context_replacement_950xx/reference_seed95002.json",
+        "candidate": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/context_replacement_950xx/candidate_seed95002.json",
+        "ratios": {
+          "error_body_pos": 0.9977649805405593,
+          "error_joint_pos": 0.9977454717554624,
+          "error_anchor_pos": 1.0028808871444819,
+          "error_anchor_rot": 1.0021446237080438,
+          "error_body_rot": 0.9978287925340757,
+          "error_joint_vel": 1.0003010368620047,
+          "error_anchor_lin_vel": 1.001816046960152,
+          "error_anchor_ang_vel": 1.0018969945137204,
+          "error_body_lin_vel": 1.0022376212362056,
+          "error_body_ang_vel": 1.0001315377112925
+        },
+        "failure_difference": -0.0029761902987957
+      },
+      {
+        "seed": 95003,
+        "reference": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/context_replacement_950xx/reference_seed95003.json",
+        "candidate": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/context_replacement_950xx/candidate_seed95003.json",
+        "ratios": {
+          "error_body_pos": 0.9954307185267832,
+          "error_joint_pos": 0.9934459741564283,
+          "error_anchor_pos": 0.9768615929920701,
+          "error_anchor_rot": 0.9873349045101874,
+          "error_body_rot": 0.9946541789585384,
+          "error_joint_vel": 0.9978802696114285,
+          "error_anchor_lin_vel": 1.0012921610965413,
+          "error_anchor_ang_vel": 0.9993395734477565,
+          "error_body_lin_vel": 0.9999045948050379,
+          "error_body_ang_vel": 0.9989122873911394
+        },
+        "failure_difference": 0.0
+      }
+    ],
+    "metrics": {
+      "error_body_pos": {
+        "reference": 0.0406903736462608,
+        "candidate": 0.040569841571172174,
+        "ratio": 0.9970378233403198,
+        "paired_motion_seed_bootstrap_95pct": [
+          0.9907515897500347,
+          1.0020527335241003
+        ]
+      },
+      "error_joint_pos": {
+        "reference": 0.6069891394947904,
+        "candidate": 0.6046401032538957,
+        "ratio": 0.9961300193231631,
+        "paired_motion_seed_bootstrap_95pct": [
+          0.9901915478974691,
+          0.9997584106070572
+        ]
+      },
+      "error_anchor_pos": {
+        "reference": 0.31983343906110107,
+        "candidate": 0.31649781970021135,
+        "ratio": 0.989570761047745,
+        "paired_motion_seed_bootstrap_95pct": [
+          0.9692910242314434,
+          1.011567257693977
+        ]
+      },
+      "error_anchor_rot": {
+        "reference": 0.08768496466268216,
+        "candidate": 0.08723501776980196,
+        "ratio": 0.9948685969754208,
+        "paired_motion_seed_bootstrap_95pct": [
+          0.9795194243620288,
+          1.0047305041975245
+        ]
+      },
+      "error_body_rot": {
+        "reference": 0.17863862990560508,
+        "candidate": 0.17799052646519992,
+        "ratio": 0.9963719860550452,
+        "paired_motion_seed_bootstrap_95pct": [
+          0.9903723191395486,
+          1.0001232675436817
+        ]
+      },
+      "error_joint_vel": {
+        "reference": 5.20923533770189,
+        "candidate": 5.213110360146648,
+        "ratio": 1.0007438754814382,
+        "paired_motion_seed_bootstrap_95pct": [
+          0.9958887575326733,
+          1.0047978172603256
+        ]
+      },
+      "error_anchor_lin_vel": {
+        "reference": 0.2467062488973398,
+        "candidate": 0.24731055919626999,
+        "ratio": 1.002449513547513,
+        "paired_motion_seed_bootstrap_95pct": [
+          0.9978874039154851,
+          1.0065158255345399
+        ]
+      },
+      "error_anchor_ang_vel": {
+        "reference": 0.5389798708317968,
+        "candidate": 0.5401269920193866,
+        "ratio": 1.0021283191630506,
+        "paired_motion_seed_bootstrap_95pct": [
+          0.9951557238099763,
+          1.0091263286778898
+        ]
+      },
+      "error_body_lin_vel": {
+        "reference": 0.3329153821175419,
+        "candidate": 0.3335932619957698,
+        "ratio": 1.0020361927223553,
+        "paired_motion_seed_bootstrap_95pct": [
+          0.9977639739478699,
+          1.0059373059184227
+        ]
+      },
+      "error_body_ang_vel": {
+        "reference": 1.4215868835702157,
+        "candidate": 1.4230007180800976,
+        "ratio": 1.000994546676128,
+        "paired_motion_seed_bootstrap_95pct": [
+          0.996688101903209,
+          1.005200402628859
+        ]
+      }
+    },
+    "reference_failure_rate": 0.013888888888888888,
+    "candidate_failure_rate": 0.00992063492063492,
+    "failure_difference": -0.003968253968253968,
+    "failure_difference_paired_bootstrap_95pct": [
+      -0.013888888888888888,
+      0.003968253968253968
+    ],
+    "failure_upper_95pct_within_margin": false,
+    "allowed_observed_failure_increase": 0.0,
+    "observed_failure_nonincrease": true,
+    "fixed_reward_candidate_eligible": true,
+    "margin": 1.02,
+    "evaluation_protocol": "balanced_fixed_starts_v2_isolated_resets",
+    "valid_acceptance_protocol": true,
+    "matched_single_policy_identity": true,
+    "acceptance_conditions": false,
+    "numerical_point_estimate_pass": true,
+    "point_estimate_pass": false,
+    "primary_upper_95pct_within_margin": false,
+    "all_metrics_point_estimate_pass": false,
+    "all_metrics_upper_95pct_within_margin": false,
+    "confirmation_seeds_used": false,
+    "confirmation_seed_set_complete": false,
+    "warning": "INVALID FOR ACCEPTANCE: missing v2 reset audits, fixed-reward lineage, or a diagnostic/ablation condition."
+  },
+  "paired_failures": [
+    {
+      "seed": 95001,
+      "reference": 4,
+      "candidate": 1,
+      "episodes": 336,
+      "new": 1,
+      "recovered": 4
+    },
+    {
+      "seed": 95002,
+      "reference": 5,
+      "candidate": 4,
+      "episodes": 336,
+      "new": 0,
+      "recovered": 1
+    },
+    {
+      "seed": 95003,
+      "reference": 5,
+      "candidate": 5,
+      "episodes": 336,
+      "new": 1,
+      "recovered": 1
+    }
+  ],
+  "nominal_goal_acceptance": false,
+  "warning": "Bootstrap reflects evaluation seed/motion uncertainty only, not training-seed uncertainty. Actor-input causal scope requires the explicit matching audit; otherwise architecture and input differ together."
+}

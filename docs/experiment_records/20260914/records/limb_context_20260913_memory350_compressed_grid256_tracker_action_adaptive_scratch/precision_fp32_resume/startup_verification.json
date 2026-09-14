@@ -1,0 +1,66 @@
+{
+  "verified_at": 1789316366.556332,
+  "source_files_checked": 166,
+  "source_mismatches": [],
+  "arms": {
+    "baseline": {
+      "checks": {
+        "resume_state_passed": true,
+        "resume_digest_matches_ready": true,
+        "resume_update_matches_ready": true,
+        "precision_fp32": true,
+        "samplers_restored": true,
+        "unlimited_training": true,
+        "has_new_updates": true,
+        "all_new_updates_fp32": true,
+        "new_losses_finite": true
+      },
+      "resumed_from_update": 1589,
+      "latest_update": 1599,
+      "new_updates": 10,
+      "last_timings": {
+        "collect_seconds": 3.41733980178833,
+        "learn_seconds": 1.4471840858459473
+      },
+      "policy_precision_audit": {
+        "collection_update_and_evaluation_use_same_setting": true,
+        "context_inference_autocast": "bfloat16 on CUDA; frozen context stored in float32",
+        "policy_matmul_precision": "ieee",
+        "policy_parameter_dtype": "float32",
+        "policy_precision": "fp32",
+        "torch_version": "2.13.0+cu130"
+      },
+      "encoder_frozen": true
+    },
+    "concat": {
+      "checks": {
+        "resume_state_passed": true,
+        "resume_digest_matches_ready": true,
+        "resume_update_matches_ready": true,
+        "precision_fp32": true,
+        "samplers_restored": true,
+        "unlimited_training": true,
+        "has_new_updates": true,
+        "all_new_updates_fp32": true,
+        "new_losses_finite": true
+      },
+      "resumed_from_update": 1300,
+      "latest_update": 1352,
+      "new_updates": 52,
+      "last_timings": {
+        "collect_seconds": 4.329097747802734,
+        "learn_seconds": 1.4725112915039062
+      },
+      "policy_precision_audit": {
+        "collection_update_and_evaluation_use_same_setting": true,
+        "context_inference_autocast": "bfloat16 on CUDA; frozen context stored in float32",
+        "policy_matmul_precision": "ieee",
+        "policy_parameter_dtype": "float32",
+        "policy_precision": "fp32",
+        "torch_version": "2.13.0+cu130"
+      },
+      "encoder_frozen": true
+    }
+  },
+  "passed": true
+}

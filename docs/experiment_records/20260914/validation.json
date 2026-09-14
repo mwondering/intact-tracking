@@ -1,0 +1,42 @@
+{
+  "checked_at_utc": "2026-09-14T06:05:49.759010+00:00",
+  "command": "CUDA_VISIBLE_DEVICES='' OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 OPENBLAS_NUM_THREADS=2 .venv/bin/python -B -m pytest -q",
+  "tests": 577,
+  "passed": 576,
+  "skipped": 1,
+  "failures": 0,
+  "errors": 0,
+  "seconds": 60.935,
+  "notes": [
+    "CUDA was hidden for this test process to leave all eight training GPUs available.",
+    "The skipped test checks replay/normalization GPU residency.",
+    "Real GPU startup and short PPO/resume/evaluation checks are recorded with the residual experiment."
+  ],
+  "archived_record_hashes_verified": 1824,
+  "staged_credential_scan_passed": true,
+  "staged_large_artifact_scan_passed": true,
+  "live_training_pinned_files_verified": 188,
+  "diff_check": {
+    "status": "existing_whitespace_findings_preserved",
+    "scope": "source, scripts, tests, config and docs; immutable experiment copies excluded",
+    "findings": [
+      {
+        "path": "scripts/summarize_limb_context_experiment.py",
+        "line": 156,
+        "message": "trailing whitespace"
+      },
+      {
+        "path": "src/intact_tracking/adaptation_reward_contract.py",
+        "line": 101,
+        "message": "new blank line at EOF"
+      },
+      {
+        "path": "tests/test_matched_control_aggregation.py",
+        "line": 91,
+        "message": "new blank line at EOF"
+      }
+    ],
+    "reason": "Preserve existing source bytes and the hashes pinned by ongoing training; no functional change is needed for these whitespace findings."
+  },
+  "monitor_recovery_verified": true
+}

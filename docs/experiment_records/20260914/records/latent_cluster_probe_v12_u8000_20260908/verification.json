@@ -1,0 +1,20 @@
+{
+  "nonoverlapping_main_histories": true,
+  "finite_latents": true,
+  "phase_within_0_1": true,
+  "nominal_physics": {
+    "model_field_max_abs_error": 0.0,
+    "encoder_bias_max_abs_error": 0.0,
+    "dr_model_field_max_abs_difference": 55.72969055175781,
+    "dr_encoder_bias_max_abs_difference": 0.009999552741646767
+  },
+  "bf16_fp32": {
+    "bf16_fp32_full_context_rms_difference": 0.0025149332359433174,
+    "bf16_fp32_full_context_mean_cosine": 0.9999960660934448
+  },
+  "dr_distinct_motions_per_world": {
+    "min": 4,
+    "median": 6.0,
+    "max": 8
+  }
+}

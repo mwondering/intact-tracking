@@ -1,0 +1,220 @@
+{
+  "arguments": {
+    "actor_depth": 3,
+    "actor_hidden_dim": 1024,
+    "batch_size": 512,
+    "block_size": 5,
+    "checkpoint_file": "/data_zcy/wxy/SP_Tracking/logs/rsl_rl/g1_tracking/2026-07-28_05-25-04_SPTracking-G1-BFM-SPV5-2Actor-HEFTCritic-HEFTReward_6gpu_12288env_motion_data_correct_sota/checkpoint_22000.pt",
+    "checkpoint_interval": 1000,
+    "context_depth": 2,
+    "context_heads": 4,
+    "device": null,
+    "distributed_backend": null,
+    "embed_dim": 192,
+    "encoder_hidden_dim": 512,
+    "forward_depth": 6,
+    "forward_heads": 8,
+    "forward_history": 3,
+    "forward_weight": 1.0,
+    "goal_weight": 0.05,
+    "gradient_clip": 1.0,
+    "gradient_steps_per_update": 8,
+    "horizon": 5,
+    "learning_rate": 0.0005,
+    "log_interval": 10,
+    "max_warmup_steps": 10000,
+    "motion_file": null,
+    "motion_path": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong",
+    "num_envs": 4096,
+    "output_dir": "/data_zcy/wxy/intact-tracking/runs/intact_online_largebatch2",
+    "physical_weight": 0.1,
+    "replay_capacity": 16384,
+    "rollout_steps_per_update": 5,
+    "seed": 0,
+    "sigreg_projections": 1024,
+    "sigreg_weight": 0.02,
+    "stochastic_policy": false,
+    "task_id": null,
+    "updates": 100000,
+    "warmup_steps": 120,
+    "weight_decay": 0.001
+  },
+  "distributed": {
+    "backend": "nccl",
+    "batch_size_per_rank": 512,
+    "checkpoint_owner": "rank 0",
+    "enabled": true,
+    "global_batch_size": 1024,
+    "global_num_envs": 8192,
+    "global_replay_capacity": 32768,
+    "gradient_reduction": "DDP mean over all ranks",
+    "launcher": "torchrun",
+    "normalization": "globally summed sufficient statistics",
+    "num_envs_per_rank": 4096,
+    "rank_seed": "seed + global_rank",
+    "replay_capacity_per_rank": 16384,
+    "world_id": "global_rank * num_envs + local_env_id",
+    "world_size": 2
+  },
+  "loss": {
+    "forward_weight": 1.0,
+    "goal_start": 0,
+    "goal_weight": 0.05,
+    "physical_start": 0,
+    "physical_weight": 0.1,
+    "sigreg_weight": 0.02
+  },
+  "method": "INTACT-online",
+  "mjlab_version": "1.5.0",
+  "mode": "pure online rollout-and-update",
+  "model": {
+    "action_block_size": 5,
+    "action_dim": 29,
+    "actor_depth": 3,
+    "actor_hidden_dim": 1024,
+    "context_depth": 2,
+    "context_heads": 4,
+    "context_tokens": 16,
+    "dropout": 0.0,
+    "embed_dim": 192,
+    "encoder_hidden_dim": 512,
+    "forward_depth": 6,
+    "forward_heads": 8,
+    "forward_history": 3,
+    "forward_mlp_dim": 768,
+    "observation_dim": 64,
+    "predict_residual": false,
+    "proprio_dim": 122
+  },
+  "replay": {
+    "capacity_per_rank": 16384,
+    "context_scope": "same fixed-DR world only; never crosses ranks",
+    "minimum_full_context_steps_per_world": 105,
+    "normalization": "global running statistics over every live rank stream",
+    "storage": "rank-local in-memory raw transitions and causal samples",
+    "validation_split": null
+  },
+  "rollout": {
+    "checkpoint_path": "/data_zcy/wxy/SP_Tracking/logs/rsl_rl/g1_tracking/2026-07-28_05-25-04_SPTracking-G1-BFM-SPV5-2Actor-HEFTCritic-HEFTReward_6gpu_12288env_motion_data_correct_sota/checkpoint_22000.pt",
+    "checkpoint_task_id": "SPTracking-G1-BFM-SPV5-2Actor-HEFTCritic-HEFTReward",
+    "cleared_missing_motion_exclusions": [],
+    "disabled_startup_reset_callbacks": [
+      "motor_params_implicit"
+    ],
+    "domain_randomization_contract": "startup DR fixed per vector slot before rollout and never resampled",
+    "fixed_dr_model_fields": [
+      "actuator_biasprm",
+      "actuator_gainprm",
+      "body_invweight0",
+      "body_ipos",
+      "body_mass",
+      "body_subtreemass",
+      "dof_armature",
+      "dof_frictionloss",
+      "dof_invweight0",
+      "geom_friction",
+      "tendon_invweight0",
+      "tendon_length0"
+    ],
+    "motion_contract": "random motion resampling at initialization and reset",
+    "removed_non_startup_events": [
+      "push_robot"
+    ],
+    "reset_contract": "synchronous manual reset; startup events are never reapplied",
+    "startup_events": [
+      "base_com",
+      "base_mass",
+      "encoder_bias",
+      "foot_friction",
+      "motor_params_implicit"
+    ],
+    "tracker_frozen": true,
+    "world_id_offset": 0
+  },
+  "rollout_ranks": [
+    {
+      "checkpoint_path": "/data_zcy/wxy/SP_Tracking/logs/rsl_rl/g1_tracking/2026-07-28_05-25-04_SPTracking-G1-BFM-SPV5-2Actor-HEFTCritic-HEFTReward_6gpu_12288env_motion_data_correct_sota/checkpoint_22000.pt",
+      "checkpoint_task_id": "SPTracking-G1-BFM-SPV5-2Actor-HEFTCritic-HEFTReward",
+      "cleared_missing_motion_exclusions": [],
+      "disabled_startup_reset_callbacks": [
+        "motor_params_implicit"
+      ],
+      "domain_randomization_contract": "startup DR fixed per vector slot before rollout and never resampled",
+      "fixed_dr_model_fields": [
+        "actuator_biasprm",
+        "actuator_gainprm",
+        "body_invweight0",
+        "body_ipos",
+        "body_mass",
+        "body_subtreemass",
+        "dof_armature",
+        "dof_frictionloss",
+        "dof_invweight0",
+        "geom_friction",
+        "tendon_invweight0",
+        "tendon_length0"
+      ],
+      "motion_contract": "random motion resampling at initialization and reset",
+      "removed_non_startup_events": [
+        "push_robot"
+      ],
+      "reset_contract": "synchronous manual reset; startup events are never reapplied",
+      "startup_events": [
+        "base_com",
+        "base_mass",
+        "encoder_bias",
+        "foot_friction",
+        "motor_params_implicit"
+      ],
+      "tracker_frozen": true,
+      "world_id_offset": 0
+    },
+    {
+      "checkpoint_path": "/data_zcy/wxy/SP_Tracking/logs/rsl_rl/g1_tracking/2026-07-28_05-25-04_SPTracking-G1-BFM-SPV5-2Actor-HEFTCritic-HEFTReward_6gpu_12288env_motion_data_correct_sota/checkpoint_22000.pt",
+      "checkpoint_task_id": "SPTracking-G1-BFM-SPV5-2Actor-HEFTCritic-HEFTReward",
+      "cleared_missing_motion_exclusions": [],
+      "disabled_startup_reset_callbacks": [
+        "motor_params_implicit"
+      ],
+      "domain_randomization_contract": "startup DR fixed per vector slot before rollout and never resampled",
+      "fixed_dr_model_fields": [
+        "actuator_biasprm",
+        "actuator_gainprm",
+        "body_invweight0",
+        "body_ipos",
+        "body_mass",
+        "body_subtreemass",
+        "dof_armature",
+        "dof_frictionloss",
+        "dof_invweight0",
+        "geom_friction",
+        "tendon_invweight0",
+        "tendon_length0"
+      ],
+      "motion_contract": "random motion resampling at initialization and reset",
+      "removed_non_startup_events": [
+        "push_robot"
+      ],
+      "reset_contract": "synchronous manual reset; startup events are never reapplied",
+      "startup_events": [
+        "base_com",
+        "base_mass",
+        "encoder_bias",
+        "foot_friction",
+        "motor_params_implicit"
+      ],
+      "tracker_frozen": true,
+      "world_id_offset": 4096
+    }
+  ],
+  "tracker_checkpoint_sha256": "fa36f219c0ccd3f38816578b8a6cfbface1d305a14ed546b36c99a9c22dd2332",
+  "training_architecture": {
+    "context_injection": "shared latent FiLM; no fifth actor slot",
+    "context_tokens": 16,
+    "distributed": "full-model synchronous data parallelism",
+    "forward": "LeWM-style causal Forward Predictor",
+    "goal_intent": "stop-gradient z_goal - z[t]",
+    "intent_actor": "one shared four-slot Gaussian actor",
+    "physical_intent": "attached z[t+1] - z[t]"
+  }
+}

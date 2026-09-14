@@ -1,0 +1,154 @@
+{
+  "target_updates": null,
+  "completed_updates": 1588,
+  "complete": false,
+  "stopped": true,
+  "distributed_parameter_agreement": {
+    "passed": true,
+    "world_size": 1,
+    "ranks": [
+      {
+        "rank": 0,
+        "completed_updates": 1588,
+        "actor_trainable_sha256": "855bc282200a48370b1554222eb5101f0e47145fb7ad63b0d8635526c6950626",
+        "critic_trainable_sha256": "f11d415c7e55b771ae181f561b2a59679451d1ee6532a3cca8d40a7e77cc0c7d",
+        "critic_normalizer_sha256": "a324977368611463d2fbcb8acb558dbff2dc97830c2e0acaa07ad5c46bb1746c",
+        "finite": true
+      }
+    ]
+  },
+  "planned_sampling_transition": false,
+  "motion_sampling": {
+    "version": "limb_motion_sampling_curriculum_v1",
+    "requested_mode": "adaptive",
+    "adaptive_after_update": 0,
+    "active_mode": "adaptive",
+    "failure_rewind_enabled": false,
+    "adaptive_bin_snapshot_interval_iterations": 0,
+    "adaptive_sampling": {
+      "random_probability": 0.5,
+      "strategy": "branch",
+      "temperature": 0.25
+    },
+    "parameters": {
+      "adaptive_uniform_ratio": 0.1,
+      "adaptive_bin_width_s": 1.0,
+      "adaptive_bin_width_steps": null,
+      "adaptive_prior_visit_count": 1.0,
+      "adaptive_prior_failure_count": 0.0,
+      "adaptive_failure_rate_ema_iterations": 1000,
+      "adaptive_failure_rate_window_iterations": null,
+      "adaptive_probability_max_over_mean": 500.0,
+      "adaptive_sequence_length_agnostic": false,
+      "adaptive_max_prob_per_bin": "auto",
+      "adaptive_max_prob_per_motion": "auto",
+      "adaptive_pre_failure_sample_window_steps": 100
+    },
+    "scope": "motion/bin sampling only; all worlds keep the same complete static DR profile",
+    "statistics": "private full-catalog motion/bin statistics for this single specialist"
+  },
+  "training_terminations": {
+    "version": "limb_training_terminations_v1",
+    "profile": "original",
+    "disabled_terms": [],
+    "original_terms": [
+      {
+        "name": "time_out",
+        "term": "time_out",
+        "time_out": true
+      },
+      {
+        "name": "anchor_pos",
+        "term": "bad_anchor_pos_z_only",
+        "params": {
+          "command_name": "motion",
+          "threshold": 0.5,
+          "anchor_body_name": "pelvis"
+        }
+      },
+      {
+        "name": "anchor_ori",
+        "term": "bad_anchor_ori",
+        "params": {
+          "command_name": "motion",
+          "threshold": 0.8,
+          "anchor_body_name": "pelvis",
+          "asset_cfg": {
+            "entity_name": "robot"
+          }
+        }
+      },
+      {
+        "name": "ee_body_pos",
+        "term": "bad_motion_body_pos_z_only",
+        "params": {
+          "command_name": "motion",
+          "threshold": 0.5,
+          "body_names": [
+            "left_ankle_roll_link",
+            "right_ankle_roll_link",
+            "left_wrist_yaw_link",
+            "right_wrist_yaw_link"
+          ],
+          "anchor_body_name": "pelvis"
+        }
+      }
+    ],
+    "active_terms": [
+      {
+        "name": "time_out",
+        "term": "time_out",
+        "time_out": true
+      },
+      {
+        "name": "anchor_pos",
+        "term": "bad_anchor_pos_z_only",
+        "params": {
+          "command_name": "motion",
+          "threshold": 0.5,
+          "anchor_body_name": "pelvis"
+        }
+      },
+      {
+        "name": "anchor_ori",
+        "term": "bad_anchor_ori",
+        "params": {
+          "command_name": "motion",
+          "threshold": 0.8,
+          "anchor_body_name": "pelvis",
+          "asset_cfg": {
+            "entity_name": "robot"
+          }
+        }
+      },
+      {
+        "name": "ee_body_pos",
+        "term": "bad_motion_body_pos_z_only",
+        "params": {
+          "command_name": "motion",
+          "threshold": 0.5,
+          "body_names": [
+            "left_ankle_roll_link",
+            "right_ankle_roll_link",
+            "left_wrist_yaw_link",
+            "right_wrist_yaw_link"
+          ],
+          "anchor_body_name": "pelvis"
+        }
+      }
+    ],
+    "evaluation_profile": "original"
+  },
+  "grouped_dr_final_agreement": null,
+  "initialization_protocol": "residual_actor_and_critic_from_scratch_v3",
+  "distributed": {
+    "world_size": 1,
+    "num_envs_per_rank": 8192,
+    "global_num_envs": 8192,
+    "rank_seed_formula": "seed + 1000003 * rank",
+    "gradient_synchronization": "mean across all ranks at each optimizer step",
+    "advantage_normalization": "global rollout mean and sample standard deviation",
+    "critic_normalization": "global pooled sums, squared sums and count at every environment step"
+  },
+  "unix_time": 1789360128.4659286
+}

@@ -1,0 +1,108 @@
+{
+  "preview_benefit_100": {
+    "reference": "runs/simulator_preview_single_motion/eval/seed13002/dr_zero_seed121_100_test_dr.json",
+    "candidate": "runs/simulator_preview_single_motion/eval/seed13002/dr_true_seed121_100_test_dr.json",
+    "same_physics": true,
+    "episodes": 128,
+    "scope": "Conditional on this ONE motion and this pair of trained checkpoints; not training-seed or across-motion uncertainty",
+    "metrics": {
+      "error_body_pos": {
+        "reference": 0.04890269454024747,
+        "candidate": 0.04885303492018647,
+        "ratio": 0.9989845218033921,
+        "conditional_world_start_bootstrap_95pct": [
+          0.9927406317095132,
+          1.0055191132386894
+        ]
+      },
+      "error_joint_pos": {
+        "reference": 0.8559215193302371,
+        "candidate": 0.8578166744455229,
+        "ratio": 1.0022141692579114,
+        "conditional_world_start_bootstrap_95pct": [
+          0.999480951689905,
+          1.00501819706729
+        ]
+      },
+      "error_anchor_pos": {
+        "reference": 0.3164682818885185,
+        "candidate": 0.3137822208654152,
+        "ratio": 0.991512384725969,
+        "conditional_world_start_bootstrap_95pct": [
+          0.9498781282480763,
+          1.037979008597244
+        ]
+      },
+      "error_anchor_rot": {
+        "reference": 0.0895782993351022,
+        "candidate": 0.09184650523506935,
+        "ratio": 1.0253209305914823,
+        "conditional_world_start_bootstrap_95pct": [
+          1.0138312198761918,
+          1.0370579779069717
+        ]
+      },
+      "error_body_rot": {
+        "reference": 0.248572141356417,
+        "candidate": 0.24881262999604223,
+        "ratio": 1.0009674802587005,
+        "conditional_world_start_bootstrap_95pct": [
+          0.9980108212971492,
+          1.0038776131797233
+        ]
+      },
+      "error_joint_vel": {
+        "reference": 8.817724183184561,
+        "candidate": 8.820357699872925,
+        "ratio": 1.0002986617219651,
+        "conditional_world_start_bootstrap_95pct": [
+          0.997721517308521,
+          1.0028721943691283
+        ]
+      },
+      "error_anchor_lin_vel": {
+        "reference": 0.2779633985651453,
+        "candidate": 0.2758398509228255,
+        "ratio": 0.9923603335788754,
+        "conditional_world_start_bootstrap_95pct": [
+          0.9853077369438036,
+          0.9994334450933464
+        ]
+      },
+      "error_anchor_ang_vel": {
+        "reference": 0.6842237699939868,
+        "candidate": 0.6901012896132889,
+        "ratio": 1.0085900547117117,
+        "conditional_world_start_bootstrap_95pct": [
+          1.0023926518132502,
+          1.0147699139248312
+        ]
+      },
+      "error_body_lin_vel": {
+        "reference": 0.42815248335566136,
+        "candidate": 0.42750236239618966,
+        "ratio": 0.9984815667671099,
+        "conditional_world_start_bootstrap_95pct": [
+          0.9935834886169158,
+          1.0033260536132569
+        ]
+      },
+      "error_body_ang_vel": {
+        "reference": 2.495710891577648,
+        "candidate": 2.500880294242641,
+        "ratio": 1.0020713147033329,
+        "conditional_world_start_bootstrap_95pct": [
+          0.9991922396485443,
+          1.004799211311608
+        ]
+      }
+    },
+    "failures": {
+      "reference": 0,
+      "candidate": 0,
+      "new": 0,
+      "recovered": 0,
+      "new_start_frames": []
+    }
+  }
+}

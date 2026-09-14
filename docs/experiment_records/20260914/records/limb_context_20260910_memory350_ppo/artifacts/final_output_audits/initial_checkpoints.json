@@ -1,0 +1,26 @@
+{
+  "checked_at": 1789099733.896794,
+  "passed": true,
+  "arms": {
+    "baseline": {
+      "checkpoint_sha256": "8740780f556aeba2df1c1df45d239f90cc5a2f100c9b1247eec56a5e64249c13",
+      "completed_updates": 0,
+      "empty_optimizer_state": true,
+      "actor_exactly_matches_fresh_seed_10128": true,
+      "critic_exactly_matches_fresh_seed_20124": true,
+      "zero_actor_output": true,
+      "zero_film_head_tensors": 0
+    },
+    "film": {
+      "checkpoint_sha256": "b5da2ce8536d2fdaed11f65cf1403533b132271a65e2a5348d575406d24ae36a",
+      "completed_updates": 0,
+      "empty_optimizer_state": true,
+      "actor_exactly_matches_fresh_seed_10128": true,
+      "critic_exactly_matches_fresh_seed_20124": true,
+      "zero_actor_output": true,
+      "zero_film_head_tensors": 12
+    }
+  },
+  "actual_common_initial_trunks_bitwise_equal": true,
+  "script_sha256": "4cc8d453102f7a3349da7bfcdb11ffd16fd60773d4723bca9cd6a6fea89b254c"
+}

@@ -1,0 +1,121 @@
+{
+  "completed_updates": 1000,
+  "checkpoint_sha256": "053e909782861759bcfb1764d93ace2a06c13720d78fd351ddcbaf82ec4741b0",
+  "fusion": "concat",
+  "policy_precision": "fp32",
+  "protocol": {
+    "version": "memory350_matched_latent_usage_v1",
+    "interval_updates": 1000,
+    "motion_manifest": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260913_memory350_compressed_grid256_tracker_action_adaptive_scratch/protocols/latent_usage_motions.txt",
+    "manifest_sha256": "952f3ef6e8004aa703b90fb9916966354b566223f5fc56a7fd68e7b97ec38ced",
+    "motions": 128,
+    "motion_path": "/data_zcy/wxy/motion_data_correct/motion_data_full",
+    "seed": 22001,
+    "steps": 1000,
+    "warmup_steps": 500,
+    "evaluation_module": "intact_tracking.cli.memory350_moe_critic_action_eval"
+  },
+  "metrics": {
+    "correct": {
+      "error_body_pos": 0.04263598255375291,
+      "error_joint_pos": 0.6183327657838389,
+      "error_anchor_pos": 0.21851840150381246,
+      "error_anchor_rot": 0.07684140577358294,
+      "error_body_rot": 0.1852847894475288,
+      "error_joint_vel": 3.741306091636912,
+      "error_anchor_lin_vel": 0.17212619573414464,
+      "error_anchor_ang_vel": 0.42560935661814747,
+      "error_body_lin_vel": 0.22677053010530435,
+      "error_body_ang_vel": 1.006442885962198,
+      "failure_rate": 0.0,
+      "coverage_fraction": 1.0,
+      "mean_episode_return": 98.2535436183025
+    },
+    "paired-swap": {
+      "error_body_pos": 0.043293282190338754,
+      "error_joint_pos": 0.620801025169089,
+      "error_anchor_pos": 0.22109147057428968,
+      "error_anchor_rot": 0.07760056883651062,
+      "error_body_rot": 0.18596945266586673,
+      "error_joint_vel": 3.7613833736708537,
+      "error_anchor_lin_vel": 0.17303330374777082,
+      "error_anchor_ang_vel": 0.42910844562631834,
+      "error_body_lin_vel": 0.22810451234047774,
+      "error_body_ang_vel": 1.012806638783371,
+      "failure_rate": 0.0,
+      "coverage_fraction": 1.0,
+      "mean_episode_return": 98.10309489803558
+    },
+    "swap_over_correct_common_body_ratio": 1.0154165471795364,
+    "swap_over_correct_common_joint_ratio": 1.0039917978179942,
+    "swap_minus_correct_failure_pp": 0.0,
+    "swapped_fraction_of_valid_steps": 0.8630283574103799
+  },
+  "paired_motion_bootstrap": {
+    "motions": 128,
+    "means": {
+      "reference_body": 0.04263598255375292,
+      "reference_joint": 0.6183327657838389,
+      "candidate_body": 0.04329328219033875,
+      "candidate_joint": 0.6208010251690891,
+      "reference_failure": 0.0,
+      "candidate_failure": 0.0,
+      "reference_coverage": 1.0,
+      "candidate_coverage": 1.0,
+      "reference_return": 98.2535436183025,
+      "candidate_return": 98.10309489803558,
+      "reference_common_body": 0.04263598255375292,
+      "reference_common_joint": 0.6183327657838389,
+      "candidate_common_body": 0.04329328219033875,
+      "candidate_common_joint": 0.6208010251690891
+    },
+    "candidate_over_reference_body_joint": [
+      1.0154165471795364,
+      1.0039917978179942
+    ],
+    "body_joint_ratio_ci95": [
+      [
+        1.0058890066580877,
+        1.0256204389616321
+      ],
+      [
+        0.9987077610184308,
+        1.0095959487992505
+      ]
+    ],
+    "failure_rate_delta": 0.0,
+    "failure_rate_delta_ci95": [
+      0.0,
+      0.0
+    ],
+    "coverage_delta": 0.0,
+    "coverage_delta_ci95": [
+      0.0,
+      0.0
+    ],
+    "episode_return_delta": -0.15044872026692246,
+    "episode_return_delta_ci95": [
+      -0.3399660854170179,
+      0.030770753731565025
+    ],
+    "common_prefix_body_joint_ratio": [
+      1.0154165471795364,
+      1.0039917978179942
+    ],
+    "common_prefix_body_joint_ratio_ci95": [
+      [
+        1.0058890066580877,
+        1.0256204389616321
+      ],
+      [
+        0.9987077610184308,
+        1.0095959487992505
+      ]
+    ],
+    "new_failure_episodes": 0,
+    "rescued_failure_episodes": 0,
+    "uncertainty": "paired motion bootstrap conditional on this training seed; not training-seed uncertainty",
+    "scope": "new starts and loads on the training motion catalog; not unseen-motion generalization"
+  },
+  "scope": "Warm history; 2 matched-phase worlds per motion; independently sampled continuous DR. Swap only while both histories are full and both worlds are active. Ratios above one mean swapped latent worsens tracking."
+}

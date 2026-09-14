@@ -1,0 +1,227 @@
+{
+  "training_catalog_count": 129827,
+  "cases": [
+    {
+      "name": "iid_full",
+      "motions": 129827,
+      "fixed_masses": null,
+      "repeats": 1,
+      "paired_starts": false,
+      "manifests": [
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260908_no_ee_4gpu/eval/manifests/iid_full_000.txt",
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260908_no_ee_4gpu/eval/manifests/iid_full_001.txt",
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260908_no_ee_4gpu/eval/manifests/iid_full_002.txt",
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260908_no_ee_4gpu/eval/manifests/iid_full_003.txt",
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260908_no_ee_4gpu/eval/manifests/iid_full_004.txt",
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260908_no_ee_4gpu/eval/manifests/iid_full_005.txt",
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260908_no_ee_4gpu/eval/manifests/iid_full_006.txt",
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260908_no_ee_4gpu/eval/manifests/iid_full_007.txt",
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260908_no_ee_4gpu/eval/manifests/iid_full_008.txt",
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260908_no_ee_4gpu/eval/manifests/iid_full_009.txt",
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260908_no_ee_4gpu/eval/manifests/iid_full_010.txt",
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260908_no_ee_4gpu/eval/manifests/iid_full_011.txt",
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260908_no_ee_4gpu/eval/manifests/iid_full_012.txt",
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260908_no_ee_4gpu/eval/manifests/iid_full_013.txt",
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260908_no_ee_4gpu/eval/manifests/iid_full_014.txt",
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260908_no_ee_4gpu/eval/manifests/iid_full_015.txt",
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260908_no_ee_4gpu/eval/manifests/iid_full_016.txt",
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260908_no_ee_4gpu/eval/manifests/iid_full_017.txt",
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260908_no_ee_4gpu/eval/manifests/iid_full_018.txt",
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260908_no_ee_4gpu/eval/manifests/iid_full_019.txt",
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260908_no_ee_4gpu/eval/manifests/iid_full_020.txt",
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260908_no_ee_4gpu/eval/manifests/iid_full_021.txt",
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260908_no_ee_4gpu/eval/manifests/iid_full_022.txt",
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260908_no_ee_4gpu/eval/manifests/iid_full_023.txt",
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260908_no_ee_4gpu/eval/manifests/iid_full_024.txt",
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260908_no_ee_4gpu/eval/manifests/iid_full_025.txt",
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260908_no_ee_4gpu/eval/manifests/iid_full_026.txt",
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260908_no_ee_4gpu/eval/manifests/iid_full_027.txt",
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260908_no_ee_4gpu/eval/manifests/iid_full_028.txt",
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260908_no_ee_4gpu/eval/manifests/iid_full_029.txt",
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260908_no_ee_4gpu/eval/manifests/iid_full_030.txt",
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260908_no_ee_4gpu/eval/manifests/iid_full_031.txt"
+      ]
+    },
+    {
+      "name": "all_0",
+      "motions": 4096,
+      "fixed_masses": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "repeats": 1,
+      "paired_starts": false,
+      "manifests": [
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260908_no_ee_4gpu/eval/manifests/all_0_000.txt"
+      ]
+    },
+    {
+      "name": "all_1",
+      "motions": 4096,
+      "fixed_masses": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "repeats": 1,
+      "paired_starts": false,
+      "manifests": [
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260908_no_ee_4gpu/eval/manifests/all_1_000.txt"
+      ]
+    },
+    {
+      "name": "all_2",
+      "motions": 4096,
+      "fixed_masses": [
+        2,
+        2,
+        2,
+        2
+      ],
+      "repeats": 1,
+      "paired_starts": false,
+      "manifests": [
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260908_no_ee_4gpu/eval/manifests/all_2_000.txt"
+      ]
+    },
+    {
+      "name": "all_3",
+      "motions": 4096,
+      "fixed_masses": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "repeats": 1,
+      "paired_starts": false,
+      "manifests": [
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260908_no_ee_4gpu/eval/manifests/all_3_000.txt"
+      ]
+    },
+    {
+      "name": "all_4",
+      "motions": 4096,
+      "fixed_masses": [
+        4,
+        4,
+        4,
+        4
+      ],
+      "repeats": 1,
+      "paired_starts": false,
+      "manifests": [
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260908_no_ee_4gpu/eval/manifests/all_4_000.txt"
+      ]
+    },
+    {
+      "name": "hands_4_shins_2",
+      "motions": 1024,
+      "fixed_masses": [
+        4,
+        4,
+        2,
+        2
+      ],
+      "repeats": 1,
+      "paired_starts": false,
+      "manifests": [
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260908_no_ee_4gpu/eval/manifests/hands_4_shins_2_000.txt"
+      ]
+    },
+    {
+      "name": "hands_2_shins_4",
+      "motions": 1024,
+      "fixed_masses": [
+        2,
+        2,
+        4,
+        4
+      ],
+      "repeats": 1,
+      "paired_starts": false,
+      "manifests": [
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260908_no_ee_4gpu/eval/manifests/hands_2_shins_4_000.txt"
+      ]
+    },
+    {
+      "name": "left_4_right_2",
+      "motions": 1024,
+      "fixed_masses": [
+        4,
+        2,
+        4,
+        2
+      ],
+      "repeats": 1,
+      "paired_starts": false,
+      "manifests": [
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260908_no_ee_4gpu/eval/manifests/left_4_right_2_000.txt"
+      ]
+    },
+    {
+      "name": "left_2_right_4",
+      "motions": 1024,
+      "fixed_masses": [
+        2,
+        4,
+        2,
+        4
+      ],
+      "repeats": 1,
+      "paired_starts": false,
+      "manifests": [
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260908_no_ee_4gpu/eval/manifests/left_2_right_4_000.txt"
+      ]
+    },
+    {
+      "name": "hands_4_shins_0",
+      "motions": 1024,
+      "fixed_masses": [
+        4,
+        4,
+        0,
+        0
+      ],
+      "repeats": 1,
+      "paired_starts": false,
+      "manifests": [
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260908_no_ee_4gpu/eval/manifests/hands_4_shins_0_000.txt"
+      ]
+    },
+    {
+      "name": "hands_0_shins_4",
+      "motions": 1024,
+      "fixed_masses": [
+        0,
+        0,
+        4,
+        4
+      ],
+      "repeats": 1,
+      "paired_starts": false,
+      "manifests": [
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260908_no_ee_4gpu/eval/manifests/hands_0_shins_4_000.txt"
+      ]
+    },
+    {
+      "name": "latent_intervention",
+      "motions": 1024,
+      "fixed_masses": null,
+      "repeats": 2,
+      "paired_starts": true,
+      "manifests": [
+        "/data_zcy/wxy/intact-tracking/runs/limb_context_20260908_no_ee_4gpu/eval/manifests/latent_intervention_000.txt"
+      ]
+    }
+  ],
+  "primary": "all-catalog IID independent per-limb U(0,4), one new start/load per motion",
+  "endpoints": "same 4096 proportional-stratified motions/starts for all-0/1/2/3/4kg; same 1024 for asymmetric diagnostics",
+  "latent_intervention": "three film training seeds; correct/zero/cross-load swap; swaps require matching motion/phase and full histories",
+  "steps": 500,
+  "seed": 20001,
+  "interpretation": "three paired training seeds for baseline/film; motion bootstrap is conditional uncertainty; evaluation retains original terminations"
+}

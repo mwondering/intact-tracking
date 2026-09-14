@@ -1,0 +1,27 @@
+{
+  "version": "limb_context_periodic_endpoints_v1",
+  "interval_updates": 100,
+  "motion_manifest": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907_adaptive1000/resume_endpoint_smoke/motion.txt",
+  "manifest_sha256": "2abe21dd3568b1705b89d69fc0da4624319989a13fc8165a9d814005ed806f76",
+  "motions": 1,
+  "motion_path": "/data_zcy/wxy/motion_data_correct/motion_data_full",
+  "seed": 20001,
+  "steps": 16,
+  "endpoints": {
+    "all_0": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "all_4": [
+      4,
+      4,
+      4,
+      4
+    ]
+  },
+  "contract": "fixed common motions and reference starts, deterministic policy means, independent endpoint simulators; pause PPO updates while evaluating each exact checkpoint",
+  "created_at": 1788845363.9454963,
+  "source_final_protocol": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260907/eval/protocol.json"
+}

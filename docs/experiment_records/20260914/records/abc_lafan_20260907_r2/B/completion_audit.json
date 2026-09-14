@@ -1,0 +1,12 @@
+{
+  "completed_updates": 1000,
+  "rank_network_sha256": [
+    "abdbd1284de0820b6d1fb55d552b402c7c309bec748ab981f659cbe15aedb2e7",
+    "abdbd1284de0820b6d1fb55d552b402c7c309bec748ab981f659cbe15aedb2e7"
+  ],
+  "frozen_frontend_tensors_unchanged": 36,
+  "all_weights_finite": true,
+  "reward_sha256": "abee73632d079f08c160584b04ace15532ecf6bd9dfa8139979af518d8a1553c",
+  "global_envs": 4096,
+  "motion_count": 40
+}

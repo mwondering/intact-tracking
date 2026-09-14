@@ -1,0 +1,116 @@
+{
+  "created_unix_time": 1789206449.6056566,
+  "original_live_update_seconds": 2.5321634674072264,
+  "reference_updates": [
+    5400,
+    5500
+  ],
+  "reference_unix_times": [
+    1789205375.4943488,
+    1789205628.7106955
+  ],
+  "variants": {
+    "baseline": {
+      "label": "原实现",
+      "training_part_ms": 1698.6778657883406,
+      "training_part_time_reduction_fraction": 0.0,
+      "projected_update_seconds": 2.5321634674072264,
+      "projected_update_time_reduction_fraction": 0.0,
+      "projected_throughput_increase_fraction": 0.0,
+      "microbatch_ms": 104.58115302026272,
+      "loss_relative_difference": 0.0,
+      "gradient_relative_l2": 0.0,
+      "gradient_cosine": 1.0000000000010594
+    },
+    "shared_chunks": {
+      "label": "只复用长期 chunk",
+      "training_part_ms": 1576.8211418762803,
+      "training_part_time_reduction_fraction": 0.07173621695218102,
+      "projected_update_seconds": 2.410306743495166,
+      "projected_update_time_reduction_fraction": 0.048123561326328494,
+      "projected_throughput_increase_fraction": 0.05055652117346554,
+      "microbatch_ms": 98.0355478823185,
+      "loss_relative_difference": 0.0,
+      "gradient_relative_l2": 0.00030347031069100945,
+      "gradient_cosine": 0.9999999539539766
+    },
+    "causal_hint": {
+      "label": "只显式声明因果 mask",
+      "training_part_ms": 1467.5030745565891,
+      "training_part_time_reduction_fraction": 0.1360910128327747,
+      "projected_update_seconds": 2.300988676175475,
+      "projected_update_time_reduction_fraction": 0.09129536627762017,
+      "projected_throughput_increase_fraction": 0.10046759187706744,
+      "microbatch_ms": 93.37407257407904,
+      "loss_relative_difference": 0.0,
+      "gradient_relative_l2": 6.462849985858278e-09,
+      "gradient_cosine": 1.0000000000010592
+    },
+    "shared_hint": {
+      "label": "chunk 复用 + 显式 mask",
+      "training_part_ms": 1401.909889653325,
+      "training_part_time_reduction_fraction": 0.1747052705589286,
+      "projected_update_seconds": 2.235395491272211,
+      "projected_update_time_reduction_fraction": 0.11719937514100814,
+      "projected_throughput_increase_fraction": 0.13275860011962282,
+      "microbatch_ms": 88.343963958323,
+      "loss_relative_difference": 0.0,
+      "gradient_relative_l2": 0.0003034703106877138,
+      "gradient_cosine": 0.9999999539539765
+    },
+    "compiled": {
+      "label": "显式 mask + compile（保留舍入）",
+      "training_part_ms": 1049.3482779711485,
+      "training_part_time_reduction_fraction": 0.3822558714013997,
+      "projected_update_seconds": 1.8828338795900343,
+      "projected_update_time_reduction_fraction": 0.25643272884039514,
+      "projected_throughput_increase_fraction": 0.34486823020126245,
+      "microbatch_ms": 66.98026321828365,
+      "loss_relative_difference": 0.0001966471705968642,
+      "gradient_relative_l2": 0.03597220131091893,
+      "gradient_cosine": 0.999402424090451
+    },
+    "shared_compiled": {
+      "label": "chunk 复用 + 显式 mask + compile（保留舍入）",
+      "training_part_ms": 945.5231847241521,
+      "training_part_time_reduction_fraction": 0.44337699114873463,
+      "projected_update_seconds": 1.779008786343038,
+      "projected_update_time_reduction_fraction": 0.2974352528019728,
+      "projected_throughput_increase_fraction": 0.42335635824058326,
+      "microbatch_ms": 64.33570198714733,
+      "loss_relative_difference": 0.000188392844917451,
+      "gradient_relative_l2": 0.03602100555434675,
+      "gradient_cosine": 0.9994032190768991
+    }
+  },
+  "memory_statistics_delta": {
+    "mean_ms_saved": 0.06515313871204853,
+    "median_ms_saved": 0.03700237721204758,
+    "paired_bootstrap_mean_ms_saved_ci95": [
+      -0.08023252245038748,
+      0.19658114295452828
+    ]
+  },
+  "memory_scalar_reads_per_five_steps": {
+    "baseline": 15,
+    "deferred": 0,
+    "remaining_nonzero_each": 70
+  },
+  "training_pause_total_seconds": 44.841837806627154,
+  "training_resumed": true,
+  "production_source_changes": false,
+  "latest_training_progress": {
+    "completed_updates": 5795,
+    "optimizer_steps": 23180,
+    "stop_after_updates": 10000,
+    "unbounded": false,
+    "unix_time": 1789206447.4625616
+  },
+  "tests_passed": 11,
+  "microbatch_repeats": [
+    24,
+    12
+  ],
+  "gradient_update_repeats_per_variant": 2,
+  "scope": "Single H100 offline fixed-batch training computation; no DDP, simulator, replay or validation in timed update; whole-update figures are projections, not measured integrated speedups."
+}

@@ -1,0 +1,650 @@
+{
+  "architecture": {
+    "context": "a separate encoder maps 100 completed (state, physical PD target, next-state) interactions to z; the exact +/-5-frame window in the same A world/episode/motion is the invariant view, while cross-world latent geometry continuously matches the corresponding A-minus-B response geometry. There is no threshold, dynamics class, theta encoder or theta decoder",
+    "controller": "frozen tracker",
+    "excluded": [
+      "residual_policy",
+      "backward"
+    ],
+    "input": "ten historical and one current predictor token; each contains 71-D robot state, 8-D simulator foot height/velocity, 6-D contact force, 2-D contact state and the external 29-D physical PD joint target",
+    "normalization": "robot state, physical target, simulator foot, contact force and robot delta statistics frozen immediately after warmup; theta is not normalized or replayed",
+    "physics": "all A worlds independently sample each hand/mid-shin U(0,4kg), no other DR/noise; B restores every exact A start into nominal physics and replays identical PD targets",
+    "rollout": "predicted robot/foot/contact state is recursively fed back for five targets; the training/model hot path contains no articulated foot FK",
+    "transition": "shared causal Transformer predicts normalized 70-D robot-state delta, normalized 8-D next foot state, normalized 6-D next contact force and 2-D next-contact logits, conditioned on a history-inferred dynamics latent"
+  },
+  "arguments": {
+    "amp_dtype": "bfloat16",
+    "batch_size": 1024,
+    "checkpoint_file": "/data_zcy/wxy/SP_Tracking/logs/rsl_rl/g1_tracking/2026-09-02_04-48-42_SPTracking-G1-BFM-SPV5-2AActor-HEFTCritic-HEFTReward_8gpu_12288env_motion_data_correct/checkpoint_72000.pt",
+    "checkpoint_interval": 250,
+    "contact_binary_weight": 1.0,
+    "contact_force_weight": 1.0,
+    "context_depth": 2,
+    "context_dim": 128,
+    "context_heads": 4,
+    "context_history_steps": 200,
+    "continuation_min_learning_rate": 1e-05,
+    "device": null,
+    "distributed_backend": null,
+    "dropout": 0.0,
+    "dynamics_latent_dim": 64,
+    "fixed_batch_overfit": false,
+    "fixed_probe_batch_size": 512,
+    "foot_weight": 1.0,
+    "gradient_steps_per_update": 4,
+    "history_steps": 10,
+    "huber_delta": 1.0,
+    "joint_position_weight": 1.0,
+    "joint_velocity_weight": 1.0,
+    "limb_payload_only": true,
+    "log_interval": 10,
+    "max_warmup_steps": 10000,
+    "micro_batch_size": 256,
+    "model_learning_rate": 0.0003,
+    "motion_file": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/dance1_subject2.motion.npz",
+    "motion_path": null,
+    "nominal_fraction": 0.0,
+    "nominal_restore_atol": 1e-05,
+    "num_envs": 1152,
+    "output_dir": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260909_context200/smoke/stage1",
+    "payload": false,
+    "payload_body_name": "right_wrist_yaw_link",
+    "payload_mass_range_kg": [
+      1.0,
+      3.0
+    ],
+    "payload_position_body_m": [
+      0.12,
+      0.0,
+      0.0
+    ],
+    "payload_size_m": [
+      0.1,
+      0.08,
+      0.08
+    ],
+    "positive_offset_steps": 5,
+    "randomize_initial_episode_phase": true,
+    "recursive_weight": 0.5,
+    "replay_capacity": 262144,
+    "replay_sampling": "motion_balanced",
+    "representation_weight": 0.01,
+    "response_distance_scale": 1.0,
+    "resume": null,
+    "rollout_steps_per_update": 5,
+    "root_angular_velocity_weight": 1.0,
+    "root_linear_velocity_weight": 1.0,
+    "root_orientation_weight": 1.0,
+    "root_position_weight": 1.0,
+    "seed": 717,
+    "stochastic_policy": false,
+    "task_id": null,
+    "transformer_depth": 6,
+    "transformer_dim": 512,
+    "transformer_heads": 8,
+    "until_user_stop": false,
+    "updates": 2,
+    "validation_interval": 100,
+    "validation_worlds": 128,
+    "wandb": false,
+    "wandb_entity": null,
+    "wandb_group": null,
+    "wandb_mode": "online",
+    "wandb_name": null,
+    "wandb_project": "intact-forward-predictor",
+    "wandb_tag": [],
+    "warmup_log_interval": 10,
+    "warmup_steps": 500,
+    "weight_decay": 0.001
+  },
+  "batch_a_rollout": {
+    "checkpoint_path": "/data_zcy/wxy/SP_Tracking/logs/rsl_rl/g1_tracking/2026-09-02_04-48-42_SPTracking-G1-BFM-SPV5-2AActor-HEFTCritic-HEFTReward_8gpu_12288env_motion_data_correct/checkpoint_72000.pt",
+    "checkpoint_task_id": "SPTracking-G1-BFM-SPV5-2AActor-HEFTCritic-HEFTReward",
+    "cleared_missing_motion_exclusions": [],
+    "disabled_startup_reset_callbacks": [],
+    "domain_randomization_contract": "selected slots restored to compiled nominal physics; remaining startup DR fixed per vector slot; neither group is resampled",
+    "dr_world_count_per_rank": 1152,
+    "dynamics_grouping": null,
+    "dynamics_prototype_sha256": "e514d859178b4eac44835f7d2af873085966102378943744d81d1d1a5e2a2f8f",
+    "fixed_dr_model_fields": [
+      "body_inertia",
+      "body_invweight0",
+      "body_ipos",
+      "body_iquat",
+      "body_mass",
+      "body_subtreemass",
+      "dof_invweight0",
+      "tendon_invweight0",
+      "tendon_length0"
+    ],
+    "fixed_dynamics_classes": null,
+    "ignored_privileged_startup_events": [],
+    "initial_episode_phase_randomized": true,
+    "initial_episode_phase_summary": {
+      "maximum": 499,
+      "minimum": 0,
+      "unique": 452
+    },
+    "motion_contract": "random motion resampling at initialization and reset",
+    "motion_file_count_per_rank": 1,
+    "nominal_fraction": 0.0,
+    "nominal_restore_metrics": null,
+    "nominal_world_count_per_rank": 0,
+    "nominal_world_local_ids": [],
+    "payload": {
+      "fixed_masses": null,
+      "limbs": {
+        "left_hand": {
+          "body": "left_wrist_yaw_link",
+          "position": [
+            0.12,
+            0.0,
+            0.0
+          ],
+          "size": [
+            0.1,
+            0.08,
+            0.08
+          ]
+        },
+        "left_shin": {
+          "body": "left_knee_link",
+          "position": [
+            0.0,
+            0.0,
+            -0.15
+          ],
+          "size": [
+            0.1,
+            0.08,
+            0.1
+          ]
+        },
+        "right_hand": {
+          "body": "right_wrist_yaw_link",
+          "position": [
+            0.12,
+            0.0,
+            0.0
+          ],
+          "size": [
+            0.1,
+            0.08,
+            0.08
+          ]
+        },
+        "right_shin": {
+          "body": "right_knee_link",
+          "position": [
+            0.0,
+            0.0,
+            -0.15
+          ],
+          "size": [
+            0.1,
+            0.08,
+            0.1
+          ]
+        }
+      },
+      "nominal_configuration": {
+        "action_randomization_overrides": {},
+        "contract": "compiled nominal model with persistent DR and stochastic action DR disabled",
+        "enabled": true,
+        "motion_and_state_resets_preserved": true,
+        "observation_corruption_preserved": true,
+        "removed_events": [
+          {
+            "function": "body_com_offset",
+            "mode": "startup",
+            "name": "base_com"
+          },
+          {
+            "function": "body_mass",
+            "mode": "startup",
+            "name": "base_mass"
+          },
+          {
+            "function": "encoder_bias",
+            "mode": "startup",
+            "name": "encoder_bias"
+          },
+          {
+            "function": "geom_friction",
+            "mode": "startup",
+            "name": "foot_friction"
+          },
+          {
+            "function": "motor_params_implicit",
+            "mode": "startup",
+            "name": "motor_params_implicit"
+          }
+        ],
+        "removed_model_fields": [
+          "actuator_biasprm",
+          "actuator_gainprm",
+          "body_invweight0",
+          "body_ipos",
+          "body_mass",
+          "body_subtreemass",
+          "dof_armature",
+          "dof_frictionloss",
+          "dof_invweight0",
+          "geom_friction",
+          "tendon_invweight0",
+          "tendon_length0"
+        ]
+      },
+      "observation_noise": false,
+      "observed": null,
+      "profile": "hands-shins-independent-uniform-0-4kg",
+      "removed_disturbances": [
+        "push_robot"
+      ],
+      "runtime_audit": {
+        "actual_mass_sha256": "e514d859178b4eac44835f7d2af873085966102378943744d81d1d1a5e2a2f8f",
+        "correlation": [
+          [
+            0.9999998807907104,
+            0.0060343327932059765,
+            -0.008230891078710556,
+            0.00840174313634634
+          ],
+          [
+            0.0060343327932059765,
+            1.0,
+            -0.06431282311677933,
+            0.05005429685115814
+          ],
+          [
+            -0.008230891078710556,
+            -0.06431282311677933,
+            1.0,
+            -0.007129425648599863
+          ],
+          [
+            0.00840174313634634,
+            0.05005429685115814,
+            -0.007129425648599863,
+            1.0
+          ]
+        ],
+        "hardest_worlds": 0,
+        "max_kg": 3.9994924068450928,
+        "min_kg": 0.0010409355163574219,
+        "nominal_field_max_errors": {
+          "actuator_biasprm": 0.0,
+          "actuator_gainprm": 0.0,
+          "dof_armature": 0.0,
+          "dof_damping": 0.0,
+          "dof_frictionloss": 0.0,
+          "geom_friction": 0.0,
+          "jnt_pos": 0.0
+        },
+        "nominal_worlds": 0,
+        "per_limb_max_kg": [
+          3.9994924068450928,
+          3.9976069927215576,
+          3.9984960556030273,
+          3.992898941040039
+        ],
+        "per_limb_mean_kg": [
+          1.9826856851577759,
+          2.0555200576782227,
+          2.0413942337036133,
+          2.0268125534057617
+        ],
+        "per_limb_min_kg": [
+          0.0013980865478515625,
+          0.0010409355163574219,
+          0.0036401748657226562,
+          0.0073812007904052734
+        ],
+        "sampled_mass_sha256": "decf1d56f8313e1e52056d2bf7827228913610e531a95ec356b7fda162e9b880"
+      },
+      "sampling": "independent U(0,4) per limb and world, fixed at startup",
+      "total_added_mass_range_kg": [
+        0,
+        16
+      ]
+    },
+    "predictor_action_transform": {
+      "action_delay": false,
+      "action_term_class": "ObservationHistoryJointPositionAction",
+      "alpha_smoothing": false,
+      "boot_delay": false,
+      "policy_action": "raw_normalized_joint_position_action",
+      "predictor_action": "physical_pd_joint_target_rad",
+      "target_names": [
+        "left_hip_pitch_joint",
+        "left_hip_roll_joint",
+        "left_hip_yaw_joint",
+        "left_knee_joint",
+        "left_ankle_pitch_joint",
+        "left_ankle_roll_joint",
+        "right_hip_pitch_joint",
+        "right_hip_roll_joint",
+        "right_hip_yaw_joint",
+        "right_knee_joint",
+        "right_ankle_pitch_joint",
+        "right_ankle_roll_joint",
+        "waist_yaw_joint",
+        "waist_roll_joint",
+        "waist_pitch_joint",
+        "left_shoulder_pitch_joint",
+        "left_shoulder_roll_joint",
+        "left_shoulder_yaw_joint",
+        "left_elbow_joint",
+        "left_wrist_roll_joint",
+        "left_wrist_pitch_joint",
+        "left_wrist_yaw_joint",
+        "right_shoulder_pitch_joint",
+        "right_shoulder_roll_joint",
+        "right_shoulder_yaw_joint",
+        "right_elbow_joint",
+        "right_wrist_roll_joint",
+        "right_wrist_pitch_joint",
+        "right_wrist_yaw_joint"
+      ]
+    },
+    "privileged_dynamics_dim": 4,
+    "privileged_dynamics_names": [
+      "context_uniform_limb_payload/added_mass_kg/left_hand",
+      "context_uniform_limb_payload/added_mass_kg/right_hand",
+      "context_uniform_limb_payload/added_mass_kg/left_shin",
+      "context_uniform_limb_payload/added_mass_kg/right_shin"
+    ],
+    "removed_non_startup_events": [],
+    "reset_contract": "asynchronous per-slot auto-reset; startup events are never reapplied",
+    "reset_window_contract": "the teleport boundary is excluded; the post-reset state may start a query",
+    "startup_events": [
+      "context_uniform_limb_payload"
+    ],
+    "tracker_frozen": true,
+    "tracking_error_names": [
+      "error_anchor_pos",
+      "error_anchor_rot",
+      "error_anchor_lin_vel",
+      "error_anchor_ang_vel",
+      "error_body_pos",
+      "error_body_rot",
+      "error_joint_pos",
+      "error_joint_vel"
+    ],
+    "world_id_offset": 0
+  },
+  "batch_b_rollout": {
+    "action_term": "ObservationHistoryJointPositionAction",
+    "checkpoint_task_id": "SPTracking-G1-BFM-SPV5-2AActor-HEFTCritic-HEFTReward",
+    "cleared_missing_motion_exclusions": [
+      "[/data_zcy/wxy/motion_filter/0827/invalid_motions_0827_v1.json,/data_zcy/wxy/SP_Tracking/logs/motion_benchmark_10000.json,/data_zcy/wxy/SP_Tracking/logs/motion_benchmark_0830_22000.json,/data_zcy/wxy/SP_Tracking/benchmark_0831_36000.json,/data_zcy/wxy/SP_Tracking/benchmark_0901_44000.json,/data_zcy/wxy/SP_Tracking/benchmark_0902_59000.json]"
+    ],
+    "config": {
+      "checkpoint_file": "/data_zcy/wxy/SP_Tracking/logs/rsl_rl/g1_tracking/2026-09-02_04-48-42_SPTracking-G1-BFM-SPV5-2AActor-HEFTCritic-HEFTReward_8gpu_12288env_motion_data_correct/checkpoint_72000.pt",
+      "device": "cuda:0",
+      "failure_log_file": null,
+      "horizon": 5,
+      "motion_file": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/dance1_subject2.motion.npz",
+      "motion_path": null,
+      "num_envs": 1152,
+      "restore_atol": 1e-05,
+      "seed": 100717,
+      "task_id": null
+    },
+    "physics": "compiled checkpoint defaults with all DR events removed",
+    "removed_managers": {
+      "action_randomization_overrides": {},
+      "commands": [
+        "motion"
+      ],
+      "curriculum": [],
+      "events": [
+        "base_com",
+        "base_mass",
+        "encoder_bias",
+        "foot_friction",
+        "motor_params_implicit",
+        "push_robot"
+      ],
+      "metrics": [
+        "substep_tracking_cache"
+      ],
+      "observations": [
+        "estimator_history",
+        "estimator_target",
+        "foot_contact_target",
+        "policy",
+        "priv",
+        "reference_encoder_input",
+        "reference_encoder_target",
+        "robot_key_body",
+        "robot_root_quat"
+      ],
+      "recorders": [],
+      "rewards": [
+        "action_rate_l2",
+        "feet_air_time_ref",
+        "feet_air_time_ref_dense",
+        "feet_link_height_tracking",
+        "joint_pos_limits",
+        "joint_pos_tracking",
+        "joint_torque_limits",
+        "joint_vel_l2",
+        "joint_vel_tracking",
+        "keypoint_angvel_tracking",
+        "keypoint_pos_tracking",
+        "keypoint_rot_tracking",
+        "keypoint_vel_tracking",
+        "root_ang_vel_tracking",
+        "root_pos_tracking",
+        "root_rot_tracking",
+        "root_vel_tracking",
+        "survival",
+        "waist_action_rate_l2",
+        "wrist_link_height_tracking"
+      ],
+      "terminations": [
+        "anchor_ori",
+        "anchor_pos",
+        "ee_body_pos",
+        "time_out"
+      ]
+    },
+    "repeat_diagnostics": {
+      "full_state": {
+        "max": 0.24939823150634766,
+        "mean": 0.00030961984884925187,
+        "p50": 1.1563301086425781e-05,
+        "p95": 8.77200800459832e-05,
+        "p99": 0.002568923868238926
+      },
+      "pose": {
+        "max": 0.0006236433982849121,
+        "mean": 2.3769134713802487e-06,
+        "p50": 2.682209014892578e-07,
+        "p95": 1.9073486328125e-06,
+        "p99": 3.758697857847437e-05
+      },
+      "worst_full_state": {
+        "abs_error": 0.24939823150634766,
+        "horizon": 5,
+        "motion_id": 0,
+        "motion_path": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/dance1_subject2.motion.npz",
+        "motion_step": 3270,
+        "pair_index": 102,
+        "state_component": "joint_velocity",
+        "state_index": 59
+      },
+      "worst_pose": {
+        "abs_error": 0.0006236433982849121,
+        "horizon": 5,
+        "motion_id": 0,
+        "motion_path": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/dance1_subject2.motion.npz",
+        "motion_step": 3216,
+        "pair_index": 986,
+        "state_component": "joint_position",
+        "state_index": 30
+      }
+    },
+    "state_restore": "clear sim/entity/action state; write local 71-D robot state; run zero-time sim.forward",
+    "warmup": "none; warmup would change the paired initial state"
+  },
+  "dataset": {
+    "archive_bytes": 11782402,
+    "coverage": "all recursive *.npz files; no exclusions or active subset",
+    "groups": {
+      "(root)": 1
+    },
+    "loaded_local_frames": 6574,
+    "loaded_local_motion_count": 1,
+    "manifest_hash_kind": "relative-path,size,mtime_ns",
+    "manifest_sha256": "3329a883a8344409ea65a074b35c881557ca340bb3174c5529691a8f9711faff",
+    "motion_count": 1,
+    "rank_partition": "sorted files [rank::world_size], union equals full catalog",
+    "root": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong"
+  },
+  "distributed": {
+    "effective_batch_size_global": 4096,
+    "enabled": true,
+    "rank_seed": "seed + rank",
+    "world_size": 4
+  },
+  "loss": {
+    "contact_binary_weight": 1.0,
+    "contact_force_weight": 1.0,
+    "foot_weight": 1.0,
+    "huber_delta": 1.0,
+    "joint_position_weight": 1.0,
+    "joint_velocity_weight": 1.0,
+    "representation_weight": 0.01,
+    "response_distance_scale": 1.0,
+    "root_angular_velocity_weight": 1.0,
+    "root_linear_velocity_weight": 1.0,
+    "root_orientation_weight": 1.0,
+    "root_position_weight": 1.0
+  },
+  "method": "four-limb independent uniform nominal-counterfactual context",
+  "mjlab_version": "1.5.0",
+  "model": {
+    "action_dim": 29,
+    "architecture_version": "nominal_counterfactual_dynamics_context_transformer_v12",
+    "contact_binary_dim": 2,
+    "contact_force_dim": 6,
+    "context_depth": 2,
+    "context_dim": 128,
+    "context_heads": 4,
+    "context_history_steps": 200,
+    "delta_dim": 70,
+    "dropout": 0.0,
+    "dynamics_latent_dim": 64,
+    "foot_feature_dim": 8,
+    "history_steps": 10,
+    "horizon": 5,
+    "state_dim": 71,
+    "transformer_depth": 6,
+    "transformer_dim": 512,
+    "transformer_heads": 8
+  },
+  "model_parameters": 19513110,
+  "nominal_pair_numerical_audit": {
+    "full_state": {
+      "max": 0.24939823150634766,
+      "mean": 0.00030961984884925187,
+      "p50": 1.1563301086425781e-05,
+      "p95": 8.77200800459832e-05,
+      "p99": 0.002568923868238926
+    },
+    "pose": {
+      "max": 0.0006236433982849121,
+      "mean": 2.3769134713802487e-06,
+      "p50": 2.682209014892578e-07,
+      "p95": 1.9073486328125e-06,
+      "p99": 3.758697857847437e-05
+    },
+    "worst_full_state": {
+      "abs_error": 0.24939823150634766,
+      "horizon": 5,
+      "motion_id": 0,
+      "motion_path": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/dance1_subject2.motion.npz",
+      "motion_step": 3270,
+      "pair_index": 102,
+      "state_component": "joint_velocity",
+      "state_index": 59
+    },
+    "worst_pose": {
+      "abs_error": 0.0006236433982849121,
+      "horizon": 5,
+      "motion_id": 0,
+      "motion_path": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/dance1_subject2.motion.npz",
+      "motion_step": 3216,
+      "pair_index": 986,
+      "state_component": "joint_position",
+      "state_index": 30
+    }
+  },
+  "objective_weights": {
+    "recursive_weight": 0.5,
+    "representation_weight": 0.01,
+    "response_distance_scale": 1.0,
+    "teacher_forced_weight": 1.0
+  },
+  "optimization": {
+    "amp_dtype": "bfloat16",
+    "diagnostics_interval": 10,
+    "effective_batch_size_per_rank": 1024,
+    "fused_adamw": true,
+    "gradient_accumulation": true,
+    "gradient_clipping": false,
+    "micro_batch_size_per_rank": 256
+  },
+  "replay": {
+    "context_history_steps": 200,
+    "estimated_storage_bytes_per_rank": 3271737960,
+    "history_steps": 10,
+    "history_storage": "time archive reconstructed at sample time",
+    "horizon": 5,
+    "positive_offset_steps": 5,
+    "positive_pairs": "same A world/episode/motion, exact +/-5-frame context-window shift; both contexts must contain all 200 frames",
+    "predictor_sampling": "broad ordinary replay; incomplete contexts remain eligible for prediction",
+    "response_pairs": "cross-world broad-replay pairs; normalized latent distance continuously matches five-step A-minus-nominal-B response distance without a threshold",
+    "sampling": "motion_balanced"
+  },
+  "reported_probe_metrics": [
+    "one_step_nmse",
+    "nominal_five_step_nmse",
+    "dr_five_step_nmse",
+    "latent_positive_cosine",
+    "latent_response_correlation",
+    "latent_shuffle_dr_error_ratio",
+    "dr_counterfactual_rms",
+    "nominal_counterfactual_rms"
+  ],
+  "research_source_sha256": {
+    "src/intact_tracking/cli/forward_predictor_train.py": "62f7b8c7f1d3bb601a789276913d7e25aeed691890c9dbdd89fc4a5a22e6462b",
+    "src/intact_tracking/data/predictor_online.py": "ef1b41ab8a2c8e1acbecc07232e04800b289990f130df92c647c7ee57fe64bdd",
+    "src/intact_tracking/forward_predictor.py": "390ffb8efc745b39b0e5772d482627bb6ae92a305883a9a540512bd10e45ffc3",
+    "src/intact_tracking/forward_predictor_objective.py": "634d03ac3c7c91d8e3eaec4965b7f9131b919e6ed93d821e782b4fc6110aad5a",
+    "src/intact_tracking/forward_predictor_schedule.py": "edc598bbde6bb10dddf2118b6cfd91eff5a21349600abcdde1a1b331ccff9116",
+    "src/intact_tracking/rollout/nominal.py": "2c974dd67bbf00fdf25412a1658a66f34d02211113c126871a88bdafbd73818d",
+    "src/intact_tracking/rollout/online.py": "96339521e205d54a92111eee22d7da07576a163a30828a1bb654f8a64876a8f2"
+  },
+  "tracker_checkpoint_sha256": "fd7bd90d5552e573bbbce1417e9b415c64bb487a76b683ba3c20503b5ec77635",
+  "training_control": {
+    "automatic_early_stopping": true,
+    "continuation_min_learning_rate": null,
+    "cosine_horizon_updates": 2,
+    "maximum_updates": 2,
+    "mode": "automatic_budget_or_plateau",
+    "stage2_requires_explicit_user_convergence_decision": false
+  },
+  "validation": {
+    "contract": "disjoint physical world IDs, independent loads/motions/starts/history; excluded from training and normalization",
+    "convergence": "at least 2000 updates; <1% best NMSE improvement over 1000 updates and latent diagnostic ranges <0.1",
+    "interval": 100,
+    "nominal_metrics": "no nominal A validation samples; masked zero metrics are omitted, not reported as perfect",
+    "representation_probe": "separate held-out full-context positive pairs",
+    "selection": "minimum held-out five-step DR NMSE on broad contexts, including incomplete histories",
+    "training_worlds_per_rank": 1024,
+    "worlds_per_rank": 128
+  }
+}

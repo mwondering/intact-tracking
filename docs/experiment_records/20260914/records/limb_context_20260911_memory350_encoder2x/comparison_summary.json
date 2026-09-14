@@ -1,0 +1,938 @@
+{
+  "latest_common_training_update": 4900,
+  "primary_comparison_update": 22700,
+  "paired_evaluations": [
+    {
+      "update": 100,
+      "optimizer_steps": 400,
+      "checkpoints": {
+        "original": {
+          "path": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260909_memory350/stage1_8192/update_000100.pt",
+          "sha256": "ad6d02a138a15d8c7fee9ed665ef2b397fdc374a12efc49a0836da5a6f1ce99f"
+        },
+        "encoder2x": {
+          "path": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260911_memory350_encoder2x/stage1_8192/update_000100.pt",
+          "sha256": "66b4999209e9c4ab7590df5c82a1cc1eadc9471701b445c82edb35aa3c51ee25"
+        }
+      },
+      "parameter_counts": {
+        "original": {
+          "total": 20095126,
+          "context_encoder": 1035328,
+          "predictor": 19059798
+        },
+        "encoder2x": {
+          "total": 21086486,
+          "context_encoder": 2026688,
+          "predictor": 19059798
+        }
+      },
+      "validation_sha256": {
+        "validation_broad_rank_0.pt": "2d833e70b3ac9fafbb5a1dc26d06a18261b0a04ff211090ece8ef76156717f1e",
+        "validation_broad_rank_1.pt": "fdf8a512ce235c36f576dda14489a17e9ed36efd604de8cd8fb05a12d95aa261",
+        "validation_broad_rank_2.pt": "de2b391bcd8cf9fe22edb6969012db33189e61f2720a33c8a87537e6842ab83a",
+        "validation_broad_rank_3.pt": "b3f532e4ab0b4577ed40cb1828f5b3a4efbe7b60d4b22a7e2b12cec1a805b850"
+      },
+      "same_normalization": true,
+      "same_validation": true,
+      "groups": {
+        "all": {
+          "samples": 2048,
+          "worlds": 489,
+          "original_five_step_nmse": 0.27002355456352234,
+          "encoder2x_five_step_nmse": 0.26468634605407715,
+          "encoder2x_to_original_error_ratio": 0.9802342057228088,
+          "error_reduction_percent": 1.9765794277191162,
+          "paired_world_bootstrap_ratio_ci95": [
+            0.9755174558449946,
+            0.9845276069030242
+          ],
+          "fraction_windows_encoder2x_better": 0.62353515625,
+          "original_nmse_by_horizon": [
+            0.4240131378173828,
+            0.3150195777416229,
+            0.2859480381011963,
+            0.2728444039821625,
+            0.2700232267379761
+          ],
+          "encoder2x_nmse_by_horizon": [
+            0.4199351966381073,
+            0.3118094801902771,
+            0.2819579243659973,
+            0.2682693600654602,
+            0.26468637585639954
+          ]
+        },
+        "long_available": {
+          "samples": 1751,
+          "worlds": 477,
+          "original_five_step_nmse": 0.2695789635181427,
+          "encoder2x_five_step_nmse": 0.2657868266105652,
+          "encoder2x_to_original_error_ratio": 0.9859330654144287,
+          "error_reduction_percent": 1.406693458557129,
+          "paired_world_bootstrap_ratio_ci95": [
+            0.9819859724247745,
+            0.9898449606671259
+          ],
+          "fraction_windows_encoder2x_better": 0.615648201027984,
+          "original_nmse_by_horizon": [
+            0.4043083190917969,
+            0.3096199929714203,
+            0.28393781185150146,
+            0.2718886435031891,
+            0.2695791721343994
+          ],
+          "encoder2x_nmse_by_horizon": [
+            0.40215790271759033,
+            0.3078371584415436,
+            0.28134825825691223,
+            0.26875078678131104,
+            0.26578694581985474
+          ]
+        },
+        "short_incomplete_with_long": {
+          "samples": 931,
+          "worlds": 374,
+          "original_five_step_nmse": 0.28304460644721985,
+          "encoder2x_five_step_nmse": 0.279849112033844,
+          "encoder2x_to_original_error_ratio": 0.988710343837738,
+          "error_reduction_percent": 1.1289656162261963,
+          "paired_world_bootstrap_ratio_ci95": [
+            0.9838599960232005,
+            0.9936871586139884
+          ],
+          "fraction_windows_encoder2x_better": 0.5961331901181526,
+          "original_nmse_by_horizon": [
+            0.44529592990875244,
+            0.3327305316925049,
+            0.3022874891757965,
+            0.28754839301109314,
+            0.2830447852611542
+          ],
+          "encoder2x_nmse_by_horizon": [
+            0.4432969093322754,
+            0.330960214138031,
+            0.2998855412006378,
+            0.2847602665424347,
+            0.2798492908477783
+          ]
+        },
+        "short_under10_with_long": {
+          "samples": 327,
+          "worlds": 223,
+          "original_five_step_nmse": 0.2877206802368164,
+          "encoder2x_five_step_nmse": 0.2838827669620514,
+          "encoder2x_to_original_error_ratio": 0.986660897731781,
+          "error_reduction_percent": 1.3339102268218994,
+          "paired_world_bootstrap_ratio_ci95": [
+            0.9768157928403575,
+            0.9950659948156985
+          ],
+          "fraction_windows_encoder2x_better": 0.5718654434250765,
+          "original_nmse_by_horizon": [
+            0.5038470029830933,
+            0.35338881611824036,
+            0.30665358901023865,
+            0.2881103754043579,
+            0.28772076964378357
+          ],
+          "encoder2x_nmse_by_horizon": [
+            0.5006558299064636,
+            0.35062530636787415,
+            0.3032909631729126,
+            0.2850581109523773,
+            0.283882737159729
+          ]
+        },
+        "short_full_with_long": {
+          "samples": 820,
+          "worlds": 398,
+          "original_five_step_nmse": 0.24668440222740173,
+          "encoder2x_five_step_nmse": 0.2418776899576187,
+          "encoder2x_to_original_error_ratio": 0.9805147647857666,
+          "error_reduction_percent": 1.9485235214233398,
+          "paired_world_bootstrap_ratio_ci95": [
+            0.9731433680751612,
+            0.9877017856972681
+          ],
+          "fraction_windows_encoder2x_better": 0.6378048780487805,
+          "original_nmse_by_horizon": [
+            0.29949384927749634,
+            0.2618912160396576,
+            0.24873872101306915,
+            0.24371449649333954,
+            0.24668429791927338
+          ],
+          "encoder2x_nmse_by_horizon": [
+            0.29695576429367065,
+            0.26008176803588867,
+            0.2457878291606903,
+            0.23994562029838562,
+            0.24187760055065155
+          ]
+        },
+        "no_long": {
+          "samples": 297,
+          "worlds": 222,
+          "original_five_step_nmse": 0.2723090350627899,
+          "encoder2x_five_step_nmse": 0.25902867317199707,
+          "encoder2x_to_original_error_ratio": 0.951230525970459,
+          "error_reduction_percent": 4.876947402954102,
+          "paired_world_bootstrap_ratio_ci95": [
+            0.9400105208381836,
+            0.9638007502231529
+          ],
+          "fraction_windows_encoder2x_better": 0.67003367003367,
+          "original_nmse_by_horizon": [
+            0.5002375841140747,
+            0.34145843982696533,
+            0.296220064163208,
+            0.2777339816093445,
+            0.27230897545814514
+          ],
+          "encoder2x_nmse_by_horizon": [
+            0.4887041449546814,
+            0.3312583267688751,
+            0.28507423400878906,
+            0.26580625772476196,
+            0.25902870297431946
+          ]
+        },
+        "full_30_chunks": {
+          "samples": 707,
+          "worlds": 351,
+          "original_five_step_nmse": 0.2767403721809387,
+          "encoder2x_five_step_nmse": 0.27271968126296997,
+          "encoder2x_to_original_error_ratio": 0.985471248626709,
+          "error_reduction_percent": 1.4528751373291016,
+          "paired_world_bootstrap_ratio_ci95": [
+            0.978545999890361,
+            0.9913176109684206
+          ],
+          "fraction_windows_encoder2x_better": 0.620933521923621,
+          "original_nmse_by_horizon": [
+            0.39720937609672546,
+            0.30588456988334656,
+            0.28343960642814636,
+            0.27495890855789185,
+            0.27674075961112976
+          ],
+          "encoder2x_nmse_by_horizon": [
+            0.39561307430267334,
+            0.30410152673721313,
+            0.2804652154445648,
+            0.27160897850990295,
+            0.2727198004722595
+          ]
+        }
+      },
+      "device": "cuda:0",
+      "precision": "bfloat16 autocast",
+      "rank_mean_nmse": {
+        "original": 0.26984453201293945,
+        "encoder2x": 0.2645203471183777
+      },
+      "elapsed_seconds": 7.560375928878784,
+      "uncertainty_scope": "paired validation-world bootstrap for one training seed; not across training seeds"
+    },
+    {
+      "update": 500,
+      "optimizer_steps": 2000,
+      "checkpoints": {
+        "original": {
+          "path": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260909_memory350/stage1_8192/update_000500.pt",
+          "sha256": "3fc0170cb845d94386749b7fdbcbfa337700e558eaacc3b0ea7a0d685551a186"
+        },
+        "encoder2x": {
+          "path": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260911_memory350_encoder2x/stage1_8192/update_000500.pt",
+          "sha256": "1e92b955bb122cc5fd1131b6be9c3c66f74db56df4af8ae4de58f0dd58920a1e"
+        }
+      },
+      "parameter_counts": {
+        "original": {
+          "total": 20095126,
+          "context_encoder": 1035328,
+          "predictor": 19059798
+        },
+        "encoder2x": {
+          "total": 21086486,
+          "context_encoder": 2026688,
+          "predictor": 19059798
+        }
+      },
+      "validation_sha256": {
+        "validation_broad_rank_0.pt": "2d833e70b3ac9fafbb5a1dc26d06a18261b0a04ff211090ece8ef76156717f1e",
+        "validation_broad_rank_1.pt": "fdf8a512ce235c36f576dda14489a17e9ed36efd604de8cd8fb05a12d95aa261",
+        "validation_broad_rank_2.pt": "de2b391bcd8cf9fe22edb6969012db33189e61f2720a33c8a87537e6842ab83a",
+        "validation_broad_rank_3.pt": "b3f532e4ab0b4577ed40cb1828f5b3a4efbe7b60d4b22a7e2b12cec1a805b850"
+      },
+      "same_normalization": true,
+      "same_validation": true,
+      "groups": {
+        "all": {
+          "samples": 2048,
+          "worlds": 489,
+          "original_five_step_nmse": 0.10260216891765594,
+          "encoder2x_five_step_nmse": 0.10290708392858505,
+          "encoder2x_to_original_error_ratio": 1.002971887588501,
+          "error_reduction_percent": -0.29718875885009766,
+          "paired_world_bootstrap_ratio_ci95": [
+            0.9901867083300779,
+            1.0160995013248388
+          ],
+          "fraction_windows_encoder2x_better": 0.41650390625,
+          "original_nmse_by_horizon": [
+            0.14680249989032745,
+            0.11506636440753937,
+            0.10460313409566879,
+            0.100154347717762,
+            0.10260208696126938
+          ],
+          "encoder2x_nmse_by_horizon": [
+            0.14423339068889618,
+            0.11417833715677261,
+            0.10415755212306976,
+            0.10019444674253464,
+            0.10290708392858505
+          ]
+        },
+        "long_available": {
+          "samples": 1751,
+          "worlds": 477,
+          "original_five_step_nmse": 0.10300467908382416,
+          "encoder2x_five_step_nmse": 0.10308115184307098,
+          "encoder2x_to_original_error_ratio": 1.0007423162460327,
+          "error_reduction_percent": -0.07423162460327148,
+          "paired_world_bootstrap_ratio_ci95": [
+            0.988027179468356,
+            1.0154673628735513
+          ],
+          "fraction_windows_encoder2x_better": 0.40605368360936606,
+          "original_nmse_by_horizon": [
+            0.14740072190761566,
+            0.11611586809158325,
+            0.10621955245733261,
+            0.10124634951353073,
+            0.10300464183092117
+          ],
+          "encoder2x_nmse_by_horizon": [
+            0.14558549225330353,
+            0.11510816961526871,
+            0.10568538308143616,
+            0.10110022872686386,
+            0.1030811071395874
+          ]
+        },
+        "short_incomplete_with_long": {
+          "samples": 931,
+          "worlds": 374,
+          "original_five_step_nmse": 0.11016581952571869,
+          "encoder2x_five_step_nmse": 0.11010155081748962,
+          "encoder2x_to_original_error_ratio": 0.9994165897369385,
+          "error_reduction_percent": 0.058341026306152344,
+          "paired_world_bootstrap_ratio_ci95": [
+            0.9822927611201827,
+            1.0187685981008379
+          ],
+          "fraction_windows_encoder2x_better": 0.41568206229860366,
+          "original_nmse_by_horizon": [
+            0.16748115420341492,
+            0.12826280295848846,
+            0.1169501468539238,
+            0.11078762263059616,
+            0.11016586422920227
+          ],
+          "encoder2x_nmse_by_horizon": [
+            0.1652223765850067,
+            0.1269717514514923,
+            0.11605776846408844,
+            0.11024554073810577,
+            0.11010158807039261
+          ]
+        },
+        "short_under10_with_long": {
+          "samples": 327,
+          "worlds": 223,
+          "original_five_step_nmse": 0.10189346969127655,
+          "encoder2x_five_step_nmse": 0.10299277305603027,
+          "encoder2x_to_original_error_ratio": 1.0107887983322144,
+          "error_reduction_percent": -1.0788798332214355,
+          "paired_world_bootstrap_ratio_ci95": [
+            0.9837989771491888,
+            1.041389317474398
+          ],
+          "fraction_windows_encoder2x_better": 0.45871559633027525,
+          "original_nmse_by_horizon": [
+            0.1731186956167221,
+            0.1286129206418991,
+            0.10835523903369904,
+            0.10098422318696976,
+            0.10189343243837357
+          ],
+          "encoder2x_nmse_by_horizon": [
+            0.16912515461444855,
+            0.1266632378101349,
+            0.1075875535607338,
+            0.10100165009498596,
+            0.10299269109964371
+          ]
+        },
+        "short_full_with_long": {
+          "samples": 820,
+          "worlds": 398,
+          "original_five_step_nmse": 0.09082910418510437,
+          "encoder2x_five_step_nmse": 0.09114491194486618,
+          "encoder2x_to_original_error_ratio": 1.0034769773483276,
+          "error_reduction_percent": -0.34769773483276367,
+          "paired_world_bootstrap_ratio_ci95": [
+            0.9817792387940053,
+            1.0268147114391413
+          ],
+          "fraction_windows_encoder2x_better": 0.3951219512195122,
+          "original_nmse_by_horizon": [
+            0.09604991972446442,
+            0.0910290852189064,
+            0.0856354683637619,
+            0.08407974988222122,
+            0.09082909673452377
+          ],
+          "encoder2x_nmse_by_horizon": [
+            0.0953700989484787,
+            0.09060674160718918,
+            0.08578832447528839,
+            0.08464588224887848,
+            0.09114489704370499
+          ]
+        },
+        "no_long": {
+          "samples": 297,
+          "worlds": 222,
+          "original_five_step_nmse": 0.10053281486034393,
+          "encoder2x_five_step_nmse": 0.10201212763786316,
+          "encoder2x_to_original_error_ratio": 1.0147147178649902,
+          "error_reduction_percent": -1.4714717864990234,
+          "paired_world_bootstrap_ratio_ci95": [
+            0.97833356212363,
+            1.0449610557070366
+          ],
+          "fraction_windows_encoder2x_better": 0.4781144781144781,
+          "original_nmse_by_horizon": [
+            0.14448828995227814,
+            0.10992652177810669,
+            0.09634220600128174,
+            0.09456846117973328,
+            0.10053285211324692
+          ],
+          "encoder2x_nmse_by_horizon": [
+            0.13900268077850342,
+            0.10962476581335068,
+            0.09634934365749359,
+            0.09556004405021667,
+            0.10201215744018555
+          ]
+        },
+        "full_30_chunks": {
+          "samples": 707,
+          "worlds": 351,
+          "original_five_step_nmse": 0.10256190598011017,
+          "encoder2x_five_step_nmse": 0.10224288702011108,
+          "encoder2x_to_original_error_ratio": 0.9968894720077515,
+          "error_reduction_percent": 0.3110527992248535,
+          "paired_world_bootstrap_ratio_ci95": [
+            0.9788602079176683,
+            1.018327493407927
+          ],
+          "fraction_windows_encoder2x_better": 0.39745403111739747,
+          "original_nmse_by_horizon": [
+            0.13772393763065338,
+            0.10885066539049149,
+            0.09931245446205139,
+            0.09846252202987671,
+            0.10256199538707733
+          ],
+          "encoder2x_nmse_by_horizon": [
+            0.1354595124721527,
+            0.10725006461143494,
+            0.0985114574432373,
+            0.09801186621189117,
+            0.10224295407533646
+          ]
+        }
+      },
+      "device": "cuda:0",
+      "precision": "bfloat16 autocast",
+      "rank_mean_nmse": {
+        "original": 0.10259779542684555,
+        "encoder2x": 0.10290733724832535
+      },
+      "elapsed_seconds": 7.376269578933716,
+      "uncertainty_scope": "paired validation-world bootstrap for one training seed; not across training seeds"
+    },
+    {
+      "update": 1000,
+      "optimizer_steps": 4000,
+      "checkpoints": {
+        "original": {
+          "path": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260909_memory350/stage1_8192/update_001000.pt",
+          "sha256": "83013b1998a8db80c4113105a542c88080e9a255ae41b9077b2eb9ed250091b3"
+        },
+        "encoder2x": {
+          "path": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260911_memory350_encoder2x/stage1_8192/update_001000.pt",
+          "sha256": "6238fbbf40be2e3d18b8fd108a28c4636eea894c0dfb469be93beaea4f51b111"
+        }
+      },
+      "parameter_counts": {
+        "original": {
+          "total": 20095126,
+          "context_encoder": 1035328,
+          "predictor": 19059798
+        },
+        "encoder2x": {
+          "total": 21086486,
+          "context_encoder": 2026688,
+          "predictor": 19059798
+        }
+      },
+      "validation_sha256": {
+        "validation_broad_rank_0.pt": "2d833e70b3ac9fafbb5a1dc26d06a18261b0a04ff211090ece8ef76156717f1e",
+        "validation_broad_rank_1.pt": "fdf8a512ce235c36f576dda14489a17e9ed36efd604de8cd8fb05a12d95aa261",
+        "validation_broad_rank_2.pt": "de2b391bcd8cf9fe22edb6969012db33189e61f2720a33c8a87537e6842ab83a",
+        "validation_broad_rank_3.pt": "b3f532e4ab0b4577ed40cb1828f5b3a4efbe7b60d4b22a7e2b12cec1a805b850"
+      },
+      "same_normalization": true,
+      "same_validation": true,
+      "groups": {
+        "all": {
+          "samples": 2048,
+          "worlds": 489,
+          "original_five_step_nmse": 0.06972583383321762,
+          "encoder2x_five_step_nmse": 0.06968353688716888,
+          "encoder2x_to_original_error_ratio": 0.9993932843208313,
+          "error_reduction_percent": 0.06067156791687012,
+          "paired_world_bootstrap_ratio_ci95": [
+            0.983958653360907,
+            1.016573544197811
+          ],
+          "fraction_windows_encoder2x_better": 0.529296875,
+          "original_nmse_by_horizon": [
+            0.0949421226978302,
+            0.07858423888683319,
+            0.0713135302066803,
+            0.06743516772985458,
+            0.06972582638263702
+          ],
+          "encoder2x_nmse_by_horizon": [
+            0.09596332907676697,
+            0.07901303470134735,
+            0.07155406475067139,
+            0.06744950264692307,
+            0.06968357414007187
+          ]
+        },
+        "long_available": {
+          "samples": 1751,
+          "worlds": 477,
+          "original_five_step_nmse": 0.06921727955341339,
+          "encoder2x_five_step_nmse": 0.06940947473049164,
+          "encoder2x_to_original_error_ratio": 1.0027767419815063,
+          "error_reduction_percent": -0.27767419815063477,
+          "paired_world_bootstrap_ratio_ci95": [
+            0.9860374028547686,
+            1.0224226959694291
+          ],
+          "fraction_windows_encoder2x_better": 0.5242718446601942,
+          "original_nmse_by_horizon": [
+            0.09776017814874649,
+            0.0798797458410263,
+            0.07269131392240524,
+            0.06803902983665466,
+            0.06921730935573578
+          ],
+          "encoder2x_nmse_by_horizon": [
+            0.09899968653917313,
+            0.08023025840520859,
+            0.07290976494550705,
+            0.06815572828054428,
+            0.0694095641374588
+          ]
+        },
+        "short_incomplete_with_long": {
+          "samples": 931,
+          "worlds": 374,
+          "original_five_step_nmse": 0.07325363159179688,
+          "encoder2x_five_step_nmse": 0.07384824752807617,
+          "encoder2x_to_original_error_ratio": 1.0081171989440918,
+          "error_reduction_percent": -0.8117198944091797,
+          "paired_world_bootstrap_ratio_ci95": [
+            0.9860716066396433,
+            1.036391195845829
+          ],
+          "fraction_windows_encoder2x_better": 0.49731471535982813,
+          "original_nmse_by_horizon": [
+            0.11087851226329803,
+            0.0880042091012001,
+            0.08015439659357071,
+            0.07469873875379562,
+            0.07325364649295807
+          ],
+          "encoder2x_nmse_by_horizon": [
+            0.11245346069335938,
+            0.08854009956121445,
+            0.08043140918016434,
+            0.07478512823581696,
+            0.07384830713272095
+          ]
+        },
+        "short_under10_with_long": {
+          "samples": 327,
+          "worlds": 223,
+          "original_five_step_nmse": 0.06964601576328278,
+          "encoder2x_five_step_nmse": 0.06973336637020111,
+          "encoder2x_to_original_error_ratio": 1.0012542009353638,
+          "error_reduction_percent": -0.12542009353637695,
+          "paired_world_bootstrap_ratio_ci95": [
+            0.958900951219803,
+            1.0608974072604485
+          ],
+          "fraction_windows_encoder2x_better": 0.4923547400611621,
+          "original_nmse_by_horizon": [
+            0.10932699590921402,
+            0.08917903155088425,
+            0.07455727458000183,
+            0.06943793594837189,
+            0.06964600086212158
+          ],
+          "encoder2x_nmse_by_horizon": [
+            0.11276554316282272,
+            0.09177863597869873,
+            0.07659947127103806,
+            0.07018677890300751,
+            0.06973337382078171
+          ]
+        },
+        "short_full_with_long": {
+          "samples": 820,
+          "worlds": 398,
+          "original_five_step_nmse": 0.06235458329319954,
+          "encoder2x_five_step_nmse": 0.06186256185173988,
+          "encoder2x_to_original_error_ratio": 0.9921092987060547,
+          "error_reduction_percent": 0.7890701293945312,
+          "paired_world_bootstrap_ratio_ci95": [
+            0.9675670912393638,
+            1.0207158021212517
+          ],
+          "fraction_windows_encoder2x_better": 0.5548780487804879,
+          "original_nmse_by_horizon": [
+            0.06421348452568054,
+            0.06310062855482101,
+            0.05837507173418999,
+            0.05605696141719818,
+            0.06235457584261894
+          ],
+          "encoder2x_nmse_by_horizon": [
+            0.06459493190050125,
+            0.06306783854961395,
+            0.05848108232021332,
+            0.05622795969247818,
+            0.061862558126449585
+          ]
+        },
+        "no_long": {
+          "samples": 297,
+          "worlds": 222,
+          "original_five_step_nmse": 0.07234035432338715,
+          "encoder2x_five_step_nmse": 0.07109250873327255,
+          "encoder2x_to_original_error_ratio": 0.9827502965927124,
+          "error_reduction_percent": 1.7249703407287598,
+          "paired_world_bootstrap_ratio_ci95": [
+            0.9408605976620309,
+            1.0141100698149812
+          ],
+          "fraction_windows_encoder2x_better": 0.5589225589225589,
+          "original_nmse_by_horizon": [
+            0.08404064923524857,
+            0.07223960012197495,
+            0.06427188217639923,
+            0.06434585154056549,
+            0.07234032452106476
+          ],
+          "encoder2x_nmse_by_horizon": [
+            0.08421678096055984,
+            0.07305265218019485,
+            0.06462588906288147,
+            0.06383615732192993,
+            0.07109249383211136
+          ]
+        },
+        "full_30_chunks": {
+          "samples": 707,
+          "worlds": 351,
+          "original_five_step_nmse": 0.06529378890991211,
+          "encoder2x_five_step_nmse": 0.06655033677816391,
+          "encoder2x_to_original_error_ratio": 1.0192445516586304,
+          "error_reduction_percent": -1.924455165863037,
+          "paired_world_bootstrap_ratio_ci95": [
+            0.9900911720681667,
+            1.0542438540631334
+          ],
+          "fraction_windows_encoder2x_better": 0.49504950495049505,
+          "original_nmse_by_horizon": [
+            0.0893678367137909,
+            0.07132887095212936,
+            0.06360957026481628,
+            0.06273115426301956,
+            0.06529387831687927
+          ],
+          "encoder2x_nmse_by_horizon": [
+            0.09019973129034042,
+            0.07076023519039154,
+            0.06380941718816757,
+            0.06310489028692245,
+            0.06655042618513107
+          ]
+        }
+      },
+      "device": "cuda:0",
+      "precision": "bfloat16 autocast",
+      "rank_mean_nmse": {
+        "original": 0.06970349699258804,
+        "encoder2x": 0.06965799629688263
+      },
+      "elapsed_seconds": 7.923799991607666,
+      "uncertainty_scope": "paired validation-world bootstrap for one training seed; not across training seeds"
+    },
+    {
+      "update": 3000,
+      "optimizer_steps": 12000,
+      "checkpoints": {
+        "original": {
+          "path": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260909_memory350/stage1_8192/update_003000.pt",
+          "sha256": "08340de6a7c53ac1de66bed86bc3f5e017aa847d9cf10bd26432f342d178e933"
+        },
+        "encoder2x": {
+          "path": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260911_memory350_encoder2x/stage1_8192/update_003000.pt",
+          "sha256": "f4533286cc3ee6f102319c3752faf6259aea07e924bf4fda4d3c919bc1b3de13"
+        }
+      },
+      "parameter_counts": {
+        "original": {
+          "total": 20095126,
+          "context_encoder": 1035328,
+          "predictor": 19059798
+        },
+        "encoder2x": {
+          "total": 21086486,
+          "context_encoder": 2026688,
+          "predictor": 19059798
+        }
+      },
+      "validation_sha256": {
+        "validation_broad_rank_0.pt": "2d833e70b3ac9fafbb5a1dc26d06a18261b0a04ff211090ece8ef76156717f1e",
+        "validation_broad_rank_1.pt": "fdf8a512ce235c36f576dda14489a17e9ed36efd604de8cd8fb05a12d95aa261",
+        "validation_broad_rank_2.pt": "de2b391bcd8cf9fe22edb6969012db33189e61f2720a33c8a87537e6842ab83a",
+        "validation_broad_rank_3.pt": "b3f532e4ab0b4577ed40cb1828f5b3a4efbe7b60d4b22a7e2b12cec1a805b850"
+      },
+      "same_normalization": true,
+      "same_validation": true,
+      "groups": {
+        "all": {
+          "samples": 2048,
+          "worlds": 489,
+          "original_five_step_nmse": 0.03970786929130554,
+          "encoder2x_five_step_nmse": 0.037357352674007416,
+          "encoder2x_to_original_error_ratio": 0.9408048391342163,
+          "error_reduction_percent": 5.919516086578369,
+          "paired_world_bootstrap_ratio_ci95": [
+            0.9039619724197061,
+            0.9741003682078053
+          ],
+          "fraction_windows_encoder2x_better": 0.62646484375,
+          "original_nmse_by_horizon": [
+            0.051992833614349365,
+            0.046332117170095444,
+            0.04054930433630943,
+            0.03745576739311218,
+            0.039707835763692856
+          ],
+          "encoder2x_nmse_by_horizon": [
+            0.05144268274307251,
+            0.04421215131878853,
+            0.038360629230737686,
+            0.035506073385477066,
+            0.037357281893491745
+          ]
+        },
+        "long_available": {
+          "samples": 1751,
+          "worlds": 477,
+          "original_five_step_nmse": 0.036101583391427994,
+          "encoder2x_five_step_nmse": 0.03504739701747894,
+          "encoder2x_to_original_error_ratio": 0.9707993865013123,
+          "error_reduction_percent": 2.9200613498687744,
+          "paired_world_bootstrap_ratio_ci95": [
+            0.9417064735507165,
+            0.9994862096183937
+          ],
+          "fraction_windows_encoder2x_better": 0.6253569388920617,
+          "original_nmse_by_horizon": [
+            0.05147283524274826,
+            0.044411007314920425,
+            0.038452550768852234,
+            0.034634679555892944,
+            0.036101583391427994
+          ],
+          "encoder2x_nmse_by_horizon": [
+            0.051687613129615784,
+            0.04305357113480568,
+            0.03678668662905693,
+            0.03351055085659027,
+            0.035047370940446854
+          ]
+        },
+        "short_incomplete_with_long": {
+          "samples": 931,
+          "worlds": 374,
+          "original_five_step_nmse": 0.03550520911812782,
+          "encoder2x_five_step_nmse": 0.03395113721489906,
+          "encoder2x_to_original_error_ratio": 0.9562297463417053,
+          "error_reduction_percent": 4.377025365829468,
+          "paired_world_bootstrap_ratio_ci95": [
+            0.9244269038989974,
+            0.9863755258045805
+          ],
+          "fraction_windows_encoder2x_better": 0.5993555316863588,
+          "original_nmse_by_horizon": [
+            0.056186284869909286,
+            0.04684079438447952,
+            0.03967352956533432,
+            0.035582203418016434,
+            0.03550522401928902
+          ],
+          "encoder2x_nmse_by_horizon": [
+            0.05693337321281433,
+            0.044463835656642914,
+            0.03730148449540138,
+            0.033965058624744415,
+            0.03395114839076996
+          ]
+        },
+        "short_under10_with_long": {
+          "samples": 327,
+          "worlds": 223,
+          "original_five_step_nmse": 0.03557081148028374,
+          "encoder2x_five_step_nmse": 0.03351849317550659,
+          "encoder2x_to_original_error_ratio": 0.9423033595085144,
+          "error_reduction_percent": 5.76966404914856,
+          "paired_world_bootstrap_ratio_ci95": [
+            0.9029070608871933,
+            0.9891139520804056
+          ],
+          "fraction_windows_encoder2x_better": 0.5504587155963303,
+          "original_nmse_by_horizon": [
+            0.052503060549497604,
+            0.05262361839413643,
+            0.041640687733888626,
+            0.03676510229706764,
+            0.035570815205574036
+          ],
+          "encoder2x_nmse_by_horizon": [
+            0.05410568043589592,
+            0.04878026992082596,
+            0.03704959526658058,
+            0.0334203876554966,
+            0.03351850062608719
+          ]
+        },
+        "short_full_with_long": {
+          "samples": 820,
+          "worlds": 398,
+          "original_five_step_nmse": 0.03711555898189545,
+          "encoder2x_five_step_nmse": 0.03691128268837929,
+          "encoder2x_to_original_error_ratio": 0.99449622631073,
+          "error_reduction_percent": 0.550377368927002,
+          "paired_world_bootstrap_ratio_ci95": [
+            0.9360307952393513,
+            1.0415258200706086
+          ],
+          "fraction_windows_encoder2x_better": 0.6548780487804878,
+          "original_nmse_by_horizon": [
+            0.039419498294591904,
+            0.03939265385270119,
+            0.03611043095588684,
+            0.0329299233853817,
+            0.037115540355443954
+          ],
+          "encoder2x_nmse_by_horizon": [
+            0.03827303275465965,
+            0.04014098644256592,
+            0.03579922020435333,
+            0.03269291669130325,
+            0.03691130131483078
+          ]
+        },
+        "no_long": {
+          "samples": 297,
+          "worlds": 222,
+          "original_five_step_nmse": 0.05824796110391617,
+          "encoder2x_five_step_nmse": 0.04923297092318535,
+          "encoder2x_to_original_error_ratio": 0.8452308177947998,
+          "error_reduction_percent": 15.47691822052002,
+          "paired_world_bootstrap_ratio_ci95": [
+            0.7867153761652638,
+            0.9285876285322388
+          ],
+          "fraction_windows_encoder2x_better": 0.632996632996633,
+          "original_nmse_by_horizon": [
+            0.05400451645255089,
+            0.0557391531765461,
+            0.0512649267911911,
+            0.051889073103666306,
+            0.05824796482920647
+          ],
+          "encoder2x_nmse_by_horizon": [
+            0.05049510672688484,
+            0.049885205924510956,
+            0.046404220163822174,
+            0.04571552202105522,
+            0.04923296347260475
+          ]
+        },
+        "full_30_chunks": {
+          "samples": 707,
+          "worlds": 351,
+          "original_five_step_nmse": 0.03360370174050331,
+          "encoder2x_five_step_nmse": 0.03282828629016876,
+          "encoder2x_to_original_error_ratio": 0.9769247174263,
+          "error_reduction_percent": 2.307528257369995,
+          "paired_world_bootstrap_ratio_ci95": [
+            0.9312048626258638,
+            1.011995104750757
+          ],
+          "fraction_windows_encoder2x_better": 0.6039603960396039,
+          "original_nmse_by_horizon": [
+            0.04925041273236275,
+            0.036933623254299164,
+            0.03242507204413414,
+            0.03129756450653076,
+            0.033603716641664505
+          ],
+          "encoder2x_nmse_by_horizon": [
+            0.050740715116262436,
+            0.03586622700095177,
+            0.030619243159890175,
+            0.030081916600465775,
+            0.03282831609249115
+          ]
+        }
+      },
+      "device": "cuda:0",
+      "precision": "bfloat16 autocast",
+      "rank_mean_nmse": {
+        "original": 0.039717406034469604,
+        "encoder2x": 0.037397053092718124
+      },
+      "elapsed_seconds": 8.387782573699951,
+      "uncertainty_scope": "paired validation-world bootstrap for one training seed; not across training seeds"
+    }
+  ]
+}

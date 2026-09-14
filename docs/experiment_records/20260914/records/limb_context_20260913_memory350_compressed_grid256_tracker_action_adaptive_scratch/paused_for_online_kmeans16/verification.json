@@ -1,0 +1,21 @@
+{
+  "verified_at": 1789317486.7209628,
+  "reason": "Replace paired grid256 jobs with user-requested independent-uniform DR online-KMeans16 MoE experiment",
+  "arms": {
+    "baseline": {
+      "completed_updates": 1638,
+      "checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260913_memory350_compressed_grid256_tracker_action_adaptive_scratch/paused_for_online_kmeans16/baseline_update_001638.pt",
+      "sha256": "9ced2ab8efd5996ffdc2f4c19190a09951071c53e955b78efd6908820d96ddf8",
+      "four_rank_agreement": true,
+      "policy_precision": "fp32"
+    },
+    "concat": {
+      "completed_updates": 1400,
+      "checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260913_memory350_compressed_grid256_tracker_action_adaptive_scratch/paused_for_online_kmeans16/concat_update_001400.pt",
+      "sha256": "685c24f60035d72ecccfe1199699370bd5826a899abb0f279fc1b34054c183c7",
+      "four_rank_agreement": true,
+      "policy_precision": "fp32"
+    }
+  },
+  "passed": true
+}

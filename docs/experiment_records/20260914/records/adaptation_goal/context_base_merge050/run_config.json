@@ -1,0 +1,92 @@
+{
+  "version": "single_core_parameter_interpolation_v1",
+  "arguments": {
+    "teacher_checkpoint": "runs/adaptation_goal/oracle_features_tracking4_seed44/checkpoint_1250.pt",
+    "tracker_checkpoint": "/data_zcy/wxy/SP_Tracking/logs/rsl_rl/g1_tracking/2026-09-02_04-48-42_SPTracking-G1-BFM-SPV5-2AActor-HEFTCritic-HEFTReward_8gpu_12288env_motion_data_correct/checkpoint_72000.pt",
+    "motion_path": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong",
+    "output_dir": "runs/adaptation_goal/context_oracle1250_distill_seed50",
+    "device": "cuda:0",
+    "seed": 50,
+    "num_envs": 1024,
+    "iterations": 3000,
+    "rollout_steps": 4,
+    "gradient_steps": 4,
+    "batch_size": 2048,
+    "replay_capacity": 32768,
+    "teacher_mix_updates": 1500,
+    "latent_loss_weight": 0.0,
+    "learning_rate": 0.0003,
+    "save_interval": 250,
+    "sampling_mode": "uniform"
+  },
+  "teacher_sha256": "0010c6187d245ca4d15f5d0b6149cef0b742e2a111601493d6e822327a1aeffb",
+  "physics": {
+    "physics": "dr",
+    "details": {
+      "payload": {
+        "enabled": true,
+        "event_name": "right_hand_payload",
+        "body_name": "right_wrist_yaw_link",
+        "mass_range_kg": [
+          1.0,
+          3.0
+        ],
+        "position_body_frame_m": [
+          0.12,
+          0.0,
+          0.0
+        ],
+        "cuboid_size_m": [
+          0.1,
+          0.08,
+          0.08
+        ],
+        "physics_model": "rigid cuboid composite inertia (mass, COM, principal inertia and inertial frame); no payload collision geometry"
+      }
+    },
+    "removed_disturbances": [
+      "push_robot"
+    ],
+    "cleared_exclusions": [
+      "[/data_zcy/wxy/motion_filter/0827/invalid_motions_0827_v1.json,/data_zcy/wxy/SP_Tracking/logs/motion_benchmark_10000.json,/data_zcy/wxy/SP_Tracking/logs/motion_benchmark_0830_22000.json,/data_zcy/wxy/SP_Tracking/benchmark_0831_36000.json,/data_zcy/wxy/SP_Tracking/benchmark_0901_44000.json,/data_zcy/wxy/SP_Tracking/benchmark_0902_59000.json]"
+    ]
+  },
+  "actor_inputs": [
+    "robot_root_quat",
+    "estimator_history",
+    "reference_encoder_input",
+    "robot_key_body"
+  ],
+  "context_inputs": "50-frame measured q, qdot, gravity, gyro, known command and torque history",
+  "privileged_actor_inputs": [],
+  "action_distillation": "student-visited states with an annealed per-world teacher mixture",
+  "latent_loss_weight": 0.0,
+  "merge": {
+    "receiver": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/context_oracle1250_distill_seed50/checkpoint_1500.pt",
+    "receiver_sha256": "ecb637919d872270af08c7a2bbe6426e28b205b45341aa4cafd560c3d35ff49a",
+    "donor": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/context_action_distill_seed43/checkpoint_250.pt",
+    "donor_sha256": "c3289b476afa551274f84939fd12b87495c19812d67680559d526a4d302a4629",
+    "donor_fraction": 0.5,
+    "merged_keys": [
+      "tracker.mlp.0.weight",
+      "tracker.mlp.0.bias",
+      "tracker.mlp.2.weight",
+      "tracker.mlp.2.bias",
+      "tracker.mlp.4.weight",
+      "tracker.mlp.4.bias",
+      "tracker.mlp.6.weight",
+      "tracker.mlp.6.bias",
+      "tracker.mlp.8.weight",
+      "tracker.mlp.8.bias",
+      "tracker.mlp.10.weight",
+      "tracker.mlp.10.bias",
+      "tracker.mlp.12.weight",
+      "tracker.mlp.12.bias",
+      "tracker.mlp.14.weight",
+      "tracker.mlp.14.bias"
+    ],
+    "input_mode": "receiver unchanged",
+    "inference_contract": "one policy core, one privileged encoder, one residual; no ensemble",
+    "source_sha256": "d70fec98dea48135c94beaa162e5995c806ab76f240ac3ba5020c38c8927cfac"
+  }
+}

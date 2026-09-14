@@ -1,0 +1,49 @@
+{
+  "passed": true,
+  "account_email": "2486344338@qq.com",
+  "url": "https://wandb.ai/2486344338-zhejiang-university/intact-preview-v2/runs/limb-extra-058042fa4358",
+  "run_id": "limb-extra-058042fa4358",
+  "checks": {
+    "all_0/baseline_121/failure_count": {
+      "expected": 3,
+      "actual": 3
+    },
+    "all_0/film_121/failure_count": {
+      "expected": 3,
+      "actual": 3
+    },
+    "all_0/film_vs_baseline/body_ratio": {
+      "expected": 0.888119008429154,
+      "actual": 0.888119008429154
+    },
+    "all_2/baseline_121/failure_count": {
+      "expected": 46,
+      "actual": 46
+    },
+    "all_2/film_121/failure_count": {
+      "expected": 49,
+      "actual": 49
+    },
+    "all_2/film_vs_baseline/body_ratio": {
+      "expected": 0.9537032504527272,
+      "actual": 0.9537032504527272
+    },
+    "all_4/baseline_121/failure_count": {
+      "expected": 502,
+      "actual": 502
+    },
+    "all_4/film_121/failure_count": {
+      "expected": 449,
+      "actual": 449
+    },
+    "all_4/film_vs_baseline/body_ratio": {
+      "expected": 0.9666324973769805,
+      "actual": 0.9666324973769804
+    }
+  },
+  "floating_point_comparison": "1e-12 tolerance for JSON float round-trip; integer counts exact",
+  "artifacts": [
+    "no-ee-termination-5000-0-2-4kg:v0"
+  ],
+  "unix_time": 1788920761.695878
+}

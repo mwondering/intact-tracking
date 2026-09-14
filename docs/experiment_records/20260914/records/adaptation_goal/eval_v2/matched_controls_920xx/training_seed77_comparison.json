@@ -1,0 +1,833 @@
+{
+  "nominal": {
+    "statistics": {
+      "reference_files": [
+        "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/matched_controls_920xx/train77_nominal_testnominal_seed92001.json",
+        "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/matched_controls_920xx/train77_nominal_testnominal_seed92002.json",
+        "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/matched_controls_920xx/train77_nominal_testnominal_seed92003.json"
+      ],
+      "candidate_files": [
+        "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/matched_controls_920xx/train77_dr_testnominal_seed92001.json",
+        "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/matched_controls_920xx/train77_dr_testnominal_seed92002.json",
+        "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/matched_controls_920xx/train77_dr_testnominal_seed92003.json"
+      ],
+      "seeds": [
+        {
+          "seed": 92001,
+          "reference": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/matched_controls_920xx/train77_nominal_testnominal_seed92001.json",
+          "candidate": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/matched_controls_920xx/train77_dr_testnominal_seed92001.json",
+          "ratios": {
+            "error_body_pos": 1.1214392691126216,
+            "error_joint_pos": 1.0968470296920956,
+            "error_anchor_pos": 1.1801251516978435,
+            "error_anchor_rot": 1.0907963745908034,
+            "error_body_rot": 1.2105516562842256,
+            "error_joint_vel": 1.0235438906474912,
+            "error_anchor_lin_vel": 1.0740726276627628,
+            "error_anchor_ang_vel": 1.0320782698559665,
+            "error_body_lin_vel": 1.057590365672847,
+            "error_body_ang_vel": 1.0468383997891328
+          },
+          "failure_difference": 0.005952381296083331
+        },
+        {
+          "seed": 92002,
+          "reference": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/matched_controls_920xx/train77_nominal_testnominal_seed92002.json",
+          "candidate": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/matched_controls_920xx/train77_dr_testnominal_seed92002.json",
+          "ratios": {
+            "error_body_pos": 1.118275503493891,
+            "error_joint_pos": 1.087933060221319,
+            "error_anchor_pos": 1.1642768927892104,
+            "error_anchor_rot": 1.103475766317161,
+            "error_body_rot": 1.2027701745070383,
+            "error_joint_vel": 1.0253845730666062,
+            "error_anchor_lin_vel": 1.071502285322999,
+            "error_anchor_ang_vel": 1.0317472119805535,
+            "error_body_lin_vel": 1.058542397247674,
+            "error_body_ang_vel": 1.0483512564916662
+          },
+          "failure_difference": 0.0029761905316263437
+        },
+        {
+          "seed": 92003,
+          "reference": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/matched_controls_920xx/train77_nominal_testnominal_seed92003.json",
+          "candidate": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/matched_controls_920xx/train77_dr_testnominal_seed92003.json",
+          "ratios": {
+            "error_body_pos": 1.1178316416117993,
+            "error_joint_pos": 1.0928458230925082,
+            "error_anchor_pos": 1.2081806080122925,
+            "error_anchor_rot": 1.0916952143522975,
+            "error_body_rot": 1.206551998344172,
+            "error_joint_vel": 1.0225160753361628,
+            "error_anchor_lin_vel": 1.0777234369419368,
+            "error_anchor_ang_vel": 1.025775936296286,
+            "error_body_lin_vel": 1.059791747520398,
+            "error_body_ang_vel": 1.0461227768307781
+          },
+          "failure_difference": -0.0029761905316263437
+        }
+      ],
+      "metrics": {
+        "error_body_pos": {
+          "reference": 0.03424817701428493,
+          "candidate": 0.0383304985370173,
+          "ratio": 1.1191982137043275,
+          "paired_motion_seed_bootstrap_95pct": [
+            1.0916803056380573,
+            1.1508231928635624
+          ]
+        },
+        "error_joint_pos": {
+          "reference": 0.5592237753193994,
+          "candidate": 0.6109675546718115,
+          "ratio": 1.0925278602878763,
+          "paired_motion_seed_bootstrap_95pct": [
+            1.0746019387907828,
+            1.1103612846499602
+          ]
+        },
+        "error_anchor_pos": {
+          "reference": 0.2590597761352522,
+          "candidate": 0.3066791220061183,
+          "ratio": 1.1838160542762322,
+          "paired_motion_seed_bootstrap_95pct": [
+            1.1352098629348826,
+            1.2372941683330143
+          ]
+        },
+        "error_anchor_rot": {
+          "reference": 0.07694051874971936,
+          "candidate": 0.08426709602014465,
+          "ratio": 1.095223913088733,
+          "paired_motion_seed_bootstrap_95pct": [
+            1.0677125170382145,
+            1.1200721506859082
+          ]
+        },
+        "error_body_rot": {
+          "reference": 0.14512818941605557,
+          "candidate": 0.17511495778378489,
+          "ratio": 1.2066226312640256,
+          "paired_motion_seed_bootstrap_95pct": [
+            1.1786525147549927,
+            1.2332494068953008
+          ]
+        },
+        "error_joint_vel": {
+          "reference": 4.430189760105614,
+          "candidate": 4.535738474996498,
+          "ratio": 1.023824874465054,
+          "paired_motion_seed_bootstrap_95pct": [
+            1.01683827600445,
+            1.029384343480468
+          ]
+        },
+        "error_anchor_lin_vel": {
+          "reference": 0.2153490247352933,
+          "candidate": 0.23137168774569322,
+          "ratio": 1.0744032299663069,
+          "paired_motion_seed_bootstrap_95pct": [
+            1.061051211687568,
+            1.0883961701187932
+          ]
+        },
+        "error_anchor_ang_vel": {
+          "reference": 0.46582537006819275,
+          "candidate": 0.4797423136873974,
+          "ratio": 1.029875881636003,
+          "paired_motion_seed_bootstrap_95pct": [
+            1.0140977147743513,
+            1.0421328889765018
+          ]
+        },
+        "error_body_lin_vel": {
+          "reference": 0.2752671411162066,
+          "candidate": 0.29140766289263553,
+          "ratio": 1.0586358462945458,
+          "paired_motion_seed_bootstrap_95pct": [
+            1.048478592680934,
+            1.0695799235621624
+          ]
+        },
+        "error_body_ang_vel": {
+          "reference": 1.088988157708663,
+          "candidate": 1.1402915379971923,
+          "ratio": 1.047111054353866,
+          "paired_motion_seed_bootstrap_95pct": [
+            1.037251275366926,
+            1.0555929226543692
+          ]
+        }
+      },
+      "reference_failure_rate": 0.002976190476190476,
+      "candidate_failure_rate": 0.00496031746031746,
+      "failure_difference": 0.001984126984126984,
+      "failure_difference_paired_bootstrap_95pct": [
+        -0.003968253968253968,
+        0.008928571428571428
+      ],
+      "failure_upper_95pct_within_margin": false,
+      "allowed_observed_failure_increase": 0.0,
+      "observed_failure_nonincrease": false,
+      "fixed_reward_candidate_eligible": false,
+      "margin": 1.05,
+      "evaluation_protocol": "balanced_fixed_starts_v2_isolated_resets",
+      "valid_acceptance_protocol": true,
+      "matched_single_policy_identity": true,
+      "acceptance_conditions": false,
+      "numerical_point_estimate_pass": false,
+      "point_estimate_pass": false,
+      "primary_upper_95pct_within_margin": false,
+      "all_metrics_point_estimate_pass": false,
+      "all_metrics_upper_95pct_within_margin": false,
+      "confirmation_seeds_used": false,
+      "confirmation_seed_set_complete": false,
+      "warning": "INVALID FOR ACCEPTANCE: missing v2 reset audits, fixed-reward lineage, or a diagnostic/ablation condition."
+    },
+    "paired_failures": {
+      "reference": 3,
+      "candidate": 5,
+      "new_failures": 3,
+      "recovered_failures": 1,
+      "shared_failures": 2,
+      "same_physics_worlds_audited": true,
+      "episodes": 1008,
+      "failed_segments": [
+        {
+          "seed": 92001,
+          "world": 51,
+          "motion": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/fallAndGetUp1_subject4.motion.npz",
+          "start_frame": 1492,
+          "reference_failed": false,
+          "candidate_failed": true,
+          "reference_steps": 500,
+          "candidate_steps": 368,
+          "reference_terms": [],
+          "candidate_terms": [
+            "anchor_ori",
+            "ee_body_pos"
+          ]
+        },
+        {
+          "seed": 92001,
+          "world": 94,
+          "motion": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/fallAndGetUp1_subject5.motion.npz",
+          "start_frame": 2300,
+          "reference_failed": false,
+          "candidate_failed": true,
+          "reference_steps": 500,
+          "candidate_steps": 285,
+          "reference_terms": [],
+          "candidate_terms": [
+            "anchor_pos"
+          ]
+        },
+        {
+          "seed": 92001,
+          "world": 315,
+          "motion": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/jumps1_subject2.motion.npz",
+          "start_frame": 11683,
+          "reference_failed": true,
+          "candidate_failed": true,
+          "reference_steps": 278,
+          "candidate_steps": 290,
+          "reference_terms": [
+            "ee_body_pos"
+          ],
+          "candidate_terms": [
+            "ee_body_pos"
+          ]
+        },
+        {
+          "seed": 92002,
+          "world": 50,
+          "motion": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/fallAndGetUp1_subject1.motion.npz",
+          "start_frame": 1364,
+          "reference_failed": false,
+          "candidate_failed": true,
+          "reference_steps": 500,
+          "candidate_steps": 60,
+          "reference_terms": [],
+          "candidate_terms": [
+            "ee_body_pos"
+          ]
+        },
+        {
+          "seed": 92002,
+          "world": 179,
+          "motion": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/fallAndGetUp2_subject2.motion.npz",
+          "start_frame": 4704,
+          "reference_failed": true,
+          "candidate_failed": true,
+          "reference_steps": 188,
+          "candidate_steps": 188,
+          "reference_terms": [
+            "ee_body_pos"
+          ],
+          "candidate_terms": [
+            "ee_body_pos"
+          ]
+        },
+        {
+          "seed": 92003,
+          "world": 221,
+          "motion": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/fallAndGetUp2_subject2.motion.npz",
+          "start_frame": 4805,
+          "reference_failed": true,
+          "candidate_failed": false,
+          "reference_steps": 88,
+          "candidate_steps": 500,
+          "reference_terms": [
+            "ee_body_pos"
+          ],
+          "candidate_terms": []
+        }
+      ]
+    }
+  },
+  "dr": {
+    "statistics": {
+      "reference_files": [
+        "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/matched_controls_920xx/train77_nominal_testdr_seed92001.json",
+        "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/matched_controls_920xx/train77_nominal_testdr_seed92002.json",
+        "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/matched_controls_920xx/train77_nominal_testdr_seed92003.json"
+      ],
+      "candidate_files": [
+        "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/matched_controls_920xx/train77_dr_testdr_seed92001.json",
+        "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/matched_controls_920xx/train77_dr_testdr_seed92002.json",
+        "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/matched_controls_920xx/train77_dr_testdr_seed92003.json"
+      ],
+      "seeds": [
+        {
+          "seed": 92001,
+          "reference": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/matched_controls_920xx/train77_nominal_testdr_seed92001.json",
+          "candidate": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/matched_controls_920xx/train77_dr_testdr_seed92001.json",
+          "ratios": {
+            "error_body_pos": 0.8943493245670319,
+            "error_joint_pos": 1.0042862255850806,
+            "error_anchor_pos": 0.9233571594082345,
+            "error_anchor_rot": 0.9450811280807134,
+            "error_body_rot": 0.9730132135975793,
+            "error_joint_vel": 0.9796563084879009,
+            "error_anchor_lin_vel": 0.9722539784857092,
+            "error_anchor_ang_vel": 0.9622802266269838,
+            "error_body_lin_vel": 0.963184786235158,
+            "error_body_ang_vel": 0.9679168734229429
+          },
+          "failure_difference": -0.011904762126505375
+        },
+        {
+          "seed": 92002,
+          "reference": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/matched_controls_920xx/train77_nominal_testdr_seed92002.json",
+          "candidate": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/matched_controls_920xx/train77_dr_testdr_seed92002.json",
+          "ratios": {
+            "error_body_pos": 0.8974906026298347,
+            "error_joint_pos": 1.0115620905725007,
+            "error_anchor_pos": 0.9564939246193785,
+            "error_anchor_rot": 0.9568502711410664,
+            "error_body_rot": 0.9818210291772825,
+            "error_joint_vel": 0.9910297618954069,
+            "error_anchor_lin_vel": 0.9797584911057924,
+            "error_anchor_ang_vel": 0.9730625838584246,
+            "error_body_lin_vel": 0.9744185968276019,
+            "error_body_ang_vel": 0.9811562202279767
+          },
+          "failure_difference": 0.0029761902987957
+        },
+        {
+          "seed": 92003,
+          "reference": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/matched_controls_920xx/train77_nominal_testdr_seed92003.json",
+          "candidate": "/data_zcy/wxy/intact-tracking/runs/adaptation_goal/eval_v2/matched_controls_920xx/train77_dr_testdr_seed92003.json",
+          "ratios": {
+            "error_body_pos": 0.8960339946191789,
+            "error_joint_pos": 1.0040921264830989,
+            "error_anchor_pos": 0.896183623552221,
+            "error_anchor_rot": 0.9501774159121725,
+            "error_body_rot": 0.9781240196783865,
+            "error_joint_vel": 0.9780803430510513,
+            "error_anchor_lin_vel": 0.9587123139159476,
+            "error_anchor_ang_vel": 0.9629550218026537,
+            "error_body_lin_vel": 0.9556738692147831,
+            "error_body_ang_vel": 0.9677937555677074
+          },
+          "failure_difference": -0.008928571827709675
+        }
+      ],
+      "metrics": {
+        "error_body_pos": {
+          "reference": 0.0467669616875988,
+          "candidate": 0.04190056521931986,
+          "ratio": 0.8959437112723668,
+          "paired_motion_seed_bootstrap_95pct": [
+            0.8747397361016028,
+            0.9162141539809046
+          ]
+        },
+        "error_joint_pos": {
+          "reference": 0.6825182936360217,
+          "candidate": 0.6870476659125494,
+          "ratio": 1.0066362650184775,
+          "paired_motion_seed_bootstrap_95pct": [
+            0.9983748183778236,
+            1.016319830144259
+          ]
+        },
+        "error_anchor_pos": {
+          "reference": 0.3733805138564319,
+          "candidate": 0.3455010641622753,
+          "ratio": 0.9253323388352385,
+          "paired_motion_seed_bootstrap_95pct": [
+            0.8646684094269159,
+            0.9953122918253248
+          ]
+        },
+        "error_anchor_rot": {
+          "reference": 0.10100241489564184,
+          "candidate": 0.09601307785338806,
+          "ratio": 0.9506018044478551,
+          "paired_motion_seed_bootstrap_95pct": [
+            0.9300582367085055,
+            0.9714881865706387
+          ]
+        },
+        "error_body_rot": {
+          "reference": 0.19790203197738193,
+          "candidate": 0.19347658859855735,
+          "ratio": 0.97763821152008,
+          "paired_motion_seed_bootstrap_95pct": [
+            0.9660808584721164,
+            0.9907422916550878
+          ]
+        },
+        "error_joint_vel": {
+          "reference": 5.3476099813802636,
+          "candidate": 5.256316800337424,
+          "ratio": 0.9829282274958885,
+          "paired_motion_seed_bootstrap_95pct": [
+            0.9734956766289456,
+            0.9935216355658082
+          ]
+        },
+        "error_anchor_lin_vel": {
+          "reference": 0.2647039208077304,
+          "candidate": 0.2568243150540814,
+          "ratio": 0.9702323798997581,
+          "paired_motion_seed_bootstrap_95pct": [
+            0.9530109867640231,
+            0.9877105930822179
+          ]
+        },
+        "error_anchor_ang_vel": {
+          "reference": 0.5758654382430909,
+          "candidate": 0.5563263183998585,
+          "ratio": 0.9660699904080988,
+          "paired_motion_seed_bootstrap_95pct": [
+            0.9531661384684953,
+            0.9795432928708969
+          ]
+        },
+        "error_body_lin_vel": {
+          "reference": 0.3543720944563424,
+          "candidate": 0.34176566489387383,
+          "ratio": 0.9644260093848286,
+          "paired_motion_seed_bootstrap_95pct": [
+            0.9509392030400038,
+            0.9791983871582562
+          ]
+        },
+        "error_body_ang_vel": {
+          "reference": 1.4799202886670078,
+          "candidate": 1.438906689277077,
+          "ratio": 0.9722866159049198,
+          "paired_motion_seed_bootstrap_95pct": [
+            0.9611253415440967,
+            0.9844947763643362
+          ]
+        }
+      },
+      "reference_failure_rate": 0.017857142857142856,
+      "candidate_failure_rate": 0.011904761904761904,
+      "failure_difference": -0.005952380952380952,
+      "failure_difference_paired_bootstrap_95pct": [
+        -0.01984126984126984,
+        0.00496031746031746
+      ],
+      "failure_upper_95pct_within_margin": false,
+      "allowed_observed_failure_increase": 0.0,
+      "observed_failure_nonincrease": true,
+      "fixed_reward_candidate_eligible": false,
+      "margin": 1.05,
+      "evaluation_protocol": "balanced_fixed_starts_v2_isolated_resets",
+      "valid_acceptance_protocol": true,
+      "matched_single_policy_identity": true,
+      "acceptance_conditions": false,
+      "numerical_point_estimate_pass": true,
+      "point_estimate_pass": false,
+      "primary_upper_95pct_within_margin": false,
+      "all_metrics_point_estimate_pass": false,
+      "all_metrics_upper_95pct_within_margin": false,
+      "confirmation_seeds_used": false,
+      "confirmation_seed_set_complete": false,
+      "warning": "INVALID FOR ACCEPTANCE: missing v2 reset audits, fixed-reward lineage, or a diagnostic/ablation condition."
+    },
+    "paired_failures": {
+      "reference": 18,
+      "candidate": 12,
+      "new_failures": 6,
+      "recovered_failures": 12,
+      "shared_failures": 6,
+      "same_physics_worlds_audited": true,
+      "episodes": 1008,
+      "failed_segments": [
+        {
+          "seed": 92001,
+          "world": 15,
+          "motion": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/fight1_subject3.motion.npz",
+          "start_frame": 727,
+          "reference_failed": true,
+          "candidate_failed": false,
+          "reference_steps": 364,
+          "candidate_steps": 500,
+          "reference_terms": [
+            "ee_body_pos"
+          ],
+          "candidate_terms": []
+        },
+        {
+          "seed": 92001,
+          "world": 52,
+          "motion": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/fallAndGetUp1_subject5.motion.npz",
+          "start_frame": 1609,
+          "reference_failed": true,
+          "candidate_failed": false,
+          "reference_steps": 146,
+          "candidate_steps": 500,
+          "reference_terms": [
+            "ee_body_pos"
+          ],
+          "candidate_terms": []
+        },
+        {
+          "seed": 92001,
+          "world": 55,
+          "motion": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/fallAndGetUp3_subject1.motion.npz",
+          "start_frame": 873,
+          "reference_failed": false,
+          "candidate_failed": true,
+          "reference_steps": 500,
+          "candidate_steps": 402,
+          "reference_terms": [],
+          "candidate_terms": [
+            "ee_body_pos"
+          ]
+        },
+        {
+          "seed": 92001,
+          "world": 94,
+          "motion": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/fallAndGetUp1_subject5.motion.npz",
+          "start_frame": 2300,
+          "reference_failed": false,
+          "candidate_failed": true,
+          "reference_steps": 500,
+          "candidate_steps": 285,
+          "reference_terms": [],
+          "candidate_terms": [
+            "anchor_ori"
+          ]
+        },
+        {
+          "seed": 92001,
+          "world": 139,
+          "motion": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/fallAndGetUp3_subject1.motion.npz",
+          "start_frame": 2057,
+          "reference_failed": true,
+          "candidate_failed": true,
+          "reference_steps": 451,
+          "candidate_steps": 450,
+          "reference_terms": [
+            "ee_body_pos"
+          ],
+          "candidate_terms": [
+            "ee_body_pos"
+          ]
+        },
+        {
+          "seed": 92001,
+          "world": 142,
+          "motion": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/fight1_subject3_612_680.motion.npz",
+          "start_frame": 1,
+          "reference_failed": true,
+          "candidate_failed": false,
+          "reference_steps": 74,
+          "candidate_steps": 168,
+          "reference_terms": [
+            "ee_body_pos"
+          ],
+          "candidate_terms": []
+        },
+        {
+          "seed": 92001,
+          "world": 177,
+          "motion": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/fallAndGetUp1_subject4.motion.npz",
+          "start_frame": 4721,
+          "reference_failed": true,
+          "candidate_failed": true,
+          "reference_steps": 376,
+          "candidate_steps": 375,
+          "reference_terms": [
+            "ee_body_pos"
+          ],
+          "candidate_terms": [
+            "ee_body_pos"
+          ]
+        },
+        {
+          "seed": 92001,
+          "world": 182,
+          "motion": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/fight1_subject2.motion.npz",
+          "start_frame": 6046,
+          "reference_failed": true,
+          "candidate_failed": false,
+          "reference_steps": 394,
+          "candidate_steps": 500,
+          "reference_terms": [
+            "ee_body_pos"
+          ],
+          "candidate_terms": []
+        },
+        {
+          "seed": 92001,
+          "world": 263,
+          "motion": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/fallAndGetUp2_subject2.motion.npz",
+          "start_frame": 6410,
+          "reference_failed": true,
+          "candidate_failed": false,
+          "reference_steps": 344,
+          "candidate_steps": 500,
+          "reference_terms": [
+            "ee_body_pos"
+          ],
+          "candidate_terms": []
+        },
+        {
+          "seed": 92001,
+          "world": 300,
+          "motion": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/dance2_subject4.motion.npz",
+          "start_frame": 9454,
+          "reference_failed": true,
+          "candidate_failed": false,
+          "reference_steps": 424,
+          "candidate_steps": 500,
+          "reference_terms": [
+            "ee_body_pos"
+          ],
+          "candidate_terms": []
+        },
+        {
+          "seed": 92001,
+          "world": 314,
+          "motion": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/jumps1_subject1.motion.npz",
+          "start_frame": 11040,
+          "reference_failed": true,
+          "candidate_failed": true,
+          "reference_steps": 198,
+          "candidate_steps": 447,
+          "reference_terms": [
+            "ee_body_pos"
+          ],
+          "candidate_terms": [
+            "ee_body_pos"
+          ]
+        },
+        {
+          "seed": 92002,
+          "world": 50,
+          "motion": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/fallAndGetUp1_subject1.motion.npz",
+          "start_frame": 1364,
+          "reference_failed": false,
+          "candidate_failed": true,
+          "reference_steps": 500,
+          "candidate_steps": 41,
+          "reference_terms": [],
+          "candidate_terms": [
+            "ee_body_pos"
+          ]
+        },
+        {
+          "seed": 92002,
+          "world": 55,
+          "motion": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/fallAndGetUp3_subject1.motion.npz",
+          "start_frame": 1035,
+          "reference_failed": true,
+          "candidate_failed": false,
+          "reference_steps": 58,
+          "candidate_steps": 500,
+          "reference_terms": [
+            "ee_body_pos"
+          ],
+          "candidate_terms": []
+        },
+        {
+          "seed": 92002,
+          "world": 139,
+          "motion": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/fallAndGetUp3_subject1.motion.npz",
+          "start_frame": 1761,
+          "reference_failed": false,
+          "candidate_failed": true,
+          "reference_steps": 500,
+          "candidate_steps": 338,
+          "reference_terms": [],
+          "candidate_terms": [
+            "anchor_pos"
+          ]
+        },
+        {
+          "seed": 92002,
+          "world": 219,
+          "motion": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/fallAndGetUp1_subject4.motion.npz",
+          "start_frame": 5303,
+          "reference_failed": true,
+          "candidate_failed": true,
+          "reference_steps": 343,
+          "candidate_steps": 341,
+          "reference_terms": [
+            "ee_body_pos"
+          ],
+          "candidate_terms": [
+            "ee_body_pos"
+          ]
+        },
+        {
+          "seed": 92002,
+          "world": 226,
+          "motion": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/fight1_subject3_612_680.motion.npz",
+          "start_frame": 1,
+          "reference_failed": false,
+          "candidate_failed": true,
+          "reference_steps": 168,
+          "candidate_steps": 71,
+          "reference_terms": [],
+          "candidate_terms": [
+            "ee_body_pos"
+          ]
+        },
+        {
+          "seed": 92002,
+          "world": 294,
+          "motion": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/dance1_subject1.motion.npz",
+          "start_frame": 5445,
+          "reference_failed": true,
+          "candidate_failed": false,
+          "reference_steps": 357,
+          "candidate_steps": 500,
+          "reference_terms": [
+            "ee_body_pos"
+          ],
+          "candidate_terms": []
+        },
+        {
+          "seed": 92003,
+          "world": 16,
+          "motion": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/fight1_subject3_612_680.motion.npz",
+          "start_frame": 1,
+          "reference_failed": true,
+          "candidate_failed": false,
+          "reference_steps": 69,
+          "candidate_steps": 168,
+          "reference_terms": [
+            "ee_body_pos"
+          ],
+          "candidate_terms": []
+        },
+        {
+          "seed": 92003,
+          "world": 55,
+          "motion": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/fallAndGetUp3_subject1.motion.npz",
+          "start_frame": 954,
+          "reference_failed": true,
+          "candidate_failed": true,
+          "reference_steps": 310,
+          "candidate_steps": 314,
+          "reference_terms": [
+            "ee_body_pos"
+          ],
+          "candidate_terms": [
+            "ee_body_pos"
+          ]
+        },
+        {
+          "seed": 92003,
+          "world": 100,
+          "motion": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/fight1_subject3_612_680.motion.npz",
+          "start_frame": 1,
+          "reference_failed": true,
+          "candidate_failed": false,
+          "reference_steps": 70,
+          "candidate_steps": 168,
+          "reference_terms": [
+            "ee_body_pos"
+          ],
+          "candidate_terms": []
+        },
+        {
+          "seed": 92003,
+          "world": 113,
+          "motion": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/sprint1_subject4.motion.npz",
+          "start_frame": 3725,
+          "reference_failed": false,
+          "candidate_failed": true,
+          "reference_steps": 500,
+          "candidate_steps": 344,
+          "reference_terms": [],
+          "candidate_terms": [
+            "ee_body_pos"
+          ]
+        },
+        {
+          "seed": 92003,
+          "world": 220,
+          "motion": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/fallAndGetUp1_subject5.motion.npz",
+          "start_frame": 5374,
+          "reference_failed": true,
+          "candidate_failed": true,
+          "reference_steps": 197,
+          "candidate_steps": 198,
+          "reference_terms": [
+            "ee_body_pos"
+          ],
+          "candidate_terms": [
+            "ee_body_pos"
+          ]
+        },
+        {
+          "seed": 92003,
+          "world": 222,
+          "motion": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/fallAndGetUp2_subject3.motion.npz",
+          "start_frame": 5457,
+          "reference_failed": true,
+          "candidate_failed": false,
+          "reference_steps": 173,
+          "candidate_steps": 500,
+          "reference_terms": [
+            "ee_body_pos"
+          ],
+          "candidate_terms": []
+        },
+        {
+          "seed": 92003,
+          "world": 320,
+          "motion": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong/lafan_qingtong/run2_subject4.motion.npz",
+          "start_frame": 10291,
+          "reference_failed": true,
+          "candidate_failed": false,
+          "reference_steps": 122,
+          "candidate_steps": 500,
+          "reference_terms": [
+            "ee_body_pos"
+          ],
+          "candidate_terms": []
+        }
+      ]
+    }
+  }
+}

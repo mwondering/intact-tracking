@@ -1,0 +1,1852 @@
+{
+  "complete": true,
+  "update": 13000,
+  "reference_update": 11000,
+  "comparison_kind": "tuning",
+  "model_labels": {
+    "baseline": "Weak pairs encoder2x / u11000",
+    "memory350": "Tuned encoder2x / u13000"
+  },
+  "checkpoints": {
+    "baseline": {
+      "path": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260912_memory350_encoder2x_nominal50_weakpairs_tune008_m11_s03/stage1_8192/update_011000.pt",
+      "sha256": "ba45c2fd63ec5589c3a944fb50ca9574bd957d278c0b4d21365cf554c634c07a",
+      "update": 11000,
+      "optimizer_steps": 44000
+    },
+    "memory350": {
+      "path": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260912_memory350_response_window_ablation/response5/stage1_8192/update_013000.pt",
+      "sha256": "d4fed49afb37efc6e344912bfc918ed0b155500e097f524ec76a05625f751cb9",
+      "update": 13000,
+      "optimizer_steps": 52000
+    }
+  },
+  "same_model": true,
+  "same_normalization": true,
+  "same_raw_queries": true,
+  "profiles": {
+    "common": {
+      "memory_full": {
+        "n": 26477,
+        "nominal_samples": 13262,
+        "dr_samples": 13215,
+        "nominal_worlds": 512,
+        "dr_worlds": 512,
+        "motion_files": 42,
+        "models": {
+          "baseline": {
+            "dr": {
+              "n": 13215,
+              "raw_norm_mean": 7.301797774368108,
+              "raw_centroid_norm": 4.9191325837403745,
+              "raw_radius_rms": 5.396363856885913,
+              "unit_centroid_norm": 0.6732712204593652,
+              "unit_radius_rms": 0.7393956070339855,
+              "unit_radius_p50": 0.7453177273273424,
+              "unit_radius_p95": 0.9884497566653365,
+              "unit_mean_pair_cosine": 0.45325276306865536,
+              "centered_effective_rank": 4.199494216158479,
+              "centered_top2_variance_fraction": 0.5970813577126156
+            },
+            "pairs": {
+              "nominal_cross_motion": {
+                "n": 13262,
+                "query_worlds": 512,
+                "mean_cosine": 0.998294154951859,
+                "mean_angle_degrees": 1.5778957879752022,
+                "unit_distance_rms": 0.05840967468050222,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  0.049955037395978584,
+                  0.06579848753405615
+                ],
+                "unit_distance_p50": 0.019518210398215385,
+                "unit_distance_p95": 0.05827531559053213,
+                "raw_distance_rms": 0.42479463891172653,
+                "unit_distance_mean": 0.02741716425567239,
+                "unit_distance_p05": 0.009933503837865995,
+                "raw_distance_mean": 0.20123402648504682,
+                "phase_gap_mean": 0.3289811611175537,
+                "phase_gap_max": 0.9742411971092224
+              },
+              "nominal_same_motion_far_phase": {
+                "n": 13262,
+                "query_worlds": 512,
+                "mean_cosine": 0.9983047233682922,
+                "mean_angle_degrees": 1.411871825342993,
+                "unit_distance_rms": 0.058228457505033124,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  0.04899257575936714,
+                  0.06638866773499547
+                ],
+                "unit_distance_p50": 0.01690581333682339,
+                "unit_distance_p95": 0.05349009303747683,
+                "raw_distance_rms": 0.42282334446343145,
+                "unit_distance_mean": 0.024510429883557165,
+                "unit_distance_p05": 0.008729939026173129,
+                "raw_distance_mean": 0.179839752402803,
+                "phase_gap_mean": 0.4824599325656891,
+                "phase_gap_max": 0.9850477576255798
+              },
+              "nominal_dr_same_motion_near_phase": {
+                "n": 13154,
+                "query_worlds": 512,
+                "mean_cosine": 0.6174239041445403,
+                "mean_angle_degrees": 46.06791399228732,
+                "unit_distance_rms": 0.8747297821104066,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  0.868960403723278,
+                  0.8814386157754329
+                ],
+                "unit_distance_p50": 0.9478493546888869,
+                "unit_distance_p95": 1.200070538802234,
+                "raw_distance_rms": 6.4036013491047115,
+                "unit_distance_mean": 0.7655224688626541,
+                "unit_distance_p05": 0.015595387917816656,
+                "raw_distance_mean": 5.6038685524924885,
+                "phase_gap_mean": 0.01016340870410204,
+                "phase_gap_max": 0.019994139671325684
+              },
+              "dr_same_world_cross_motion": {
+                "n": 13215,
+                "query_worlds": 512,
+                "mean_cosine": 0.9015579957895749,
+                "mean_angle_degrees": 20.985214216847133,
+                "unit_distance_rms": 0.44371613495663004,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  0.4324316563541348,
+                  0.45759547561141894
+                ],
+                "unit_distance_p50": 0.2919738796357259,
+                "unit_distance_p95": 0.9124616578293238,
+                "raw_distance_rms": 3.237803956481757,
+                "unit_distance_mean": 0.3599610586006363,
+                "unit_distance_p05": 0.02646196421444725,
+                "raw_distance_mean": 2.6264542201764245,
+                "phase_gap_mean": 0.3243246078491211,
+                "phase_gap_max": 0.9708936214447021
+              },
+              "dr_different_world_same_motion_near_phase": {
+                "n": 13137,
+                "query_worlds": 512,
+                "mean_cosine": 0.4696581788660487,
+                "mean_angle_degrees": 58.76101698903761,
+                "unit_distance_rms": 1.0298949666193649,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  1.0177233002123853,
+                  1.0408231261456509
+                ],
+                "unit_distance_p50": 1.012720241673542,
+                "unit_distance_p95": 1.530579782006202,
+                "raw_distance_rms": 7.516274206856897,
+                "unit_distance_mean": 0.9590753532836187,
+                "unit_distance_p05": 0.16173165333448697,
+                "raw_distance_mean": 7.000214190393118,
+                "phase_gap_mean": 0.010117883794009686,
+                "phase_gap_max": 0.019994139671325684
+              },
+              "dr_different_world_cross_motion": {
+                "n": 13215,
+                "query_worlds": 512,
+                "mean_cosine": 0.4529136201197389,
+                "mean_angle_degrees": 60.32807643828461,
+                "unit_distance_rms": 1.0460271314648213,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  1.0344585772698733,
+                  1.0557111494840283
+                ],
+                "unit_distance_p50": 1.02887342833098,
+                "unit_distance_p95": 1.5309685127492572,
+                "raw_distance_rms": 7.634251915233518,
+                "unit_distance_mean": 0.9843569866722295,
+                "unit_distance_p05": 0.265578140427729,
+                "raw_distance_mean": 7.185134335464526,
+                "phase_gap_mean": 0.3259984254837036,
+                "phase_gap_max": 0.9652785658836365
+              },
+              "dr_same_world_cross_motion_disjoint": {
+                "n": 13215,
+                "query_worlds": 512,
+                "mean_cosine": 0.8991762153288553,
+                "mean_angle_degrees": 21.424498258109985,
+                "unit_distance_rms": 0.4490518559613016,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  0.4366178764898038,
+                  0.46116981755240843
+                ],
+                "unit_distance_p50": 0.29903706113752176,
+                "unit_distance_p95": 0.9124020779115014,
+                "raw_distance_rms": 3.2770247478549823,
+                "unit_distance_mean": 0.36750383485429766,
+                "unit_distance_p05": 0.027365700750482502,
+                "raw_distance_mean": 2.6815921122432247,
+                "phase_gap_mean": 0.3247620761394501,
+                "phase_gap_max": 0.9755070209503174
+              },
+              "dr_different_world_exact_motion_frame": {
+                "n": 215,
+                "query_worlds": 84,
+                "mean_cosine": 0.48588749879407195,
+                "mean_angle_degrees": 58.17194026049404,
+                "unit_distance_rms": 1.0140143008911935,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  0.9392422372127348,
+                  1.0801067558202857
+                ],
+                "unit_distance_p50": 0.9682541589579288,
+                "unit_distance_p95": 1.5735022708119497,
+                "raw_distance_rms": 7.398500427158168,
+                "unit_distance_mean": 0.9506792539859634,
+                "unit_distance_p05": 0.30884067409554905,
+                "raw_distance_mean": 6.9376118540059375,
+                "phase_gap_mean": 0.0,
+                "phase_gap_max": 0.0
+              },
+              "nominal_dr_exact_motion_frame": {
+                "n": 426,
+                "query_worlds": 177,
+                "mean_cosine": 0.6109637026121316,
+                "mean_angle_degrees": 46.90853234115116,
+                "unit_distance_rms": 0.882084233378954,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  0.838286527321159,
+                  0.922189898791696
+                ],
+                "unit_distance_p50": 0.9427742410497424,
+                "unit_distance_p95": 1.1879368575906046,
+                "raw_distance_rms": 6.459927075288148,
+                "unit_distance_mean": 0.7796576432916642,
+                "unit_distance_p05": 0.01329260807912181,
+                "raw_distance_mean": 5.709380806644669,
+                "phase_gap_mean": 0.0,
+                "phase_gap_max": 0.0
+              },
+              "nominal_nominal_exact_motion_frame": {
+                "n": 220,
+                "query_worlds": 84,
+                "mean_cosine": 0.994429467721284,
+                "mean_angle_degrees": 0.9264398076113755,
+                "unit_distance_rms": 0.1055512413827138,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  0.005841740706185286,
+                  0.17593577147781028
+                ],
+                "unit_distance_p50": 0.005391533474360714,
+                "unit_distance_p95": 0.009715067864783097,
+                "raw_distance_rms": 0.7595292154857649,
+                "unit_distance_mean": 0.01553490268845918,
+                "unit_distance_p05": 0.0031753199484613613,
+                "raw_distance_mean": 0.11270694976269557,
+                "phase_gap_mean": 0.0,
+                "phase_gap_max": 0.0
+              }
+            },
+            "nominal": {
+              "n": 13262,
+              "raw_norm_mean": 7.348688385424225,
+              "raw_centroid_norm": 7.34209343493477,
+              "raw_radius_rms": 0.3113828830538708,
+              "unit_centroid_norm": 0.9990802045772478,
+              "unit_radius_rms": 0.042880587937737545,
+              "unit_radius_p50": 0.01402215104402341,
+              "unit_radius_p95": 0.04474772739775092,
+              "unit_mean_pair_cosine": 0.9981611165200335,
+              "centered_effective_rank": 2.7318277903920363,
+              "centered_top2_variance_fraction": 0.7223081399310787
+            },
+            "nominal_motion_dependence": {
+              "heldout_world_r2": 0.07970750375710434,
+              "train_samples": 6645,
+              "test_samples": 6617,
+              "groups": 41,
+              "split": "half of complete physical-world trajectories held out"
+            },
+            "dr_same_world_cross_motion_over_between": 0.43083629820342784,
+            "dr_same_world_cross_motion_disjoint_over_between": 0.4360171381702315,
+            "dr_world_center_transfer": {
+              "worlds": 501,
+              "test_samples": 7282,
+              "top1_accuracy": 0.31982971711068386,
+              "top5_accuracy": 0.5907717659983521,
+              "top1_uniform_chance": 0.001996007984031936,
+              "heldout_motion_center_r2": 0.7734484702171638,
+              "note": "Only DR worlds; physical-world centers fitted on one half of motion families, evaluated on the other half."
+            }
+          },
+          "memory350": {
+            "dr": {
+              "n": 13215,
+              "raw_norm_mean": 7.29733729273212,
+              "raw_centroid_norm": 4.992455752810124,
+              "raw_radius_rms": 5.322467345638899,
+              "unit_centroid_norm": 0.6837421695230513,
+              "unit_radius_rms": 0.7297236775765955,
+              "unit_radius_p50": 0.7336375669770046,
+              "unit_radius_p95": 0.9836495968102932,
+              "unit_mean_pair_cosine": 0.46746305646933084,
+              "centered_effective_rank": 4.147995434713309,
+              "centered_top2_variance_fraction": 0.5993057890483565
+            },
+            "pairs": {
+              "nominal_cross_motion": {
+                "n": 13262,
+                "query_worlds": 512,
+                "mean_cosine": 0.9988634320980038,
+                "mean_angle_degrees": 1.4402930097434492,
+                "unit_distance_rms": 0.047677413981804216,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  0.041080566415663766,
+                  0.05518541700127322
+                ],
+                "unit_distance_p50": 0.01855586357261329,
+                "unit_distance_p95": 0.05424348599524388,
+                "raw_distance_rms": 0.34710313265658327,
+                "unit_distance_mean": 0.025073351148296556,
+                "unit_distance_p05": 0.009377615607557338,
+                "raw_distance_mean": 0.1839261976807176,
+                "phase_gap_mean": 0.3289811611175537,
+                "phase_gap_max": 0.9742411971092224
+              },
+              "nominal_same_motion_far_phase": {
+                "n": 13262,
+                "query_worlds": 512,
+                "mean_cosine": 0.9989175963995705,
+                "mean_angle_degrees": 1.2846312877603738,
+                "unit_distance_rms": 0.04652748865841641,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  0.038895393820167844,
+                  0.05394390245398155
+                ],
+                "unit_distance_p50": 0.016076920384428737,
+                "unit_distance_p95": 0.049475191247261255,
+                "raw_distance_rms": 0.33859961432075125,
+                "unit_distance_mean": 0.022356129996318815,
+                "unit_distance_p05": 0.008323793399275446,
+                "raw_distance_mean": 0.1639740307044986,
+                "phase_gap_mean": 0.4824599325656891,
+                "phase_gap_max": 0.9850477576255798
+              },
+              "nominal_dr_same_motion_near_phase": {
+                "n": 13154,
+                "query_worlds": 512,
+                "mean_cosine": 0.6267237646095571,
+                "mean_angle_degrees": 45.09646561937908,
+                "unit_distance_rms": 0.8640326792320333,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  0.8579025601098291,
+                  0.8710917984101053
+                ],
+                "unit_distance_p50": 0.9390241330267823,
+                "unit_distance_p95": 1.195995944280535,
+                "raw_distance_rms": 6.3199204808439085,
+                "unit_distance_mean": 0.7496960625780249,
+                "unit_distance_p05": 0.01429240366163548,
+                "raw_distance_mean": 5.48334097063866,
+                "phase_gap_mean": 0.01016340870410204,
+                "phase_gap_max": 0.019994139671325684
+              },
+              "dr_same_world_cross_motion": {
+                "n": 13215,
+                "query_worlds": 512,
+                "mean_cosine": 0.9070319614719282,
+                "mean_angle_degrees": 20.149747250047866,
+                "unit_distance_rms": 0.43120305780008483,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  0.41891590037721504,
+                  0.4453687089990732
+                ],
+                "unit_distance_p50": 0.2784578115291269,
+                "unit_distance_p95": 0.8999532391802643,
+                "raw_distance_rms": 3.145327397099906,
+                "unit_distance_mean": 0.3457868750214622,
+                "unit_distance_p05": 0.022979085638993566,
+                "raw_distance_mean": 2.521702182673051,
+                "phase_gap_mean": 0.3243246078491211,
+                "phase_gap_max": 0.9708936214447021
+              },
+              "dr_different_world_same_motion_near_phase": {
+                "n": 13137,
+                "query_worlds": 512,
+                "mean_cosine": 0.4835574462566383,
+                "mean_angle_degrees": 57.69896648732413,
+                "unit_distance_rms": 1.0163095529840913,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  1.0038674688270077,
+                  1.0271729037585575
+                ],
+                "unit_distance_p50": 0.9997911972841655,
+                "unit_distance_p95": 1.5131828884302352,
+                "raw_distance_rms": 7.412498392106426,
+                "unit_distance_mean": 0.9432978763187385,
+                "unit_distance_p05": 0.1101438813585998,
+                "raw_distance_mean": 6.880745575142733,
+                "phase_gap_mean": 0.010117883794009686,
+                "phase_gap_max": 0.019994139671325684
+              },
+              "dr_different_world_cross_motion": {
+                "n": 13215,
+                "query_worlds": 512,
+                "mean_cosine": 0.4669348738093431,
+                "mean_angle_degrees": 59.27834215695457,
+                "unit_distance_rms": 1.0325358358823744,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  1.020692062842953,
+                  1.0421117353808795
+                ],
+                "unit_distance_p50": 1.017018203617203,
+                "unit_distance_p95": 1.5122890683710895,
+                "raw_distance_rms": 7.531260203958685,
+                "unit_distance_mean": 0.9688721897586067,
+                "unit_distance_p05": 0.2060595831801706,
+                "raw_distance_mean": 7.067780822011092,
+                "phase_gap_mean": 0.3259984254837036,
+                "phase_gap_max": 0.9652785658836365
+              },
+              "dr_same_world_cross_motion_disjoint": {
+                "n": 13215,
+                "query_worlds": 512,
+                "mean_cosine": 0.9041607392321029,
+                "mean_angle_degrees": 20.632191362216872,
+                "unit_distance_rms": 0.4378110568907483,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  0.4245349298728984,
+                  0.4499983613108997
+                ],
+                "unit_distance_p50": 0.28559790571152627,
+                "unit_distance_p95": 0.9012685082183368,
+                "raw_distance_rms": 3.1937044641173067,
+                "unit_distance_mean": 0.3540366632395666,
+                "unit_distance_p05": 0.02434449079410137,
+                "raw_distance_mean": 2.5819385214632997,
+                "phase_gap_mean": 0.3247620761394501,
+                "phase_gap_max": 0.9755070209503174
+              },
+              "dr_different_world_exact_motion_frame": {
+                "n": 215,
+                "query_worlds": 84,
+                "mean_cosine": 0.5026556554504736,
+                "mean_angle_degrees": 57.05669021872204,
+                "unit_distance_rms": 0.9973408089008755,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  0.9276187664975836,
+                  1.0623716913794885
+                ],
+                "unit_distance_p50": 0.944096970547908,
+                "unit_distance_p95": 1.5486905946517011,
+                "raw_distance_rms": 7.273676721932713,
+                "unit_distance_mean": 0.9350819922289227,
+                "unit_distance_p05": 0.26909942563416533,
+                "raw_distance_mean": 6.820313442890044,
+                "phase_gap_mean": 0.0,
+                "phase_gap_max": 0.0
+              },
+              "nominal_dr_exact_motion_frame": {
+                "n": 426,
+                "query_worlds": 177,
+                "mean_cosine": 0.6174716876683299,
+                "mean_angle_degrees": 46.00185704685326,
+                "unit_distance_rms": 0.8746751537933042,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  0.8290909213410476,
+                  0.9160852811725525
+                ],
+                "unit_distance_p50": 0.9466391749685291,
+                "unit_distance_p95": 1.1950164297233459,
+                "raw_distance_rms": 6.399378472271948,
+                "unit_distance_mean": 0.7645111196817637,
+                "unit_distance_p05": 0.011409493165477215,
+                "raw_distance_mean": 5.59289599002288,
+                "phase_gap_mean": 0.0,
+                "phase_gap_max": 0.0
+              },
+              "nominal_nominal_exact_motion_frame": {
+                "n": 220,
+                "query_worlds": 84,
+                "mean_cosine": 0.9968133433311677,
+                "mean_angle_degrees": 0.7485689497686174,
+                "unit_distance_rms": 0.0798330341253856,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  0.005573606732667777,
+                  0.13428970290628076
+                ],
+                "unit_distance_p50": 0.0050715805455997486,
+                "unit_distance_p95": 0.009112240066138998,
+                "raw_distance_rms": 0.5789222901970001,
+                "unit_distance_mean": 0.012809169349415265,
+                "unit_distance_p05": 0.0029280200629279982,
+                "raw_distance_mean": 0.09338811031449752,
+                "phase_gap_mean": 0.0,
+                "phase_gap_max": 0.0
+              }
+            },
+            "nominal": {
+              "n": 13262,
+              "raw_norm_mean": 7.341140784785814,
+              "raw_centroid_norm": 7.336867976789863,
+              "raw_radius_rms": 0.25050918899549873,
+              "unit_centroid_norm": 0.9994078315016592,
+              "unit_radius_rms": 0.0344091024752508,
+              "unit_radius_p50": 0.013266619138564325,
+              "unit_radius_p95": 0.040711360678680315,
+              "unit_mean_pair_cosine": 0.9988159243835117,
+              "centered_effective_rank": 3.4981438548967847,
+              "centered_top2_variance_fraction": 0.6780330731963575
+            },
+            "nominal_motion_dependence": {
+              "heldout_world_r2": 0.10979570253335724,
+              "train_samples": 6645,
+              "test_samples": 6617,
+              "groups": 41,
+              "split": "half of complete physical-world trajectories held out"
+            },
+            "dr_same_world_cross_motion_over_between": 0.4242831886544656,
+            "dr_same_world_cross_motion_disjoint_over_between": 0.43078514376377364,
+            "dr_world_center_transfer": {
+              "worlds": 501,
+              "test_samples": 7282,
+              "top1_accuracy": 0.3240867893435869,
+              "top5_accuracy": 0.5918703652842625,
+              "top1_uniform_chance": 0.001996007984031936,
+              "heldout_motion_center_r2": 0.7777229932235803,
+              "note": "Only DR worlds; physical-world centers fitted on one half of motion families, evaluated on the other half."
+            }
+          }
+        }
+      },
+      "long_full": {
+        "n": 29696,
+        "nominal_samples": 14848,
+        "dr_samples": 14848,
+        "nominal_worlds": 512,
+        "dr_worlds": 512,
+        "motion_files": 42,
+        "models": {
+          "baseline": {
+            "dr": {
+              "n": 14848,
+              "raw_norm_mean": 7.301107571927729,
+              "raw_centroid_norm": 4.912721174648525,
+              "raw_radius_rms": 5.4012763991228985,
+              "unit_centroid_norm": 0.6724398638253302,
+              "unit_radius_rms": 0.7401517611534616,
+              "unit_radius_p50": 0.7461250514540716,
+              "unit_radius_p95": 0.9910086210078499,
+              "unit_mean_pair_cosine": 0.4521384724598432,
+              "centered_effective_rank": 4.2287203619065235,
+              "centered_top2_variance_fraction": 0.593124416068244
+            },
+            "pairs": {
+              "nominal_cross_motion": {
+                "n": 14848,
+                "query_worlds": 512,
+                "mean_cosine": 0.9978908619621307,
+                "mean_angle_degrees": 1.6389871670282112,
+                "unit_distance_rms": 0.06494825691070318,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  0.055177821656307746,
+                  0.07422990462391466
+                ],
+                "unit_distance_p50": 0.02022618461503605,
+                "unit_distance_p95": 0.05837087369036078,
+                "raw_distance_rms": 0.4715682267036267,
+                "unit_distance_mean": 0.02843170017403911,
+                "unit_distance_p05": 0.010146558557211173,
+                "raw_distance_mean": 0.20860696752496963,
+                "phase_gap_mean": 0.3253483176231384,
+                "phase_gap_max": 0.9953396320343018
+              },
+              "nominal_same_motion_far_phase": {
+                "n": 14848,
+                "query_worlds": 512,
+                "mean_cosine": 0.9983192963491435,
+                "mean_angle_degrees": 1.4466520685243578,
+                "unit_distance_rms": 0.05797764484448227,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  0.04932165542636169,
+                  0.0658153682888847
+                ],
+                "unit_distance_p50": 0.017463673989852144,
+                "unit_distance_p95": 0.05391054284793737,
+                "raw_distance_rms": 0.4214986713123431,
+                "unit_distance_mean": 0.025123266243429716,
+                "unit_distance_p05": 0.008845283652424592,
+                "raw_distance_mean": 0.18437046329134724,
+                "phase_gap_mean": 0.4826768934726715,
+                "phase_gap_max": 0.988495409488678
+              },
+              "nominal_dr_same_motion_near_phase": {
+                "n": 14755,
+                "query_worlds": 512,
+                "mean_cosine": 0.6164561451002862,
+                "mean_angle_degrees": 46.05722244643098,
+                "unit_distance_rms": 0.8758354353412675,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  0.8698497126114739,
+                  0.8819644016238366
+                ],
+                "unit_distance_p50": 0.952051611144141,
+                "unit_distance_p95": 1.2036875017712674,
+                "raw_distance_rms": 6.4110041026856734,
+                "unit_distance_mean": 0.7650326837903237,
+                "unit_distance_p05": 0.01640439782310759,
+                "raw_distance_mean": 5.599777664765591,
+                "phase_gap_mean": 0.010176297277212143,
+                "phase_gap_max": 0.019994139671325684
+              },
+              "dr_same_world_cross_motion": {
+                "n": 14848,
+                "query_worlds": 512,
+                "mean_cosine": 0.9000156962731267,
+                "mean_angle_degrees": 21.18522019947663,
+                "unit_distance_rms": 0.4471784961888786,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  0.4352390786773569,
+                  0.46047294585229015
+                ],
+                "unit_distance_p50": 0.2951244899497295,
+                "unit_distance_p95": 0.921611041303569,
+                "raw_distance_rms": 3.2629297399968156,
+                "unit_distance_mean": 0.3632903373195547,
+                "unit_distance_p05": 0.02642033761597045,
+                "raw_distance_mean": 2.6505858810985203,
+                "phase_gap_mean": 0.32458949089050293,
+                "phase_gap_max": 0.9776363968849182
+              },
+              "dr_different_world_same_motion_near_phase": {
+                "n": 14795,
+                "query_worlds": 512,
+                "mean_cosine": 0.45995049171213503,
+                "mean_angle_degrees": 59.55414461651373,
+                "unit_distance_rms": 1.0392781228216679,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  1.0275667833325777,
+                  1.050412488119667
+                ],
+                "unit_distance_p50": 1.0232007028562775,
+                "unit_distance_p95": 1.5361405616830504,
+                "raw_distance_rms": 7.583523814774608,
+                "unit_distance_mean": 0.9713443971088507,
+                "unit_distance_p05": 0.18564479810602347,
+                "raw_distance_mean": 7.088626950758327,
+                "phase_gap_mean": 0.010095516219735146,
+                "phase_gap_max": 0.019994139671325684
+              },
+              "dr_different_world_cross_motion": {
+                "n": 14848,
+                "query_worlds": 512,
+                "mean_cosine": 0.45250473878147823,
+                "mean_angle_degrees": 60.20431992570121,
+                "unit_distance_rms": 1.046417948258268,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  1.035695840672756,
+                  1.0575806000747219
+                ],
+                "unit_distance_p50": 1.0278155970677512,
+                "unit_distance_p95": 1.5358627758863626,
+                "raw_distance_rms": 7.636373459737996,
+                "unit_distance_mean": 0.9817363205436948,
+                "unit_distance_p05": 0.21256277055509978,
+                "raw_distance_mean": 7.165255824772213,
+                "phase_gap_mean": 0.32734009623527527,
+                "phase_gap_max": 0.9753488302230835
+              },
+              "dr_same_world_cross_motion_disjoint": {
+                "n": 14848,
+                "query_worlds": 512,
+                "mean_cosine": 0.8942919333227495,
+                "mean_angle_degrees": 21.908089311463947,
+                "unit_distance_rms": 0.45980010151641015,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  0.4463536365443283,
+                  0.4713184317410305
+                ],
+                "unit_distance_p50": 0.3063618881346506,
+                "unit_distance_p95": 0.9311973205248202,
+                "raw_distance_rms": 3.3548279100741123,
+                "unit_distance_mean": 0.37543092410271284,
+                "unit_distance_p05": 0.02743126199956331,
+                "raw_distance_mean": 2.7390944280898903,
+                "phase_gap_mean": 0.32721415162086487,
+                "phase_gap_max": 0.9707345962524414
+              },
+              "dr_different_world_exact_motion_frame": {
+                "n": 275,
+                "query_worlds": 98,
+                "mean_cosine": 0.46972195021025587,
+                "mean_angle_degrees": 59.41872997450892,
+                "unit_distance_rms": 1.0298330445171626,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  0.9717370919973847,
+                  1.0907211954830383
+                ],
+                "unit_distance_p50": 0.9905574444502487,
+                "unit_distance_p95": 1.5772162793891926,
+                "raw_distance_rms": 7.514618357126413,
+                "unit_distance_mean": 0.969760957488661,
+                "unit_distance_p05": 0.34701128827887606,
+                "raw_distance_mean": 7.077169936615998,
+                "phase_gap_mean": 0.0,
+                "phase_gap_max": 0.0
+              },
+              "nominal_dr_exact_motion_frame": {
+                "n": 547,
+                "query_worlds": 206,
+                "mean_cosine": 0.6055381561340845,
+                "mean_angle_degrees": 47.38412909637346,
+                "unit_distance_rms": 0.8882137624084819,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  0.8481420497280628,
+                  0.9221771228368782
+                ],
+                "unit_distance_p50": 0.946459137107095,
+                "unit_distance_p95": 1.194334881214438,
+                "raw_distance_rms": 6.504161311917806,
+                "unit_distance_mean": 0.7872595706930453,
+                "unit_distance_p05": 0.013687864461721029,
+                "raw_distance_mean": 5.764431251446412,
+                "phase_gap_mean": 0.0,
+                "phase_gap_max": 0.0
+              },
+              "nominal_nominal_exact_motion_frame": {
+                "n": 270,
+                "query_worlds": 95,
+                "mean_cosine": 0.9953157670982739,
+                "mean_angle_degrees": 0.9618035585589441,
+                "unit_distance_rms": 0.09679083532779544,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  0.008574307732520641,
+                  0.15350890756673405
+                ],
+                "unit_distance_p50": 0.005970100016475207,
+                "unit_distance_p95": 0.01998032500024459,
+                "raw_distance_rms": 0.6969168615762892,
+                "unit_distance_mean": 0.016267052783225388,
+                "unit_distance_p05": 0.003271664159075517,
+                "raw_distance_mean": 0.1183449452648211,
+                "phase_gap_mean": 0.0,
+                "phase_gap_max": 0.0
+              }
+            },
+            "nominal": {
+              "n": 14848,
+              "raw_norm_mean": 7.348731534344384,
+              "raw_centroid_norm": 7.341456050785653,
+              "raw_radius_rms": 0.3270418925152788,
+              "unit_centroid_norm": 0.9989854054993303,
+              "unit_radius_rms": 0.0450350929758011,
+              "unit_radius_p50": 0.014144025119364797,
+              "unit_radius_p95": 0.043519176937572464,
+              "unit_mean_pair_cosine": 0.9979717037966606,
+              "centered_effective_rank": 2.6450189564775846,
+              "centered_top2_variance_fraction": 0.7345233050978703
+            },
+            "nominal_motion_dependence": {
+              "heldout_world_r2": 0.05864298153351388,
+              "train_samples": 7424,
+              "test_samples": 7424,
+              "groups": 41,
+              "split": "half of complete physical-world trajectories held out"
+            },
+            "dr_same_world_cross_motion_over_between": 0.43027798465994554,
+            "dr_same_world_cross_motion_disjoint_over_between": 0.44242257334161966,
+            "dr_world_center_transfer": {
+              "worlds": 502,
+              "test_samples": 8192,
+              "top1_accuracy": 0.31982421875,
+              "top5_accuracy": 0.5885009765625,
+              "top1_uniform_chance": 0.00199203187250996,
+              "heldout_motion_center_r2": 0.7728739441200954,
+              "note": "Only DR worlds; physical-world centers fitted on one half of motion families, evaluated on the other half."
+            }
+          },
+          "memory350": {
+            "dr": {
+              "n": 14848,
+              "raw_norm_mean": 7.296713555457,
+              "raw_centroid_norm": 4.987820037979851,
+              "raw_radius_rms": 5.325965010443348,
+              "unit_centroid_norm": 0.683150787005362,
+              "unit_radius_rms": 0.730277346091165,
+              "unit_radius_p50": 0.7350736927671626,
+              "unit_radius_p95": 0.9866950841963091,
+              "unit_mean_pair_cosine": 0.46665907773470766,
+              "centered_effective_rank": 4.1761985328785,
+              "centered_top2_variance_fraction": 0.5953103279288429
+            },
+            "pairs": {
+              "nominal_cross_motion": {
+                "n": 14848,
+                "query_worlds": 512,
+                "mean_cosine": 0.9986780522469252,
+                "mean_angle_degrees": 1.488152730178681,
+                "unit_distance_rms": 0.05141882443375786,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  0.043219149548441436,
+                  0.06121593637778161
+                ],
+                "unit_distance_p50": 0.019251468204701284,
+                "unit_distance_p95": 0.05465667304163039,
+                "raw_distance_rms": 0.3738866793034261,
+                "unit_distance_mean": 0.02588927539106797,
+                "unit_distance_p05": 0.009645494446989896,
+                "raw_distance_mean": 0.18987949725520542,
+                "phase_gap_mean": 0.3253483176231384,
+                "phase_gap_max": 0.9953396320343018
+              },
+              "nominal_same_motion_far_phase": {
+                "n": 14848,
+                "query_worlds": 512,
+                "mean_cosine": 0.998953469241986,
+                "mean_angle_degrees": 1.3125165308688755,
+                "unit_distance_rms": 0.045749989246205186,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  0.037857797913912285,
+                  0.052785843109288896
+                ],
+                "unit_distance_p50": 0.016593306752719316,
+                "unit_distance_p95": 0.050310846310506994,
+                "raw_distance_rms": 0.33274795093036574,
+                "unit_distance_mean": 0.022846004426960144,
+                "unit_distance_p05": 0.008401091857927423,
+                "raw_distance_mean": 0.1675729336544809,
+                "phase_gap_mean": 0.4826768934726715,
+                "phase_gap_max": 0.988495409488678
+              },
+              "nominal_dr_same_motion_near_phase": {
+                "n": 14755,
+                "query_worlds": 512,
+                "mean_cosine": 0.6254580152149105,
+                "mean_angle_degrees": 45.113548919768,
+                "unit_distance_rms": 0.865496371783371,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  0.8590960103724284,
+                  0.8709113493486891
+                ],
+                "unit_distance_p50": 0.9426532665392009,
+                "unit_distance_p95": 1.200215864815421,
+                "raw_distance_rms": 6.330007826533622,
+                "unit_distance_mean": 0.7497009498380254,
+                "unit_distance_p05": 0.014780517234864586,
+                "raw_distance_mean": 5.482886577003637,
+                "phase_gap_mean": 0.010176297277212143,
+                "phase_gap_max": 0.019994139671325684
+              },
+              "dr_same_world_cross_motion": {
+                "n": 14848,
+                "query_worlds": 512,
+                "mean_cosine": 0.9049416547267581,
+                "mean_angle_degrees": 20.392017434119996,
+                "unit_distance_rms": 0.43602372704531106,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  0.423201672169441,
+                  0.4501556052144155
+                ],
+                "unit_distance_p50": 0.28183667052251515,
+                "unit_distance_p95": 0.9039983284231872,
+                "raw_distance_rms": 3.180332777116688,
+                "unit_distance_mean": 0.34982387250293023,
+                "unit_distance_p05": 0.02281720857510487,
+                "raw_distance_mean": 2.550999439031389,
+                "phase_gap_mean": 0.32458949089050293,
+                "phase_gap_max": 0.9776363968849182
+              },
+              "dr_different_world_same_motion_near_phase": {
+                "n": 14795,
+                "query_worlds": 512,
+                "mean_cosine": 0.4736170689876687,
+                "mean_angle_degrees": 58.48480909231027,
+                "unit_distance_rms": 1.0260437914751313,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  1.0136577152847221,
+                  1.0368186128460923
+                ],
+                "unit_distance_p50": 1.0110360570949446,
+                "unit_distance_p95": 1.5230435452495348,
+                "raw_distance_rms": 7.482311888173416,
+                "unit_distance_mean": 0.955434132816816,
+                "unit_distance_p05": 0.11938207038588383,
+                "raw_distance_mean": 6.96812262180052,
+                "phase_gap_mean": 0.010095516219735146,
+                "phase_gap_max": 0.019994139671325684
+              },
+              "dr_different_world_cross_motion": {
+                "n": 14848,
+                "query_worlds": 512,
+                "mean_cosine": 0.4666154384536436,
+                "mean_angle_degrees": 59.1656577990885,
+                "unit_distance_rms": 1.0328451593015833,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  1.0220557242975963,
+                  1.043547468218886
+                ],
+                "unit_distance_p50": 1.01640677435981,
+                "unit_distance_p95": 1.5179902591334167,
+                "raw_distance_rms": 7.532677139570023,
+                "unit_distance_mean": 0.9665465888687973,
+                "unit_distance_p05": 0.16815193539035,
+                "raw_distance_mean": 7.050027203616898,
+                "phase_gap_mean": 0.32734009623527527,
+                "phase_gap_max": 0.9753488302230835
+              },
+              "dr_same_world_cross_motion_disjoint": {
+                "n": 14848,
+                "query_worlds": 512,
+                "mean_cosine": 0.9001908407738319,
+                "mean_angle_degrees": 21.033416734548492,
+                "unit_distance_rms": 0.44678665876717516,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  0.4333394099648876,
+                  0.4595276003476919
+                ],
+                "unit_distance_p50": 0.290550179802039,
+                "unit_distance_p95": 0.9186743140613352,
+                "raw_distance_rms": 3.258787245361354,
+                "unit_distance_mean": 0.3606434393861813,
+                "unit_distance_p05": 0.02335477920542532,
+                "raw_distance_mean": 2.6299036681814854,
+                "phase_gap_mean": 0.32721415162086487,
+                "phase_gap_max": 0.9707345962524414
+              },
+              "dr_different_world_exact_motion_frame": {
+                "n": 275,
+                "query_worlds": 98,
+                "mean_cosine": 0.48459149048535105,
+                "mean_angle_degrees": 58.361350758261324,
+                "unit_distance_rms": 1.0152915931048074,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  0.9586797604622708,
+                  1.0742640684295621
+                ],
+                "unit_distance_p50": 0.9574230035130818,
+                "unit_distance_p95": 1.5486905946517011,
+                "raw_distance_rms": 7.40544045730877,
+                "unit_distance_mean": 0.9547779796181809,
+                "unit_distance_p05": 0.2744613757696461,
+                "raw_distance_mean": 6.964527671969098,
+                "phase_gap_mean": 0.0,
+                "phase_gap_max": 0.0
+              },
+              "nominal_dr_exact_motion_frame": {
+                "n": 547,
+                "query_worlds": 206,
+                "mean_cosine": 0.6102410643121503,
+                "mean_angle_degrees": 46.69302004036904,
+                "unit_distance_rms": 0.8829030928565714,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  0.8406575033245627,
+                  0.9182262047425397
+                ],
+                "unit_distance_p50": 0.9541179617964904,
+                "unit_distance_p95": 1.197192395384751,
+                "raw_distance_rms": 6.459006384478606,
+                "unit_distance_mean": 0.7757307537961146,
+                "unit_distance_p05": 0.01189008482756859,
+                "raw_distance_mean": 5.6744138285560535,
+                "phase_gap_mean": 0.0,
+                "phase_gap_max": 0.0
+              },
+              "nominal_nominal_exact_motion_frame": {
+                "n": 270,
+                "query_worlds": 95,
+                "mean_cosine": 0.9968484313999225,
+                "mean_angle_degrees": 0.8726816929366253,
+                "unit_distance_rms": 0.07939229937566716,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  0.0083078244522853,
+                  0.12875982316555923
+                ],
+                "unit_distance_p50": 0.005503445401800768,
+                "unit_distance_p95": 0.01921140153214164,
+                "raw_distance_rms": 0.5763622228180774,
+                "unit_distance_mean": 0.01499828242048265,
+                "unit_distance_p05": 0.002989829402663791,
+                "raw_distance_mean": 0.10948921192110792,
+                "phase_gap_mean": 0.0,
+                "phase_gap_max": 0.0
+              }
+            },
+            "nominal": {
+              "n": 14848,
+              "raw_norm_mean": 7.341191584466799,
+              "raw_centroid_norm": 7.336700215160406,
+              "raw_radius_rms": 0.25684164239544605,
+              "unit_centroid_norm": 0.9993763881726371,
+              "unit_radius_rms": 0.035310547475437465,
+              "unit_radius_p50": 0.013375056135390261,
+              "unit_radius_p95": 0.03968080474698115,
+              "unit_mean_pair_cosine": 0.998753081258083,
+              "centered_effective_rank": 3.2818126139797617,
+              "centered_top2_variance_fraction": 0.6908072956867352
+            },
+            "nominal_motion_dependence": {
+              "heldout_world_r2": 0.09877981729239638,
+              "train_samples": 7424,
+              "test_samples": 7424,
+              "groups": 41,
+              "split": "half of complete physical-world trajectories held out"
+            },
+            "dr_same_world_cross_motion_over_between": 0.424956254955205,
+            "dr_same_world_cross_motion_disjoint_over_between": 0.4354459940982004,
+            "dr_world_center_transfer": {
+              "worlds": 502,
+              "test_samples": 8192,
+              "top1_accuracy": 0.326904296875,
+              "top5_accuracy": 0.5869140625,
+              "top1_uniform_chance": 0.00199203187250996,
+              "heldout_motion_center_r2": 0.7776074667044284,
+              "note": "Only DR worlds; physical-world centers fitted on one half of motion families, evaluated on the other half."
+            }
+          }
+        }
+      }
+    },
+    "memory_training": {
+      "memory_full": {
+        "n": 13997,
+        "nominal_samples": 0,
+        "dr_samples": 13997,
+        "nominal_worlds": 0,
+        "dr_worlds": 512,
+        "motion_files": 42,
+        "models": {
+          "baseline": {
+            "dr": {
+              "n": 13997,
+              "raw_norm_mean": 7.1962669092503875,
+              "raw_centroid_norm": 2.471118823651074,
+              "raw_radius_rms": 6.759479532334742,
+              "unit_centroid_norm": 0.34621089819429607,
+              "unit_radius_rms": 0.9381567107746439,
+              "unit_radius_p50": 0.9397913354650168,
+              "unit_radius_p95": 1.0763284560556694,
+              "unit_mean_pair_cosine": 0.11979910106036953,
+              "centered_effective_rank": 5.755741837308543,
+              "centered_top2_variance_fraction": 0.44200995650987884
+            },
+            "pairs": {
+              "dr_same_world_cross_motion": {
+                "n": 13997,
+                "query_worlds": 512,
+                "mean_cosine": 0.909764069077961,
+                "mean_angle_degrees": 21.524018319408903,
+                "unit_distance_rms": 0.42481979926090757,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  0.4105768023597416,
+                  0.44091673948083004
+                ],
+                "unit_distance_p50": 0.3222386273002421,
+                "unit_distance_p95": 0.7356742364414273,
+                "raw_distance_rms": 3.0484895273334915,
+                "unit_distance_mean": 0.3699101460663562,
+                "unit_distance_p05": 0.15304963121377207,
+                "raw_distance_mean": 2.657725813205277,
+                "phase_gap_mean": 0.329538494348526,
+                "phase_gap_max": 0.9810068607330322
+              },
+              "dr_different_world_same_motion_near_phase": {
+                "n": 13854,
+                "query_worlds": 512,
+                "mean_cosine": 0.14134135018997537,
+                "mean_angle_degrees": 81.09496177269605,
+                "unit_distance_rms": 1.3104645358116522,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  1.301204540431807,
+                  1.3193211503016524
+                ],
+                "unit_distance_p50": 1.298447198335336,
+                "unit_distance_p95": 1.7554542777083244,
+                "raw_distance_rms": 9.442599460972307,
+                "unit_distance_mean": 1.2698896130718849,
+                "unit_distance_p05": 0.6966699380831011,
+                "raw_distance_mean": 9.144609501225418,
+                "phase_gap_mean": 0.010185476392507553,
+                "phase_gap_max": 0.019994139671325684
+              },
+              "dr_different_world_cross_motion": {
+                "n": 13997,
+                "query_worlds": 512,
+                "mean_cosine": 0.11811830346620268,
+                "mean_angle_degrees": 82.66194561127195,
+                "unit_distance_rms": 1.328067540853098,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  1.3208882201581824,
+                  1.3347507316798175
+                ],
+                "unit_distance_p50": 1.3162561339239043,
+                "unit_distance_p95": 1.752164497267938,
+                "raw_distance_rms": 9.568390238024364,
+                "unit_distance_mean": 1.2924082027864159,
+                "unit_distance_p05": 0.7450420123383904,
+                "raw_distance_mean": 9.306194252158836,
+                "phase_gap_mean": 0.32031458616256714,
+                "phase_gap_max": 0.9641188979148865
+              },
+              "dr_same_world_cross_motion_disjoint": {
+                "n": 13997,
+                "query_worlds": 512,
+                "mean_cosine": 0.9076411859816769,
+                "mean_angle_degrees": 21.768566686637534,
+                "unit_distance_rms": 0.429787887261433,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  0.4132464311617523,
+                  0.446511313505021
+                ],
+                "unit_distance_p50": 0.32334889755302915,
+                "unit_distance_p95": 0.7573718886428686,
+                "raw_distance_rms": 3.0841394398540976,
+                "unit_distance_mean": 0.37391245756592073,
+                "unit_distance_p05": 0.15705394605719694,
+                "raw_distance_mean": 2.686491835060029,
+                "phase_gap_mean": 0.32615435123443604,
+                "phase_gap_max": 0.9626075029373169
+              },
+              "dr_different_world_exact_motion_frame": {
+                "n": 282,
+                "query_worlds": 66,
+                "mean_cosine": 0.15038027487661443,
+                "mean_angle_degrees": 80.91503999678902,
+                "unit_distance_rms": 1.3035487908961334,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  1.235740290847637,
+                  1.366634352979735
+                ],
+                "unit_distance_p50": 1.2918316441687856,
+                "unit_distance_p95": 1.7661141119390773,
+                "raw_distance_rms": 9.395721355089105,
+                "unit_distance_mean": 1.2752249503391524,
+                "unit_distance_p05": 0.7639522853461849,
+                "raw_distance_mean": 9.184417591510798,
+                "phase_gap_mean": 0.0,
+                "phase_gap_max": 0.0
+              },
+              "nominal_dr_exact_motion_frame": {
+                "n": 0
+              },
+              "nominal_nominal_exact_motion_frame": {
+                "n": 0
+              }
+            },
+            "dr_same_world_cross_motion_over_between": 0.32417496822818653,
+            "dr_same_world_cross_motion_disjoint_over_between": 0.327966057467735,
+            "dr_world_center_transfer": {
+              "worlds": 423,
+              "test_samples": 6502,
+              "top1_accuracy": 0.7922177791448785,
+              "top5_accuracy": 0.9192556136573362,
+              "top1_uniform_chance": 0.002364066193853428,
+              "heldout_motion_center_r2": 0.8543507614810166,
+              "note": "Only DR worlds; physical-world centers fitted on one half of motion families, evaluated on the other half."
+            }
+          },
+          "memory350": {
+            "dr": {
+              "n": 13997,
+              "raw_norm_mean": 7.187317863190149,
+              "raw_centroid_norm": 2.336248215246834,
+              "raw_radius_rms": 6.797884325515245,
+              "unit_centroid_norm": 0.3281285851676747,
+              "unit_radius_rms": 0.9446330671725717,
+              "unit_radius_p50": 0.947259907127116,
+              "unit_radius_p95": 1.0761795401958558,
+              "unit_mean_pair_cosine": 0.10760461221440028,
+              "centered_effective_rank": 5.766202567160509,
+              "centered_top2_variance_fraction": 0.44363263930249586
+            },
+            "pairs": {
+              "dr_same_world_cross_motion": {
+                "n": 13997,
+                "query_worlds": 512,
+                "mean_cosine": 0.9133350729855926,
+                "mean_angle_degrees": 21.002103404129837,
+                "unit_distance_rms": 0.41632902136268973,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  0.401584298789264,
+                  0.4321994029503455
+                ],
+                "unit_distance_p50": 0.3135753678410786,
+                "unit_distance_p95": 0.7253524608491693,
+                "raw_distance_rms": 2.98340121594333,
+                "unit_distance_mean": 0.3609887851089395,
+                "unit_distance_p05": 0.14936262776979062,
+                "raw_distance_mean": 2.590232563865159,
+                "phase_gap_mean": 0.329538494348526,
+                "phase_gap_max": 0.9810068607330322
+              },
+              "dr_different_world_same_motion_near_phase": {
+                "n": 13854,
+                "query_worlds": 512,
+                "mean_cosine": 0.12751698944019918,
+                "mean_angle_degrees": 81.96408515917456,
+                "unit_distance_rms": 1.3209716201037787,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  1.311892829868703,
+                  1.3299215892260297
+                ],
+                "unit_distance_p50": 1.307576747141462,
+                "unit_distance_p95": 1.7624114733483296,
+                "raw_distance_rms": 9.506765851358178,
+                "unit_distance_mean": 1.280948288277708,
+                "unit_distance_p05": 0.7027349263744911,
+                "raw_distance_mean": 9.212910769283926,
+                "phase_gap_mean": 0.010185476392507553,
+                "phase_gap_max": 0.019994139671325684
+              },
+              "dr_different_world_cross_motion": {
+                "n": 13997,
+                "query_worlds": 512,
+                "mean_cosine": 0.10592203810706094,
+                "mean_angle_degrees": 83.41394759072321,
+                "unit_distance_rms": 1.3372194748005573,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  1.3302622661467738,
+                  1.3441110063503157
+                ],
+                "unit_distance_p50": 1.3284311819908012,
+                "unit_distance_p95": 1.759415526072787,
+                "raw_distance_rms": 9.622721253972331,
+                "unit_distance_mean": 1.301626980898842,
+                "unit_distance_p05": 0.752500001566873,
+                "raw_distance_mean": 9.361191505610616,
+                "phase_gap_mean": 0.32031458616256714,
+                "phase_gap_max": 0.9641188979148865
+              },
+              "dr_same_world_cross_motion_disjoint": {
+                "n": 13997,
+                "query_worlds": 512,
+                "mean_cosine": 0.9114785087416313,
+                "mean_angle_degrees": 21.226605200412315,
+                "unit_distance_rms": 0.4207647591193178,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  0.40532999914742707,
+                  0.43786153850953685
+                ],
+                "unit_distance_p50": 0.31552584559485103,
+                "unit_distance_p95": 0.7450439400168878,
+                "raw_distance_rms": 3.0151943555525094,
+                "unit_distance_mean": 0.36467766313604105,
+                "unit_distance_p05": 0.1537802078123716,
+                "raw_distance_mean": 2.6166939817259185,
+                "phase_gap_mean": 0.32615435123443604,
+                "phase_gap_max": 0.9626075029373169
+              },
+              "dr_different_world_exact_motion_frame": {
+                "n": 282,
+                "query_worlds": 66,
+                "mean_cosine": 0.1349111173411365,
+                "mean_angle_degrees": 81.87253883235442,
+                "unit_distance_rms": 1.3153622182949178,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  1.2457262622107348,
+                  1.3808505431336278
+                ],
+                "unit_distance_p50": 1.2984561347720636,
+                "unit_distance_p95": 1.785953852145616,
+                "raw_distance_rms": 9.467302523880184,
+                "unit_distance_mean": 1.2869471773804384,
+                "unit_distance_p05": 0.7903397410343562,
+                "raw_distance_mean": 9.255532769334387,
+                "phase_gap_mean": 0.0,
+                "phase_gap_max": 0.0
+              },
+              "nominal_dr_exact_motion_frame": {
+                "n": 0
+              },
+              "nominal_nominal_exact_motion_frame": {
+                "n": 0
+              }
+            },
+            "dr_same_world_cross_motion_over_between": 0.31516878563218637,
+            "dr_same_world_cross_motion_disjoint_over_between": 0.3185267213282459,
+            "dr_world_center_transfer": {
+              "worlds": 423,
+              "test_samples": 6502,
+              "top1_accuracy": 0.8102122423869579,
+              "top5_accuracy": 0.9277145493694248,
+              "top1_uniform_chance": 0.002364066193853428,
+              "heldout_motion_center_r2": 0.8622464717680464,
+              "note": "Only DR worlds; physical-world centers fitted on one half of motion families, evaluated on the other half."
+            }
+          }
+        }
+      },
+      "long_full": {
+        "n": 14848,
+        "nominal_samples": 0,
+        "dr_samples": 14848,
+        "nominal_worlds": 0,
+        "dr_worlds": 512,
+        "motion_files": 42,
+        "models": {
+          "baseline": {
+            "dr": {
+              "n": 14848,
+              "raw_norm_mean": 7.1965050228329215,
+              "raw_centroid_norm": 2.4773897442027537,
+              "raw_radius_rms": 6.75743691243012,
+              "unit_centroid_norm": 0.3470551974273633,
+              "unit_radius_rms": 0.9378447045959443,
+              "unit_radius_p50": 0.9393349575056014,
+              "unit_radius_p95": 1.076282182355515,
+              "unit_mean_pair_cosine": 0.12038806895607641,
+              "centered_effective_rank": 5.76720062888772,
+              "centered_top2_variance_fraction": 0.4414897736381281
+            },
+            "pairs": {
+              "dr_same_world_cross_motion": {
+                "n": 14848,
+                "query_worlds": 512,
+                "mean_cosine": 0.9099181398664113,
+                "mean_angle_degrees": 21.513296336020616,
+                "unit_distance_rms": 0.4244569710432112,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  0.4094445179033666,
+                  0.4391706963760703
+                ],
+                "unit_distance_p50": 0.32065922534710284,
+                "unit_distance_p95": 0.744682109130544,
+                "raw_distance_rms": 3.0459855529353232,
+                "unit_distance_mean": 0.3697257340189908,
+                "unit_distance_p05": 0.15382167732267688,
+                "raw_distance_mean": 2.6565842714399897,
+                "phase_gap_mean": 0.33168864250183105,
+                "phase_gap_max": 0.9927510023117065
+              },
+              "dr_different_world_same_motion_near_phase": {
+                "n": 14718,
+                "query_worlds": 512,
+                "mean_cosine": 0.1414698815865788,
+                "mean_angle_degrees": 81.10019879045977,
+                "unit_distance_rms": 1.3103664513512403,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  1.3018223495650756,
+                  1.319273854713533
+                ],
+                "unit_distance_p50": 1.2956211638716257,
+                "unit_distance_p95": 1.7546468750549729,
+                "raw_distance_rms": 9.441751634886899,
+                "unit_distance_mean": 1.2703577215479285,
+                "unit_distance_p05": 0.6910088278414702,
+                "raw_distance_mean": 9.148035515055065,
+                "phase_gap_mean": 0.010117568075656891,
+                "phase_gap_max": 0.019994139671325684
+              },
+              "dr_different_world_cross_motion": {
+                "n": 14848,
+                "query_worlds": 512,
+                "mean_cosine": 0.11798516303343122,
+                "mean_angle_degrees": 82.64426401490631,
+                "unit_distance_rms": 1.328167788320865,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  1.3221292793381982,
+                  1.3350467894734113
+                ],
+                "unit_distance_p50": 1.3135631156105227,
+                "unit_distance_p95": 1.7573461709753928,
+                "raw_distance_rms": 9.570437435397894,
+                "unit_distance_mean": 1.2914979245681641,
+                "unit_distance_p05": 0.7424224604531149,
+                "raw_distance_mean": 9.300696880457533,
+                "phase_gap_mean": 0.32145366072654724,
+                "phase_gap_max": 0.9824031591415405
+              },
+              "dr_same_world_cross_motion_disjoint": {
+                "n": 14848,
+                "query_worlds": 512,
+                "mean_cosine": 0.9074878027492532,
+                "mean_angle_degrees": 21.81281540029271,
+                "unit_distance_rms": 0.43014462044932467,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  0.4128407563031429,
+                  0.44741895491404393
+                ],
+                "unit_distance_p50": 0.3256503122012503,
+                "unit_distance_p95": 0.758298029459117,
+                "raw_distance_rms": 3.0865270531960616,
+                "unit_distance_mean": 0.37471512076515723,
+                "unit_distance_p05": 0.15520119292650433,
+                "raw_distance_mean": 2.6923518759496354,
+                "phase_gap_mean": 0.32838165760040283,
+                "phase_gap_max": 0.9810068607330322
+              },
+              "dr_different_world_exact_motion_frame": {
+                "n": 307,
+                "query_worlds": 71,
+                "mean_cosine": 0.15232354312797663,
+                "mean_angle_degrees": 80.7525452075458,
+                "unit_distance_rms": 1.302057185281832,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  1.2403067345805245,
+                  1.3650263465028611
+                ],
+                "unit_distance_p50": 1.2918929685878116,
+                "unit_distance_p95": 1.763467714711803,
+                "raw_distance_rms": 9.382099095361877,
+                "unit_distance_mean": 1.2730682190163485,
+                "unit_distance_p05": 0.7606716926281599,
+                "raw_distance_mean": 9.16617296080844,
+                "phase_gap_mean": 0.0,
+                "phase_gap_max": 0.0
+              },
+              "nominal_dr_exact_motion_frame": {
+                "n": 0
+              },
+              "nominal_nominal_exact_motion_frame": {
+                "n": 0
+              }
+            },
+            "dr_same_world_cross_motion_over_between": 0.32392234294880967,
+            "dr_same_world_cross_motion_disjoint_over_between": 0.3282628458670952,
+            "dr_world_center_transfer": {
+              "worlds": 426,
+              "test_samples": 6935,
+              "top1_accuracy": 0.7978370583994232,
+              "top5_accuracy": 0.9185291997116077,
+              "top1_uniform_chance": 0.002347417840375587,
+              "heldout_motion_center_r2": 0.85605982995772,
+              "note": "Only DR worlds; physical-world centers fitted on one half of motion families, evaluated on the other half."
+            }
+          },
+          "memory350": {
+            "dr": {
+              "n": 14848,
+              "raw_norm_mean": 7.187502967287868,
+              "raw_centroid_norm": 2.343145200653564,
+              "raw_radius_rms": 6.795705673170408,
+              "unit_centroid_norm": 0.3290640735716276,
+              "unit_radius_rms": 0.9443075957994019,
+              "unit_radius_p50": 0.9469132105425955,
+              "unit_radius_p95": 1.0758060783296075,
+              "unit_mean_pair_cosine": 0.10822310411038857,
+              "centered_effective_rank": 5.777450871625162,
+              "centered_top2_variance_fraction": 0.4430724209772146
+            },
+            "pairs": {
+              "dr_same_world_cross_motion": {
+                "n": 14848,
+                "query_worlds": 512,
+                "mean_cosine": 0.9135022260544612,
+                "mean_angle_degrees": 20.99536762331123,
+                "unit_distance_rms": 0.41592733486881805,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  0.40087015776401774,
+                  0.4304050090547527
+                ],
+                "unit_distance_p50": 0.31315993281017207,
+                "unit_distance_p95": 0.7314883478728996,
+                "raw_distance_rms": 2.980615848590386,
+                "unit_distance_mean": 0.3608926765079106,
+                "unit_distance_p05": 0.15201716944498508,
+                "raw_distance_mean": 2.5896744439301496,
+                "phase_gap_mean": 0.33168864250183105,
+                "phase_gap_max": 0.9927510023117065
+              },
+              "dr_different_world_same_motion_near_phase": {
+                "n": 14718,
+                "query_worlds": 512,
+                "mean_cosine": 0.1272195645945748,
+                "mean_angle_degrees": 81.99315646936077,
+                "unit_distance_rms": 1.3211967570391816,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  1.3128319398278856,
+                  1.3296948593273061
+                ],
+                "unit_distance_p50": 1.3070818285787373,
+                "unit_distance_p95": 1.7631317412179643,
+                "raw_distance_rms": 9.507888168332181,
+                "unit_distance_mean": 1.2816868577400957,
+                "unit_distance_p05": 0.7012168343075535,
+                "raw_distance_mean": 9.218029452758131,
+                "phase_gap_mean": 0.010117568075656891,
+                "phase_gap_max": 0.019994139671325684
+              },
+              "dr_different_world_cross_motion": {
+                "n": 14848,
+                "query_worlds": 512,
+                "mean_cosine": 0.10600871579951182,
+                "mean_angle_degrees": 83.38685618366895,
+                "unit_distance_rms": 1.3371546538830041,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  1.3313656962894698,
+                  1.344051317669388
+                ],
+                "unit_distance_p50": 1.3245603453693922,
+                "unit_distance_p95": 1.763395777346064,
+                "raw_distance_rms": 9.623443834564357,
+                "unit_distance_mean": 1.3005821836185414,
+                "unit_distance_p05": 0.7434709058075423,
+                "raw_distance_mean": 9.354601085265038,
+                "phase_gap_mean": 0.32145366072654724,
+                "phase_gap_max": 0.9824031591415405
+              },
+              "dr_same_world_cross_motion_disjoint": {
+                "n": 14848,
+                "query_worlds": 512,
+                "mean_cosine": 0.9112337674089774,
+                "mean_angle_degrees": 21.281358488347294,
+                "unit_distance_rms": 0.4213460159797945,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  0.4043372680854187,
+                  0.4385477431522062
+                ],
+                "unit_distance_p50": 0.317217331504553,
+                "unit_distance_p95": 0.7415561547441261,
+                "raw_distance_rms": 3.0189868062204135,
+                "unit_distance_mean": 0.3656657978380521,
+                "unit_distance_p05": 0.152400078501906,
+                "raw_distance_mean": 2.6237585325497905,
+                "phase_gap_mean": 0.32838165760040283,
+                "phase_gap_max": 0.9810068607330322
+              },
+              "dr_different_world_exact_motion_frame": {
+                "n": 307,
+                "query_worlds": 71,
+                "mean_cosine": 0.13760383591625677,
+                "mean_angle_degrees": 81.67143609337396,
+                "unit_distance_rms": 1.313313491961263,
+                "unit_distance_rms_query_world_bootstrap95": [
+                  1.2507611629376383,
+                  1.3795437604871166
+                ],
+                "unit_distance_p50": 1.2992630401416065,
+                "unit_distance_p95": 1.7794556024528545,
+                "raw_distance_rms": 9.449636458591117,
+                "unit_distance_mean": 1.284282897106671,
+                "unit_distance_p05": 0.7775619708227649,
+                "raw_distance_mean": 9.233582771012511,
+                "phase_gap_mean": 0.0,
+                "phase_gap_max": 0.0
+              },
+              "nominal_dr_exact_motion_frame": {
+                "n": 0
+              },
+              "nominal_nominal_exact_motion_frame": {
+                "n": 0
+              }
+            },
+            "dr_same_world_cross_motion_over_between": 0.3148110473726233,
+            "dr_same_world_cross_motion_disjoint_over_between": 0.3189123904028013,
+            "dr_world_center_transfer": {
+              "worlds": 426,
+              "test_samples": 6935,
+              "top1_accuracy": 0.8122566690699351,
+              "top5_accuracy": 0.928478731074261,
+              "top1_uniform_chance": 0.002347417840375587,
+              "heldout_motion_center_r2": 0.8638799154832377,
+              "note": "Only DR worlds; physical-world centers fitted on one half of motion families, evaluated on the other half."
+            }
+          }
+        }
+      }
+    }
+  },
+  "readout": {
+    "common": {
+      "ordinary": {
+        "worlds": 501,
+        "test_samples": 7282,
+        "uniform_chance": 0.001996007984031936,
+        "disjoint_history": false,
+        "models": {
+          "baseline": {
+            "top1_accuracy": 0.31982971711068386,
+            "top5_accuracy": 0.5907717659983521
+          },
+          "memory350": {
+            "top1_accuracy": 0.3240867893435869,
+            "top5_accuracy": 0.5918703652842625
+          }
+        },
+        "train_motion_families": [
+          "run1",
+          "fight1",
+          "fightAndSports1",
+          "run2",
+          "jumps1",
+          "walk4",
+          "sprint1"
+        ],
+        "test_motion_families": [
+          "walk1",
+          "fallAndGetUp1",
+          "walk2",
+          "dance1",
+          "walk3",
+          "fallAndGetUp2",
+          "dance2",
+          "fallAndGetUp3"
+        ],
+        "top1_gain_percentage_points": 0.4257072232903049,
+        "top1_gain_query_world_ci95_pp": [
+          -0.47548857220671054,
+          1.3328115128326403
+        ]
+      },
+      "disjoint": {
+        "worlds": 409,
+        "test_samples": 3152,
+        "uniform_chance": 0.0024449877750611247,
+        "disjoint_history": true,
+        "models": {
+          "baseline": {
+            "top1_accuracy": 0.28743654822335024,
+            "top5_accuracy": 0.5415609137055838
+          },
+          "memory350": {
+            "top1_accuracy": 0.28616751269035534,
+            "top5_accuracy": 0.5440989847715736
+          }
+        },
+        "train_motion_families": [
+          "run1",
+          "fight1",
+          "fightAndSports1",
+          "run2",
+          "jumps1",
+          "walk4",
+          "sprint1"
+        ],
+        "test_motion_families": [
+          "walk1",
+          "fallAndGetUp1",
+          "walk2",
+          "dance1",
+          "walk3",
+          "fallAndGetUp2",
+          "dance2",
+          "fallAndGetUp3"
+        ],
+        "top1_gain_percentage_points": -0.12690355329949238,
+        "top1_gain_query_world_ci95_pp": [
+          -1.3989982057416268,
+          1.2346194791047729
+        ]
+      }
+    },
+    "memory_training": {
+      "ordinary": {
+        "worlds": 423,
+        "test_samples": 6502,
+        "uniform_chance": 0.002364066193853428,
+        "disjoint_history": false,
+        "models": {
+          "baseline": {
+            "top1_accuracy": 0.7922177791448785,
+            "top5_accuracy": 0.9192556136573362
+          },
+          "memory350": {
+            "top1_accuracy": 0.8102122423869579,
+            "top5_accuracy": 0.9277145493694248
+          }
+        },
+        "train_motion_families": [
+          "run1",
+          "fight1",
+          "fightAndSports1",
+          "run2",
+          "jumps1",
+          "walk4",
+          "sprint1"
+        ],
+        "test_motion_families": [
+          "walk1",
+          "fallAndGetUp1",
+          "walk2",
+          "dance1",
+          "walk3",
+          "fallAndGetUp2",
+          "dance2",
+          "fallAndGetUp3"
+        ],
+        "top1_gain_percentage_points": 1.799446324207936,
+        "top1_gain_query_world_ci95_pp": [
+          1.2556898446083817,
+          2.335788083406134
+        ]
+      },
+      "disjoint": {
+        "worlds": 292,
+        "test_samples": 2761,
+        "uniform_chance": 0.003424657534246575,
+        "disjoint_history": true,
+        "models": {
+          "baseline": {
+            "top1_accuracy": 0.7913799348062296,
+            "top5_accuracy": 0.9297356030423759
+          },
+          "memory350": {
+            "top1_accuracy": 0.7950018109380659,
+            "top5_accuracy": 0.9348062296269467
+          }
+        },
+        "train_motion_families": [
+          "run1",
+          "fight1",
+          "fightAndSports1",
+          "run2",
+          "jumps1",
+          "walk4",
+          "sprint1"
+        ],
+        "test_motion_families": [
+          "walk1",
+          "fallAndGetUp1",
+          "walk2",
+          "dance1",
+          "walk3",
+          "fallAndGetUp2",
+          "dance2",
+          "fallAndGetUp3"
+        ],
+        "top1_gain_percentage_points": 0.3621876131836291,
+        "top1_gain_query_world_ci95_pp": [
+          -0.49758803408769525,
+          1.2116947903483433
+        ]
+      }
+    }
+  },
+  "verification": {
+    "common": {
+      "passed": true,
+      "checks": [
+        {
+          "step": 100,
+          "reconstruction_unit_rms": 0.0,
+          "bitwise_equal": true
+        },
+        {
+          "step": 3200,
+          "reconstruction_unit_rms": 0.0,
+          "bitwise_equal": true
+        },
+        {
+          "model": "baseline",
+          "bf16_float32_mean_cosine": 0.9999850988388062
+        },
+        {
+          "model": "memory350",
+          "bf16_float32_mean_cosine": 0.9999850392341614
+        }
+      ],
+      "queries": 32
+    },
+    "memory_training": {
+      "passed": true,
+      "checks": [
+        {
+          "step": 100,
+          "reconstruction_unit_rms": 0.0,
+          "bitwise_equal": true
+        },
+        {
+          "step": 3200,
+          "reconstruction_unit_rms": 0.0,
+          "bitwise_equal": true
+        },
+        {
+          "model": "baseline",
+          "bf16_float32_mean_cosine": 0.9999860525131226
+        },
+        {
+          "model": "memory350",
+          "bf16_float32_mean_cosine": 0.9999797344207764
+        }
+      ],
+      "queries": 32
+    }
+  },
+  "prediction": {
+    "validation_sha256": {
+      "validation_broad_rank_0.pt": "e8634bbc798de938f55a624d0f5c2d66692ab2e6ad8a955eb6346827d14afe72",
+      "validation_broad_rank_1.pt": "46a747186d0b2fa5d1b55b376de48990db8d106d3ccf4273c534f158854bb253",
+      "validation_broad_rank_2.pt": "4f2dee0be52c526090c428463e7e8408b42b7e7c73bb5f2775f57db7874d39e1",
+      "validation_broad_rank_3.pt": "06dce4566ea216e57f4637f09e335745be846304038ab0fd756ad924a1ea7920"
+    },
+    "groups": {
+      "nominal": {
+        "samples": 1018,
+        "worlds": 246,
+        "baseline_nmse": 0.006670829374343157,
+        "candidate_nmse": 0.006459957454353571,
+        "candidate_to_baseline_error_ratio": 0.9683889746665955,
+        "paired_world_ratio_ci95": [
+          0.9461935355165811,
+          0.9910600614300272
+        ]
+      },
+      "dr": {
+        "samples": 1030,
+        "worlds": 249,
+        "baseline_nmse": 0.04419552907347679,
+        "candidate_nmse": 0.043767232447862625,
+        "candidate_to_baseline_error_ratio": 0.9903090596199036,
+        "paired_world_ratio_ci95": [
+          0.9788409796811227,
+          1.0007064370714323
+        ]
+      }
+    },
+    "history_groups": {
+      "dr_full350": {
+        "samples": 157,
+        "worlds": 113,
+        "baseline_nmse": 0.02024812437593937,
+        "candidate_nmse": 0.018986724317073822,
+        "candidate_to_baseline_error_ratio": 0.9377028942108154,
+        "paired_world_ratio_ci95": [
+          0.8905114967759613,
+          0.9819031165064305
+        ]
+      },
+      "dr_full_long_incomplete_short": {
+        "samples": 226,
+        "worlds": 129,
+        "baseline_nmse": 0.02262723259627819,
+        "candidate_nmse": 0.02176884189248085,
+        "candidate_to_baseline_error_ratio": 0.9620638489723206,
+        "paired_world_ratio_ci95": [
+          0.9362770577174222,
+          0.9887641998946903
+        ]
+      },
+      "dr_partial_long": {
+        "samples": 494,
+        "worlds": 207,
+        "baseline_nmse": 0.021219851449131966,
+        "candidate_nmse": 0.020351707935333252,
+        "candidate_to_baseline_error_ratio": 0.959088146686554,
+        "paired_world_ratio_ci95": [
+          0.9410261820244893,
+          0.9800204116137715
+        ]
+      },
+      "dr_no_long": {
+        "samples": 153,
+        "worlds": 118,
+        "baseline_nmse": 0.15821091830730438,
+        "candidate_nmse": 0.16021347045898438,
+        "candidate_to_baseline_error_ratio": 1.0126575231552124,
+        "paired_world_ratio_ci95": [
+          1.0033399353088461,
+          1.0231403471140306
+        ]
+      }
+    }
+  },
+  "elapsed_seconds": 58.79175782389939,
+  "script_sha256": "b09781a1bb7b96b643d4444c9a84a64aceb60ca90b0d5ef2017123c5eb8cbb00",
+  "assessment": {
+    "primary_profile": "memory_training",
+    "disjoint_within_distance_change_percent": -2.099437515470648,
+    "disjoint_within_over_between_change_percent": -2.8781442239393162,
+    "disjoint_readout_gain_pp": 0.3621876131836291,
+    "dr_prediction_error_change_percent": -0.9690940380096436,
+    "all_three_representation_directions_improved": true,
+    "text": "\u666e\u901a DR\u8de8 motion \u4e14\u5386\u53f2\u4e0d\u91cd\u53e0\u7684\u73af\u5883 Top-1 \u53d8\u5316 -0.13 \u4e2a\u767e\u5206\u70b9\uff08\u914d\u5bf9 world bootstrap 95% \u533a\u95f4 [-1.40, +1.23]\uff09\uff1bDR\uff0b\u8d1f\u8f7d\u8de8 motion \u4e14\u5386\u53f2\u4e0d\u91cd\u53e0\u7684\u73af\u5883 Top-1 \u53d8\u5316 +0.36 \u4e2a\u767e\u5206\u70b9\uff08\u914d\u5bf9 world bootstrap 95% \u533a\u95f4 [-0.50, +1.21]\uff09\u3002\u56fa\u5b9a\u9a8c\u8bc1 DR \u4e94\u6b65\u9884\u6d4b\u8bef\u5dee\u53d8\u5316 -0.97%\u3002"
+  },
+  "response_label_horizons": {
+    "baseline": 5,
+    "memory350": 5
+  },
+  "predictor_horizon": 5,
+  "selection_metric": "memory_training / disjoint / top1_accuracy"
+}

@@ -1,0 +1,115 @@
+{
+  "purpose": "Test whether the exact response features used as relation targets are invariant to motion within a fixed physical world; no model inference and no change to training.",
+  "dataset": "Memory350 saved startup broad validation; 2048 windows; same-world samples have fixed DR and payload.",
+  "formula": "D = RMS over 5 x 70 of r_i-r_j; r = _normalized_state_error(A_future, nominal_B_future, state_mean, state_std, delta_std); target = 2D/(D+0.75)",
+  "limitations": [
+    "Different-world comparison is NOT state/action/phase matched and is only a descriptive scale reference.",
+    "Same-world pairs are excluded from the actual relation term; this audit evaluates the feature that defines that term, not a direct same-world repulsive loss.",
+    "Repeated windows/worlds are dependent; pair count is not an independent sample count.",
+    "Motion variation, state/action excitation, transient pushes, and replay numerical effects are not causally separated."
+  ],
+  "per_rank": [
+    {
+      "rank": 0,
+      "samples": 512,
+      "worlds": 124,
+      "same_world_different_motion_pairs": 838,
+      "validation_sha256": "2d833e70b3ac9fafbb5a1dc26d06a18261b0a04ff211090ece8ef76156717f1e"
+    },
+    {
+      "rank": 1,
+      "samples": 512,
+      "worlds": 123,
+      "same_world_different_motion_pairs": 839,
+      "validation_sha256": "fdf8a512ce235c36f576dda14489a17e9ed36efd604de8cd8fb05a12d95aa261"
+    },
+    {
+      "rank": 2,
+      "samples": 512,
+      "worlds": 117,
+      "same_world_different_motion_pairs": 934,
+      "validation_sha256": "de2b391bcd8cf9fe22edb6969012db33189e61f2720a33c8a87537e6842ab83a"
+    },
+    {
+      "rank": 3,
+      "samples": 512,
+      "worlds": 125,
+      "same_world_different_motion_pairs": 898,
+      "validation_sha256": "b3f532e4ab0b4577ed40cb1828f5b3a4efbe7b60d4b22a7e2b12cec1a805b850"
+    }
+  ],
+  "groups": {
+    "same_world_different_motion": {
+      "response_distance": {
+        "pairs": 3509,
+        "mean": 1.723018433032185,
+        "rms": 2.12742902282767,
+        "p10": 0.6080792911125211,
+        "p50": 1.3507834258089526,
+        "p90": 3.32821832222094
+      },
+      "mapped_relation_target": {
+        "pairs": 3509,
+        "mean": 1.2744849913230747,
+        "rms": 1.3038187360315228,
+        "p10": 0.8954989436859885,
+        "p50": 1.2859806577051645,
+        "p90": 1.6321923242155751
+      }
+    },
+    "different_world_unmatched_motion": {
+      "response_distance": {
+        "pairs": 495168,
+        "mean": 1.7806968463442991,
+        "rms": 2.073063583705714,
+        "p10": 0.8492371920316942,
+        "p50": 1.475780269445902,
+        "p90": 3.0892987865075905
+      },
+      "mapped_relation_target": {
+        "pairs": 495168,
+        "mean": 1.3294963038356613,
+        "rms": 1.3458557061084706,
+        "p10": 1.0620528290150757,
+        "p50": 1.3260790291876199,
+        "p90": 1.6093036557987161
+      }
+    },
+    "different_world_same_motion": {
+      "response_distance": {
+        "pairs": 1,
+        "mean": 2.880552683133195,
+        "rms": 2.880552683133195,
+        "p10": 2.880552683133195,
+        "p50": 2.880552683133195,
+        "p90": 2.880552683133195
+      },
+      "mapped_relation_target": {
+        "pairs": 1,
+        "mean": 1.5868397649292647,
+        "rms": 1.5868397649292647,
+        "p10": 1.5868397649292647,
+        "p50": 1.5868397649292647,
+        "p90": 1.5868397649292647
+      }
+    },
+    "same_world_different_motion_full30": {
+      "response_distance": {
+        "pairs": 416,
+        "mean": 1.7845015850658923,
+        "rms": 2.269232641433746,
+        "p10": 0.57291606815648,
+        "p50": 1.3164998887321453,
+        "p90": 3.8297986603359355
+      },
+      "mapped_relation_target": {
+        "pairs": 416,
+        "mean": 1.269744062476724,
+        "rms": 1.3031924724123602,
+        "p10": 0.866134160999608,
+        "p50": 1.27413429980347,
+        "p90": 1.6724731738265275
+      }
+    }
+  }
+}

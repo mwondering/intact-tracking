@@ -1,0 +1,17 @@
+{
+  "changed_files": [
+    "src/intact_tracking/memory350_policy_precision.py",
+    "src/intact_tracking/cli/memory350_policy_train.py",
+    "src/intact_tracking/cli/memory350_policy_eval.py",
+    "src/intact_tracking/memory350_policy_checkpoint_eval.py",
+    "src/intact_tracking/memory350_latent_usage_eval.py",
+    "scripts/run_memory350_compressed_ppo.py",
+    "scripts/resume_memory350_policy_precision.py",
+    "tests/test_memory350_policy_precision.py"
+  ],
+  "target_precision": "fp32",
+  "model_architecture_changed": false,
+  "moe_implemented": false,
+  "eval_smoke_passed": true,
+  "regression_tests": "selected memory350 policy/evaluation/supervision tests passed; precision tests 3 passed"
+}

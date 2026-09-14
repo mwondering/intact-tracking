@@ -1,0 +1,40 @@
+{
+  "passed": true,
+  "completion": {
+    "automatic_plateau_detected": false,
+    "best_validation_dr_nmse": 0.045129524543881416,
+    "completed_updates": 5000,
+    "converged": false,
+    "hit_cap": true,
+    "optimizer_steps": 20000,
+    "selected_checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260912_memory350_encoder2x_nominal50_weakpairs/stage1_8192/best.pt",
+    "stopped": false,
+    "stopping_mode": "fixed_update_budget",
+    "target_updates": 5000,
+    "unix_time": 1789199728.9340308
+  },
+  "parameter_counts": {
+    "context_encoder": 2026688,
+    "predictor": 19059798,
+    "total": 21086486
+  },
+  "loss": {
+    "contact_binary_weight": 1.0,
+    "contact_force_weight": 1.0,
+    "foot_weight": 1.0,
+    "huber_delta": 1.0,
+    "joint_position_weight": 1.0,
+    "joint_velocity_weight": 1.0,
+    "representation_relation_weight": 2.0,
+    "representation_weight": 0.01,
+    "response_distance_scale": 0.5,
+    "root_angular_velocity_weight": 1.0,
+    "root_linear_velocity_weight": 1.0,
+    "root_orientation_weight": 1.0,
+    "root_position_weight": 1.0,
+    "weak_negative_margin": 1.0,
+    "weak_negative_weight": 0.002,
+    "weak_positive_weight": 0.002
+  },
+  "nominal_fraction": 0.5
+}

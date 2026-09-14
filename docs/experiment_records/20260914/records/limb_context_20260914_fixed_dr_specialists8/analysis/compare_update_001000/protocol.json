@@ -1,0 +1,16 @@
+{
+  "version": "complete_fixed_dr_specialist_monitor_v1",
+  "motion_manifest": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260914_fixed_dr_specialists8/protocols/evaluation_motions.txt",
+  "manifest_sha256": "84f2d51105dfcf3826bc45b2b047e5a4b669ab1874c7bca22d55e5e30c3f6c30",
+  "motions": 512,
+  "motion_path": "/data_zcy/wxy/motion_data_correct/motion_data_full",
+  "steps": 1000,
+  "seed": 20001,
+  "interval_updates": 1000,
+  "dr_bank": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260914_fixed_dr_specialists8/protocols/dr_bank.json",
+  "dr_bank_sha256": "3e6eb43abcee3e5c74e2bfb62f5c4dd368901991232c04cf88fb6ad8619c4ef4",
+  "reference_checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260914_fixed_dr_specialists8/analysis/compare_update_001000/reference_A/checkpoint_update_001000.pt",
+  "reference_sha256": "b74413299ee4956d72620da766a8c41bbdbdac6168848809b9b9ba587b1a9d61",
+  "reference_update": 1000,
+  "reference_evaluations": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260914_fixed_dr_specialists8/analysis/compare_update_001000/reference_A/evaluation"
+}

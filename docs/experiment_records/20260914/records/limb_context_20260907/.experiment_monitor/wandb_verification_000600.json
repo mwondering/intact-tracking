@@ -1,0 +1,25 @@
+{
+  "verified_at": 1788851482.6464097,
+  "runs": {
+    "baseline_121": {
+      "endpoint_eval/all_0/error_body_pos": 0.03651866340138466,
+      "endpoint_eval/all_4/error_body_pos": 0.06082513432448914,
+      "endpoint_eval/all_0/failure_rate": 0.00048828125,
+      "endpoint_eval/all_4/failure_rate": 0.078125,
+      "endpoint_eval/training_state_preserved": true,
+      "_step": 600,
+      "update": 600,
+      "endpoint_eval/checkpoint_update": 600
+    },
+    "film_121": {
+      "endpoint_eval/all_4/failure_rate": 0.08642578125,
+      "endpoint_eval/training_state_preserved": true,
+      "_step": 600,
+      "update": 600,
+      "endpoint_eval/checkpoint_update": 600,
+      "endpoint_eval/all_0/error_body_pos": 0.030840743866790032,
+      "endpoint_eval/all_4/error_body_pos": 0.0616699582691939,
+      "endpoint_eval/all_0/failure_rate": 0.000732421875
+    }
+  }
+}

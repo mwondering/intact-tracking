@@ -1,0 +1,32 @@
+{
+  "validation_sha256": {
+    "validation_broad_rank_0.pt": "e8634bbc798de938f55a624d0f5c2d66692ab2e6ad8a955eb6346827d14afe72",
+    "validation_broad_rank_1.pt": "46a747186d0b2fa5d1b55b376de48990db8d106d3ccf4273c534f158854bb253",
+    "validation_broad_rank_2.pt": "4f2dee0be52c526090c428463e7e8408b42b7e7c73bb5f2775f57db7874d39e1",
+    "validation_broad_rank_3.pt": "06dce4566ea216e57f4637f09e335745be846304038ab0fd756ad924a1ea7920"
+  },
+  "groups": {
+    "nominal": {
+      "samples": 1018,
+      "worlds": 246,
+      "baseline_nmse": 0.011163017712533474,
+      "candidate_nmse": 0.00932820700109005,
+      "candidate_to_baseline_error_ratio": 0.8356348872184753,
+      "paired_world_ratio_ci95": [
+        0.7673149992661337,
+        0.9105263005553983
+      ]
+    },
+    "dr": {
+      "samples": 1030,
+      "worlds": 249,
+      "baseline_nmse": 0.03586603328585625,
+      "candidate_nmse": 0.045512259006500244,
+      "candidate_to_baseline_error_ratio": 1.268951654434204,
+      "paired_world_ratio_ci95": [
+        1.1480815604303634,
+        1.4204970571314957
+      ]
+    }
+  }
+}

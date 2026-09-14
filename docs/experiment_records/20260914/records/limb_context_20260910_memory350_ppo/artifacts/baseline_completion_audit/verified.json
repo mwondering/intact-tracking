@@ -1,0 +1,70 @@
+{
+  "checked_at": 1789092444.6255941,
+  "passed": true,
+  "checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260910_memory350_ppo/ppo/baseline_121/checkpoint_update_005000.pt",
+  "checkpoint_sha256": "bf5fda76f36a8f19a71477b3ba48cfbd9424bf9855e79f40502b4ad9f11a1d53",
+  "completion_sha256": "97d9e1c47ec13fce7f15cd8c48e0c0ac9d2e192ac79bfcc4fc087633cba3126c",
+  "run_config_sha256": "5166f333035702e198f9c67c909e8d7809b725839b60c68e0af780c00185d442",
+  "periodic_100_to_5000": {
+    "count": 50,
+    "all_training_state_preserved": true
+  },
+  "distributed_parameter_agreement": {
+    "passed": true,
+    "world_size": 2,
+    "ranks": [
+      {
+        "rank": 0,
+        "completed_updates": 5000,
+        "actor_trainable_sha256": "f876135f3bbd569aa6999903dd791b356b88686f13a1d2e07b2d35734a056963",
+        "critic_trainable_sha256": "51943747a15968e8175df2fc8c9d45dbf6cf5710a4b9c0d040ff342f8bada199",
+        "critic_normalizer_sha256": "98e938a6eb93428236a34a8f825f0c244facc2be694f47a137bce9e6cc402b92",
+        "finite": true
+      },
+      {
+        "rank": 1,
+        "completed_updates": 5000,
+        "actor_trainable_sha256": "f876135f3bbd569aa6999903dd791b356b88686f13a1d2e07b2d35734a056963",
+        "critic_trainable_sha256": "51943747a15968e8175df2fc8c9d45dbf6cf5710a4b9c0d040ff342f8bada199",
+        "critic_normalizer_sha256": "98e938a6eb93428236a34a8f825f0c244facc2be694f47a137bce9e6cc402b92",
+        "finite": true
+      }
+    ]
+  },
+  "exited_training_processes": {
+    "baseline_launcher": {
+      "pid": 5504,
+      "state": "exited"
+    },
+    "baseline_rank0": {
+      "pid": 5589,
+      "state": "exited"
+    },
+    "baseline_rank1": {
+      "pid": 5590,
+      "state": "exited"
+    }
+  },
+  "final_evaluator": {
+    "pid": 63807,
+    "start_ticks": "1428086503",
+    "state": "S",
+    "command": [
+      "/data_zcy/wxy/intact-tracking/.venv/bin/python",
+      "-u",
+      "/data_zcy/wxy/intact-tracking/scripts/evaluate_memory350_ppo.py",
+      "--run-root",
+      "/data_zcy/wxy/intact-tracking/runs/limb_context_20260910_memory350_ppo",
+      "--fusion",
+      "baseline",
+      "--gpus",
+      "0",
+      "1"
+    ],
+    "gpus": [
+      0,
+      1
+    ]
+  },
+  "periodic_5000_checkpoint_sha256_verified": true
+}

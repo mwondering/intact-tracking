@@ -1,0 +1,20 @@
+{
+  "checked_at": 1789077561.28272,
+  "supervisor_pid": 9911,
+  "start_ticks": "1426645869",
+  "heartbeat_age": 6.636655569076538,
+  "phase": "training",
+  "jobs": {
+    "baseline": {
+      "pid": 5504,
+      "start_ticks": "1425461156",
+      "completed_updates": 2799
+    },
+    "film": {
+      "pid": 19374,
+      "start_ticks": "1425581381",
+      "completed_updates": 2362
+    }
+  },
+  "training_workers_unchanged": true
+}

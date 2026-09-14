@@ -1,0 +1,26 @@
+{
+  "pid": 58236,
+  "command": [
+    "/data_zcy/wxy/intact-tracking/.venv/bin/python",
+    "-B",
+    "-u",
+    "/data_zcy/wxy/intact-tracking/scripts/evaluate_memory350_response_window.py",
+    "--candidate",
+    "/data_zcy/wxy/intact-tracking/runs/limb_context_20260912_memory350_response_window_ablation/response10/stage1_8192/update_015000.pt",
+    "--reference",
+    "/data_zcy/wxy/intact-tracking/runs/limb_context_20260912_memory350_response_window_ablation/response5/stage1_8192/update_015000.pt",
+    "--cache",
+    "/data_zcy/wxy/intact-tracking/runs/latent_cluster_probe_memory350_nominal50_u5000_20260911",
+    "--output",
+    "/data_zcy/wxy/intact-tracking/runs/limb_context_20260912_memory350_response_window_ablation/comparison_015000",
+    "--comparison-kind",
+    "tuning"
+  ],
+  "physical_gpus": "7",
+  "process_start_ticks": 1442780773,
+  "log": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260912_memory350_response_window_ablation/comparison_015000.log",
+  "started_at": 1789238873.278433,
+  "exit_code": 0,
+  "finished_at": 1789238943.3247206,
+  "complete": true
+}

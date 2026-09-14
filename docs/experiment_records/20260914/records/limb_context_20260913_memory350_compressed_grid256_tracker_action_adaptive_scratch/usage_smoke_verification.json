@@ -1,0 +1,12 @@
+{
+  "passed": true,
+  "checkpoint_reloaded": true,
+  "same_query_physics_and_starts_across_arms": true,
+  "correct_and_swapped_latent_same_current_action_input_path": true,
+  "motions": 8,
+  "worlds": 16,
+  "query_steps": 200,
+  "warmup_steps": 500,
+  "swapped_fraction": 0.7492163009404389,
+  "verified_at": 1789304945.7863266
+}

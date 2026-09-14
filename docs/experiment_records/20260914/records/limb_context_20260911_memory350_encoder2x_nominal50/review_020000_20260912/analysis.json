@@ -1,0 +1,271 @@
+{
+  "update": 20000,
+  "source": "runs/limb_context_20260911_memory350_encoder2x_nominal50/comparison/update_020000/result.json",
+  "source_sha256": "22df69cf135b51d00685cbc057c98f9b5210c9e3af7329bafb99243dc0232071",
+  "precision": "bfloat16 autocast",
+  "checkpoint_hashes": {
+    "original": {
+      "path": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260911_memory350_nominal50/stage1_8192/update_020000.pt",
+      "sha256": "a9ae7bf853c309411dbdd744f3e624081a2cf66534487c2d0fa475c197f2b63f"
+    },
+    "encoder2x": {
+      "path": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260911_memory350_encoder2x_nominal50/stage1_8192/update_020000.pt",
+      "sha256": "1814567bcdb708c89d3ba9f317eab3d7f754366290ac838d8f7692c2e347d443"
+    }
+  },
+  "groups": {
+    "dr": {
+      "samples": 1030,
+      "worlds": 249,
+      "fraction_windows_better": 0.49514563106796117,
+      "horizon_1": {
+        "original_nmse": 0.03658811651334043,
+        "encoder2x_nmse": 0.03996810339588663,
+        "error_reduction_percent": -9.23793626084528,
+        "ratio_ci95": [
+          0.9944103051387251,
+          1.2113196203947745
+        ],
+        "reduction_percent_ci95": [
+          -21.131962039477447,
+          0.5589694861274919
+        ]
+      },
+      "horizon_5": {
+        "original_nmse": 0.03387464352725033,
+        "encoder2x_nmse": 0.032488158083191054,
+        "error_reduction_percent": 4.092989031586192,
+        "ratio_ci95": [
+          0.8631254250691098,
+          1.0560792012372782
+        ],
+        "reduction_percent_ci95": [
+          -5.6079201237278165,
+          13.687457493089017
+        ]
+      },
+      "fraction_of_dr_original_squared_error": 1.0,
+      "fraction_of_dr_total_error_reduction": 1.0
+    },
+    "nominal": {
+      "samples": 1018,
+      "worlds": 246,
+      "fraction_windows_better": 0.4577603143418468,
+      "horizon_1": {
+        "original_nmse": 0.020812586935307995,
+        "encoder2x_nmse": 0.019664072842183914,
+        "error_reduction_percent": 5.518362982429926,
+        "ratio_ci95": [
+          0.9120795812340111,
+          0.9811760343684883
+        ],
+        "reduction_percent_ci95": [
+          1.8823965631511674,
+          8.792041876598889
+        ]
+      },
+      "horizon_5": {
+        "original_nmse": 0.00868463792383448,
+        "encoder2x_nmse": 0.008121867863527551,
+        "error_reduction_percent": 6.480063593237883,
+        "ratio_ci95": [
+          0.8881261266774458,
+          0.9807684646248036
+        ],
+        "reduction_percent_ci95": [
+          1.9231535375196396,
+          11.187387332255415
+        ]
+      }
+    },
+    "dr_long_available": {
+      "samples": 877,
+      "worlds": 242,
+      "fraction_windows_better": 0.5039908779931584,
+      "horizon_1": {
+        "original_nmse": 0.02843925334752739,
+        "encoder2x_nmse": 0.03267128646787091,
+        "error_reduction_percent": -14.880957205972045,
+        "ratio_ci95": [
+          1.0101266803514435,
+          1.3074403736844056
+        ],
+        "reduction_percent_ci95": [
+          -30.74403736844056,
+          -1.0126680351443484
+        ]
+      },
+      "horizon_5": {
+        "original_nmse": 0.019690999843265153,
+        "encoder2x_nmse": 0.019497010100162155,
+        "error_reduction_percent": 0.9851695934543825,
+        "ratio_ci95": [
+          0.9283271526466077,
+          1.0475336962422028
+        ],
+        "reduction_percent_ci95": [
+          -4.753369624220283,
+          7.16728473533923
+        ]
+      },
+      "fraction_of_dr_original_squared_error": 0.4853793145872048,
+      "fraction_of_dr_total_error_reduction": 0.11682927521497123
+    },
+    "dr_no_long": {
+      "samples": 153,
+      "worlds": 118,
+      "fraction_windows_better": 0.4444444444444444,
+      "horizon_1": {
+        "original_nmse": 0.06758140640795679,
+        "encoder2x_nmse": 0.06772073069569368,
+        "error_reduction_percent": -0.20615772169028102,
+        "ratio_ci95": [
+          0.8997105180837589,
+          1.0680707767081499
+        ],
+        "reduction_percent_ci95": [
+          -6.807077670814987,
+          10.02894819162411
+        ]
+      },
+      "horizon_5": {
+        "original_nmse": 0.10565423322628516,
+        "encoder2x_nmse": 0.09823284913138397,
+        "error_reduction_percent": 7.02421840401456,
+        "ratio_ci95": [
+          0.7785826905649744,
+          1.135004247713872
+        ],
+        "reduction_percent_ci95": [
+          -13.500424771387198,
+          22.14173094350256
+        ]
+      },
+      "fraction_of_dr_original_squared_error": 0.5146206854127953,
+      "fraction_of_dr_total_error_reduction": 0.8831707247850288
+    },
+    "dr_short_incomplete_with_long": {
+      "samples": 450,
+      "worlds": 197,
+      "fraction_windows_better": 0.5066666666666667,
+      "horizon_1": {
+        "original_nmse": 0.02776503148828589,
+        "encoder2x_nmse": 0.032655036575179305,
+        "error_reduction_percent": -17.612099914082634,
+        "ratio_ci95": [
+          0.9990742560674593,
+          1.3784751205038646
+        ],
+        "reduction_percent_ci95": [
+          -37.847512050386456,
+          0.09257439325407457
+        ]
+      },
+      "horizon_5": {
+        "original_nmse": 0.0213902848316359,
+        "encoder2x_nmse": 0.020485083484798564,
+        "error_reduction_percent": 4.231834002970169,
+        "ratio_ci95": [
+          0.8848564868872947,
+          1.0275664710291177
+        ],
+        "reduction_percent_ci95": [
+          -2.756647102911769,
+          11.514351311270532
+        ]
+      },
+      "fraction_of_dr_original_squared_error": 0.33974434867907954,
+      "fraction_of_dr_total_error_reduction": 0.3512693720803607
+    },
+    "dr_short_full_with_long": {
+      "samples": 427,
+      "worlds": 205,
+      "fraction_windows_better": 0.5011709601873536,
+      "horizon_1": {
+        "original_nmse": 0.030030401677142275,
+        "encoder2x_nmse": 0.03270963584687466,
+        "error_reduction_percent": -8.921739371111027,
+        "ratio_ci95": [
+          0.9413503995767731,
+          1.241504594658266
+        ],
+        "reduction_percent_ci95": [
+          -24.15045946582659,
+          5.864960042322687
+        ]
+      },
+      "horizon_5": {
+        "original_nmse": 0.016612308062377606,
+        "encoder2x_nmse": 0.01770686104981925,
+        "error_reduction_percent": -6.588807427190169,
+        "ratio_ci95": [
+          0.9555326002143434,
+          1.1736652990420582
+        ],
+        "reduction_percent_ci95": [
+          -17.36652990420582,
+          4.446739978565661
+        ]
+      },
+      "fraction_of_dr_original_squared_error": 0.14563496590812522,
+      "fraction_of_dr_total_error_reduction": -0.23444009686538944
+    },
+    "dr_full_30_chunks": {
+      "samples": 383,
+      "worlds": 189,
+      "fraction_windows_better": 0.5274151436031331,
+      "horizon_1": {
+        "original_nmse": 0.022722375463948535,
+        "encoder2x_nmse": 0.02362823336643347,
+        "error_reduction_percent": -3.9866338091374853,
+        "ratio_ci95": [
+          0.9489140266665818,
+          1.1478105440098698
+        ],
+        "reduction_percent_ci95": [
+          -14.781054400986982,
+          5.108597333341825
+        ]
+      },
+      "horizon_5": {
+        "original_nmse": 0.020817117571234025,
+        "encoder2x_nmse": 0.020443271981277083,
+        "error_reduction_percent": 1.7958566486338978,
+        "ratio_ci95": [
+          0.8891485148386484,
+          1.0782991125337684
+        ],
+        "reduction_percent_ci95": [
+          -7.829911253376842,
+          11.085148516135156
+        ]
+      },
+      "fraction_of_dr_original_squared_error": 0.2605283276887695,
+      "fraction_of_dr_total_error_reduction": 0.11431047721523706
+    }
+  },
+  "matched_log_trend": {
+    "dr_five_step_nmse": {
+      "start": 10000,
+      "end": 20000,
+      "checkpoints": 101,
+      "original_mean": 0.034483077271961336,
+      "encoder2x_mean": 0.033031413211754644,
+      "error_reduction_percent": 4.2097868724351395,
+      "scaled_better_checkpoints": 101,
+      "scope": "descriptive trajectory on one fixed validation set; checkpoints are not independent replicates"
+    },
+    "nominal_five_step_nmse": {
+      "start": 10000,
+      "end": 20000,
+      "checkpoints": 101,
+      "original_mean": 0.009034149908912506,
+      "encoder2x_mean": 0.008397045436933046,
+      "error_reduction_percent": 7.052179545426118,
+      "scaled_better_checkpoints": 101,
+      "scope": "descriptive trajectory on one fixed validation set; checkpoints are not independent replicates"
+    }
+  },
+  "uncertainty_scope": "paired validation-world bootstrap for one training seed; not across training seeds",
+  "interpretation": "Modest aggregate five-step gain; DR interval includes no gain, DR one-step prediction worsens; encoder depth scaling is not a uniform improvement and has not been tested in PPO."
+}

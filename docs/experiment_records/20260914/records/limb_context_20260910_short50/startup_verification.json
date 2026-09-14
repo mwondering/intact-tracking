@@ -1,0 +1,61 @@
+{
+  "passed": true,
+  "timestamp": 1789018290.2574277,
+  "torchrun_pid": 23081,
+  "configuration_matched": {
+    "collector": "same Memory350 collector/replay and positive eligibility; long fields never enter the model",
+    "initialization": "fresh random shared predictor/encoder weights match Memory350 at the same seed",
+    "model_input": "only 50 completed within-episode interactions; no long memory",
+    "normalization_sha256": "4c4b8ac8e3048e52ecc6069e3a50e7dabe369dff73e654eb0392a85772902db0",
+    "paired_checkpoint_updates": [
+      100,
+      500,
+      1000,
+      3000,
+      5000,
+      7500
+    ],
+    "physics_and_training_controls_passed": true,
+    "reference_config_sha256": "3b1d98c7ee71403b9f17b56b43364c784d55564d227ee0670bc7e9b9538030fe",
+    "reference_dir": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260909_memory350/stage1_8192",
+    "shared_normalization_and_validation": true,
+    "validation_sha256_by_rank": [
+      {
+        "validation_broad_rank_0.pt": "2d833e70b3ac9fafbb5a1dc26d06a18261b0a04ff211090ece8ef76156717f1e",
+        "validation_rank_0.pt": "962d57107b74be223832d565952242ee748d16b904fb6e1f0b4d74fe42ff38fb"
+      },
+      {
+        "validation_broad_rank_1.pt": "fdf8a512ce235c36f576dda14489a17e9ed36efd604de8cd8fb05a12d95aa261",
+        "validation_rank_1.pt": "6f813e3b4ac7015fb28a8524940ade21ba3939dbd5a1365e26b5df283edf9f81"
+      },
+      {
+        "validation_broad_rank_2.pt": "de2b391bcd8cf9fe22edb6969012db33189e61f2720a33c8a87537e6842ab83a",
+        "validation_rank_2.pt": "1fcb295a04be3f640be6a670f62556f71719dc07de3ae2fa02b8a0025887b52c"
+      },
+      {
+        "validation_broad_rank_3.pt": "b3f532e4ab0b4577ed40cb1828f5b3a4efbe7b60d4b22a7e2b12cec1a805b850",
+        "validation_rank_3.pt": "0229ea6f45d0861e189d732f73368cf1b7bc83a1667f05116b874e74caca5278"
+      }
+    ]
+  },
+  "parameter_agreement": {
+    "passed": true,
+    "sha256_by_rank": [
+      "c37dc4bd13e3c0542be3250bd471095c5e53eed296fc3e38f6bdfe43e3f48164",
+      "c37dc4bd13e3c0542be3250bd471095c5e53eed296fc3e38f6bdfe43e3f48164",
+      "c37dc4bd13e3c0542be3250bd471095c5e53eed296fc3e38f6bdfe43e3f48164",
+      "c37dc4bd13e3c0542be3250bd471095c5e53eed296fc3e38f6bdfe43e3f48164"
+    ]
+  },
+  "model_long_memory_enabled": false,
+  "model_parameters": 19493910,
+  "wandb": {
+    "id": "s50-ad9b02965fba",
+    "url": "https://wandb.ai/2486344338-zhejiang-university/intact-forward-predictor/runs/s50-ad9b02965fba",
+    "state": "running",
+    "group": "limb_context_20260910_short50-stage1",
+    "account_email": "2486344338@qq.com",
+    "remote_update": 50
+  },
+  "tests_passed": 17
+}

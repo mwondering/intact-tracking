@@ -1,0 +1,160 @@
+{
+  "version": "deployable_context_distillation_v1",
+  "arguments": {
+    "teacher_checkpoint": "runs/adaptation_goal/oracle_clean_payload_seed58/checkpoint_500.pt",
+    "student_nominal_initialization": null,
+    "student_initialization": "runs/adaptation_goal/context_physics_linear_all_ppo_seed69/checkpoint_1050.pt",
+    "tracker_checkpoint": "/data_zcy/wxy/SP_Tracking/logs/rsl_rl/g1_tracking/2026-09-02_04-48-42_SPTracking-G1-BFM-SPV5-2AActor-HEFTCritic-HEFTReward_8gpu_12288env_motion_data_correct/checkpoint_72000.pt",
+    "motion_path": "/data_zcy/wxy/motion_data_correct/motion_data_full/AMASS_LAFAN_Qingtong",
+    "output_dir": "runs/adaptation_goal/context_identity_features_dagger_seed79",
+    "device": "cuda:0",
+    "seed": 79,
+    "training_rng_seed": 790001,
+    "num_envs": 1024,
+    "iterations": 3000,
+    "rollout_steps": 4,
+    "gradient_steps": 4,
+    "batch_size": 2048,
+    "replay_capacity": 32768,
+    "teacher_mix_updates": 0,
+    "latent_loss_weight": 0.0,
+    "context_auxiliary_weight": 0.05,
+    "context_physics_weight": 0.01,
+    "context_encoder_bias_weight": 0.0,
+    "train_student_base": false,
+    "freeze_student_residual": true,
+    "freeze_student_context": true,
+    "context_latent_mean": false,
+    "context_mean_horizon": 250,
+    "feature_distillation_weight": 0.01,
+    "add_identity_feature_adapter": true,
+    "context_imu_accel": true,
+    "train_reference_encoder": false,
+    "reference_feature_weight": 0.0,
+    "context_root_orientation": false,
+    "context_right_aligned": true,
+    "context_key_body": false,
+    "learning_rate": 3e-05,
+    "feature_calibration_updates": 0,
+    "feature_calibration_lr": 3e-05,
+    "save_interval": 100,
+    "sampling_mode": "uniform"
+  },
+  "teacher_sha256": "5a91d70ef4e8756796d074a7fbff75d8c5f9d5b325dc5121b8daf2267af31daf",
+  "student_initialization_sha256": "2b21aa60913373acb8a64872d7f9c5891e09318eb756617280080284e58ccc3f",
+  "student_initialization_action_max_difference": 0.0,
+  "student_nominal_initialization_sha256": null,
+  "student_nominal_initialization_action_max_difference": null,
+  "student_initialization_contract": "optional exact deployable nominal trunk transfer; context columns zero-padded; trainable per-joint log gain initialized to nominal/teacher residual scale, bounded[-4,0]; one shared network, no ensemble",
+  "physics": {
+    "physics": "dr",
+    "details": {
+      "payload": {
+        "enabled": true,
+        "event_name": "right_hand_payload",
+        "body_name": "right_wrist_yaw_link",
+        "mass_range_kg": [
+          1.0,
+          3.0
+        ],
+        "position_body_frame_m": [
+          0.12,
+          0.0,
+          0.0
+        ],
+        "cuboid_size_m": [
+          0.1,
+          0.08,
+          0.08
+        ],
+        "physics_model": "rigid cuboid composite inertia (mass, COM, principal inertia and inertial frame); no payload collision geometry"
+      }
+    },
+    "removed_disturbances": [
+      "push_robot"
+    ],
+    "cleared_exclusions": [
+      "[/data_zcy/wxy/motion_filter/0827/invalid_motions_0827_v1.json,/data_zcy/wxy/SP_Tracking/logs/motion_benchmark_10000.json,/data_zcy/wxy/SP_Tracking/logs/motion_benchmark_0830_22000.json,/data_zcy/wxy/SP_Tracking/benchmark_0831_36000.json,/data_zcy/wxy/SP_Tracking/benchmark_0901_44000.json,/data_zcy/wxy/SP_Tracking/benchmark_0902_59000.json]"
+    ]
+  },
+  "actor_inputs": [
+    "robot_root_quat",
+    "estimator_history",
+    "reference_encoder_input",
+    "robot_key_body",
+    "adaptation_imu_accel_history"
+  ],
+  "additional_imu": {
+    "enabled": true,
+    "sensor": "existing XML pelvis imu_lin_acc, local specific force including gravity",
+    "noise_std_m_s2": 0.2,
+    "history_steps": 50,
+    "encoder_scale_m_s2": 10.0
+  },
+  "context_inputs": "50-frame measured q, qdot, gravity, gyro, known command and torque history",
+  "privileged_actor_inputs": [],
+  "action_distillation": "student-visited states with an annealed per-world teacher mixture",
+  "latent_loss_weight": 0.0,
+  "train_student_base": false,
+  "freeze_student_residual": true,
+  "freeze_student_context": true,
+  "context_latent_mean": false,
+  "context_mean_horizon": 250,
+  "context_memory_contract": "current latent plus causal prefix mean, EMA gain1/horizon after horizon samples; frozen producer encoder; reset per episode; no extra sensor draws or future samples",
+  "feature_distillation_weight": 0.01,
+  "train_reference_encoder": false,
+  "reference_feature_weight": 0.0,
+  "context_root_orientation": false,
+  "context_right_aligned": true,
+  "context_key_body": false,
+  "context_kinematics_contract": "existing195D FK from measured joints and gyro, scaled positions/rotations1, linear velocities2, angular velocities4; no additional simulator observations",
+  "context_alignment_contract": "optional left trim preserves newest causal sample; legacy checkpoints retain original alignment",
+  "context_orientation_contract": "existing deployable robot_root_quat, not simulator quaternion; resolves absent initial world heading in local history",
+  "reference_training_contract": "raw deployable observation replay; action gradients through reference kinematics; no true reference at inference",
+  "feature_adapter_contract": "deployable normalized tracker features + context latent; teacher features only in loss",
+  "add_identity_feature_adapter": true,
+  "base_distillation_target": "absolute teacher action, avoiding stale replay base actions",
+  "context_auxiliary_supervision": {
+    "weight": 0.05,
+    "labels": "body-frame linear velocity(m/s), payload mass minus2(kg)",
+    "input_contract": "loss-only labels; the readout consumes context latent only"
+  },
+  "context_physics_supervision": {
+    "weight": 0.01,
+    "labels": "torso_delta_kg, torso_COMxyz_m, mean_foot_friction, mean_armature_ratio",
+    "centers": [
+      0,
+      0,
+      0,
+      0,
+      1.15,
+      1.0
+    ],
+    "scales": [
+      1,
+      0.075,
+      0.075,
+      0.075,
+      0.85,
+      0.2
+    ],
+    "contract": "six additional loss-only labels; no physics values enter the context encoder or action path"
+  },
+  "context_encoder_bias_supervision": {
+    "weight": 0.0,
+    "labels": "29 true encoder biases divided by .01 rad, startup constant per world",
+    "contract": "loss-only targets, never encoder or action inputs; ten old readout outputs preserved when expanding to39"
+  },
+  "feature_calibration": {
+    "updates": 0,
+    "learning_rate": 3e-05,
+    "loss": "height_MSE/0.03^2 + contact_BCE + normalized_reference_residual_MSE",
+    "input_contract": "privileged targets only in training loss, never estimator inputs"
+  },
+  "research_source_sha256": {
+    "src/intact_tracking/cli/adaptation_distill.py": "fb86a13acec124c4068813c186158fead9ad64b95837c167bea5ef1cc98a45fd",
+    "src/intact_tracking/adaptation_policy.py": "73dd45c408dcc3cdc4cb73f54c0f7ebf40b3c578a6c497ee09bbd9386cba6335",
+    "src/intact_tracking/adaptation_sensors.py": "52fc1c2b333feae0b3e113d4aa3943cd5d2dbd544de5c137678a3b437344f08d",
+    "src/intact_tracking/adaptation_context_memory.py": "d226f9f4ee7b6420be14b99f5251d90a5bf7edc38092ebefc504eb2047226148"
+  }
+}

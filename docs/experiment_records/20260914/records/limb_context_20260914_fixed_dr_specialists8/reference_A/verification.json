@@ -1,0 +1,185 @@
+{
+  "passed": true,
+  "A_update": 4000,
+  "motions_per_DR": 512,
+  "steps": 1000,
+  "profiles": [
+    {
+      "dr_id": 0,
+      "name": "all_0kg",
+      "mean": {
+        "error_body_pos": 0.04332720806590355,
+        "error_joint_pos": 0.6030759543192629,
+        "error_anchor_pos": 0.189779507187996,
+        "error_anchor_rot": 0.08111689385414343,
+        "error_body_rot": 0.16554118361280903,
+        "error_joint_vel": 3.0951957552133873,
+        "error_anchor_lin_vel": 0.14979791516798302,
+        "error_anchor_ang_vel": 0.37067695314060256,
+        "error_body_lin_vel": 0.1891408688258667,
+        "error_body_ang_vel": 0.7695318354758638
+      },
+      "failure_rate": 0.001953125,
+      "failed_count": 1,
+      "coverage": 0.9993040561676025,
+      "physics_fingerprint": "89e4a46065df96b2d29b34b90b3261c33f486554f3a2331f56153ff4fd1a96ae",
+      "paired_query_initial_state_sha256": "830fff5eb72ed9282fa3dba0a94aa8cad420578c0b86bc7c56ada4d5adab2c56",
+      "output": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260914_fixed_dr_specialists8/reference_A/evaluation/dr_00.json"
+    },
+    {
+      "dr_id": 1,
+      "name": "all_1kg",
+      "mean": {
+        "error_body_pos": 0.03845815971746126,
+        "error_joint_pos": 0.5862726121276596,
+        "error_anchor_pos": 0.1740165034780881,
+        "error_anchor_rot": 0.06809698034260485,
+        "error_body_rot": 0.1521952319806748,
+        "error_joint_vel": 3.728725241889323,
+        "error_anchor_lin_vel": 0.1530963219325508,
+        "error_anchor_ang_vel": 0.4108199524292101,
+        "error_body_lin_vel": 0.20660304990431438,
+        "error_body_ang_vel": 0.9669558555456185
+      },
+      "failure_rate": 0.0,
+      "failed_count": 0,
+      "coverage": 1.0,
+      "physics_fingerprint": "301ea1a2e783aa98554318a4d27b0fff8bef0c0d258d508a4673d9c177fa270e",
+      "paired_query_initial_state_sha256": "830fff5eb72ed9282fa3dba0a94aa8cad420578c0b86bc7c56ada4d5adab2c56",
+      "output": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260914_fixed_dr_specialists8/reference_A/evaluation/dr_01.json"
+    },
+    {
+      "dr_id": 2,
+      "name": "all_2kg",
+      "mean": {
+        "error_body_pos": 0.0416631129874666,
+        "error_joint_pos": 0.6243226326167635,
+        "error_anchor_pos": 0.22302591216105724,
+        "error_anchor_rot": 0.06616087999775386,
+        "error_body_rot": 0.184183360517783,
+        "error_joint_vel": 4.031557256897287,
+        "error_anchor_lin_vel": 0.17706976525974125,
+        "error_anchor_ang_vel": 0.4323020850308668,
+        "error_body_lin_vel": 0.24479557912125458,
+        "error_body_ang_vel": 1.113966751459753
+      },
+      "failure_rate": 0.0,
+      "failed_count": 0,
+      "coverage": 1.0,
+      "physics_fingerprint": "be4aa13f3ab76784e6e575e93f22eb7e5d112cb0497e0fbc55bce528d60989cd",
+      "paired_query_initial_state_sha256": "830fff5eb72ed9282fa3dba0a94aa8cad420578c0b86bc7c56ada4d5adab2c56",
+      "output": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260914_fixed_dr_specialists8/reference_A/evaluation/dr_02.json"
+    },
+    {
+      "dr_id": 3,
+      "name": "all_4kg",
+      "mean": {
+        "error_body_pos": 0.057939104934827804,
+        "error_joint_pos": 0.823299903526075,
+        "error_anchor_pos": 0.44322616333908305,
+        "error_anchor_rot": 0.08139902616759391,
+        "error_body_rot": 0.26911686109337474,
+        "error_joint_vel": 5.556539144478402,
+        "error_anchor_lin_vel": 0.264879736744472,
+        "error_anchor_ang_vel": 0.5969597306356084,
+        "error_body_lin_vel": 0.34833757806548826,
+        "error_body_ang_vel": 1.523274761607364
+      },
+      "failure_rate": 0.044921875,
+      "failed_count": 23,
+      "coverage": 0.9729326963424683,
+      "physics_fingerprint": "3d0059490fc570860cce91d00229f2278d4291f82b95901507f2bad23cf2af73",
+      "paired_query_initial_state_sha256": "830fff5eb72ed9282fa3dba0a94aa8cad420578c0b86bc7c56ada4d5adab2c56",
+      "output": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260914_fixed_dr_specialists8/reference_A/evaluation/dr_03.json"
+    },
+    {
+      "dr_id": 4,
+      "name": "arms_4kg",
+      "mean": {
+        "error_body_pos": 0.05265471582416366,
+        "error_joint_pos": 0.7765670069499997,
+        "error_anchor_pos": 0.3019027650166588,
+        "error_anchor_rot": 0.07209471672977996,
+        "error_body_rot": 0.2501585590630049,
+        "error_joint_vel": 4.943054581800581,
+        "error_anchor_lin_vel": 0.2215211319378247,
+        "error_anchor_ang_vel": 0.5141156100263561,
+        "error_body_lin_vel": 0.3032431296068946,
+        "error_body_ang_vel": 1.3806968314123287
+      },
+      "failure_rate": 0.02734375,
+      "failed_count": 14,
+      "coverage": 0.9824583530426025,
+      "physics_fingerprint": "56ad139774d1baeb441e90fb842b405b51dd99ac308e0a15685d5b7f14a65ba3",
+      "paired_query_initial_state_sha256": "830fff5eb72ed9282fa3dba0a94aa8cad420578c0b86bc7c56ada4d5adab2c56",
+      "output": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260914_fixed_dr_specialists8/reference_A/evaluation/dr_04.json"
+    },
+    {
+      "dr_id": 5,
+      "name": "shins_4kg",
+      "mean": {
+        "error_body_pos": 0.041713100208490304,
+        "error_joint_pos": 0.5935959303810736,
+        "error_anchor_pos": 0.22841335560308818,
+        "error_anchor_rot": 0.07694811487213266,
+        "error_body_rot": 0.16390838607794,
+        "error_joint_vel": 3.1837034362972507,
+        "error_anchor_lin_vel": 0.16369815072568317,
+        "error_anchor_ang_vel": 0.37441244052235684,
+        "error_body_lin_vel": 0.20366014580451977,
+        "error_body_ang_vel": 0.7835902316802263
+      },
+      "failure_rate": 0.001953125,
+      "failed_count": 1,
+      "coverage": 0.9988773465156555,
+      "physics_fingerprint": "77d3d1c9a607d786913cdd3c6241205ffcc3502680319cf5e6c431895eeeee5d",
+      "paired_query_initial_state_sha256": "830fff5eb72ed9282fa3dba0a94aa8cad420578c0b86bc7c56ada4d5adab2c56",
+      "output": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260914_fixed_dr_specialists8/reference_A/evaluation/dr_05.json"
+    },
+    {
+      "dr_id": 6,
+      "name": "left_4kg",
+      "mean": {
+        "error_body_pos": 0.044676394589693164,
+        "error_joint_pos": 0.6900289304936417,
+        "error_anchor_pos": 0.250000023883241,
+        "error_anchor_rot": 0.07213328788618172,
+        "error_body_rot": 0.19832181267448018,
+        "error_joint_vel": 4.160513032664902,
+        "error_anchor_lin_vel": 0.1935351217147298,
+        "error_anchor_ang_vel": 0.4545811761259563,
+        "error_body_lin_vel": 0.25579110606287747,
+        "error_body_ang_vel": 1.1154387119654525
+      },
+      "failure_rate": 0.009765625,
+      "failed_count": 5,
+      "coverage": 0.9945821166038513,
+      "physics_fingerprint": "37a95f46f1d811bf1feae3a3c764e9bd04b397143eef0ada4905f1996ea69f6f",
+      "paired_query_initial_state_sha256": "830fff5eb72ed9282fa3dba0a94aa8cad420578c0b86bc7c56ada4d5adab2c56",
+      "output": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260914_fixed_dr_specialists8/reference_A/evaluation/dr_06.json"
+    },
+    {
+      "dr_id": 7,
+      "name": "right_4kg",
+      "mean": {
+        "error_body_pos": 0.04408519029864046,
+        "error_joint_pos": 0.6826121599810058,
+        "error_anchor_pos": 0.24560383343132813,
+        "error_anchor_rot": 0.07214081734871192,
+        "error_body_rot": 0.19811915141000094,
+        "error_joint_vel": 4.05206000503726,
+        "error_anchor_lin_vel": 0.19041076429586257,
+        "error_anchor_ang_vel": 0.44602884649321,
+        "error_body_lin_vel": 0.25033867029106865,
+        "error_body_ang_vel": 1.0799166526973463
+      },
+      "failure_rate": 0.005859375,
+      "failed_count": 3,
+      "coverage": 0.9963423013687134,
+      "physics_fingerprint": "efde8fa4ee8118d114997c45cc9fbb62ad0f04cb20723e4a57fa4bf778cae3e0",
+      "paired_query_initial_state_sha256": "830fff5eb72ed9282fa3dba0a94aa8cad420578c0b86bc7c56ada4d5adab2c56",
+      "output": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260914_fixed_dr_specialists8/reference_A/evaluation/dr_07.json"
+    }
+  ],
+  "checked_at": 1789351756.9666307
+}

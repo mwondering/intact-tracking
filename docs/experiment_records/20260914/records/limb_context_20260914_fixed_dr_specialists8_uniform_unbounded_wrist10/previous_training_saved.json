@@ -1,0 +1,55 @@
+{
+  "old_run": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260914_fixed_dr_specialists8",
+  "all_eight_saved_and_stopped": true,
+  "checkpoints": {
+    "0": {
+      "checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260914_fixed_dr_specialists8/ppo/B00_all_0kg/checkpoint_interrupted.pt",
+      "completed_updates": 1555,
+      "sha256": "4e24c53cc123da7572b66d9ae962c5b6ca09b313cd1ffe0e24da797169fbc0b0",
+      "old_pid": 15588
+    },
+    "1": {
+      "checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260914_fixed_dr_specialists8/ppo/B01_all_1kg/checkpoint_interrupted.pt",
+      "completed_updates": 1437,
+      "sha256": "1b598cf03bc7e88fa81b816ea25996208794ffca25b993bce9d0e94f02a1b10a",
+      "old_pid": 15589
+    },
+    "2": {
+      "checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260914_fixed_dr_specialists8/ppo/B02_all_2kg/checkpoint_interrupted.pt",
+      "completed_updates": 1561,
+      "sha256": "76493d0174f9681135a3fb56284591760c5399e65c1273b277e335c54cf7d7fe",
+      "old_pid": 15348
+    },
+    "3": {
+      "checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260914_fixed_dr_specialists8/ppo/B03_all_4kg/checkpoint_interrupted.pt",
+      "completed_updates": 1588,
+      "sha256": "462a939df626baadf571ade888b83b9b285ce378496c9e8c03fa8ca507e8659f",
+      "old_pid": 15597
+    },
+    "4": {
+      "checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260914_fixed_dr_specialists8/ppo/B04_arms_4kg/checkpoint_interrupted.pt",
+      "completed_updates": 1576,
+      "sha256": "1c8f1c108bfb5e9badb3268efa996a5f9c3a7c25b414bd09158b01c59b26c37b",
+      "old_pid": 15598
+    },
+    "5": {
+      "checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260914_fixed_dr_specialists8/ppo/B05_shins_4kg/checkpoint_interrupted.pt",
+      "completed_updates": 1510,
+      "sha256": "3932f20217d4b5c9a62697f37cc2c29212d1e8156fff12150b6092e5910d1541",
+      "old_pid": 15601
+    },
+    "6": {
+      "checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260914_fixed_dr_specialists8/ppo/B06_left_4kg/checkpoint_interrupted.pt",
+      "completed_updates": 1510,
+      "sha256": "f4a6b655f6e7bcd4127b26568e64db0e2bbb660cf839d1d3991c039a803ef984",
+      "old_pid": 15604
+    },
+    "7": {
+      "checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260914_fixed_dr_specialists8/ppo/B07_right_4kg/checkpoint_interrupted.pt",
+      "completed_updates": 1521,
+      "sha256": "a0fa2ff831d6d161eb576c759ecb70102cc29b83ff53be6ed17b7a9b45f57fcc",
+      "old_pid": 15606
+    }
+  },
+  "checked_at": 1789360293.0784688
+}

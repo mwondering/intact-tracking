@@ -1,0 +1,61 @@
+{
+  "passed": true,
+  "checked_at": 1789134890.971821,
+  "completion": {
+    "automatic_plateau_detected": false,
+    "best_validation_dr_nmse": 1.058444768190384,
+    "completed_updates": 2,
+    "converged": false,
+    "hit_cap": true,
+    "optimizer_steps": 8,
+    "selected_checkpoint": "/data_zcy/wxy/intact-tracking/runs/limb_context_20260911_memory350_encoder2x_nominal50/smoke_8192/best.pt",
+    "stopped": false,
+    "stopping_mode": "automatic_budget_or_plateau",
+    "target_updates": 2,
+    "unix_time": 1789134869.5806923
+  },
+  "gpus": [
+    4,
+    5,
+    6,
+    7
+  ],
+  "num_envs_per_rank": 8192,
+  "nominal_a_fraction": 0.5,
+  "three_encoder_stages_have_finite_nonzero_gradients": true,
+  "ddp_parameter_agreement": {
+    "passed": true,
+    "sha256_by_rank": [
+      "cc0026c067adcc01bff1c3fd70ae8714fd127efd6d770e37d77a49e3ad52287f",
+      "cc0026c067adcc01bff1c3fd70ae8714fd127efd6d770e37d77a49e3ad52287f",
+      "cc0026c067adcc01bff1c3fd70ae8714fd127efd6d770e37d77a49e3ad52287f",
+      "cc0026c067adcc01bff1c3fd70ae8714fd127efd6d770e37d77a49e3ad52287f"
+    ]
+  },
+  "parameter_counts": {
+    "total": 21086486,
+    "context_encoder": 2026688,
+    "predictor": 19059798
+  },
+  "probe": {
+    "dr_counterfactual_rms": 1.679059237241745,
+    "dr_five_step_nmse": 1.058444768190384,
+    "latent_distance_batch_p10": 0.9967646598815918,
+    "latent_distance_batch_p50": 1.3318902552127838,
+    "latent_distance_batch_p90": 1.5952533781528473,
+    "latent_distance_mean": 1.304244577884674,
+    "latent_positive_cosine": 0.9738970994949341,
+    "latent_relation_pairs": 508.0,
+    "latent_response_correlation": -0.04347435478121042,
+    "latent_shuffle_dr_error_ratio": 1.0137435495853424,
+    "latent_target_distance_batch_p10": 1.2008646990580019e-05,
+    "latent_target_distance_batch_p50": 1.2006786167621613,
+    "latent_target_distance_batch_p90": 1.5705306231975555,
+    "latent_target_distance_mean": 0.9706243425607681,
+    "nominal_counterfactual_rms": 0.001174788318166975,
+    "nominal_five_step_nmse": 1.0921306312084198,
+    "one_step_nmse": 1.0404083132743835,
+    "representation_positive_loss": 0.0261029158718884,
+    "representation_relation_loss": 0.4235887676477432
+  }
+}

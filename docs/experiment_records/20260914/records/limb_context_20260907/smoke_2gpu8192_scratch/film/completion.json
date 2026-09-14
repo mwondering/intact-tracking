@@ -1,0 +1,39 @@
+{
+  "target_updates": 3,
+  "completed_updates": 3,
+  "complete": true,
+  "stopped": false,
+  "distributed_parameter_agreement": {
+    "passed": true,
+    "world_size": 2,
+    "ranks": [
+      {
+        "rank": 0,
+        "completed_updates": 3,
+        "actor_trainable_sha256": "fd70b12e129d4ae2e7c24326c0a37126bd543a7f08b4c2d15331823c76219792",
+        "critic_trainable_sha256": "aa75be190237f3cccb18dad6c5751334bb234df4283e3477d2b0224c018ec420",
+        "critic_normalizer_sha256": "66859acae3083a3c05948f11b2d0a3b095ccbb7baec043302fb453dd8bedc984",
+        "finite": true
+      },
+      {
+        "rank": 1,
+        "completed_updates": 3,
+        "actor_trainable_sha256": "fd70b12e129d4ae2e7c24326c0a37126bd543a7f08b4c2d15331823c76219792",
+        "critic_trainable_sha256": "aa75be190237f3cccb18dad6c5751334bb234df4283e3477d2b0224c018ec420",
+        "critic_normalizer_sha256": "66859acae3083a3c05948f11b2d0a3b095ccbb7baec043302fb453dd8bedc984",
+        "finite": true
+      }
+    ]
+  },
+  "initialization_protocol": "residual_actor_and_critic_from_scratch_v3",
+  "distributed": {
+    "world_size": 2,
+    "num_envs_per_rank": 8192,
+    "global_num_envs": 16384,
+    "rank_seed_formula": "seed + 1000003 * rank",
+    "gradient_synchronization": "mean across all ranks at each optimizer step",
+    "advantage_normalization": "global rollout mean and sample standard deviation",
+    "critic_normalization": "global pooled sums, squared sums and count at every environment step"
+  },
+  "unix_time": 1788843843.5311425
+}
