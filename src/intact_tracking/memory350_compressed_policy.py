@@ -17,11 +17,13 @@ CRITIC_CLASS = "intact_tracking.memory350_compressed_policy:CompressedContextCri
 
 class CompressedConcatMLP(nn.Module):
     def __init__(self, feature_dim, output_dim, *, compression_dims, head_dims=(256, 128),
-                 fusion="concat", seed=0, zero_output=False, tracker_action_dim=0):
+                 fusion="concat", seed=0, zero_output=False, tracker_action_dim=0, latent_dim=64):
         super().__init__()
         if fusion not in ("baseline", "concat") or tuple(compression_dims)[-1] != 128:
             raise ValueError("Use a 128-D compressed observation and baseline/concat fusion")
-        self.feature_dim, self.latent_dim, self.fusion = feature_dim, 64, fusion
+        self.feature_dim, self.latent_dim, self.fusion = feature_dim, int(latent_dim), fusion
+        if self.latent_dim not in (64, 320):
+            raise ValueError("Compressed context supports one or five 64-D frames")
         self.tracker_action_dim = int(tracker_action_dim)
         if self.tracker_action_dim not in (0, 29):
             raise ValueError("The optional tracker action must have 29 dimensions")
@@ -29,7 +31,7 @@ class CompressedConcatMLP(nn.Module):
             torch.random.default_generator.manual_seed(seed)
             self.observation = nn.Sequential(
                 MLP(feature_dim, 128, list(compression_dims[:-1]), "elu"), nn.ELU())
-            self.head = MLP(128 + 64, output_dim, list(head_dims), "elu")
+            self.head = MLP(128 + self.latent_dim, output_dim, list(head_dims), "elu")
             # Initial values and actions are identical across the two arms.
             # These columns are trainable and receive gradients immediately.
             with torch.no_grad():
@@ -53,15 +55,15 @@ class CompressedConcatMLP(nn.Module):
 
     def forward(self, value):
         input_dim = self.feature_dim + self.tracker_action_dim
-        if value.shape[-1] not in (input_dim, input_dim + 64):
+        if value.shape[-1] not in (input_dim, input_dim + self.latent_dim):
             raise ValueError("Incorrect observation-plus-latent dimensions")
         features = value[..., :self.feature_dim]
         tracker_action = value[..., self.feature_dim:input_dim].detach()
         if self.fusion == "baseline":
-            latent = features.new_zeros(*features.shape[:-1], 64)
+            latent = features.new_zeros(*features.shape[:-1], self.latent_dim)
         else:
-            if value.shape[-1] != input_dim + 64:
-                raise ValueError("Latent arm requires the frozen 64-dimensional context")
+            if value.shape[-1] != input_dim + self.latent_dim:
+                raise ValueError("Latent arm requires the configured frozen context dimensions")
             latent = value[..., input_dim:].detach()
         compressed = self.observation(features)
         return self.head(torch.cat((compressed, tracker_action, latent), dim=-1))
@@ -69,18 +71,22 @@ class CompressedConcatMLP(nn.Module):
 
 class CompressedContextActor(LimbContextResidualActor):
     def __init__(self, *args, fusion_mode="baseline", compression_dims=(512, 256, 128),
-                 head_dims=(256, 128), tracker_action_input=False, **kwargs):
+                 head_dims=(256, 128), tracker_action_input=False, latent_history_frames=1, **kwargs):
+        if latent_history_frames not in (1, 5):
+            raise ValueError("Use one or five latent frames")
+        kwargs["dynamics_latent_dim"] = 64 * latent_history_frames
         super().__init__(*args, fusion_mode="baseline", **kwargs)
+        self.latent_history_frames = latent_history_frames
         if self.tracker.policy_input_dim != 1645 or tuple(compression_dims) != (512, 256, 128):
             raise ValueError("Actor compression must be 1645 -> 512 -> 256 -> 128")
         self.tracker_action_input = bool(tracker_action_input)
         self.residual_mlp = CompressedConcatMLP(
             1645, self.distribution.output_dim, compression_dims=compression_dims,
             head_dims=head_dims, fusion=fusion_mode, seed=self.initialization_seed, zero_output=True,
-            tracker_action_dim=29 if self.tracker_action_input else 0)
+            tracker_action_dim=29 if self.tracker_action_input else 0, latent_dim=64 * latent_history_frames)
         self.fusion_mode = fusion_mode
         self.use_dynamics_latent = fusion_mode == "concat"
-        self.residual_input_dim = 1645 + (29 if self.tracker_action_input else 0) + (64 if self.use_dynamics_latent else 0)
+        self.residual_input_dim = 1645 + (29 if self.tracker_action_input else 0) + (64 * latent_history_frames if self.use_dynamics_latent else 0)
 
     def _residual_input(self, obs, tracker_features, base_action, *, latent_override=None):
         value = super()._residual_input(obs, tracker_features, base_action,
@@ -135,18 +141,27 @@ class CompressedContextActor(LimbContextResidualActor):
 
 class CompressedContextCritic(LimbContextCritic):
     def __init__(self, *args, fusion_mode="baseline", compression_dims=(1024, 512, 256, 128),
-                 head_dims=(256, 128), **kwargs):
+                 head_dims=(256, 128), latent_history_frames=1, **kwargs):
+        if latent_history_frames not in (1, 5):
+            raise ValueError("Use one or five latent frames")
+        kwargs["dynamics_latent_dim"] = 64 * latent_history_frames
         super().__init__(*args, fusion_mode="baseline", **kwargs)
+        self.latent_history_frames = latent_history_frames
         self.mlp = CompressedConcatMLP(
             self.obs_dim, 1, compression_dims=compression_dims, head_dims=head_dims,
-            fusion=fusion_mode, seed=self.initialization_seed)
+            fusion=fusion_mode, seed=self.initialization_seed, latent_dim=64 * latent_history_frames)
         self.fusion_mode = fusion_mode
 
 
-def configure_compressed_models(train, fusion, *, scratch_seed=None, tracker_action_input=False):
+def configure_compressed_models(train, fusion, *, scratch_seed=None, tracker_action_input=False, latent_history_frames=1):
     result = configure_context_models(train, fusion, scratch_seed=scratch_seed)
     result["actor"].update(class_name=ACTOR_CLASS, compression_dims=[512, 256, 128], head_dims=[256, 128])
     result["critic"].update(class_name=CRITIC_CLASS, compression_dims=[1024, 512, 256, 128], head_dims=[256, 128])
+    if latent_history_frames not in (1, 5):
+        raise ValueError("Use one or five latent frames")
+    if latent_history_frames != 1:
+        for role in ("actor", "critic"):
+            result[role].update(latent_history_frames=latent_history_frames, dynamics_latent_dim=64 * latent_history_frames)
     if tracker_action_input:
         result["actor"]["tracker_action_input"] = True
     return result
@@ -163,7 +178,7 @@ def audit_initial_models(actor, critic, obs, fusion):
         if actor.tracker_action_input:
             residual_input = actor._residual_input(obs, features, base_action)
             torch.testing.assert_close(residual_input[..., 1645:1674], base_action, atol=0, rtol=0)
-            assert actor.residual_mlp.head[0].in_features == 221
+            assert actor.residual_mlp.head[0].in_features == 128 + 29 + actor.residual_mlp.latent_dim
         if fusion == "concat":
             alternate = obs.clone()
             alternate["dynamics_latent"] = torch.randn_like(obs["dynamics_latent"])
@@ -172,13 +187,14 @@ def audit_initial_models(actor, critic, obs, fusion):
     return {"actor_original_features": features.shape[-1], "critic_original_features": critic.obs_dim,
             "actor_compression": [1645, 512, 256, 128],
             "critic_compression": [critic.obs_dim, 1024, 512, 256, 128],
-            "fusion_input_dim": actor.residual_mlp.head[0].in_features, "latent_slot_dim": 64,
+            "fusion_input_dim": actor.residual_mlp.head[0].in_features, "latent_slot_dim": actor.residual_mlp.latent_dim,
             "actor_fusion_input_dim": actor.residual_mlp.head[0].in_features,
             "critic_fusion_input_dim": critic.mlp.head[0].in_features,
             "tracker_action_input_dim": 29 if actor.tracker_action_input else 0,
             "tracker_action_input": ("current deterministic raw tracker mean; exact same tensor values as additive base action"
                                      if actor.tracker_action_input else "absent"),
-            "latent_dimensions": 64 if fusion == "concat" else 0,
+            "latent_dimensions": actor.residual_mlp.latent_dim if fusion == "concat" else 0,
+            "latent_history_frames": actor.residual_mlp.latent_dim // 64,
             "baseline_latent_slot": "zeros before the common residual/value heads",
             "identical_initial_action": True, "initial_value_independent_of_latent": True,
             "action_std_initialization": SCRATCH_ACTION_STD,

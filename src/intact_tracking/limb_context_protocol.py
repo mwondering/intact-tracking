@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import math
 from pathlib import Path
 
 import torch
@@ -23,15 +24,24 @@ TRACKER_SHA256 = "fd7bd90d5552e573bbbce1417e9b415c64bb487a76b683ba3c20503b5ec776
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
-def sample_limb_masses(num_envs: int, seed: int, fixed_masses=None) -> torch.Tensor:
+def validate_limb_max_masses(max_masses_kg):
+    limits = tuple(float(value) for value in max_masses_kg)
+    if len(limits) != 4 or any(not math.isfinite(value) or not 0 < value <= 4 for value in limits):
+        raise ValueError("Four limb mass maxima must be finite, positive and at most 4 kg")
+    return limits
+
+
+def sample_limb_masses(num_envs: int, seed: int, fixed_masses=None, *,
+                       max_masses_kg=(4.0, 4.0, 4.0, 4.0)) -> torch.Tensor:
     if num_envs < 1:
         raise ValueError("num_envs must be positive")
+    limits = torch.tensor(validate_limb_max_masses(max_masses_kg), dtype=torch.float32)
     if fixed_masses is not None:
         masses = torch.as_tensor(fixed_masses, dtype=torch.float32)
-        if masses.shape != (4,) or not torch.isfinite(masses).all() or not ((masses >= 0) & (masses <= 4)).all():
-            raise ValueError("Fixed evaluation masses must be four finite values in [0,4]")
+        if masses.shape != (4,) or not torch.isfinite(masses).all() or not ((masses >= 0) & (masses <= limits)).all():
+            raise ValueError(f"Fixed evaluation masses must be within [0, per-limb maximum {limits.tolist()}]")
         return masses.expand(num_envs, -1).clone()
-    return 4 * torch.rand(num_envs, 4, generator=torch.Generator().manual_seed(seed))
+    return torch.rand(num_envs, 4, generator=torch.Generator().manual_seed(seed)) * limits
 
 
 class UniformLimbPayload(FourLimbExperimentPayload):
@@ -42,14 +52,16 @@ class UniformLimbPayload(FourLimbExperimentPayload):
         base_cfg.params["condition"] = "A"
         super().__init__(base_cfg, env)
         self.mass = sample_limb_masses(
-            env.num_envs, cfg.params["seed"], cfg.params.get("fixed_masses")
+            env.num_envs, cfg.params["seed"], cfg.params.get("fixed_masses"),
+            max_masses_kg=cfg.params.get("max_masses_kg", (4.0, 4.0, 4.0, 4.0)),
         ).to(env.device)
 
     def observe(self):
         return self.env.sim.model.body_mass[:, self.body_ids] - self.base["body_mass"]
 
 
-def configure_load_only(env_cfg, seed: int, *, fixed_masses=None, observation_noise=False):
+def configure_load_only(env_cfg, seed: int, *, fixed_masses=None, observation_noise=False,
+                        max_masses_kg=None):
     from intact_tracking.cli.residual_policy_train import _configure_nominal_physics
     from intact_tracking.rollout.mjlab_adapter import _filter_disturbance_events
 
@@ -61,6 +73,8 @@ def configure_load_only(env_cfg, seed: int, *, fixed_masses=None, observation_no
         mode="startup", func=UniformLimbPayload,
         params={"seed": int(seed) + 91283, "fixed_masses": fixed_masses},
     )
+    if max_masses_kg is not None:
+        env_cfg.events[PAYLOAD_EVENT].params["max_masses_kg"] = validate_limb_max_masses(max_masses_kg)
     command = env_cfg.commands["motion"]
     command.motion_manifest_file = ""
     command.excluded_motion_files = ()
@@ -69,7 +83,7 @@ def configure_load_only(env_cfg, seed: int, *, fixed_masses=None, observation_no
     command.adaptive_bin_snapshot_interval_iterations = 0
     command.sampling_mode = "uniform"
     command.rewind.enabled = False
-    return {
+    metadata = {
         "profile": "hands-shins-independent-uniform-0-4kg",
         "nominal_configuration": nominal, "removed_disturbances": removed_disturbances,
         "observation_noise": bool(observation_noise),
@@ -79,6 +93,12 @@ def configure_load_only(env_cfg, seed: int, *, fixed_masses=None, observation_no
                   for name, row in LIMBS.items()},
         "total_added_mass_range_kg": [0, 16],
     }
+    if max_masses_kg is not None:
+        limits = list(validate_limb_max_masses(max_masses_kg))
+        metadata.update(limb_max_masses_kg=limits, total_added_mass_range_kg=[0, sum(limits)],
+                        profile="hands-shins-independent-uniform-per-limb-limits",
+                        sampling=f"independent U(0,max) kg per limb; maxima {limits}; fixed at startup")
+    return metadata
 
 
 def audit_load_only(env):

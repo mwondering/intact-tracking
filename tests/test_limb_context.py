@@ -25,7 +25,10 @@ def test_independent_uniform_masses_and_rng_isolation():
 
 
 @pytest.mark.parametrize("fixed", [None, (0, 0, 0, 0), (4, 4, 4, 4), (4, 0, 2, 0)])
-def test_composite_payload_is_exact_at_zero_and_idempotent(fixed):
+@pytest.mark.parametrize("maxima", [(4., 4., 4., 4.), (2.5, 2.5, 4., 4.)])
+def test_composite_payload_is_exact_at_zero_and_idempotent(fixed, maxima):
+    if fixed is not None:
+        fixed = tuple(min(value, limit) for value, limit in zip(fixed, maxima, strict=True))
     n = 16
     model = SimpleNamespace(body_mass=torch.full((1, 4), 2.), body_ipos=torch.zeros(1, 4, 3),
                             body_inertia=torch.full((1, 4, 3), .1), body_iquat=torch.zeros(1, 4, 4))
@@ -41,7 +44,8 @@ def test_composite_payload_is_exact_at_zero_and_idempotent(fixed):
     asset = SimpleNamespace(find_bodies=lambda names, **kw: (list(range(4)), names),
                             indexing=SimpleNamespace(body_ids=torch.arange(4)))
     env = SimpleNamespace(sim=sim, scene={"robot": asset}, num_envs=n, device="cpu")
-    payload = UniformLimbPayload(SimpleNamespace(params={"seed": 121, "fixed_masses": fixed}), env)
+    payload = UniformLimbPayload(SimpleNamespace(params={
+        "seed": 121, "fixed_masses": fixed, "max_masses_kg": maxima}), env)
     payload(env, None)
     torch.testing.assert_close(payload.observe(), payload.mass, atol=1e-6, rtol=1e-6)
     once = {name: value.clone() for name, value in vars(model).items()}
@@ -50,6 +54,19 @@ def test_composite_payload_is_exact_at_zero_and_idempotent(fixed):
         torch.testing.assert_close(value, once[name], atol=0, rtol=0)
         torch.testing.assert_close(value[payload.mass == 0], payload.base[name][payload.mass == 0], atol=0, rtol=0)
     assert (model.body_inertia > 0).all()
+
+
+def test_per_limb_limits_preserve_uniformity_and_original_four_kg_rng():
+    old = 4 * torch.rand(20000, 4, generator=torch.Generator().manual_seed(121))
+    torch.testing.assert_close(sample_limb_masses(20000, 121), old, atol=0, rtol=0)
+    limits = (2.5, 2.5, 4., 4.)
+    capped = sample_limb_masses(20000, 121, max_masses_kg=limits)
+    assert (capped >= 0).all() and (capped < torch.tensor(limits)).all()
+    torch.testing.assert_close(capped[:, 2:], old[:, 2:], atol=0, rtol=0)
+    assert torch.max((capped.mean(0) - torch.tensor(limits) / 2).abs()) < .04
+    assert torch.max((torch.corrcoef(capped.T) - torch.eye(4)).abs()) < .025
+    with pytest.raises(ValueError, match="Fixed evaluation masses"):
+        sample_limb_masses(2, 121, (2.6, 0, 0, 0), max_masses_kg=limits)
 
 
 @pytest.mark.parametrize("fusion", ["film", "concat", "constant"])

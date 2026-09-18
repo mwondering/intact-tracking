@@ -54,10 +54,58 @@ from intact_tracking.wandb_logger import WandbLogger
 T = TypeVar("T")
 
 
+def _normalize_resume_loss_config(config):
+    """Load legacy defaults; variants may isolate them from new CLI defaults."""
+    return asdict(ForwardPredictorLossConfig(**config))
+
+
 def _validate_resume_loss_config(previous, actual):
     """Ordinary resume requires identical losses; explicit tuning entries override this hook."""
     if previous != actual:
         raise ValueError("Resume model/loss configuration changed")
+
+
+def _configure_run_metadata(run_config):
+    """Optional objective variant metadata; the original experiment is unchanged."""
+
+
+def _configure_checkpoint(state, rollout):
+    """Optional objective variant provenance, without changing model state keys."""
+
+
+def _prepare_objective(objective, replay, normalization, distributed, output_dir, resumed):
+    """Optional training-partition calibration after warmup and before any updates."""
+    return {}
+
+
+def _resume_source_dir(args):
+    if getattr(args, "resume_new_stage", False):
+        return Path(args.resume).expanduser().resolve().parent
+    return Path(args.output_dir).expanduser().resolve()
+
+
+def _validate_resume_run_config(previous, actual):
+    old, new = previous["arguments"], actual["arguments"]
+    new_stage = new.get("resume_new_stage", False)
+    for name in ("num_envs", "validation_worlds", "seed", "gradient_steps_per_update",
+                 "motion_path", "motion_file", "limb_payload_only", "nominal_fraction"):
+        if old[name] != new[name]:
+            raise ValueError(f"Resume changed {name}")
+    if old.get("tracker_dr_plus_limb_payload", False) != new["tracker_dr_plus_limb_payload"]:
+        raise ValueError("Resume changed the original tracker DR profile")
+    if old.get("dr_nominal_probability", 0.0) != new.get("dr_nominal_probability", 0.0):
+        raise ValueError("Resume changed the independent DR nominal-mixture probability")
+    if old.get("limb_max_masses_kg") != new.get("limb_max_masses_kg"):
+        raise ValueError("Resume changed the per-limb mass ranges")
+    if new_stage:
+        old_batch = old["batch_size"] * previous["distributed"]["world_size"]
+        new_batch = new["batch_size"] * actual["distributed"]["world_size"]
+        if old_batch != new_batch:
+            raise ValueError("A new resume stage must preserve the effective global batch size")
+    elif old["batch_size"] != new["batch_size"]:
+        raise ValueError("Resume changed batch_size")
+    if new["updates"] < old["updates"]:
+        raise ValueError("Resume cannot reduce the training budget")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -77,10 +125,14 @@ def build_parser() -> argparse.ArgumentParser:
     limb_profile.add_argument("--limb-payload-only", action="store_true")
     limb_profile.add_argument("--tracker-dr-plus-limb-payload", action="store_true",
                               help="Preserve the frozen tracker's full DR and add four independent U(0,4) kg loads")
+    parser.add_argument("--dr-nominal-probability", type=float, default=0.0,
+                        help="Per fixed DR coordinate, independently choose nominal with this probability; 0.5 enables the half-nominal mixture")
     parser.add_argument("--validation-worlds", type=int, default=0,
                         help="Last N independently sampled worlds per rank are excluded from training replay")
     parser.add_argument("--validation-interval", type=int, default=100)
     parser.add_argument("--resume", help="Restore optimizer/model/stats; simulator and replay restart")
+    parser.add_argument("--resume-new-stage", action="store_true",
+                        help="Resume into a new output directory, regenerate validation and repartition the same global batch across ranks")
     parser.add_argument("--stochastic-policy", action="store_true")
     parser.add_argument(
         "--randomize-initial-episode-phase",
@@ -238,18 +290,28 @@ def _limb_experiment(args: argparse.Namespace) -> bool:
     return args.limb_payload_only or getattr(args, "tracker_dr_plus_limb_payload", False)
 
 
-def _validate_arguments(args: argparse.Namespace) -> None:
+def _validate_arguments(args: argparse.Namespace, *, require_comparison_reference=True,
+                        allow_multimotion_smoke=False, allow_nominal_fraction=False) -> None:
+    from intact_tracking.independent_nominal_dr import validate_probability
+
+    validate_probability(getattr(args, "dr_nominal_probability", 0.0))
+    if getattr(args, "resume_new_stage", False):
+        if not args.resume:
+            raise ValueError("resume-new-stage requires a checkpoint")
+        if _resume_source_dir(args) == Path(args.output_dir).expanduser().resolve():
+            raise ValueError("resume-new-stage requires a different output directory")
     if args.stop_after_updates is not None and args.stop_after_updates < 1:
         raise ValueError("stop-after-updates must be positive")
     if args.bounded_smoke:
-        if not args.motion_file or args.updates > 3:
-            raise ValueError("A bounded smoke must use a single motion and at most three updates")
+        smoke_motion = args.motion_file or (allow_multimotion_smoke and args.motion_path)
+        if not smoke_motion or args.updates > 3:
+            raise ValueError("A bounded smoke needs an allowed motion source and at most three updates")
         args.until_user_stop = False
     if args.context_history_steps != 50 or not args.tracker_dr_plus_limb_payload or args.limb_payload_only:
         raise ValueError("Memory350 scaling fixes short50 and frozen-tracker DR plus four-limb loads")
     if (args.chunk_depth, args.memory_depth, args.context_depth) != (2, 4, 4):
         raise ValueError("The encoder scale experiment fixes attention depths to 2/4/4")
-    if not args.bounded_smoke and not args.comparison_reference_dir:
+    if require_comparison_reference and not args.bounded_smoke and not args.comparison_reference_dir:
         raise ValueError("Formal scale training requires the original Memory350 reference directory")
     positive = (
         "num_envs",
@@ -293,7 +355,7 @@ def _validate_arguments(args: argparse.Namespace) -> None:
     if args.context_history_steps < args.history_steps:
         raise ValueError("context-history-steps must be at least history-steps")
     if _limb_experiment(args):
-        if args.nominal_fraction != 0.5 or args.payload:
+        if (not allow_nominal_fraction and args.nominal_fraction != 0.5) or args.payload:
             raise ValueError("Nominal Memory350 requires --nominal-fraction 0.5 --no-payload")
         if args.validation_worlds % 2:
             raise ValueError("Validation worlds must split equally between nominal and DR")
@@ -305,6 +367,16 @@ def _validate_arguments(args: argparse.Namespace) -> None:
         raise ValueError("Manual stopping requires a positive continuation LR no larger than the initial LR")
     if args.num_envs % 2:
         raise ValueError("num-envs must be even for the 50/50 nominal/DR A batch")
+    if allow_nominal_fraction:
+        from intact_tracking.memory350_nominal_rollout import nominal_world_ids
+        nominal_ids = nominal_world_ids(args.num_envs, args.nominal_fraction)
+        training_count = args.num_envs - args.validation_worlds
+        n_train = int((nominal_ids < training_count).sum())
+        n_valid = len(nominal_ids) - n_train
+        if not 0 < n_train < training_count:
+            raise ValueError("Training partition requires both nominal and DR worlds")
+        if args.validation_worlds and not 0 < n_valid < args.validation_worlds:
+            raise ValueError("Validation partition requires both nominal and DR worlds")
     if args.positive_offset_steps != 5:
         raise ValueError("This task requires --positive-offset-steps=5")
     for name in (
@@ -383,7 +455,8 @@ def _main_process_call(distributed: DistributedContext, action: Callable[[], T])
 def _prepare_paths(args: argparse.Namespace) -> dict[str, str]:
     output = Path(args.output_dir).expanduser().resolve()
     output.mkdir(parents=True, exist_ok=True)
-    if not args.resume and ((output / "last.pt").exists() or (output / "run_config.json").exists()):
+    if (not args.resume or getattr(args, "resume_new_stage", False)) and (
+            (output / "last.pt").exists() or (output / "run_config.json").exists()):
         raise FileExistsError(f"Refusing to overwrite an existing run in {output}")
     checkpoint = Path(args.checkpoint_file).expanduser().resolve()
     if not checkpoint.is_file():
@@ -462,6 +535,11 @@ _REPRESENTATION_PROBE_METRICS = (
     "latent_target_distance_batch_p10", "latent_target_distance_batch_p50",
     "latent_target_distance_batch_p90",
 )
+
+_CONTEXT_PROBE_METRICS = (
+    "latent_positive_cosine", "latent_response_correlation", "latent_shuffle_dr_error_ratio",
+)
+_PLATEAU_DIAGNOSTICS = ("latent_positive_cosine", "latent_response_correlation")
 
 
 def _slice_predictor_batch(
@@ -554,8 +632,8 @@ def _save_checkpoint(
         "supervision_horizons": {"predictor": 5,
                                  "response_label": getattr(rollout, "response_label_horizon", 5)},
         "nominal_counterfactual_representation_supervision": True,
-        "nominal_a_fraction": 0.5,
-        "training_mixture_version": "memory350_nominal50_v1",
+        "nominal_a_fraction": rollout.config.nominal_fraction,
+        "training_mixture_version": "memory350_nominal50_v1" if rollout.config.nominal_fraction == .5 else "memory350_nominal_fraction_v1",
         "load_only_experiment": rollout.config.limb_payload_only,
         "dr_profile": rollout.payload_configuration.get("dr_profile"),
         "training_physics": rollout.payload_configuration,
@@ -592,6 +670,7 @@ def _save_checkpoint(
         },
         "wandb": {"id": wandb_logger.id, "url": wandb_logger.url},
     }
+    _configure_checkpoint(state, rollout)
 
     def save() -> None:
         normalization.to_json(output_dir / "normalization.json")
@@ -648,6 +727,8 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             payload_size_m=tuple(args.payload_size_m),
             limb_payload_only=args.limb_payload_only,
             tracker_dr_plus_limb_payload=args.tracker_dr_plus_limb_payload,
+            limb_max_masses_kg=getattr(args, "limb_max_masses_kg", None),
+            dr_nominal_probability=args.dr_nominal_probability,
         )
     )
     dataset = None
@@ -793,9 +874,9 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
     schedule_extension = None
     if args.resume:
         resumed = torch.load(args.resume, map_location=device, weights_only=False)
-        if resumed.get("nominal_a_fraction") != 0.5:
-            raise ValueError("Resume requires the nominal50 training distribution and its normalization")
-        resumed_loss_config = asdict(ForwardPredictorLossConfig(**resumed["loss_config"]))
+        if resumed.get("nominal_a_fraction") != args.nominal_fraction:
+            raise ValueError("Resume changed the nominal training fraction and normalization contract")
+        resumed_loss_config = _normalize_resume_loss_config(resumed["loss_config"])
         if resumed["model_config"] != asdict(model_config):
             raise ValueError("Resume model/loss configuration changed")
         _validate_resume_loss_config(resumed_loss_config, asdict(loss_config))
@@ -980,18 +1061,13 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         run_config["training_control"].update(
             mode="fixed_update_budget", maximum_updates=args.stop_after_updates,
             automatic_early_stopping=False)
+    _configure_run_metadata(run_config)
     if args.comparison_reference_dir:
         run_config["matched_control"] = reference_contract(args.comparison_reference_dir, run_config)
     if args.resume:
-        old_config = json.loads((output_dir / "run_config.json").read_text())
-        for name in ("num_envs", "validation_worlds", "seed", "batch_size", "gradient_steps_per_update",
-                     "motion_path", "motion_file", "limb_payload_only", "nominal_fraction"):
-            if old_config["arguments"][name] != vars(args)[name]:
-                raise ValueError(f"Resume changed {name}")
-        if old_config["arguments"].get("tracker_dr_plus_limb_payload", False) != args.tracker_dr_plus_limb_payload:
-            raise ValueError("Resume changed the original tracker DR profile")
-        if args.updates < old_config["arguments"]["updates"]:
-            raise ValueError("Resume cannot reduce the training budget")
+        old_config = json.loads((_resume_source_dir(args) / "run_config.json").read_text())
+        _validate_resume_run_config(old_config, run_config)
+        new_stage = getattr(args, "resume_new_stage", False)
         run_config["resume_history"] = old_config.get("resume_history", []) + [{
             "checkpoint": str(Path(args.resume).resolve()), "completed_update": resumed["update"],
             "checkpoint_sha256": _sha256(Path(args.resume)),
@@ -999,7 +1075,14 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             "previous_update_limit": None if old_config["arguments"].get("until_user_stop") else old_config["arguments"]["updates"],
             "update_limit": None if args.until_user_stop else args.updates,
             "schedule_extension": schedule_extension, "training_control": run_config["training_control"],
-            "simulator_and_replay_restarted": True, "normalization_and_validation_preserved": True,
+            "source_run_dir": str(_resume_source_dir(args)),
+            "new_stage": new_stage,
+            "previous_world_size": old_config["distributed"]["world_size"],
+            "world_size": distributed.world_size,
+            "simulator_and_replay_restarted": True, "normalization_preserved": True,
+            "validation_preserved": not new_stage,
+            "normalization_and_validation_preserved": not new_stage,
+            "validation_history_restarted": new_stage,
             "unix_time": time.time()}]
 
         def save_resume_config():
@@ -1065,7 +1148,8 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         raise
 
     history: list[dict[str, Any]] = (
-        json.loads((output_dir / "history.json").read_text()) if args.resume else [])
+        json.loads((output_dir / "history.json").read_text())
+        if args.resume and not getattr(args, "resume_new_stage", False) else [])
     metrics_path = output_dir / "metrics.jsonl"
     optimizer_steps = resumed["optimizer_steps"] if resumed else 0
     first_update = resumed["update"] + 1 if resumed else 1
@@ -1125,6 +1209,8 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         if args.comparison_reference_dir:
             normalization = reference_normalization(args.comparison_reference_dir, global_world_ids)
         replay.normalizer.freeze()
+        run_config.update(_prepare_objective(
+            objective, replay, normalization, distributed, output_dir, resumed))
         fixed_probe_batch = (validation_replay if validation_replay is not None else replay).sample_batch(
             args.fixed_probe_batch_size,
             normalization,
@@ -1140,7 +1226,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                     args.comparison_reference_dir, output_dir, distributed.rank, args.num_envs,
                     args.validation_worlds, normalization, device)
                 run_config["matched_control"]["validation_sha256_by_rank"] = distributed.all_gather_object(reference_evidence)
-            elif args.resume:
+            elif args.resume and not getattr(args, "resume_new_stage", False):
                 fixed_probe_batch = torch.load(probe_file, map_location=device, weights_only=False)
                 broad_probe_batch = torch.load(broad_file, map_location=device, weights_only=False)
             else:
@@ -1255,8 +1341,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                     if validation_replay is not None:
                         full_output = objective(fixed_probe_batch, recursive_weight=args.recursive_weight,
                                                 validate_batch=False)
-                        for name in ("latent_positive_cosine", "latent_response_correlation", "latent_shuffle_dr_error_ratio",
-                                     *_REPRESENTATION_PROBE_METRICS):
+                        for name in (*_CONTEXT_PROBE_METRICS, *_REPRESENTATION_PROBE_METRICS):
                             probe_output[name] = full_output[name]
                     local_probe = _scalar_tensors_to_floats({name: probe_output[name] for name in _CORE_PROBE_METRICS + _REPRESENTATION_PROBE_METRICS
                         if not _limb_experiment(args) or args.nominal_fraction > 0 or name not in ("nominal_five_step_nmse", "nominal_counterfactual_rms")})
@@ -1325,7 +1410,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
                 history.append(record)
                 if _limb_experiment(args):
                     from intact_tracking.limb_context_validation import validation_plateau
-                    plateau_detected = validation_plateau(history, update)
+                    plateau_detected = validation_plateau(history, update, diagnostics=_PLATEAU_DIAGNOSTICS)
                     converged = plateau_detected and not args.until_user_stop and args.stop_after_updates is None
                     record["automatic_plateau_detected"] = plateau_detected
                 if distributed.is_main:

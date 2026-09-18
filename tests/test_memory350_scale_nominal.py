@@ -22,7 +22,9 @@ def test_nominal_scale_defaults_match_original_nominal_except_depths():
     scaled.comparison_reference_dir = 'reference_nominal50'
     _validate_arguments(scaled)
     actual = vars(scaled).copy()
+    assert actual.pop('dr_nominal_probability') == 0.0
     assert actual.pop('stop_after_updates') is None
+    assert actual.pop('resume_new_stage') is False
     for name in ('comparison_reference_dir', 'chunk_depth', 'memory_depth'):
         actual.pop(name)
     actual['context_depth'] = 2

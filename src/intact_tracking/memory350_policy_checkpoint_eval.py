@@ -12,6 +12,12 @@ from intact_tracking.memory350_policy_protocol import PERIODIC_VERSION, EVAL_VER
 
 ROOT = Path(__file__).resolve().parents[2]
 PYTHON = str(ROOT / ".venv/bin/python")
+WARM_BOUNDED_VERSION = "memory350_periodic_warm_bounded_v2"
+WARM_BOUNDED_CASES = {
+    "mixture_warm": {"masses": None, "memory_start": "warm"},
+    "all_0_warm": {"masses": [0, 0, 0, 0], "memory_start": "warm"},
+    "upper_train_warm": {"masses": [2.5, 2.5, 4, 4], "memory_start": "warm"},
+}
 
 
 def digest(path):
@@ -31,10 +37,16 @@ def evaluation_due(completed_updates, interval):
 
 def load_protocol(path):
     protocol = json.loads(Path(path).read_text())
-    if protocol["version"] != PERIODIC_VERSION:
+    if protocol["version"] not in (PERIODIC_VERSION, WARM_BOUNDED_VERSION):
         raise ValueError("Unknown periodic endpoint protocol")
     required = {f"all_{mass}_{mode}": {"masses": [mass] * 4, "memory_start": mode}
                 for mode in ("cold", "warm") for mass in (0, 4)}
+    if protocol["version"] == WARM_BOUNDED_VERSION:
+        if (protocol["cases"] != WARM_BOUNDED_CASES or protocol.get("primary_cases") != ["mixture_warm"]
+                or not protocol.get("global_metrics")
+                or protocol.get("primary_physics", {}).get("limb_max_masses_kg") != [2.5, 2.5, 4, 4]):
+            raise ValueError("Warm evaluation requires hand/shin limits 2.5/4 kg and exactly the bounded warm cases")
+        required = WARM_BOUNDED_CASES
     if protocol["interval_updates"] != 100 or any(protocol["cases"].get(k) != v for k, v in required.items()):
         raise ValueError("Periodic evaluation requires both endpoints every 100 completed updates")
     manifest = Path(protocol["motion_manifest"])
@@ -43,6 +55,31 @@ def load_protocol(path):
             or len(set(files)) != len(files) or not 0 < len(files) <= 4096 or protocol["steps"] <= 0):
         raise ValueError("Periodic evaluation manifest changed")
     return protocol, files
+
+
+def resumed_evaluation_metadata(original, current, completed_updates, *, allow_change=False):
+    """Permit an explicit evaluation-only revision, keeping training resume strict."""
+    result = dict(current)
+    changed = original and original["protocol_sha256"] != current["protocol_sha256"]
+    if changed:
+        old, new = original["protocol"], current["protocol"]
+        if (not allow_change or old["version"] != PERIODIC_VERSION
+                or new["version"] != WARM_BOUNDED_VERSION or new["cases"] != WARM_BOUNDED_CASES):
+            raise ValueError("Resume changed the periodic endpoint protocol without an allowed bounded-warm revision")
+        for key in ("interval_updates", "motion_manifest", "manifest_sha256", "motions", "steps",
+                    "warmup_steps", "seed", "motion_path", "evaluation_module", "primary_physics", "global_metrics"):
+            if old.get(key) != new.get(key):
+                raise ValueError(f"Evaluation revision changed paired condition: {key}")
+        result["enabled_after_update"] = completed_updates
+        result["revision"] = {"from_sha256": original["protocol_sha256"],
+            "to_sha256": current["protocol_sha256"], "at_completed_update": completed_updates,
+            "reason": "User requested warm-only evaluation and hand payloads at most 2.5 kg",
+            "previous_protocol_file": original["protocol_file"]}
+    else:
+        result["enabled_after_update"] = original.get("enabled_after_update", completed_updates)
+        if "revision" in original:
+            result["revision"] = original["revision"]
+    return result
 
 
 def evaluation_environment(gpu, inherited=None):
@@ -142,6 +179,8 @@ def evaluate_checkpoint(checkpoint, directory, protocol_path, completed_updates,
                        "--motion-path", protocol["motion_path"], "--output", str(target),
                        "--seed", str(protocol["seed"]), "--steps", str(protocol["steps"]),
                        "--memory-start", spec["memory_start"], "--warmup-steps", str(protocol["warmup_steps"])]
+            if protocol.get("global_metrics", False):
+                command += ["--global-metrics"]
             if spec["masses"] is not None:
                 command += ["--fixed-masses", *map(str, spec["masses"])]
             handle = (output / f"{case}.log").open("a")

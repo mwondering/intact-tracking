@@ -64,19 +64,32 @@ def tensor_digest(named_tensors):
 
 def audit_rank_agreement(runner, distributed):
     actor, critic = runner.alg.actor, runner.alg.critic
+    actor_router = getattr(getattr(actor, "residual_mlp", None), "router", None)
+    critic_router = getattr(getattr(critic, "mlp", None), "router", None)
     actor_parameters = [(n, p) for n, p in actor.named_parameters() if p.requires_grad]
     critic_parameters = [(n, p) for n, p in critic.named_parameters() if p.requires_grad]
     local = {"rank": distributed.rank, "completed_updates": runner.completed_learning_updates,
              "actor_trainable_sha256": tensor_digest(actor_parameters),
              "critic_trainable_sha256": tensor_digest(critic_parameters),
              "critic_normalizer_sha256": tensor_digest(critic.obs_normalizer.state_dict().items()),
-             "finite": all(bool(torch.isfinite(p).all()) for _, p in actor_parameters + critic_parameters)}
+             "finite": all(bool(torch.isfinite(p).all()) for _, p in actor_parameters + critic_parameters),
+             "actor_router_sha256": tensor_digest(actor_router.state_dict().items()) if actor_router is not None else None,
+             "critic_router_sha256": tensor_digest(critic_router.state_dict().items()) if critic_router is not None else None,
+             "router_update_count": int(actor_router.update_count) if actor_router is not None else None,
+             "router_initialized": bool(actor_router.initialized) if actor_router is not None else None}
     rows = distributed.all_gather_object(local)
-    for key in ("completed_updates", "actor_trainable_sha256", "critic_trainable_sha256", "critic_normalizer_sha256"):
+    for key in ("completed_updates", "actor_trainable_sha256", "critic_trainable_sha256", "critic_normalizer_sha256",
+                "actor_router_sha256", "critic_router_sha256", "router_update_count", "router_initialized"):
         if len({row[key] for row in rows}) != 1:
             raise RuntimeError(f"Distributed workers diverged in {key}")
     if not all(row["finite"] for row in rows):
         raise RuntimeError("Nonfinite trainable parameters")
+    for row in rows:
+        if row["actor_router_sha256"] != row["critic_router_sha256"]:
+            raise RuntimeError("Actor and critic router states differ")
+        if row["actor_router_sha256"] is not None:
+            if not row["router_initialized"] or row["router_update_count"] != row["completed_updates"]:
+                raise RuntimeError("Router must be initialized and updated once per completed PPO update")
     return {"passed": True, "world_size": distributed.world_size, "ranks": rows}
 
 

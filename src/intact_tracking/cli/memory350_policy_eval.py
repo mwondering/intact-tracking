@@ -35,6 +35,7 @@ from intact_tracking.rollout.mjlab_adapter import _sha256
 from intact_tracking.memory350_policy_precision import (
     POLICY_PRECISIONS, configure_policy_precision, resolve_policy_precision,
 )
+from intact_tracking import global_tracking_metrics
 
 EVAL_PROTOCOL = EVAL_VERSION
 ACTOR_CLASS_NAME = "intact_tracking.limb_context_policy:LimbContextResidualActor"
@@ -60,6 +61,8 @@ def build_parser():
     parser.add_argument("--fixed-masses", nargs=4, type=float)
     parser.add_argument("--latent-mode", choices=("correct", "zero", "paired-swap"), default="correct")
     parser.add_argument("--paired-starts", action="store_true")
+    parser.add_argument("--global-metrics", action="store_true",
+                        help="Also record unaligned world-frame metrics and full per-step error traces")
     return parser
 
 
@@ -117,6 +120,8 @@ def run(args):
     try:
         physics["runtime_audit"] = audit_limb_dr(env, physics)
         command = env.command_manager.get_term("motion")
+        collect_global = getattr(args, "global_metrics", False)
+        metric_names = METRICS + (global_tracking_metrics.METRICS if collect_global else ())
         if tuple(files) != tuple(command.motion_files):
             raise ValueError("Evaluation loaded a different motion catalog")
         ids, starts = fixed_starts(command.motion.file_lengths, args.repeats, args.steps, args.seed)
@@ -147,6 +152,9 @@ def run(args):
             actor = load_actor(None, prepared, obs, wrapped)
             completed_updates = None
         actor.eval().requires_grad_(False)
+        bind_policy = getattr(wrapped, "bind_policy", None)
+        if bind_policy is not None:
+            bind_policy(actor)
         warmup = {"steps": 0, "policy": "frozen tracker", "policy_sha256": TRACKER_SHA256,
                   "seed": args.seed + 3000000, "trajectory_sample_sha256": None}
         if args.memory_start == "warm":
@@ -189,7 +197,7 @@ def run(args):
                         for row in physics_observation(env).detach().cpu().numpy()]
         masses = env.event_manager.get_term_cfg(PAYLOAD_EVENT).func.observe().cpu().tolist()
         horizons = (command.motion_length - initial_steps - 1).clamp(1, args.steps)
-        totals = torch.zeros(n, len(METRICS), device=env.device, dtype=torch.float64)
+        totals = torch.zeros(n, len(metric_names), device=env.device, dtype=torch.float64)
         returns = torch.zeros(n, device=env.device, dtype=torch.float64)
         counts = torch.zeros(n, device=env.device, dtype=torch.long)
         failed = torch.zeros(n, device=env.device, dtype=torch.bool)
@@ -197,7 +205,8 @@ def run(args):
         names = [key for key in env.termination_manager.active_terms
                  if not env.termination_manager.get_term_cfg(key).time_out]
         failure_terms = torch.zeros(n, len(names), dtype=torch.bool, device=env.device)
-        trace = torch.zeros(n, args.steps, 2, dtype=torch.float32, device=env.device)
+        trace = torch.zeros(n, args.steps, len(metric_names) if collect_global else 2,
+                            dtype=torch.float32, device=env.device)
         valid_context_steps = torch.zeros(n, device=env.device, dtype=torch.long)
         swapped_steps = torch.zeros_like(valid_context_steps)
         residual_saturation = torch.zeros(n, device=env.device, dtype=torch.float64)
@@ -212,16 +221,24 @@ def run(args):
                     full = wrapped.context.history_valid.all(0)
                     valid_context_steps += (active & full).long()
                     if args.latent_mode == "zero":
-                        policy_obs = obs.clone(recurse=False)
-                        policy_obs["dynamics_latent"] = torch.zeros_like(obs["dynamics_latent"])
+                        intervention = getattr(actor, "intervene_latent", None)
+                        if intervention is not None:
+                            policy_obs = intervention(obs, "zero")
+                        else:
+                            policy_obs = obs.clone(recurse=False)
+                            policy_obs["dynamics_latent"] = torch.zeros_like(obs["dynamics_latent"])
                     elif args.latent_mode == "paired-swap":
                         # Swap only between active equal-phase worlds with complete histories.
                         eligible = active & active[donor] & full & full[donor]
                         eligible &= command.time_steps == command.time_steps[donor]
                         swapped_steps += eligible.long()
-                        policy_obs = obs.clone(recurse=False)
-                        policy_obs["dynamics_latent"] = torch.where(
-                            eligible[:, None], obs["dynamics_latent"][donor], obs["dynamics_latent"])
+                        intervention = getattr(actor, "intervene_latent", None)
+                        if intervention is not None:
+                            policy_obs = intervention(obs, "paired-swap", donors=donor, eligible=eligible)
+                        else:
+                            policy_obs = obs.clone(recurse=False)
+                            policy_obs["dynamics_latent"] = torch.where(
+                                eligible[:, None], obs["dynamics_latent"][donor], obs["dynamics_latent"])
                 action = actor(policy_obs)
                 if hasattr(actor, "last_residual_mean") and actor.last_residual_mean is not None:
                     fraction = (actor.last_residual_mean.abs() >= .95 * actor.residual_scale).float().mean(-1)
@@ -233,10 +250,12 @@ def run(args):
                     raise RuntimeError("Surviving-world reference timeline drifted")
                 command._update_metrics()
                 values = torch.stack([command.metrics[key] for key in METRICS], -1)
+                if collect_global:
+                    values = torch.cat((values, global_tracking_metrics.values(command)), dim=-1)
                 if not torch.isfinite(values[active]).all() or not torch.isfinite(reward[active]).all():
                     raise RuntimeError("Nonfinite evaluation metric/reward")
                 totals[active] += values[active].double()
-                trace[active, step] = values[active, :2]
+                trace[active, step] = values[active, :trace.shape[-1]]
                 returns[active] += reward[active].double()
                 counts += active.long()
                 failed |= active & env.reset_terminated.bool()
@@ -266,8 +285,8 @@ def run(args):
             "seed": args.seed, "motions": len(files), "episodes": n, "repeats_per_motion": args.repeats,
             "motion_files": files, "motion_ids": ids.cpu().tolist(), "start_frames": initial_steps.cpu().tolist(),
             "horizons": horizons.cpu().tolist(), "max_steps": args.steps,
-            "metric_names": list(METRICS), "per_episode_metrics": means.cpu().tolist(),
-            "mean": dict(zip(METRICS, means.mean(0).cpu().tolist(), strict=True)),
+            "metric_names": list(metric_names), "per_episode_metrics": means.cpu().tolist(),
+            "mean": dict(zip(metric_names, means.mean(0).cpu().tolist(), strict=True)),
             "episode_lengths": counts.cpu().tolist(), "episode_returns": returns.cpu().tolist(),
             "mean_episode_return": float(returns.mean()), "reward_contract": rewards,
             "failed": failed.cpu().tolist(), "failure_rate": float(failed.float().mean()),
@@ -281,9 +300,14 @@ def run(args):
             "metric_convention": "episode means and returns; errors are failure-truncated, report failures and coverage alongside",
             "wall_seconds": time.time() - start_time,
         }
+        if collect_global:
+            result["global_metric_contract"] = global_tracking_metrics.contract(command)
         output.parent.mkdir(parents=True, exist_ok=True)
-        np.savez_compressed(output.with_suffix(".traces.npz"), body_joint=trace.cpu().numpy(),
-                            lengths=counts.cpu().numpy())
+        trace_cpu = trace.cpu().numpy()
+        trace_data = {"body_joint": trace_cpu[:, :, :2], "lengths": counts.cpu().numpy()}
+        if collect_global:
+            trace_data.update(all_metrics=trace_cpu, metric_names=np.asarray(metric_names))
+        np.savez_compressed(output.with_suffix(".traces.npz"), **trace_data)
         temporary = output.with_suffix(".json.tmp")
         temporary.write_text(json.dumps(result, indent=2, allow_nan=False) + "\n")
         temporary.replace(output)

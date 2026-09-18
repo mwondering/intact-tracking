@@ -24,7 +24,7 @@ def build_parser():
         if action.dest == "motion_sampling":
             action.choices = ("uniform",)
         elif action.dest == "training_ranks":
-            action.choices = (1, 2, 4)
+            action.choices = (1, 2, 4, 8)
         elif action.dest == "fusion":
             action.choices = ("baseline", "concat")
         elif action.dest == "dr_sampling":

@@ -39,3 +39,21 @@ def test_pairing_rejects_different_worlds_or_warmup_policy():
     b["warmup"]["policy_sha256"] = "learned actor"
     with pytest.raises(ValueError, match="Warm-up"):
         assert_paired(a, b)
+
+
+def test_full_global_trace_uses_common_survival_for_every_metric():
+    a, b = row(), row()
+    for item in (a, b):
+        item["metric_names"] += ["error_anchor_pos", "error_body_pos_global"]
+        item["global_metric_contract"] = {"version": "world_v1"}
+    a["per_episode_metrics"] = [[5] * 4] * 2
+    b.update(episode_lengths=[1, 1], per_episode_metrics=[[1] * 4] * 2, failed=[True, True])
+    ta = np.array([[[1] * 4, [9] * 4]] * 2, float)
+    tb = np.array([[[1] * 4, [0] * 4]] * 2, float)
+    result = compare(a, b, ta, tb, repeats=100)
+    assert result["truncated_error_body_pos_global"]["reduction_percent"] == 80
+    assert result["common_error_body_pos_global"]["reduction_percent"] == 0
+    assert result["common_error_anchor_pos"]["reduction_percent"] == 0
+    b["global_metric_contract"] = {"version": "aligned_v1"}
+    with pytest.raises(ValueError, match="global_metric_contract"):
+        compare(a, b, ta, tb, repeats=100)

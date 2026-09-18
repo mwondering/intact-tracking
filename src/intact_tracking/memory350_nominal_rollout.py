@@ -1,7 +1,8 @@
-"""Memory350's 50/50 nominal and tracker-DR-plus-payload training worlds."""
+"""Memory350's nominal and tracker-DR-plus-payload training worlds."""
 
 from dataclasses import asdict, dataclass
 import hashlib
+import math
 
 import torch
 
@@ -15,13 +16,26 @@ from intact_tracking.rollout.online import (
 )
 
 
+def nominal_world_ids(num_envs, fraction, *, device="cpu"):
+    """Evenly distribute the requested nominal count, preserving legacy half slots."""
+    if not math.isfinite(fraction) or not 0 < fraction < 1:
+        raise ValueError("Nominal fraction must be finite and strictly between zero and one")
+    count = round(num_envs * fraction)
+    if not 0 < count < num_envs:
+        raise ValueError("Both nominal and DR worlds must be present")
+    if fraction == .5 and num_envs % 2 == 0:
+        return torch.arange(0, num_envs, 2, device=device)
+    return ((2 * torch.arange(count, device=device) + 1) * num_envs) // (2 * count)
+
+
 @dataclass(frozen=True)
 class NominalMemory350RolloutConfig(FixedDRRolloutConfig):
     nominal_fraction: float = 0.5
 
     def __post_init__(self):
-        if self.nominal_fraction != 0.5 or self.num_envs % 2:
-            raise ValueError('Nominal Memory350 requires exactly half nominal worlds')
+        nominal_world_ids(self.num_envs, self.nominal_fraction)
+        if self.num_envs % 2:
+            raise ValueError('Nominal Memory350 requires an even number of worlds')
         if not self.tracker_dr_plus_limb_payload or self.limb_payload_only:
             raise ValueError('The DR half must retain tracker DR plus four-limb payloads')
         # Reuse all original validation except its all-DR sampling restriction.
@@ -73,11 +87,11 @@ class NominalMemory350TrackerRollout(Memory350TrackerRollout):
         super().__init__(FixedDRRolloutConfig(**{**asdict(config), 'nominal_fraction': 0.0}))
         try:
             self.config = config
-            self.nominal_env_ids = torch.arange(0, config.num_envs, 2, device=self.env.device)
+            self.nominal_env_ids = nominal_world_ids(config.num_envs, config.nominal_fraction, device=self.env.device)
             self.nominal_count = len(self.nominal_env_ids)
             self.is_nominal.zero_()
             self.is_nominal[self.nominal_env_ids] = True
-            dr_ids = torch.arange(1, config.num_envs, 2, device=self.env.device)
+            dr_ids = torch.nonzero(~self.is_nominal, as_tuple=False).flatten()
             before = self._fixed_dr_model_fields
             before_bias = self.env.scene['robot'].data.encoder_bias[dr_ids].clone()
             self.nominal_restore_metrics = _restore_nominal_physics(self.env, self.nominal_env_ids)
@@ -114,14 +128,25 @@ class NominalMemory350TrackerRollout(Memory350TrackerRollout):
             self.observations = self.wrapped.get_observations()
             self.assert_nominal_clean()
             self.payload_configuration.update(
-                sampling='even slots compiled nominal; odd slots original tracker DR plus independent U(0,4)^4',
-                nominal_fraction=0.5,
+                sampling='selected slots compiled nominal; remaining slots original tracker DR plus independent U(0,4)^4',
+                nominal_fraction=config.nominal_fraction,
                 force_pulse_scope='DR slots only; nominal timers disabled after every reset',
             )
+            if config.limb_max_masses_kg is not None:
+                self.payload_configuration['sampling'] = (
+                    'selected slots compiled nominal; remaining slots original tracker DR plus independent '
+                    f'U(0,max) loads with maxima {list(config.limb_max_masses_kg)} kg')
+            if config.dr_nominal_probability:
+                self.payload_configuration['sampling'] = (
+                    'selected slots compiled nominal; in remaining slots each fixed scalar DR coordinate '
+                    f'independently takes nominal with probability {config.dr_nominal_probability}, '
+                    'otherwise its original random draw; all physical parameters fixed across resets')
             physics['nominal_mixture'] = {
                 'nominal_count': self.nominal_count,
                 'dr_count': config.num_envs - self.nominal_count,
-                'layout': 'even local IDs nominal; odd local IDs DR',
+                'layout': 'even local IDs nominal; odd local IDs DR' if config.nominal_fraction == .5 else 'evenly spaced nominal local IDs; all remaining IDs DR',
+                'requested_nominal_fraction': config.nominal_fraction,
+                'actual_nominal_fraction': self.nominal_count / config.num_envs,
                 'nominal_restore': self.nominal_restore_metrics,
                 'dr_physics_unchanged_from_original_sampling': True,
                 'nominal_payload_max_abs_kg': float(payload.observe()[self.nominal_env_ids].abs().max()),
@@ -129,6 +154,13 @@ class NominalMemory350TrackerRollout(Memory350TrackerRollout):
                 'dr_payload_max_kg': payload.observe()[dr_ids].amax(0).tolist(),
                 'nominal_pulses_disabled': True,
             }
+            if config.dr_nominal_probability:
+                from intact_tracking.independent_nominal_dr import EVENT
+                mixture = self.env.event_manager.get_term_cfg(EVENT).func
+                physics['independent_nominal_mixture']['dr_only_nominal_mask_fractions'] = {
+                    name: mask[dr_ids].float().reshape(len(dr_ids), -1).mean(0).tolist()
+                    for name, mask in mixture.masks.items()
+                }
             self.payload_configuration['runtime_audit'] = physics
         except BaseException:
             self.close()
@@ -151,8 +183,15 @@ class NominalMemory350TrackerRollout(Memory350TrackerRollout):
 
     @property
     def metadata(self):
+        share = self.config.nominal_fraction
+        contract = f'{share:.1%} compiled nominal without payload or pulses; remaining worlds original tracker DR plus four-limb payloads'
+        if self.config.dr_nominal_probability:
+            contract = (
+                f'{share:.1%} compiled nominal without payload or pulses; in remaining worlds, '
+                'each fixed scalar DR coordinate independently takes nominal with probability '
+                f'{self.config.dr_nominal_probability}, otherwise its original random draw; '
+                'the original DR force-pulse process is retained')
         return {**super().metadata,
                 'nominal_world_local_ids': self.nominal_env_ids.cpu().tolist(),
-                'domain_randomization_contract':
-                    '50% compiled nominal without payload or pulses; 50% original tracker DR plus four-limb payloads',
-                'nominal_mixture_version': 'memory350_nominal50_v1'}
+                'domain_randomization_contract': contract,
+                'nominal_mixture_version': 'memory350_nominal50_v1' if share == .5 else 'memory350_nominal_fraction_v1'}

@@ -48,12 +48,17 @@ def main():
     parser.add_argument('--steps', type=int, default=3200)
     parser.add_argument('--stride', type=int, default=100)
     parser.add_argument('--seed', type=int, default=81208)
+    parser.add_argument('--limb-max-masses-kg', type=float, nargs=4,
+                        metavar=('LEFT_HAND', 'RIGHT_HAND', 'LEFT_SHIN', 'RIGHT_SHIN'),
+                        help='Per-limb uniform load limits for the memory_training profile.')
     parser.add_argument('--checkpoint-label', default='Memory350')
     parser.add_argument('--save-history', action='store_true',
                         help='Cache raw query histories for exact future checkpoint comparisons.')
     parser.add_argument('--comparison-checkpoint', action='append', default=[],
                         metavar='NAME=PATH', help='Additional Memory350 encoder on the same raw memory bank.')
     args = parser.parse_args()
+    if args.limb_max_masses_kg is not None and args.profile != 'memory_training':
+        parser.error('--limb-max-masses-kg requires --profile memory_training')
     if args.output.exists() and any(args.output.iterdir()):
         raise ValueError(f'Refusing to overwrite nonempty output: {args.output}')
     args.output.mkdir(parents=True, exist_ok=True)
@@ -79,6 +84,8 @@ def main():
         randomize_initial_episode_phase=source['randomize_initial_episode_phase'],
         nominal_fraction=.5 if args.profile == 'common' else 0.,
         tracker_dr_plus_limb_payload=args.profile == 'memory_training',
+        limb_max_masses_kg=(tuple(args.limb_max_masses_kg)
+                            if args.limb_max_masses_kg is not None else None),
     )
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)

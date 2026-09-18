@@ -54,6 +54,9 @@ from intact_tracking.memory350_policy_precision import (
 )
 
 PPO_CLASS_NAME = "intact_tracking.limb_context_distributed:DistributedResidualPPO"
+ALLOWED_DR_PROFILES = (TRACKER_DR,)
+CONTEXT_SOURCE_DR_PROFILE = None
+TRAINING_START_PROFILE = None
 
 
 def build_parser():
@@ -96,6 +99,8 @@ def build_parser():
                         help="Uniform prefix, then restart from this exact checkpoint with adaptive sampling")
     parser.add_argument("--endpoint-eval-protocol",
                         help="Fixed cold/warm tracking evaluation at each 100 completed updates")
+    parser.add_argument("--allow-evaluation-protocol-change", action="store_true",
+                        help="On resume, explicitly migrate legacy endpoints to bounded warm evaluation")
     parser.add_argument("--episode-steps", type=int, default=EPISODE_STEPS)
     parser.add_argument("--wandb-project", default="intact-preview-v2")
     parser.add_argument("--wandb-entity", default="2486344338-zhejiang-university")
@@ -253,8 +258,8 @@ def _run(args, distributed):
         raise ValueError("Film/concat require a context checkpoint; baseline/constant do not")
     if args.episode_steps != EPISODE_STEPS or distributed.world_size != args.training_ranks:
         raise ValueError("Training must use the requested rank count and 1000-step episodes")
-    if args.dr_profile != TRACKER_DR:
-        raise ValueError("Memory350 PPO requires frozen-tracker DR plus limb payloads")
+    if args.dr_profile not in ALLOWED_DR_PROFILES:
+        raise ValueError(f"Unsupported deployment DR profile: {args.dr_profile}")
     output = Path(args.output_dir).resolve()
     if not output.is_relative_to(PROJECT_ROOT):
         raise ValueError("Outputs must remain in the project directory")
@@ -295,7 +300,8 @@ def _run(args, distributed):
     if args.dr_sampling == "grid256_shared":
         sampling["scope"] = "motion/bin sampling only; 256 shared static DR profiles with {0,1,2,4}^4 limb loads"
     prepared.env.seed = rank_seed
-    starts = configure_training_starts(prepared.env, "original" if args.dr_profile == TRACKER_DR else "reference")
+    starts = configure_training_starts(prepared.env, TRAINING_START_PROFILE or
+                                       ("original" if args.dr_profile == TRACKER_DR else "reference"))
     train = _build_train_configuration(
         source, tracker_checkpoint=tracker, tracker_actor_kwargs=prepared.actor_kwargs,
         tracker_obs_groups=prepared.obs_groups, baseline="no-latent", dynamics_latent_dim=64,
@@ -316,7 +322,7 @@ def _run(args, distributed):
                if args.context_checkpoint else None)
     if context is not None:
         context_meta = torch.load(args.context_checkpoint, map_location="cpu", weights_only=False)
-        validate_context_dr(context_meta, args.dr_profile)
+        validate_context_dr(context_meta, CONTEXT_SOURCE_DR_PROFILE or args.dr_profile)
         del context_meta
     if context is not None and context.config.dynamics_latent_dim != 64:
         raise ValueError("This experiment requires a 64-dimensional frozen context")
@@ -398,10 +404,10 @@ def _run(args, distributed):
             "model_optimizer_and_normalization_restored": True, "simulator_episodes_restarted": True}]
         if endpoint_evaluator is not None:
             original = old.get("periodic_evaluation", {})
-            if original and original["protocol_sha256"] != metadata["periodic_evaluation"]["protocol_sha256"]:
-                raise ValueError("Resume changed the periodic endpoint protocol")
-            metadata["periodic_evaluation"]["enabled_after_update"] = original.get(
-                "enabled_after_update", previous["completed_updates"])
+            from intact_tracking.memory350_policy_checkpoint_eval import resumed_evaluation_metadata
+            metadata["periodic_evaluation"] = resumed_evaluation_metadata(
+                original, metadata["periodic_evaluation"], previous["completed_updates"],
+                allow_change=args.allow_evaluation_protocol_change)
         del previous
     elif endpoint_evaluator is not None:
         metadata["periodic_evaluation"]["enabled_after_update"] = 0
@@ -490,6 +496,7 @@ def _run(args, distributed):
                 output_dir=output, config=metadata, tags=("memory350", "residual", args.fusion))
             wandb_logger.run.config.update({"policy_precision": args.policy_precision,
                 "policy_precision_audit": precision_audit,
+                "periodic_evaluation": metadata.get("periodic_evaluation"),
                 "resume_history": metadata.get("resume_history", [])}, allow_val_change=True)
             wandb_logger.run.define_metric("completed_updates")
             wandb_logger.run.define_metric("training/*", step_metric="completed_updates")

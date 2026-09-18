@@ -15,7 +15,8 @@ class SplitWorldReplay:
             self.validation.add_step({k: v[n:] for k, v in batch.items()})
 
 
-def validation_plateau(history, update, window=1000, minimum=2000):
+def validation_plateau(history, update, window=1000, minimum=2000,
+                       diagnostics=("latent_positive_cosine", "latent_response_correlation")):
     if update < minimum:
         return False
     old = [r for r in history if r["update"] <= update - window]
@@ -25,7 +26,6 @@ def validation_plateau(history, update, window=1000, minimum=2000):
     before = min(r["fixed_probe"]["dr_five_step_nmse"] for r in old)
     after = min(r["fixed_probe"]["dr_five_step_nmse"] for r in history)
     improvement = (before - after) / max(before, 1e-8)
-    diagnostics = ("latent_positive_cosine", "latent_response_correlation")
     stable = all(
         all(math.isfinite(r["fixed_probe"][k]) for r in recent)
         and max(r["fixed_probe"][k] for r in recent) - min(r["fixed_probe"][k] for r in recent) < .1

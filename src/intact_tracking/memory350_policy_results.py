@@ -4,6 +4,8 @@ import numpy as np
 
 
 def assert_paired(reference, candidate):
+    if reference.get("global_metric_contract") != candidate.get("global_metric_contract"):
+        raise ValueError("Unpaired tracking evaluations: global_metric_contract")
     for key in ("protocol", "seed", "motion_files", "motion_ids", "start_frames", "horizons", "max_steps",
                 "metric_names", "reward_contract", "memory_start", "physics_world_fingerprints",
                 "actual_limb_masses_kg", "query_initial_state_sha256"):
@@ -45,7 +47,9 @@ def compare(reference, candidate, reference_trace, candidate_trace, *, repeats=2
         raise ValueError("This bootstrap expects one episode per distinct motion")
     lengths_a, lengths_b = np.asarray(reference["episode_lengths"]), np.asarray(candidate["episode_lengths"])
     common = np.minimum(lengths_a, lengths_b)
-    if (common <= 0).any() or reference_trace.shape != candidate_trace.shape or reference_trace.shape[:2] != (n, reference["max_steps"]):
+    if ((common <= 0).any() or reference_trace.shape != candidate_trace.shape
+            or reference_trace.ndim != 3 or reference_trace.shape[:2] != (n, reference["max_steps"])
+            or reference_trace.shape[-1] not in (2, len(reference["metric_names"]))):
         raise ValueError("Invalid survival traces")
     means_a, means_b = np.asarray(reference["per_episode_metrics"]), np.asarray(candidate["per_episode_metrics"])
     output = {"paired_motions": n, "bootstrap_repeats": repeats,
@@ -56,7 +60,7 @@ def compare(reference, candidate, reference_trace, candidate_trace, *, repeats=2
                                     lengths_b / np.asarray(candidate["horizons"]), repeats=repeats)
     for index, name in enumerate(reference["metric_names"]):
         output["truncated_" + name] = bootstrap(means_a[:, index], means_b[:, index], repeats=repeats)
-        if index < 2:
+        if index < reference_trace.shape[-1]:
             mask = np.arange(reference["max_steps"])[None] < common[:, None]
             a = (reference_trace[:, :, index] * mask).sum(1) / common
             b = (candidate_trace[:, :, index] * mask).sum(1) / common

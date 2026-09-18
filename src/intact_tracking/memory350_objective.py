@@ -29,6 +29,20 @@ class Memory350Objective(ForwardPredictorObjective):
             target, batch["nominal_state"], batch["state_mean"],
             batch["state_std"], batch["delta_std"]), None
 
+    def _representation_terms(self, batch, views, target, *, compute_metrics):
+        """Variant hook: keep the prediction branches identical across objectives."""
+        response, response_valid = self._representation_response(batch, target)
+        loss, metrics, partner = _counterfactual_representation_loss(
+            views[0], views[1], response, batch["positive_pair_valid"].bool(),
+            batch["history_valid"].any(1) | batch["memory_valid"].any(1),
+            batch["positive_history_valid"].any(1) | batch["positive_memory_valid"].any(1),
+            batch["world_id"],
+            response_distance_scale=self.loss_config.response_distance_scale,
+            representation_relation_weight=self.loss_config.representation_relation_weight,
+            compute_metrics=compute_metrics, response_valid=response_valid,
+        )
+        return loss, metrics, partner, response, response_valid
+
     @staticmethod
     def _validate_batch(batch):
         ForwardPredictorObjective._validate_batch(batch)
@@ -82,7 +96,7 @@ class Memory350Objective(ForwardPredictorObjective):
             raise ValueError(f"Invalid Forward Predictor batch shapes: {invalid}")
 
         views = self._encode_views(batch)
-        latent, positive_latent = views[:2]
+        latent = views[0]
         history_arguments = {
             "history_state": batch["history_state"],
             "history_action": batch["history_action"],
@@ -167,20 +181,9 @@ class Memory350Objective(ForwardPredictorObjective):
             recursive_error, recursive_foot, recursive_force, recursive_binary
         )
         prediction_loss = teacher_loss + float(recursive_weight) * recursive_loss
-        counterfactual_response, response_valid = self._representation_response(batch, target)
-        representation_loss, representation_metrics, partner = _counterfactual_representation_loss(
-            latent,
-            positive_latent,
-            counterfactual_response,
-            batch["positive_pair_valid"].bool(),
-            (batch["history_valid"].any(dim=1) | batch["memory_valid"].any(dim=1)),
-            (batch["positive_history_valid"].any(dim=1) | batch["positive_memory_valid"].any(dim=1)),
-            batch["world_id"],
-            response_distance_scale=self.loss_config.response_distance_scale,
-            representation_relation_weight=self.loss_config.representation_relation_weight,
-            compute_metrics=compute_metrics,
-            response_valid=response_valid,
-        )
+        (representation_loss, representation_metrics, partner,
+         counterfactual_response, response_valid) = self._representation_terms(
+            batch, views, target, compute_metrics=compute_metrics)
         total_loss = prediction_loss + self.loss_config.representation_weight * representation_loss
         extra_loss, extra_metrics = self._extra_representation_loss(batch, views)
         if extra_loss is not None:
@@ -190,6 +193,7 @@ class Memory350Objective(ForwardPredictorObjective):
                 "loss": total_loss,
                 "prediction_loss": prediction_loss.detach(),
                 "representation_loss": representation_loss.detach(),
+                **representation_metrics,
                 **extra_metrics,
             }
 

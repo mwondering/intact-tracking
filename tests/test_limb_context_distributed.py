@@ -104,6 +104,25 @@ def distributed_worker(rank, directory):
         assert record['collect_seconds']==2 and record['global_transitions']==96
         with pytest.raises(RuntimeError, match='PermissionError: example'):
             main_process_call(context, lambda: (_ for _ in ()).throw(PermissionError('example')))
+        # Router buffers are not trainable parameters, but must agree too.
+        from intact_tracking.memory350_online_kmeans import OnlineKMeansRouter
+        actor.residual_mlp = torch.nn.Module()
+        actor.residual_mlp.router = OnlineKMeansRouter()
+        critic.mlp.router = OnlineKMeansRouter()
+        for router in (actor.residual_mlp.router, critic.mlp.router):
+            router.initialized.fill_(True)
+            router.update_count.fill_(1)
+        agreement = audit_rank_agreement(runner, context)
+        assert agreement['ranks'][0]['actor_router_sha256'] is not None
+        if rank == 1:
+            actor.residual_mlp.router.centers.add_(1)
+        with pytest.raises(RuntimeError, match='actor_router_sha256'):
+            audit_rank_agreement(runner, context)
+        actor.residual_mlp.router.load_state_dict(critic.mlp.router.state_dict())
+        critic.mlp.router.centers.add_(1)
+        with pytest.raises(RuntimeError, match='Actor and critic router states differ'):
+            audit_rank_agreement(runner, context)
+        critic.mlp.router.load_state_dict(actor.residual_mlp.router.state_dict())
         # Divergent state must not receive a successful completion marker.
         if rank==1:
             critic.obs_normalizer.sum.add_(1)

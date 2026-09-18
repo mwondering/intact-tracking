@@ -63,6 +63,22 @@ def test_partial_original_dr_is_rejected_instead_of_silently_training_load_only(
         configure_limb_dr(cfg, 121, profile=TRACKER_DR)
 
 
+def test_capped_loads_change_only_payload_sampling_and_metadata():
+    cfg = _original_cfg()
+    original = copy.deepcopy(cfg)
+    limits = (2.5, 2.5, 4., 4.)
+    metadata = configure_limb_dr(cfg, 121, profile=TRACKER_DR, max_masses_kg=limits)
+    assert cfg.events[PAYLOAD_EVENT].params["max_masses_kg"] == limits
+    assert metadata["limb_max_masses_kg"] == list(limits)
+    assert metadata["total_added_mass_range_kg"] == [0, 13.]
+    for name, event in original.events.items():
+        assert cfg.events[name] == event
+    assert cfg.actions == original.actions and cfg.observations == original.observations
+    config = FixedDRRolloutConfig(checkpoint_file="tracker.pt", motion_file="motion.npz",
+                                  tracker_dr_plus_limb_payload=True, limb_max_masses_kg=limits)
+    assert config.limb_max_masses_kg == limits
+
+
 def test_runtime_audit_accepts_resolved_regex_but_rejects_changed_friction():
     from intact_tracking.limb_context_dr import _event_contract, _resolved_event_contract
 

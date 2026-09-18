@@ -112,12 +112,24 @@ class FixedDRRolloutConfig:
     limb_payload_only: bool = False
     tracker_dr_plus_limb_payload: bool = False
     limb_fixed_masses: tuple[float, float, float, float] | None = None
+    limb_max_masses_kg: tuple[float, float, float, float] | None = None
+    dr_nominal_probability: float = 0.0
 
     def __post_init__(self) -> None:
+        from intact_tracking.independent_nominal_dr import validate_probability
+
+        validate_probability(self.dr_nominal_probability)
+        if self.dr_nominal_probability and (not self.tracker_dr_plus_limb_payload or self.limb_fixed_masses is not None):
+            raise ValueError("DR nominal mixture requires random tracker DR plus limb payloads")
         if self.limb_payload_only and self.tracker_dr_plus_limb_payload:
             raise ValueError("Select exactly one limb DR profile")
         if self.limb_fixed_masses is not None and not self.limb_payload_experiment:
             raise ValueError("Fixed evaluation masses require a limb payload profile")
+        if self.limb_max_masses_kg is not None:
+            from intact_tracking.limb_context_protocol import validate_limb_max_masses
+            if not self.limb_payload_experiment:
+                raise ValueError("Per-limb mass limits require a limb payload profile")
+            validate_limb_max_masses(self.limb_max_masses_kg)
         if self.limb_payload_experiment and (self.nominal_fraction or self.payload_enabled or self.dynamics_classes):
             raise ValueError("Limb worlds must all sample independently, with no extra payload/nominal subset")
         if self.num_envs < 1:
@@ -936,7 +948,9 @@ class FixedDRTrackerRollout:
                     raise ValueError("Wrong frozen tracker checkpoint for the original DR profile")
             self.payload_configuration = configure_limb_dr(
                 prepared.env, dynamics_seed, fixed_masses=config.limb_fixed_masses,
-                profile=TRACKER_DR if config.tracker_dr_plus_limb_payload else LOAD_ONLY)
+                profile=TRACKER_DR if config.tracker_dr_plus_limb_payload else LOAD_ONLY,
+                max_masses_kg=config.limb_max_masses_kg,
+                nominal_probability=config.dr_nominal_probability)
             configure_training_starts(prepared.env, "original" if config.tracker_dr_plus_limb_payload else "reference")
         else:
             self.payload_configuration = _add_payload_startup_event(prepared.env, config)
