@@ -169,6 +169,8 @@ REWARD_TERMS = {
     "joint_vel_tracking": sp_mdp.joint_vel_tracking,
     "survival": sp_mdp.survival,
     "joint_vel_l2": sp_mdp.joint_vel_l2,
+    "joint_acc_l2": sp_mdp.joint_acc_l2,
+    "joint_power_l1": sp_mdp.joint_power_l1,
     "action_rate_l2_sp": sp_mdp.action_rate_l2,
     "feet_air_time_ref": sp_mdp.feet_air_time_ref,
     "feet_air_time_ref_dense": sp_mdp.feet_air_time_ref_dense,
@@ -309,12 +311,17 @@ def _build_observations(cfg: DictConfig) -> dict[str, ObservationGroupCfg]:
 
 
 def _build_rewards(cfg: DictConfig) -> dict[str, RewardTermCfg]:
-    reward_cfg = cfg.rewards if "rewards" in cfg else cfg.reward.rewards
+    reward_group = cfg if "rewards" in cfg else cfg.reward
+    reward_cfg = reward_group.rewards
+    overrides = dict(reward_group.get("weight_overrides", {}))
+    unknown = set(overrides) - {str(item.name) for item in reward_cfg}
+    if unknown:
+        raise ValueError(f"Unknown reward weight override names: {sorted(unknown)}")
     rewards = OrderedDict()
     for item in reward_cfg:
         rewards[str(item.name)] = RewardTermCfg(
             func=REWARD_TERMS[str(item.term)],
-            weight=float(item.weight),
+            weight=float(overrides.get(str(item.name), item.weight)),
             params=_params(item.get("params")),
         )
     return rewards

@@ -84,7 +84,7 @@ class WeakPairReplayBuffer(Memory350ReplayBuffer):
     @property
     def estimated_storage_bytes(self):
         # Nominal50 uses half the worlds; this estimate is an upper bound.
-        return super().estimated_storage_bytes + self.num_worlds * self.weak_archive_slots * 350 * 171 * 4
+        return super().estimated_storage_bytes + self.num_worlds * self.weak_archive_slots * 350 * self.memory.short.shape[-1] * 4
 
     def _initialize_weak_archive(self, batch):
         ids = (~batch["is_nominal"].bool()).nonzero(as_tuple=False).flatten()
@@ -93,7 +93,7 @@ class WeakPairReplayBuffer(Memory350ReplayBuffer):
         lookup[ids] = torch.arange(count, device=self.device)
         self.weak_archive = {
             "env_ids": ids, "lookup": lookup,
-            "raw": torch.empty(count, slots, 350, 171, dtype=torch.float32, device=self.device),
+            "raw": torch.empty(count, slots, 350, self.memory.short.shape[-1], dtype=torch.float32, device=self.device),
             "next_slot": torch.zeros(count, dtype=torch.long, device=self.device),
             "last_capture": torch.full((count,), -self.weak_archive_interval, dtype=torch.long, device=self.device),
             **{name: torch.full((count, slots), -1, dtype=torch.long, device=self.device)
@@ -155,20 +155,20 @@ class WeakPairReplayBuffer(Memory350ReplayBuffer):
             gap = query_time - archive["collector_step"][safe_rows, slots]
         else:
             pair_valid = torch.zeros(batch_size, dtype=torch.bool, device=self.device)
-            raw = torch.zeros(batch_size, 350, 171, device=self.device)
+            raw = torch.zeros(batch_size, 350, self.memory.short.shape[-1], device=self.device)
             motion = session = gap = torch.zeros_like(selected["world_id"])
-        values = self._normalization_tensors(normalization, self.device)
-        state_mean, state_std, action_mean, action_std = values[:4]
-        normalized = torch.cat(((raw[..., :71] - state_mean) / state_std,
-                                (raw[..., 71:100] - action_mean) / action_std,
-                                (raw[..., 100:] - state_mean) / state_std), -1)
+        state_mean, state_std, action_mean, action_std = self._context_normalization_tensors(normalization)
+        s, a = self.context_state_dim, self.context_state_dim + 29
+        normalized = torch.cat(((raw[..., :s] - state_mean) / state_std,
+                                (raw[..., s:a] - action_mean) / action_std,
+                                (raw[..., a:] - state_mean) / state_std), -1)
         normalized = normalized.masked_fill(~pair_valid[:, None, None], 0)
         return {
-            "weak_history_state": normalized[:, :50, :71],
-            "weak_history_action": normalized[:, :50, 71:100],
-            "weak_history_next_state": normalized[:, :50, 100:],
+            "weak_history_state": normalized[:, :50, :s],
+            "weak_history_action": normalized[:, :50, s:a],
+            "weak_history_next_state": normalized[:, :50, a:],
             "weak_history_valid": pair_valid[:, None].expand(-1, 50),
-            "weak_memory_interactions": normalized[:, 50:].reshape(batch_size, 30, 10, 171),
+            "weak_memory_interactions": normalized[:, 50:].reshape(batch_size, 30, 10, 2 * s + 29),
             "weak_memory_valid": pair_valid[:, None].expand(-1, 30),
             "weak_pair_valid": pair_valid,
             "weak_world_id": selected["world_id"],
@@ -194,8 +194,7 @@ class WeakPairObjective(Memory350Objective):
             return torch.cat([batch[prefix + name] for prefix in prefixes], dim=0)
         combined = self.model.encode_context(
             cat("history_state"), cat("history_action"),
-            torch.cat((batch["state"][:, 0], batch["positive_current_state"],
-                       batch["weak_history_next_state"][:, -1]), dim=0),
+            cat("history_next_state")[:, -1],
             cat("history_valid"), history_next_state=cat("history_next_state"),
             memory_interactions=cat("memory_interactions"), memory_valid=cat("memory_valid"))
         return combined.split(batch["state"].size(0), dim=0)

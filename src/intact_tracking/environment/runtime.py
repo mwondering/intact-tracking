@@ -54,6 +54,10 @@ def _load_saved_config(checkpoint_path: Path) -> DictConfig:
     checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
     raw = checkpoint.get("cfg")
     del checkpoint
+    return _saved_config(raw)
+
+
+def _saved_config(raw: Any) -> DictConfig:
     if isinstance(raw, DictConfig):
         container = OmegaConf.to_container(raw, resolve=True)
     elif isinstance(raw, Mapping):
@@ -128,14 +132,16 @@ def prepare_rollout(
     motion_path: str | None,
     motion_file: str | None,
     task_id: str | None = None,
+    checkpoint_config: Mapping[str, Any] | DictConfig | None = None,
 ) -> PreparedRollout:
     """Reconstruct the exact inference configuration embedded in a checkpoint."""
     checkpoint_path = Path(checkpoint_file).expanduser().resolve()
-    if not checkpoint_path.is_file():
+    if checkpoint_config is None and not checkpoint_path.is_file():
         raise FileNotFoundError(checkpoint_path)
     if num_envs < 1:
         raise ValueError("num_envs must be positive")
-    config = _load_saved_config(checkpoint_path)
+    config = (_load_saved_config(checkpoint_path) if checkpoint_config is None
+              else _saved_config(checkpoint_config))
     checkpoint_task_id = str(config.get("task_id", config.task.get("name", "")))
     if task_id is not None and str(task_id) != checkpoint_task_id:
         raise ValueError(

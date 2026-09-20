@@ -67,9 +67,12 @@ class ResidualOnPolicyRunner(MjlabOnPolicyRunner):
         *,
         checkpoint_cfg: Any,
         residual_metadata: Mapping[str, Any],
+        frozen_dependencies: Mapping[str, Any] | None = None,
     ) -> None:
         self.checkpoint_cfg = checkpoint_cfg
         self.residual_metadata = dict(residual_metadata)
+        # CPU inference tensors, cached once; never optimizer parameters.
+        self.frozen_dependencies = dict(frozen_dependencies or {})
         self.stop_requested = False
         self.completed_learning_updates = 0
         # RSL-RL's factory pops class_name and other constructor options. Never
@@ -138,21 +141,50 @@ class ResidualOnPolicyRunner(MjlabOnPolicyRunner):
             return {}
         with torch.inference_mode():
             diagnostics = actor.policy_metrics(obs)
+            action_manager = getattr(self.env.unwrapped, "action_manager", None)
+            if action_manager is not None and actor.last_residual_mean is not None:
+                try:
+                    action_term = action_manager.get_term("joint_pos")
+                except KeyError:
+                    action_term = None
+                if action_term is not None:
+                    # The joint-position offset induced by the mean residual,
+                    # before SP's delay/smoothing and motor/joint offsets.
+                    target_delta = actor.last_residual_mean.float() * action_term._scale
+                    diagnostics["residual_target_rms_rad"] = float(
+                        target_delta.square().mean().sqrt().item())
+                    diagnostics["residual_target_abs_max_rad"] = float(
+                        target_delta.abs().max().item())
         latent_metrics = getattr(self.env, "latent_metrics", None)
         if isinstance(latent_metrics, Mapping):
             diagnostics.update({str(name): float(value) for name, value in latent_metrics.items()})
         if self.is_distributed and diagnostics:
             names = tuple(diagnostics)
+            rms_names = {name for name in names if name in (
+                "base_action_rms", "residual_action_rms", "residual_target_rms_rad"
+            ) or name.endswith("_action_delta_rms")}
+            max_names = tuple(name for name in names if name.endswith(("_abs_max", "_abs_max_rad")))
             values = torch.tensor(
-                [diagnostics[name] for name in names],
+                [diagnostics[name] ** 2 if name in rms_names else diagnostics[name] for name in names],
                 dtype=torch.float64,
                 device=self.device,
             )
             torch.distributed.all_reduce(values)
             values.div_(self.gpu_world_size)
+            # Every training rank has the same observation/action count. Pool
+            # mean squares before sqrt; a mean of rank RMSs underestimates RMS.
+            maxima = torch.tensor([diagnostics[name] for name in max_names],
+                                  dtype=torch.float64, device=self.device)
+            if max_names:
+                torch.distributed.all_reduce(maxima, op=torch.distributed.ReduceOp.MAX)
             diagnostics = {
-                name: float(value) for name, value in zip(names, values.cpu().tolist(), strict=True)
+                name: float(value ** 0.5 if name in rms_names else value)
+                for name, value in zip(names, values.cpu().tolist(), strict=True)
             }
+            diagnostics.update(zip(max_names, maxima.cpu().tolist(), strict=True))
+        if "residual_to_base_rms_ratio" in diagnostics:
+            diagnostics["residual_to_base_rms_ratio"] = (
+                diagnostics["residual_action_rms"] / max(diagnostics["base_action_rms"], 1e-12))
         return diagnostics
 
     def learn(self, num_learning_iterations: int | None, init_at_random_ep_len: bool = False) -> None:
@@ -271,6 +303,7 @@ class ResidualOnPolicyRunner(MjlabOnPolicyRunner):
             "cfg": self.checkpoint_cfg,
             "residual_policy": self.residual_metadata,
             "motion_sampling_state": getattr(self, "motion_sampling_state", None),
+            **getattr(self, "frozen_dependencies", {}),
         }
 
     def save(self, path: str, infos: dict[str, Any] | None = None) -> None:

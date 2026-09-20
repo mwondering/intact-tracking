@@ -15,7 +15,10 @@ class CachedMemory350Inference:
         if min(batch_size, chunk_batch_size) < 1:
             raise ValueError("Inference batch sizes must be positive")
         self.checkpoint = checkpoint
-        self.memory = InteractionMemory(num_worlds, device=checkpoint.state_mean.device)
+        self.state_dim = checkpoint.state_mean.numel()
+        self.action_dim = checkpoint.action_mean.numel()
+        self.memory = InteractionMemory(num_worlds, device=checkpoint.state_mean.device,
+                                        token_dim=2 * self.state_dim + self.action_dim)
         self.batch_size, self.chunk_batch_size = batch_size, chunk_batch_size
         self.use_bfloat16 = use_bfloat16 and self.memory.device.type == "cuda"
         width = checkpoint.config.context_dim
@@ -32,9 +35,10 @@ class CachedMemory350Inference:
 
     def _normalize(self, raw):
         c = self.checkpoint
-        return torch.cat(((raw[..., :71] - c.state_mean) / c.state_std,
-                          (raw[..., 71:100] - c.action_mean) / c.action_std,
-                          (raw[..., 100:] - c.state_mean) / c.state_std), dim=-1)
+        s, a = self.state_dim, self.state_dim + self.action_dim
+        return torch.cat(((raw[..., :s] - c.state_mean) / c.state_std,
+                          (raw[..., s:a] - c.action_mean) / c.action_std,
+                          (raw[..., a:] - c.state_mean) / c.state_std), dim=-1)
 
     @torch.no_grad()
     def append(self, batch):

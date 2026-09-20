@@ -76,11 +76,11 @@ class Memory350Objective(ForwardPredictorObjective):
             "foot": (batch_size, 6, 8),
             "contact_force": (batch_size, 6, 6),
             "contact_binary": (batch_size, 6, 2),
-            "history_state": (batch_size, context_steps, 71),
+            "history_state": (batch_size, context_steps, getattr(self.model.config, "context_state_dim", 71)),
             "history_action": (batch_size, context_steps, 29),
             "history_valid": (batch_size, context_steps),
             "positive_current_state": (batch_size, 71),
-            "positive_history_state": (batch_size, context_steps, 71),
+            "positive_history_state": (batch_size, context_steps, getattr(self.model.config, "context_state_dim", 71)),
             "positive_history_action": (batch_size, context_steps, 29),
             "positive_history_valid": (batch_size, context_steps),
             "positive_pair_valid": (batch_size,),
@@ -98,8 +98,8 @@ class Memory350Objective(ForwardPredictorObjective):
         views = self._encode_views(batch)
         latent = views[0]
         history_arguments = {
-            "history_state": batch["history_state"],
-            "history_action": batch["history_action"],
+            "history_state": batch.get("predictor_history_state", batch["history_state"]),
+            "history_action": batch.get("predictor_history_action", batch["history_action"]),
             "history_foot": batch["history_foot"],
             "history_contact_force": batch["history_contact_force"],
             "history_contact_binary": batch["history_contact_binary"],

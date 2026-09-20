@@ -114,11 +114,15 @@ class FixedDRRolloutConfig:
     limb_fixed_masses: tuple[float, float, float, float] | None = None
     limb_max_masses_kg: tuple[float, float, float, float] | None = None
     dr_nominal_probability: float = 0.0
+    checkpoint_native_dr: bool = False
 
     def __post_init__(self) -> None:
         from intact_tracking.independent_nominal_dr import validate_probability
 
         validate_probability(self.dr_nominal_probability)
+        if self.checkpoint_native_dr and (self.limb_payload_experiment or self.payload_enabled
+                                         or self.dr_nominal_probability or self.dynamics_classes):
+            raise ValueError("Checkpoint-native DR cannot add payloads, parameter mixtures or tiled physics")
         if self.dr_nominal_probability and (not self.tracker_dr_plus_limb_payload or self.limb_fixed_masses is not None):
             raise ValueError("DR nominal mixture requires random tracker DR plus limb payloads")
         if self.limb_payload_only and self.tracker_dr_plus_limb_payload:
@@ -146,7 +150,7 @@ class FixedDRRolloutConfig:
         if not 0.0 <= self.nominal_fraction <= 1.0:
             raise ValueError("nominal_fraction must be in [0, 1]")
         nominal_count = self.num_envs * self.nominal_fraction
-        if abs(nominal_count - round(nominal_count)) > 1.0e-8:
+        if not self.checkpoint_native_dr and abs(nominal_count - round(nominal_count)) > 1.0e-8:
             raise ValueError(
                 "num_envs * nominal_fraction must be an integer, got "
                 f"{self.num_envs} * {self.nominal_fraction}"
@@ -938,7 +942,10 @@ class FixedDRTrackerRollout:
             rewind_cfg = getattr(motion_cfg, "rewind", None)
             if rewind_cfg is not None:
                 rewind_cfg.enabled = False
-        if config.limb_payload_experiment:
+        if config.checkpoint_native_dr:
+            from intact_tracking.memory350_native_dr import configure_native_environment
+            self.payload_configuration = configure_native_environment(prepared.env, config)
+        elif config.limb_payload_experiment:
             from intact_tracking.limb_context_dr import LOAD_ONLY, TRACKER_DR, configure_limb_dr
             from intact_tracking.adaptation_curriculum import configure_training_starts
             if config.tracker_dr_plus_limb_payload:
@@ -954,8 +961,9 @@ class FixedDRTrackerRollout:
             configure_training_starts(prepared.env, "original" if config.tracker_dr_plus_limb_payload else "reference")
         else:
             self.payload_configuration = _add_payload_startup_event(prepared.env, config)
-        self.cleared_motion_exclusions = _clear_missing_motion_exclusions(prepared.env)
-        if config.tracker_dr_plus_limb_payload:
+        self.cleared_motion_exclusions = ([] if config.checkpoint_native_dr
+                                         else _clear_missing_motion_exclusions(prepared.env))
+        if config.tracker_dr_plus_limb_payload or config.checkpoint_native_dr:
             self.startup_events = sorted(name for name, term in prepared.env.events.items() if term.mode == "startup")
             self.removed_non_startup_events = []
         else:
@@ -988,7 +996,8 @@ class FixedDRTrackerRollout:
                 str(Path(path).expanduser().resolve()) for path in motion_files
             )
             self.disabled_startup_reset_callbacks = (
-                [] if config.tracker_dr_plus_limb_payload else _disable_startup_reset_callbacks(self.env))
+                [] if config.tracker_dr_plus_limb_payload or config.checkpoint_native_dr
+                else _disable_startup_reset_callbacks(self.env))
             self.dynamics_grouping: dict[str, Any] | None = None
             if config.dynamics_classes is not None:
                 self.dynamics_grouping = _tile_fixed_dynamics_prototypes(
@@ -1008,6 +1017,11 @@ class FixedDRTrackerRollout:
             self.nominal_env_ids = torch.arange(
                 self.nominal_count, device=self.env.device, dtype=torch.long
             )
+            if config.checkpoint_native_dr:
+                from intact_tracking.memory350_native_dr import native_nominal_ids
+                self.nominal_env_ids = native_nominal_ids(config.num_envs, config.nominal_fraction,
+                                                         device=self.env.device)
+                self.nominal_count = len(self.nominal_env_ids)
             self.is_nominal = torch.zeros(config.num_envs, device=self.env.device, dtype=torch.bool)
             self.is_nominal[self.nominal_env_ids] = True
             self.nominal_restore_metrics: dict[str, float] | None = None
@@ -1015,6 +1029,9 @@ class FixedDRTrackerRollout:
                 self.nominal_restore_metrics = _restore_nominal_physics(
                     self.env, self.nominal_env_ids
                 )
+            if config.checkpoint_native_dr:
+                from intact_tracking.memory350_native_dr import install_native_runtime
+                install_native_runtime(self)
             self.payload_mass_summary: dict[str, float | int] | None = None
             if config.payload_enabled:
                 self.payload_mass_summary = _payload_mass_summary(
@@ -1287,6 +1304,12 @@ class FixedDRTrackerRollout:
         joint_target = action_transform(action) if action_transform is not None else None
 
         raw_next, reward, terminated, truncated, _ = self.env.step(action)
+        substep_targets = None
+        if getattr(self, "captures_physical_targets", False):
+            substep_targets = self.env.action_manager.get_term("joint_pos").physical_target_trace.clone()
+            joint_target = substep_targets.mean(1)
+            self.predictor_action_target_verified = True
+            self.predictor_action_target_max_abs_error = 0.0
         done = terminated | truncated
         motion_resample_boundary = _read_motion_resample_boundary(
             getattr(self, "motion_command", None),
@@ -1350,6 +1373,8 @@ class FixedDRTrackerRollout:
             batch["policy_observation"] = policy_observation
         if joint_target is not None:
             batch["joint_target"] = joint_target
+        if substep_targets is not None:
+            batch["joint_target_substeps"] = substep_targets
         if "robot_state" in before and "robot_state" in after:
             batch.update(
                 {

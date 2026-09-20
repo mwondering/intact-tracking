@@ -287,7 +287,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _limb_experiment(args: argparse.Namespace) -> bool:
-    return args.limb_payload_only or getattr(args, "tracker_dr_plus_limb_payload", False)
+    return (args.limb_payload_only or getattr(args, "tracker_dr_plus_limb_payload", False)
+            or getattr(args, "checkpoint_native_dr", False))
 
 
 def _validate_arguments(args: argparse.Namespace, *, require_comparison_reference=True,
@@ -307,8 +308,12 @@ def _validate_arguments(args: argparse.Namespace, *, require_comparison_referenc
         if not smoke_motion or args.updates > 3:
             raise ValueError("A bounded smoke needs an allowed motion source and at most three updates")
         args.until_user_stop = False
-    if args.context_history_steps != 50 or not args.tracker_dr_plus_limb_payload or args.limb_payload_only:
+    native_dr = getattr(args, "checkpoint_native_dr", False)
+    if args.context_history_steps != 50 or (not native_dr and not args.tracker_dr_plus_limb_payload) or args.limb_payload_only:
         raise ValueError("Memory350 scaling fixes short50 and frozen-tracker DR plus four-limb loads")
+    if native_dr and (args.tracker_dr_plus_limb_payload or args.payload or args.dr_nominal_probability
+                      or args.limb_max_masses_kg is not None):
+        raise ValueError("Checkpoint-native context must retain unmodified DR draws without payloads")
     if (args.chunk_depth, args.memory_depth, args.context_depth) != (2, 4, 4):
         raise ValueError("The encoder scale experiment fixes attention depths to 2/4/4")
     if require_comparison_reference and not args.bounded_smoke and not args.comparison_reference_dir:
@@ -642,7 +647,7 @@ def _save_checkpoint(
         "long_memory_in_model": True,
         "encoder_scale": "attention_depth_2x_v1",
         "parameter_counts": parameter_counts(model),
-        "episode_length_control_steps": 1000,
+        "episode_length_control_steps": rollout.env.max_episode_length,
         "distributed_parameter_agreement": {"passed": True, "sha256_by_rank": model_digests},
         "update": update,
         "optimizer_steps": optimizer_steps,
@@ -729,12 +734,17 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             tracker_dr_plus_limb_payload=args.tracker_dr_plus_limb_payload,
             limb_max_masses_kg=getattr(args, "limb_max_masses_kg", None),
             dr_nominal_probability=args.dr_nominal_probability,
+            **({"checkpoint_native_dr": True} if getattr(args, "checkpoint_native_dr", False) else {}),
         )
     )
     dataset = None
     if _limb_experiment(args):
-        from intact_tracking.preview_protocol import dataset_identity
-        files, dataset = dataset_identity(args.motion_file, args.motion_path)
+        if getattr(args, "checkpoint_native_dr", False):
+            from intact_tracking.memory350_native_dr import native_dataset_identity
+            files, dataset = native_dataset_identity(args.checkpoint_file, args.motion_file, args.motion_path)
+        else:
+            from intact_tracking.preview_protocol import dataset_identity
+            files, dataset = dataset_identity(args.motion_file, args.motion_path)
         expected = files[distributed.rank::distributed.world_size] if len(files) > 1 else files
         if tuple(map(str, expected)) != rollout.motion_files:
             rollout.close()
@@ -763,7 +773,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         dataset["loaded_global_frames"] = sum(r["loaded_frames"] for r in rank_audits) if len(files) > 1 else rank_audits[0]["loaded_frames"]
         if dataset["loaded_global_motion_count"] != len(files):
             raise RuntimeError("Distributed motion shards do not cover the requested catalog")
-    if rollout.predictor_action_transform is None:
+    if rollout.predictor_action_transform is None and not getattr(rollout, "captures_physical_targets", False):
         error = rollout.predictor_action_transform_error or "unknown action-chain error"
         rollout.close()
         raise RuntimeError(
@@ -798,6 +808,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
         seed=rank_seed,
         world_id_offset=world_id_offset,
         device=device,
+        **getattr(rollout, "replay_kwargs", {}),
     )
     validation_replay = None
     collector_replay = replay
@@ -808,6 +819,7 @@ def _run(args: argparse.Namespace, distributed: DistributedContext) -> Path:
             capacity=max(32768, args.fixed_probe_batch_size * 8),
             history_steps=args.history_steps, context_history_steps=args.context_history_steps,
             positive_offset_steps=args.positive_offset_steps, sampling_mode=args.replay_sampling,
+            **getattr(rollout, "replay_kwargs", {}),
             seed=rank_seed + 908177, world_id_offset=world_id_offset + training_worlds, device=device)
         collector_replay = SplitWorldReplay(replay, validation_replay)
     # Simulator construction intentionally uses a rank-independent dynamics

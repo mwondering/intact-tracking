@@ -105,6 +105,10 @@ class substep_tracking_cache:
             device=env.device,
         )
         self._joint_vel = torch.zeros_like(self._joint_pos)
+        self._joint_acc_sq_sum = (torch.zeros_like(self._joint_pos[:, 0])
+                                 if bool(cfg.params.get("track_joint_acc", False)) else None)
+        self._joint_power_abs_sum = (torch.zeros_like(self._joint_pos[:, 0])
+                                    if bool(cfg.params.get("track_joint_power", False)) else None)
         primary_names = tuple(getattr(self.sensor, "primary_names", ()))
         self.contact_count = len(primary_names) or len(SP_FEET_BODY_NAMES)
         self._contact_found = torch.zeros(
@@ -147,6 +151,10 @@ class substep_tracking_cache:
             env_ids = slice(None)
         self._joint_pos[env_ids] = 0.0
         self._joint_vel[env_ids] = 0.0
+        if self._joint_acc_sq_sum is not None:
+            self._joint_acc_sq_sum[env_ids] = 0.0
+        if self._joint_power_abs_sum is not None:
+            self._joint_power_abs_sum[env_ids] = 0.0
         self._contact_found[env_ids] = False
         if self._joint_torque_samples is not None:
             self._joint_torque_samples[env_ids] = 0.0
@@ -185,6 +193,15 @@ class substep_tracking_cache:
         contact_slot = self._substep_count % self.decimation
         self._joint_pos[:, joint_slot] = self.asset.data.joint_pos
         self._joint_vel[:, joint_slot] = self.asset.data.joint_vel
+        if self._joint_acc_sq_sum is not None:
+            if contact_slot == 0:
+                self._joint_acc_sq_sum.zero_()
+            self._joint_acc_sq_sum.add_(self.asset.data.joint_acc.square())
+        if self._joint_power_abs_sum is not None:
+            if contact_slot == 0:
+                self._joint_power_abs_sum.zero_()
+            self._joint_power_abs_sum.add_(
+                (self.asset.data.qfrc_actuator * self.asset.data.joint_vel).abs())
         self._contact_found[:, :, contact_slot] = self._read_contact_found()
         if self._joint_torque_samples is not None:
             torque = torch.cat(
@@ -204,6 +221,16 @@ class substep_tracking_cache:
         if field_name == "joint_vel":
             return self._joint_vel.mean(dim=1)
         raise ValueError(f"Unsupported joint state field: {field_name}")
+
+    def joint_acc_squared_average(self) -> torch.Tensor:
+        if self._joint_acc_sq_sum is None:
+            raise RuntimeError("Joint acceleration reward requires track_joint_acc=true")
+        return self._joint_acc_sq_sum / self.decimation
+
+    def joint_power_absolute_average(self) -> torch.Tensor:
+        if self._joint_power_abs_sum is None:
+            raise RuntimeError("Joint power reward requires track_joint_power=true")
+        return self._joint_power_abs_sum / self.decimation
 
     def contact_state(self) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Return source-style majority contact plus transition indicators."""
@@ -229,6 +256,22 @@ class substep_tracking_cache:
 def _substep_cache(env: "ManagerBasedRlEnv") -> substep_tracking_cache | None:
     cache = getattr(env, "_sp_substep_tracking_cache", None)
     return cache if isinstance(cache, substep_tracking_cache) else None
+
+
+def joint_acc_l2(env: "ManagerBasedRlEnv", asset_cfg: SceneEntityCfg) -> torch.Tensor:
+    """Checkpoint-compatible negative mean squared acceleration, summed over joints."""
+    cache = _substep_cache(env)
+    if cache is None or asset_cfg.name != "robot":
+        raise RuntimeError("joint_acc_l2 requires the robot substep tracking cache")
+    return -cache.joint_acc_squared_average()[:, asset_cfg.joint_ids].sum(-1)
+
+
+def joint_power_l1(env: "ManagerBasedRlEnv", asset_cfg: SceneEntityCfg) -> torch.Tensor:
+    """Checkpoint-compatible mechanical power magnitude including braking."""
+    cache = _substep_cache(env)
+    if cache is None or asset_cfg.name != "robot":
+        raise RuntimeError("joint_power_l1 requires the robot substep tracking cache")
+    return -cache.joint_power_absolute_average()[:, asset_cfg.joint_ids].sum(-1)
 
 
 def _command(env: "ManagerBasedRlEnv", command_name: str) -> MultiMotionCommand:

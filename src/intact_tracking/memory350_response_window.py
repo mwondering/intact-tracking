@@ -42,7 +42,8 @@ class ResponseWindowCollector:
             self.pending = [rollout.step(predictor_only=True) for _ in range(5)]
         following = [rollout.step(predictor_only=True) for _ in range(5)]
         batches = self.pending + following
-        actions = torch.stack([batch["joint_target"] for batch in batches], dim=1)
+        target_key = "joint_target_substeps" if "joint_target_substeps" in batches[0] else "joint_target"
+        actions = torch.stack([batch[target_key] for batch in batches], dim=1)
         with torch.inference_mode():
             nominal, diagnostics = nominal_rollout.rollout_joint_targets(
                 batches[0]["robot_state"], actions,

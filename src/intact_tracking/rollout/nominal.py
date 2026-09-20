@@ -342,8 +342,9 @@ class NominalPairRollout:
         env = self.env
         states: list[torch.Tensor] = []
         for index in range(self.config.horizon):
-            target = joint_targets[:, index]
-            for _ in range(env.cfg.decimation):
+            for substep in range(env.cfg.decimation):
+                target = (joint_targets[:, index, substep] if joint_targets.ndim == 4
+                          else joint_targets[:, index])
                 self.robot.set_joint_position_target(target, env_ids=self._env_ids)
                 env.scene.write_data_to_sim()
                 env.sim.step()
@@ -372,12 +373,13 @@ class NominalPairRollout:
             raise RuntimeError("Cannot use a closed nominal pair rollout")
         expected_state = (self.num_envs, 71)
         expected_targets = (self.num_envs, self.config.horizon, self.action_dim)
+        expected_substeps = (self.num_envs, self.config.horizon, self.env.cfg.decimation, self.action_dim)
         if tuple(state.shape) != expected_state:
             raise ValueError(f"Nominal state has {tuple(state.shape)}, expected {expected_state}")
-        if tuple(joint_targets.shape) != expected_targets:
+        if tuple(joint_targets.shape) not in (expected_targets, expected_substeps):
             raise ValueError(
                 "Nominal joint_targets has "
-                f"{tuple(joint_targets.shape)}, expected {expected_targets}"
+                f"{tuple(joint_targets.shape)}, expected {expected_targets} or {expected_substeps}"
             )
         if state.device != self.device or joint_targets.device != self.device:
             raise ValueError(f"Nominal inputs must be on {self.device}")

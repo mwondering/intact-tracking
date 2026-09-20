@@ -34,7 +34,9 @@ class HierarchicalContextEncoder(nn.Module):
         super().__init__()
         self.config = config
         width = config.context_dim
-        self.interaction_projection = nn.Sequential(nn.Linear(171, width), nn.GELU(), nn.LayerNorm(width))
+        state_dim = getattr(config, "context_state_dim", config.state_dim)
+        interaction_dim = 2 * state_dim + config.action_dim
+        self.interaction_projection = nn.Sequential(nn.Linear(interaction_dim, width), nn.GELU(), nn.LayerNorm(width))
         self.chunk_cls = nn.Parameter(torch.empty(1, 1, width))
         self.chunk_position = nn.Parameter(torch.empty(1, config.memory_chunk_steps + 1, width))
         self.chunk_encoder = _attention(width, config.context_heads, config.chunk_depth, config.dropout)

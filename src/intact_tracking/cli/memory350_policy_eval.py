@@ -30,7 +30,7 @@ from intact_tracking.memory350_policy_protocol import VERSION, EVAL_VERSION, EPI
 from intact_tracking.limb_context_dr import (
     DR_PROFILES, TRACKER_DR, configure_limb_dr, audit_limb_dr, resolve_dr_profile,
 )
-from intact_tracking.memory350_inference import load_memory350_checkpoint as load_frozen_context_checkpoint
+from intact_tracking.memory350_checkpoint import embedded_tracker, load_policy_context
 from intact_tracking.rollout.mjlab_adapter import _sha256
 from intact_tracking.memory350_policy_precision import (
     POLICY_PRECISIONS, configure_policy_precision, resolve_policy_precision,
@@ -39,6 +39,13 @@ from intact_tracking import global_tracking_metrics
 
 EVAL_PROTOCOL = EVAL_VERSION
 ACTOR_CLASS_NAME = "intact_tracking.limb_context_policy:LimbContextResidualActor"
+
+
+def evaluation_world_metadata(env):
+    fingerprints = [hashlib.sha256(row.tobytes()).hexdigest()
+                    for row in physics_observation(env).detach().cpu().numpy()]
+    masses = env.event_manager.get_term_cfg(PAYLOAD_EVENT).func.observe().cpu().tolist()
+    return {"physics_world_fingerprints": fingerprints, "actual_limb_masses_kg": masses}
 
 
 def build_parser():
@@ -84,11 +91,14 @@ def run(args):
     args.policy_precision = resolve_policy_precision(getattr(args, "policy_precision", None), state)
     precision_audit = configure_policy_precision(args.policy_precision)
     args.dr_profile = resolve_dr_profile(args.dr_profile, state["residual_policy"] if state else None)
-    if args.dr_profile == TRACKER_DR and _sha256(Path(args.tracker_checkpoint)) != TRACKER_SHA256:
+    tracker = embedded_tracker(state) if state is not None else None
+    tracker_hash = tracker["source_sha256"] if tracker else _sha256(Path(args.tracker_checkpoint))
+    if args.dr_profile == TRACKER_DR and tracker_hash != TRACKER_SHA256:
         raise ValueError("Wrong frozen tracker checkpoint for the original DR profile")
     _seed_everything(args.seed)
     prepared = prepare_rollout(checkpoint_file=args.tracker_checkpoint, num_envs=n,
-                               motion_file=None, motion_path=args.motion_path)
+                               motion_file=None, motion_path=args.motion_path,
+                               checkpoint_config=tracker["cfg"] if tracker else None)
     cfg = prepared.env
     rewards = capture_original_rewards(cfg)
     physics = configure_limb_dr(cfg, args.seed, profile=args.dr_profile, fixed_masses=args.fixed_masses)
@@ -108,10 +118,7 @@ def run(args):
         assert_fixed_reward_checkpoint(state, rewards)
         fusion = meta["fusion"]
         if fusion in ("film", "concat"):
-            context = load_frozen_context_checkpoint(meta["context_checkpoint"], device=args.device,
-                                                      expected_tracker_sha256=meta["tracker_sha256"])
-            if context.sha256 != meta["context_sha256"]:
-                raise ValueError("Frozen context checkpoint changed")
+            context = load_policy_context(state, device=args.device)
     if args.latent_mode != "correct" and fusion not in ("film", "concat"):
         raise ValueError("Latent interventions require a learned-context policy")
     # Context construction consumes RNG; physics must be identical across arms.
@@ -143,6 +150,8 @@ def run(args):
             kwargs = copy.deepcopy(agent["actor"])
             if kwargs.pop("class_name") != ACTOR_CLASS_NAME:
                 raise ValueError("Actor checkpoint contract differs")
+            if tracker is not None:
+                kwargs["tracker_state_dict"] = tracker["actor_state_dict"]
             actor = LimbContextResidualActor(obs, agent["obs_groups"], "actor", wrapped.num_actions, **kwargs)
             actor.to(env.device)
             actor.load_state_dict(state["actor_state_dict"], strict=True)
@@ -166,6 +175,7 @@ def run(args):
             command.cfg.resample_on_motion_end = True
             failures = torch.zeros(n, dtype=torch.long, device=env.device)
             h = hashlib.sha256()
+            trajectory_checks = []
             with torch.inference_mode():
                 for step in range(args.warmup_steps):
                     _seed_everything(args.seed + 3000000 + step)
@@ -174,10 +184,18 @@ def run(args):
                     obs, _, dones, _ = wrapped.step(action)
                     failures += dones.long()
                     if step % 50 == 0 or step == args.warmup_steps - 1:
-                        for tensor in (env.sim.data.qpos, env.sim.data.qvel, action, command.time_steps):
-                            h.update(tensor.detach().contiguous().cpu().numpy().tobytes())
+                        check = {"step": step + 1}
+                        for name, tensor in (("qpos", env.sim.data.qpos), ("qvel", env.sim.data.qvel),
+                                             ("action", action), ("motion_step", command.time_steps)):
+                            raw = tensor.detach().contiguous().cpu().numpy().tobytes()
+                            h.update(raw)
+                            check[name] = hashlib.sha256(raw).hexdigest()
+                        trajectory_checks.append(check)
+                    if (step + 1) % 250 == 0:
+                        print(json.dumps({"phase": "warmup", "step": step + 1,
+                                          "resets": int(failures.sum())}), flush=True)
             warmup.update(steps=args.warmup_steps, resets_per_world=failures.cpu().tolist(),
-                          trajectory_sample_sha256=h.hexdigest())
+                          trajectory_sample_sha256=h.hexdigest(), trajectory_checks=trajectory_checks)
         env.cfg.auto_reset = False
         command.cfg.resample_on_motion_end = False
         command._uniform_sampling = MethodType(sample, command)
@@ -193,9 +211,7 @@ def run(args):
         for tensor in (env.sim.data.qpos, env.sim.data.qvel):
             h.update(tensor.detach().contiguous().cpu().numpy().tobytes())
         query_initial_state_sha256 = h.hexdigest()
-        fingerprints = [hashlib.sha256(row.tobytes()).hexdigest()
-                        for row in physics_observation(env).detach().cpu().numpy()]
-        masses = env.event_manager.get_term_cfg(PAYLOAD_EVENT).func.observe().cpu().tolist()
+        world_metadata = evaluation_world_metadata(env)
         horizons = (command.motion_length - initial_steps - 1).clamp(1, args.steps)
         totals = torch.zeros(n, len(metric_names), device=env.device, dtype=torch.float64)
         returns = torch.zeros(n, device=env.device, dtype=torch.float64)
@@ -240,7 +256,8 @@ def run(args):
                             policy_obs["dynamics_latent"] = torch.where(
                                 eligible[:, None], obs["dynamics_latent"][donor], obs["dynamics_latent"])
                 action = actor(policy_obs)
-                if hasattr(actor, "last_residual_mean") and actor.last_residual_mean is not None:
+                if (getattr(actor, "residual_output_mode", None) == "bounded"
+                        and actor.last_residual_mean is not None):
                     fraction = (actor.last_residual_mean.abs() >= .95 * actor.residual_scale).float().mean(-1)
                     residual_saturation[active] += fraction[active].double()
                 action = action.masked_fill(~active[:, None], 0.)
@@ -281,7 +298,7 @@ def run(args):
             "checkpoint": args.checkpoint or args.tracker_checkpoint,
             "checkpoint_sha256": _sha256(Path(args.checkpoint or args.tracker_checkpoint)),
             "completed_training_updates": completed_updates, "context_sha256": context.sha256 if context else None,
-            "physics": physics, "physics_world_fingerprints": fingerprints, "actual_limb_masses_kg": masses,
+            "physics": physics, **world_metadata,
             "seed": args.seed, "motions": len(files), "episodes": n, "repeats_per_motion": args.repeats,
             "motion_files": files, "motion_ids": ids.cpu().tolist(), "start_frames": initial_steps.cpu().tolist(),
             "horizons": horizons.cpu().tolist(), "max_steps": args.steps,
@@ -293,15 +310,32 @@ def run(args):
             "failure_term_names": names, "failure_terms": failure_terms.cpu().tolist(),
             "coverage_fraction": float((counts.float() / horizons).mean()),
             "context_full_steps": valid_context_steps.cpu().tolist(), "swapped_steps": swapped_steps.cpu().tolist(),
-            "residual_saturation_fraction": float((residual_saturation / counts.clamp_min(1)).mean()),
+            "residual_output_bounded": getattr(actor, "residual_output_mode", None) == "bounded",
+            "residual_saturation_fraction": (
+                float((residual_saturation / counts.clamp_min(1)).mean())
+                if getattr(actor, "residual_output_mode", None) == "bounded" else None),
             "reference_timeline_audited": True, "partial_reset_survivor_state_audited": True,
             "partial_reset_survivor_history_audited": True, "partial_reset_batches": reset_batches,
             "latent_intervention": args.latent_mode,
             "metric_convention": "episode means and returns; errors are failure-truncated, report failures and coverage alongside",
             "wall_seconds": time.time() - start_time,
         }
+        diagnostics = getattr(wrapped, "evaluation_diagnostics", None)
+        if diagnostics is not None:
+            result["evaluation_diagnostics"] = diagnostics
         if collect_global:
             result["global_metric_contract"] = global_tracking_metrics.contract(command)
+        if getattr(args, "frozen_tracker_only", False):
+            # The native evaluator constructs the identical actor/wrapper for
+            # matching RNG and history bookkeeping, but returns only its frozen
+            # tracker output. Validate those weights before relabelling the arm.
+            tracker_state = torch.load(args.tracker_checkpoint, map_location="cpu", weights_only=False)
+            for key, value in actor.tracker.state_dict().items():
+                torch.testing.assert_close(value.cpu(), tracker_state["actor_state_dict"][key], atol=0, rtol=0)
+            result.update(fusion="frozen", checkpoint=args.tracker_checkpoint,
+                          checkpoint_sha256=_sha256(Path(args.tracker_checkpoint)),
+                          completed_training_updates=None, frozen_tracker_weights_verified=True,
+                          residual_checkpoint_used_only_for_identical_setup=args.checkpoint)
         output.parent.mkdir(parents=True, exist_ok=True)
         trace_cpu = trace.cpu().numpy()
         trace_data = {"body_joint": trace_cpu[:, :, :2], "lengths": counts.cpu().numpy()}

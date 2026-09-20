@@ -11,7 +11,10 @@ from intact_tracking.memory350_bank import InteractionMemory
 
 
 class Memory350ReplayBuffer(ForwardPredictorReplayBuffer):
-    def __init__(self, **kwargs):
+    def __init__(self, *, context_state_dim=71, **kwargs):
+        if context_state_dim not in (71, 122):
+            raise ValueError("Supported context states are legacy truth71 and noisy proprio122")
+        self.context_state_dim = context_state_dim
         kwargs.setdefault("context_history_steps", 50)
         if kwargs["context_history_steps"] != 50:
             raise ValueError("Memory350 replay uses short history 50")
@@ -19,14 +22,20 @@ class Memory350ReplayBuffer(ForwardPredictorReplayBuffer):
         # In any elapsed interval at most floor((elapsed+59)/10) chunks can be
         # committed: the extra 59 covers a pending tail and a reset flush.
         archive = 30 + math.ceil(self.ring_steps / 10) + 6
-        self.memory = InteractionMemory(self.num_worlds, device=self.device, archive_chunks=archive)
+        self.memory = InteractionMemory(self.num_worlds, device=self.device, archive_chunks=archive,
+                                        token_dim=2 * context_state_dim + 29)
         self._memory_snapshots = {}
+        self._context_normalization_cache = None
 
     def _allocate(self):
         if self._history:
             return
         super()._allocate()
         self._history["next_state"] = torch.zeros_like(self._history["state"])
+        if self.context_state_dim != 71:
+            for name, width in (("encoder_state", self.context_state_dim), ("encoder_action", 29),
+                                ("encoder_next_state", self.context_state_dim)):
+                self._history[name] = torch.zeros(self.ring_steps, self.num_worlds, width, device=self.device)
         self._memory_snapshots = {key: torch.zeros(self.ring_steps, self.num_worlds,
                                                   dtype=torch.long, device=self.device)
                                   for key in ("memory_total", "memory_start", "memory_session", "short_count")}
@@ -43,7 +52,9 @@ class Memory350ReplayBuffer(ForwardPredictorReplayBuffer):
     def estimated_storage_bytes(self):
         return (super().estimated_storage_bytes + self.memory.storage_bytes
                 + self.ring_steps * self.num_worlds * (71 * 4 + 4 * 8)
-                + self.capacity * (3 * 8 + 1))
+                + self.capacity * (3 * 8 + 1)
+                + (self.ring_steps * self.num_worlds * (2 * self.context_state_dim + 29) * 4
+                   if self.context_state_dim != 71 else 0))
 
     def add_step(self, batch):
         self._allocate()
@@ -56,8 +67,15 @@ class Memory350ReplayBuffer(ForwardPredictorReplayBuffer):
                             ("short_count", self.memory.short_count)):
             self._memory_snapshots[name][position].copy_(value)
         self._history["next_state"][position].copy_(batch["next_robot_state"])
+        names = (("robot_state", "joint_target", "next_robot_state") if self.context_state_dim == 71
+                 else ("encoder_state", "encoder_action", "encoder_next_state"))
+        if self.context_state_dim != 71:
+            for name, width in zip(names, (self.context_state_dim, 29, self.context_state_dim), strict=True):
+                if batch[name].shape != (self.num_worlds, width):
+                    raise ValueError(f"Invalid {name} shape: {batch[name].shape}")
+                self._history[name][position].copy_(batch[name])
         count = super().add_step(batch)
-        raw = torch.cat((batch["robot_state"], batch["joint_target"], batch["next_robot_state"]), dim=-1)
+        raw = torch.cat(tuple(batch[name] for name in names), dim=-1)
         self.memory.finish_step(raw, batch["reset_boundary"])
         self._invalidate_caches()
         return count
@@ -111,6 +129,11 @@ class Memory350ReplayBuffer(ForwardPredictorReplayBuffer):
         # Explicit outcomes prevent an episode boundary from becoming a fake
         # state-action-next-state token, even when adjacent archive rows differ.
         result["next_state"] = self._history["next_state"][slots, ids]
+        if self.context_state_dim != 71:
+            result["predictor_state"], result["predictor_action"] = result["state"], result["action"]
+            for key, name in (("state", "encoder_state"), ("action", "encoder_action"),
+                              ("next_state", "encoder_next_state")):
+                result[key] = self._history[name][slots, ids]
         expected_motion_step = selected["motion_step"][:, None] - 50 + torch.arange(50, device=self.device)[None]
         result["valid"] &= ((~self._reset_history[slots, ids])
                             & (self._history["motion_id"][slots, ids] == selected["motion_id"][:, None])
@@ -119,6 +142,17 @@ class Memory350ReplayBuffer(ForwardPredictorReplayBuffer):
             selected["env_id"], total=selected["memory_total"],
             session_start=selected["memory_start"], session=selected["memory_session"])
         return result
+
+    def _context_normalization_tensors(self, normalization):
+        if self.context_state_dim == 71:
+            return self._normalization_tensors(normalization, self.device)[:4]
+        if self._context_normalization_cache is None or self._context_normalization_cache[0] is not normalization:
+            values = tuple(torch.as_tensor(getattr(normalization, name), dtype=torch.float32, device=self.device)
+                           for name in ("context_state_mean", "context_state_std", "context_action_mean", "context_action_std"))
+            if tuple(x.numel() for x in values) != (self.context_state_dim, self.context_state_dim, 29, 29):
+                raise ValueError("Missing separate noisy-observation/applied-action normalization")
+            self._context_normalization_cache = (normalization, values)
+        return self._context_normalization_cache[1]
 
     def sample_batch(self, batch_size, normalization, *, positive_ready_only=False):
         indices = self._sample_indices(batch_size, positive_ready_only=positive_ready_only)
@@ -132,13 +166,15 @@ class Memory350ReplayBuffer(ForwardPredictorReplayBuffer):
 
         def normalize_context(ctx, prefix=""):
             memory = ctx["memory"]
-            normalized_memory = torch.cat(((memory[..., :71] - state_mean) / state_std,
-                                            (memory[..., 71:100] - action_mean) / action_std,
-                                            (memory[..., 100:] - state_mean) / state_std), dim=-1)
+            sm, ss, am, ast = self._context_normalization_tensors(normalization)
+            s, a = self.context_state_dim, self.context_state_dim + 29
+            normalized_memory = torch.cat(((memory[..., :s] - sm) / ss,
+                                            (memory[..., s:a] - am) / ast,
+                                            (memory[..., a:] - sm) / ss), dim=-1)
             return {
-                prefix + "history_state": self._normalize_masked(ctx["state"], state_mean, state_std, ctx["valid"]),
-                prefix + "history_action": self._normalize_masked(ctx["action"], action_mean, action_std, ctx["valid"]),
-                prefix + "history_next_state": self._normalize_masked(ctx["next_state"], state_mean, state_std, ctx["valid"]),
+                prefix + "history_state": self._normalize_masked(ctx["state"], sm, ss, ctx["valid"]),
+                prefix + "history_action": self._normalize_masked(ctx["action"], am, ast, ctx["valid"]),
+                prefix + "history_next_state": self._normalize_masked(ctx["next_state"], sm, ss, ctx["valid"]),
                 prefix + "history_valid": ctx["valid"],
                 prefix + "memory_interactions": normalized_memory.masked_fill(~ctx["memory_valid"][..., None, None], 0),
                 prefix + "memory_valid": ctx["memory_valid"],
@@ -163,6 +199,11 @@ class Memory350ReplayBuffer(ForwardPredictorReplayBuffer):
                         "contact_force_mean", "contact_force_std", "delta_mean", "delta_std"), values)),
         }
         result.update(self._extra_sample_fields(selected, context, normalization))
+        if self.context_state_dim != 71:
+            result["predictor_history_state"] = self._normalize_masked(
+                context["predictor_state"], state_mean, state_std, context["valid"])
+            result["predictor_history_action"] = self._normalize_masked(
+                context["predictor_action"], action_mean, action_std, context["valid"])
         return result
 
     def _extra_sample_fields(self, selected, context, normalization):

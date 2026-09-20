@@ -49,20 +49,33 @@ class Memory350PolicyWrapper(RslRlVecEnvWrapper):
         self._latent = self._record_latent(self._encode())
         return self._attach(obs), extras
 
+    def _applied_joint_target(self):
+        return self.unwrapped.scene["robot"].data.joint_pos_target.detach()
+
+    def _context_state(self):
+        return _robot_raw_state(self.unwrapped).detach()
+
+    def _context_action(self):
+        return self._applied_joint_target()
+
     def step(self, actions):
         if self.context is not None:
             # Read the actual pre-step state, including after an external partial
             # reset in evaluation. No reset edge is admitted as an interaction.
-            before = {"robot_state": _robot_raw_state(self.unwrapped).detach().clone(),
+            before = {"robot_state": self._context_state().clone(),
                       "episode_id": self.episode_ids.clone(),
                       "episode_step": self.unwrapped.episode_length_buf.clone(),
                       "motion_id": self.motion_command.motion_idx.clone(),
                       "motion_step": self.motion_command.time_steps.clone()}
         obs, reward, dones, extras = super().step(actions)
-        boundary = dones.bool() | _read_motion_resample_boundary(self.motion_command, dones.bool())
+        motion_boundary = _read_motion_resample_boundary(self.motion_command, dones.bool())
+        # The helper snapshots the just-completed transition's pulse. PPO can
+        # segment returns without changing the simulator or logger's dones.
+        extras = {**extras, "motion_resample_boundary": motion_boundary}
+        boundary = dones.bool() | motion_boundary
         if self.context is not None:
-            before.update(next_robot_state=_robot_raw_state(self.unwrapped).detach(),
-                          joint_target=self.unwrapped.scene["robot"].data.joint_pos_target.detach(),
+            before.update(next_robot_state=self._context_state(),
+                          joint_target=self._context_action(),
                           reset_boundary=boundary)
             self.context.append(before)
             if self.encoding_enabled:

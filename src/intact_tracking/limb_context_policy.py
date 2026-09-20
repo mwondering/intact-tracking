@@ -43,18 +43,27 @@ class ConditionedMLP(nn.Module):
                 nn.init.zeros_(head.weight)
                 nn.init.zeros_(head.bias)
 
+    def forward_features(self, value):
+        """Last activated hidden layer, keeping existing concat state-dict keys."""
+        if self.fusion != "concat":
+            raise ValueError("Shared output heads require concat conditioning")
+        features, latent = value[..., :self.feature_dim], value[..., self.feature_dim:]
+        if latent.shape[-1] != self.latent_dim:
+            raise ValueError("Incorrect context input width")
+        features = self.base[0](features) + self.latent_input(latent.detach())
+        for layer in list(self.base)[1:-1]:
+            features = layer(features)
+        return features
+
     def forward(self, value):
+        if self.fusion == "concat":
+            return self.base[-1](self.forward_features(value))
         features, latent = value[..., :self.feature_dim], value[..., self.feature_dim:]
         if latent.shape[-1] != self.latent_dim:
             raise ValueError("Incorrect context input width")
         latent = latent.detach()
         if self.fusion == "constant":
             latent = torch.zeros_like(latent)
-        if self.fusion == "concat":
-            features = self.base[0](features) + self.latent_input(latent)
-            for layer in list(self.base)[1:]:
-                features = layer(features)
-            return features
         condition = self.condition(latent)
         linear_index = 0
         for layer in self.base:
@@ -105,9 +114,10 @@ class LimbContextResidualActor(FrozenTrackerResidualActor):
     @torch.no_grad()
     def policy_metrics(self, obs):
         result = super().policy_metrics(obs)
-        result["residual_saturation_fraction"] = float(
-            (self.last_residual_mean.abs() >= 0.95 * self.residual_scale).float().mean()
-        ) if self.last_residual_mean is not None else 0.0
+        if self.residual_output_mode == "bounded":
+            result["residual_saturation_fraction"] = float(
+                (self.last_residual_mean.abs() >= 0.95 * self.residual_scale).float().mean()
+            ) if self.last_residual_mean is not None else 0.0
         return result
 
 

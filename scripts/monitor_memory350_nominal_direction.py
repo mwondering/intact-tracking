@@ -88,6 +88,7 @@ def worker_processes(leader):
         if any(entry in identity.get("command", []) for entry in (
                 "intact_tracking.cli.forward_memory_nominal_direction_train",
                 "intact_tracking.cli.forward_memory_nominal_dr_rank_train",
+                "intact_tracking.cli.forward_memory_native_dr_train",
                 "intact_tracking.cli.forward_memory_nominal_dr_soft_train")):
             workers.append({k: v for k, v in identity.items() if k != "command"})
     return workers

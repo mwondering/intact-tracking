@@ -49,7 +49,7 @@ def _last_linear(module: nn.Module) -> nn.Linear:
 
 
 class FrozenTrackerResidualActor(nn.Module):
-    """SPV5-2A tracker plus a trainable, bounded residual action head.
+    """SPV5-2A tracker plus a trainable residual action head.
 
     The Gaussian is over the final action actually sent to MJLab.  Its mean is
     ``frozen_tracker_action + residual``.  This preserves PPO's action/log-prob
@@ -57,6 +57,8 @@ class FrozenTrackerResidualActor(nn.Module):
     """
 
     is_recurrent = False
+    # Also covers legacy actor instances created without the new option.
+    residual_output_mode = "bounded"
 
     def __init__(
         self,
@@ -68,6 +70,7 @@ class FrozenTrackerResidualActor(nn.Module):
         tracker_checkpoint: str,
         tracker_actor_kwargs: Mapping[str, Any],
         tracker_obs_groups: Mapping[str, Sequence[str]],
+        tracker_state_dict: Mapping[str, torch.Tensor] | None = None,
         use_dynamics_latent: bool,
         dynamics_latent_group: str = DYNAMICS_LATENT_GROUP,
         dynamics_latent_dim: int = 64,
@@ -78,6 +81,7 @@ class FrozenTrackerResidualActor(nn.Module):
         residual_hidden_dims: Sequence[int] = (512, 256, 128),
         residual_activation: str = "elu",
         residual_scale: float = 0.25,
+        residual_output_mode: str = "bounded",
         distribution_cfg: Mapping[str, Any] | None = None,
     ) -> None:
         super().__init__()
@@ -92,9 +96,11 @@ class FrozenTrackerResidualActor(nn.Module):
             raise ValueError("output_dim must be positive")
         if residual_scale <= 0.0:
             raise ValueError("residual_scale must be positive")
+        if residual_output_mode not in ("bounded", "unbounded"):
+            raise ValueError("residual_output_mode must be bounded or unbounded")
 
         tracker_path = Path(tracker_checkpoint).expanduser().resolve()
-        if not tracker_path.is_file():
+        if tracker_state_dict is None and not tracker_path.is_file():
             raise FileNotFoundError(tracker_path)
         self.tracker_checkpoint = str(tracker_path)
         self.use_dynamics_latent = bool(use_dynamics_latent)
@@ -105,6 +111,9 @@ class FrozenTrackerResidualActor(nn.Module):
         self.residual_reference_state_group = str(residual_reference_state_group)
         self.residual_state_dim = int(residual_state_dim)
         self.residual_scale = float(residual_scale)
+        # Old checkpoint configs omit this key and must retain their trained
+        # scale*tanh parameterization. New native PPO configs select unbounded.
+        self.residual_output_mode = residual_output_mode
         if self.residual_input_mode not in _RESIDUAL_INPUT_MODES:
             raise ValueError(
                 f"Unsupported residual_input_mode={self.residual_input_mode!r}; "
@@ -128,9 +137,10 @@ class FrozenTrackerResidualActor(nn.Module):
             output_dim,
             **actor_kwargs,
         )
-        checkpoint = torch.load(tracker_path, map_location="cpu", weights_only=False)
-        self.tracker.load_state_dict(_checkpoint_state(checkpoint, "actor_state_dict"), strict=True)
-        del checkpoint
+        if tracker_state_dict is None:
+            checkpoint = torch.load(tracker_path, map_location="cpu", weights_only=False)
+            tracker_state_dict = _checkpoint_state(checkpoint, "actor_state_dict")
+        self.tracker.load_state_dict(tracker_state_dict, strict=True)
         self.tracker.requires_grad_(False)
         self.tracker.eval()
 
@@ -251,7 +261,10 @@ class FrozenTrackerResidualActor(nn.Module):
         return torch.cat((tracker_features, latent), dim=-1)
 
     def _residual(self, value: torch.Tensor) -> torch.Tensor:
-        return self.residual_scale * torch.tanh(self.residual_mlp(value))
+        output = self.residual_mlp(value)
+        if self.residual_output_mode == "unbounded":
+            return output
+        return self.residual_scale * torch.tanh(output)
 
     def forward(
         self,
@@ -276,10 +289,19 @@ class FrozenTrackerResidualActor(nn.Module):
     def policy_metrics(self, obs: TensorDict) -> dict[str, float]:
         tracker_features, base_action = self._base_features_and_action(obs)
         normal = self._residual(self._residual_input(obs, tracker_features, base_action))
+        # Diagnostics refer to this post-update observation batch, not the
+        # final PPO minibatch or a sampled action containing exploration noise.
+        self.last_base_action = base_action.detach()
+        self.last_residual_mean = normal.detach()
+        base_rms = float(base_action.float().square().mean().sqrt().item())
+        residual_rms = float(normal.float().square().mean().sqrt().item())
         metrics = {
-            "base_action_rms": float(base_action.square().mean().sqrt().item()),
-            "residual_action_rms": float(normal.square().mean().sqrt().item()),
+            "base_action_rms": base_rms,
+            "residual_action_rms": residual_rms,
+            "residual_action_abs_mean": float(normal.float().abs().mean().item()),
             "residual_action_abs_max": float(normal.abs().max().item()),
+            "residual_to_base_rms_ratio": residual_rms / max(base_rms, 1e-12),
+            "residual_output_bounded": float(self.residual_output_mode == "bounded"),
         }
         if not self.use_dynamics_latent or obs.batch_size[0] < 2:
             metrics.update(
@@ -582,6 +604,10 @@ class ResidualPPO(PPO):
         self.optimizer.param_groups[0]["lr"] = self.actor_learning_rate
         self.optimizer.param_groups[1]["lr"] = self.critic_learning_rate
 
+    def auxiliary_loss(self, batch, policy_loss):
+        """Optional actor objective; plain residual PPO has no auxiliary loss."""
+        return None
+
     def update(self) -> dict[str, float]:
         if self.rnd is not None or self.symmetry is not None:
             raise NotImplementedError("ResidualPPO intentionally supports plain SPV5-2A PPO only")
@@ -649,6 +675,9 @@ class ResidualPPO(PPO):
                 + self.value_loss_coef * value_loss
                 - self.entropy_coef * entropy.mean()
             )
+            auxiliary = self.auxiliary_loss(batch, surrogate_loss - self.entropy_coef * entropy.mean())
+            if auxiliary is not None:
+                loss = loss + auxiliary
 
             self.optimizer.zero_grad()
             loss.backward()

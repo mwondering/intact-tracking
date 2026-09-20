@@ -46,6 +46,7 @@ from intact_tracking.limb_context_dr import (
 )
 from intact_tracking.preview_protocol import dataset_identity
 from intact_tracking.memory350_inference import load_memory350_checkpoint as load_frozen_context_checkpoint
+from intact_tracking.memory350_checkpoint import BUNDLE_VERSION, make_context_bundle, make_tracker_bundle
 from intact_tracking.residual_runner import ResidualOnPolicyRunner
 from intact_tracking.rollout.mjlab_adapter import _sha256
 from intact_tracking.wandb_logger import WandbLogger
@@ -57,6 +58,44 @@ PPO_CLASS_NAME = "intact_tracking.limb_context_distributed:DistributedResidualPP
 ALLOWED_DR_PROFILES = (TRACKER_DR,)
 CONTEXT_SOURCE_DR_PROFILE = None
 TRAINING_START_PROFILE = None
+RESIDUAL_WANDB_METRICS = {
+    "residual_action_rms": "Residual/mean_rms",
+    "residual_action_abs_mean": "Residual/mean_abs",
+    "residual_action_abs_max": "Residual/mean_abs_max",
+    "residual_to_base_rms_ratio": "Residual/mean_to_tracker_rms_ratio",
+    "base_action_rms": "Residual/tracker_action_rms",
+    "residual_target_rms_rad": "Residual/target_rms_rad",
+    "residual_target_abs_max_rad": "Residual/target_abs_max_rad",
+    "residual_output_bounded": "Residual/output_bounded",
+}
+TRACKER_WANDB_GROUPS = (
+    "Loss", "Policy", "Perf", "Train", "Episode", "Episode_Reward",
+    "Episode_Termination", "Metrics", "Residual", "AuxDR",
+)
+
+
+def tracker_wandb_metrics(record, *, rollout_steps):
+    """Use SP/RSL's scalar names with the already pooled multi-rank values."""
+    payload = {key if key.startswith("AuxDR/") else f"Loss/{key}": value
+               for key, value in record["loss"].items()}
+    duration = record["collect_seconds"] + record["learn_seconds"]
+    payload.update({
+        "Loss/learning_rate": record["learning_rate"],
+        "Policy/mean_std": record["action_std"],
+        "Perf/collection_time": record["collect_seconds"],
+        "Perf/learning_time": record["learn_seconds"],
+        "Perf/total_fps": int(record["global_num_envs"] * rollout_steps / duration) if duration > 0 else 0,
+    })
+    for name in ("mean_reward", "mean_episode_length"):
+        if record[name] is not None:
+            payload[f"Train/{name}"] = record[name]
+    for key, value in record.get("episode_metrics", {}).items():
+        # RSL preserves pre-grouped environment keys, adding Episode/ only to
+        # unqualified names. Flattening under training/ alone loses these panels.
+        payload[key if "/" in key else f"Episode/{key}"] = value
+    payload.update({path: record["loss"][key] for key, path in RESIDUAL_WANDB_METRICS.items()
+                    if key in record["loss"]})
+    return payload
 
 
 def build_parser():
@@ -85,10 +124,14 @@ def build_parser():
     parser.add_argument("--actor-lr", type=float, default=1e-4)
     parser.add_argument("--critic-lr", type=float, default=5e-4)
     parser.add_argument("--entropy-coef", type=float, default=0.0002)
+    parser.add_argument("--initial-action-std", type=float,
+                        help="Fresh policy Gaussian std; defaults to the model initialization contract")
     parser.add_argument("--epochs", type=int, default=5)
     parser.add_argument("--mini-batches", type=int, default=4)
     parser.add_argument("--save-interval", type=int, default=250)
     parser.add_argument("--residual-scale", type=float, default=0.25)
+    parser.add_argument("--residual-output-mode", choices=("bounded", "unbounded"),
+                        help="Unbounded uses the raw MLP output, without tanh, scaling or clipping")
     parser.add_argument("--resume")
     parser.add_argument("--policy-precision", choices=POLICY_PRECISIONS,
                         help="Inherit checkpoint precision; legacy checkpoints use TF32")
@@ -112,13 +155,16 @@ def build_parser():
 
 
 def audit_initial_models(actor, critic, obs, fusion):
+    initial_std = actor.initial_action_std
+    if initial_std is None:
+        initial_std = SCRATCH_ACTION_STD
     with torch.no_grad():
         features, base_action = actor._base_features_and_action(obs)
         action = actor(obs)
         torch.testing.assert_close(action, base_action, atol=0, rtol=0)
         torch.testing.assert_close(action, actor.tracker(obs), atol=0, rtol=0)
         actor.distribution.update(action)
-        torch.testing.assert_close(actor.output_std, torch.full_like(actor.output_std, SCRATCH_ACTION_STD),
+        torch.testing.assert_close(actor.output_std, torch.full_like(actor.output_std, initial_std),
                                    atol=0, rtol=0)
         normal = critic.obs_normalizer(critic._flat_obs(obs))
         original = critic.mlp if fusion == "baseline" else critic.mlp.base
@@ -133,7 +179,8 @@ def audit_initial_models(actor, critic, obs, fusion):
             "original_obs_groups": {"actor": list(actor.tracker.obs_groups),
                                     "critic": list(critic.obs_groups)},
             "identical_initial_action": True, "identical_initial_value": True,
-            "action_std_initialization": SCRATCH_ACTION_STD,
+            "action_std_initialization": initial_std,
+            "residual_output_mode": actor.residual_output_mode,
             "actor_initialization_seed": actor.initialization_seed,
             "critic_initialization_seed": critic.initialization_seed,
             "actor_common_trunk_sha256": tensor_digest(
@@ -236,7 +283,9 @@ def attach_json_logger(runner, output, distributed, wandb_logger=None):
                     elif isinstance(item, (int, float, bool)):
                         payload[path] = item
             flatten(record, "training/")
-            wandb_logger.log(payload, step=record["completed_updates"])
+            payload.update(tracker_wandb_metrics(record, rollout_steps=runner.cfg["num_steps_per_env"]))
+            if wandb_logger is not None:
+                wandb_logger.log(payload, step=record["completed_updates"])
         runner.pending_endpoint_evaluation = None
         runner.pending_evaluation_seconds = 0.
         original(**{**kw, "loss_dict": losses, "collect_time": float(durations[0]), "learn_time": float(durations[1])})
@@ -312,6 +361,19 @@ def _run(args, distributed):
         critic_learning_rate=args.critic_lr, check_for_nan=True,
     )
     train = configure_context_models(train, args.fusion, scratch_seed=args.seed)
+    if args.initial_action_std is not None:
+        if not 0 < args.initial_action_std < float("inf"):
+            raise ValueError("initial_action_std must be finite and positive")
+        train["actor"]["initial_action_std"] = args.initial_action_std
+    if args.residual_output_mode is not None:
+        if args.residual_output_mode == "unbounded" and args.residual_scale != 1.0:
+            raise ValueError("Unbounded residuals use raw MLP outputs; set residual_scale=1.0")
+        if args.residual_output_mode == "unbounded":
+            action_cfg = prepared.env.actions["joint_pos"]
+            if (prepared.clip_actions is not None or action_cfg.clip is not None
+                    or action_cfg.raw_action_clip is not None):
+                raise ValueError("Unbounded residual PPO requires an unclipped action chain")
+        train["actor"]["residual_output_mode"] = args.residual_output_mode
     train["max_iterations"] = args.iterations
     train["algorithm"].update(schedule="fixed", entropy_coef=args.entropy_coef,
                               num_learning_epochs=args.epochs, num_mini_batches=args.mini_batches,
@@ -320,9 +382,15 @@ def _run(args, distributed):
     context = (load_frozen_context_checkpoint(args.context_checkpoint, device=device,
                                               expected_tracker_sha256=tracker_hash)
                if args.context_checkpoint else None)
+    frozen_dependencies = {}
     if context is not None:
         context_meta = torch.load(args.context_checkpoint, map_location="cpu", weights_only=False)
         validate_context_dr(context_meta, CONTEXT_SOURCE_DR_PROFILE or args.dr_profile)
+        frozen_dependencies = {
+            "inference_bundle_version": BUNDLE_VERSION,
+            "frozen_context": make_context_bundle(context_meta, source_path=context.path,
+                                                   source_sha256=context.sha256),
+        }
         del context_meta
     if context is not None and context.config.dynamics_latent_dim != 64:
         raise ValueError("This experiment requires a 64-dimensional frozen context")
@@ -335,6 +403,19 @@ def _run(args, distributed):
         "context_protocol": "short50_disjoint_chunk10_long30_cross_reset_v1",
         "frozen_inference": "cached chunk and long summaries; final short-context attention every control step",
         "initialization_protocol": SCRATCH_INITIALIZATION,
+        "residual_diagnostics": {
+            "scope": "post-update observation batch on all ranks, not the entire rollout",
+            "action_units": "policy commands; deterministic residual mean excludes exploration noise",
+            "target_units": "radians before SP delay, smoothing and joint offsets",
+            "aggregation": "pooled RMS and mean absolute value; global maximum; equal rank batch sizes",
+        },
+        "wandb_logging": {
+            "schema": "tracker_namespaces_v1",
+            "metric_groups": list(TRACKER_WANDB_GROUPS),
+            "step_metric": "completed_updates",
+            "experiment_group": args.wandb_group,
+            "legacy_training_metrics": True,
+        },
         "distributed": {"world_size": distributed.world_size, "num_envs_per_rank": args.num_envs,
                         "global_num_envs": args.num_envs * distributed.world_size,
                         "rank_seed_formula": "seed + 1000003 * rank",
@@ -349,7 +430,9 @@ def _run(args, distributed):
         "reward_contract": rewards, "reward_changes": {},
         "motion_sampling": sampling,
         "training_terminations": terminations,
-        "actor_initialization": "fresh residual MLP; random hidden layers, zero output layer, fresh scalar action std 0.25",
+        "actor_initialization": (
+            "fresh residual MLP; random hidden layers, zero output layer, fresh scalar action std "
+            f"{train['actor'].get('initial_action_std', SCRATCH_ACTION_STD)}"),
         "critic_initialization": "fresh random MLP; no source critic weights",
         "critic_normalization_initialization": "fresh moments from one pooled initial observation batch; then updated online",
         "initialization_seeds": {"actor": args.seed + 10007, "critic": args.seed + 20003},
@@ -363,6 +446,7 @@ def _run(args, distributed):
             Path(__file__).resolve(), *sorted((PROJECT_ROOT / "src/intact_tracking").glob("limb_context_*.py")),
             *sorted((PROJECT_ROOT / "src/intact_tracking").glob("memory350_*.py")),
             PROJECT_ROOT / "src/intact_tracking/residual_policy.py",
+            PROJECT_ROOT / "src/intact_tracking/residual_dr_aux.py",
             PROJECT_ROOT / "src/intact_tracking/residual_runner.py")},
     }
     endpoint_evaluator = None
@@ -453,7 +537,25 @@ def _run(args, distributed):
         cfg = memory_checkpoint_configuration(source, train, metadata)
         main_process_call(distributed, lambda: output.mkdir(parents=True, exist_ok=True))
         runner = ResidualOnPolicyRunner(wrapped, train, str(output), device,
-                                       checkpoint_cfg=cfg, residual_metadata=metadata)
+                                       checkpoint_cfg=cfg, residual_metadata=metadata,
+                                       frozen_dependencies=frozen_dependencies)
+        if frozen_dependencies:
+            runner.frozen_dependencies["frozen_tracker"] = make_tracker_bundle(
+                source, runner.alg.actor.tracker.state_dict(), source_path=tracker,
+                source_sha256=tracker_hash)
+        boundary_contract = getattr(runner.alg, "motion_boundary_contract", None)
+        if boundary_contract is not None:
+            metadata["motion_boundary_contract"] = copy.deepcopy(boundary_contract)
+            if args.resume:
+                prior_contract = old.get("motion_boundary_contract")
+                if prior_contract is not None and prior_contract != boundary_contract:
+                    raise ValueError("Resume changed an existing motion boundary contract")
+                if prior_contract is None:
+                    metadata["resume_history"][-1]["motion_boundary_fix"] = {
+                        "from": "environment_dones_only",
+                        "to": copy.deepcopy(boundary_contract),
+                        "applied_after_completed_updates": resume_update,
+                    }
         if args.dr_sampling == "grid256_shared":
             runner.alg.actor.configure_grouped_diagnostics(env.num_envs)
         if distributed.enabled:
@@ -497,9 +599,12 @@ def _run(args, distributed):
             wandb_logger.run.config.update({"policy_precision": args.policy_precision,
                 "policy_precision_audit": precision_audit,
                 "periodic_evaluation": metadata.get("periodic_evaluation"),
+                "motion_boundary_contract": metadata.get("motion_boundary_contract"),
                 "resume_history": metadata.get("resume_history", [])}, allow_val_change=True)
             wandb_logger.run.define_metric("completed_updates")
             wandb_logger.run.define_metric("training/*", step_metric="completed_updates")
+            for group in TRACKER_WANDB_GROUPS:
+                wandb_logger.run.define_metric(f"{group}/*", step_metric="completed_updates")
             (output / "wandb_run.json").write_text(json.dumps({"id": wandb_logger.id,
                 "url": wandb_logger.url, "project": args.wandb_project, "group": args.wandb_group}, indent=2) + "\n")
         main_process_call(distributed, initialize_wandb)
