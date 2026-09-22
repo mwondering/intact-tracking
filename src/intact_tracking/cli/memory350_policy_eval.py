@@ -117,7 +117,7 @@ def run(args):
             raise ValueError("Only this experiment's residual checkpoints are allowed")
         assert_fixed_reward_checkpoint(state, rewards)
         fusion = meta["fusion"]
-        if fusion in ("film", "concat"):
+        if fusion in ("film", "concat") and meta.get("method") not in ("rma_teacher", "any2track", "rma_student"):
             context = load_policy_context(state, device=args.device)
     if args.latent_mode != "correct" and fusion not in ("film", "concat"):
         raise ValueError("Latent interventions require a learned-context policy")
@@ -169,8 +169,12 @@ def run(args):
         if args.memory_start == "warm":
             if args.warmup_steps <= 0:
                 raise ValueError("Warm evaluation requires positive common tracker history")
-            frozen = actor.tracker if fusion != "frozen" else actor
-            wrapped.encoding_enabled = False
+            use_evaluated_policy = getattr(args, "warmup_policy", "frozen-tracker") == "evaluated-policy"
+            warmup_actor = actor if use_evaluated_policy or fusion == "frozen" else actor.tracker
+            wrapped.encoding_enabled = use_evaluated_policy
+            if use_evaluated_policy:
+                warmup.update(policy="evaluated policy deterministic mean",
+                              policy_sha256=_sha256(Path(args.checkpoint or args.tracker_checkpoint)))
             env.cfg.auto_reset = True
             command.cfg.resample_on_motion_end = True
             failures = torch.zeros(n, dtype=torch.long, device=env.device)
@@ -179,7 +183,7 @@ def run(args):
             with torch.inference_mode():
                 for step in range(args.warmup_steps):
                     _seed_everything(args.seed + 3000000 + step)
-                    action = frozen(obs)
+                    action = warmup_actor(obs)
                     env.action_manager.get_term("joint_pos").record_policy_mean(action)
                     obs, _, dones, _ = wrapped.step(action)
                     failures += dones.long()
@@ -233,6 +237,9 @@ def run(args):
             for step in range(args.steps):
                 _seed_everything(args.seed + 2000000 + step)
                 policy_obs = obs
+                if context is None and getattr(wrapped, 'history', None) is not None:
+                    full = wrapped.history.count.reshape(-1) >= wrapped.history.frames.shape[1]
+                    valid_context_steps += (active & full).long()
                 if context is not None:
                     full = wrapped.context.history_valid.all(0)
                     valid_context_steps += (active & full).long()

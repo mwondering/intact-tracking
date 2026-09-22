@@ -1,5 +1,7 @@
 # Residual actor 共享隐藏层 DR 辅助预测（2026-09-19）
 
+> **已纳入最新定稿 Pipeline（2026-09-20）。** 本文保留实现阶段的设计与验证记录；最终采用配置、训练状态与产物见 [定稿文档](final_pipeline_20260920.md)。
+
 状态：共享隐藏层、辅助头、PPO 损失、rollout 标签和 W&B 指标已实现。新的 proprio122 native 训练入口默认启用。entropy=0.005、初始 std=1.0、无界 residual 保持生效；辅助监督仅保留 COM x/y/z 和摩擦，质量、Kp、Kd、armature 均不参与，仿真环境中的这些 DR 保留。现有训练进程不会自动切换到新代码。
 
 共享 residual actor 的最后一个 128 维隐藏层，分别连接现有 29 维无界动作头和独立的 92 维线性 DR 预测头：

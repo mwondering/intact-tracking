@@ -23,7 +23,7 @@ from intact_tracking.memory350_tracker_action_policy import (
 )
 from intact_tracking.residual_dr_aux import DR_TARGET_GROUP, DR_HISTORY_WEIGHT_GROUP
 from intact_tracking.limb_context_distributed import tensor_digest
-from intact_tracking import memory350_native_policy as native
+from intact_tracking import memory350_native_policy as native, memory350_heavy_policy as heavy
 
 
 def gradient_summary(ppo, auxiliary):
@@ -51,14 +51,19 @@ def run(args):
     prepared = prepare_rollout(checkpoint_file=meta["tracker_checkpoint"], num_envs=args.num_envs,
                                motion_file=None, motion_path=meta["motion_path"])
     cfg = prepared.env
-    configure_proprio_physics(cfg, args.seed, profile=native.PROFILE)
+    is_heavy = meta['dr_profile'] == heavy.PROFILE
+    if is_heavy:
+        heavy.configure_physics(cfg, args.seed, profile=heavy.PROFILE, rank=0)
+    else:
+        configure_proprio_physics(cfg, args.seed, profile=native.PROFILE)
     cfg.commands["motion"].motion_manifest_file = str(Path(args.manifest).resolve())
     cfg.episode_length_s = 500 * cfg.decimation * cfg.sim.mujoco.timestep
     cfg.seed, cfg.auto_reset = args.seed, True
     context = load_memory350_checkpoint(meta["context_checkpoint"], device="cuda:0",
                                        expected_tracker_sha256=meta["tracker_sha256"])
     _seed_everything(args.seed)
-    env = native.environment_factory(ManagerBasedRlEnv, cfg=cfg, device="cuda:0")
+    physics = heavy if is_heavy else native
+    env = physics.environment_factory(ManagerBasedRlEnv, cfg=cfg, device="cuda:0")
     try:
         wrapped = ProprioNativePolicyWrapper(env, prepared.clip_actions, context,
             latent_history_frames=5, dr_aux_schema=agent["actor"]["dr_aux_schema"])
@@ -156,7 +161,8 @@ def run(args):
             checkpoint_hash = hashlib.file_digest(stream, "sha256").hexdigest()
         report = {"checkpoint": str(Path(args.checkpoint).resolve()), "checkpoint_sha256": checkpoint_hash,
             "completed_updates": state["completed_updates"], "arguments": vars(args),
-            "scope": "Independent local on-policy rollout on selected training motions and new native DR; no optimizer steps or training-process changes; gradients before clipping, no distributed reduction",
+            "scope": "Independent local on-policy rollout on selected training motions and the checkpoint DR profile; no optimizer steps or training-process changes; gradients before clipping, no distributed reduction",
+            "dr_profile": meta['dr_profile'],
             "batch_size": len(batch.actions), "dr_aux_coef": algorithm.dr_aux_coef,
             "supervised_groups": actor.dr_aux_objective.supervised_groups,
             "raw_aux_loss": float(raw_aux.detach()), "weighted_aux_loss": float(weighted_aux.detach()),

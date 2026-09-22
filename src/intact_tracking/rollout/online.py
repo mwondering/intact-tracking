@@ -405,6 +405,11 @@ def _capture_privileged_dynamics_targets(env: Any) -> PrivilegedDynamicsTargets:
             append(event_name, [f"added_mass_kg/{name}" for name in LIMBS], func.observe())
             continue
 
+        if func_name == "StratifiedLimbPayload":
+            labels, values = func.privileged_dynamics_targets()
+            append(event_name, labels, values)
+            continue
+
         # These affect the policy-to-target or observation chain, not dynamics
         # after the physical PD target used by this predictor has been formed.
         if func_name in {"encoder_bias", "random_joint_offset"}:

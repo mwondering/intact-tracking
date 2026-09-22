@@ -1,4 +1,4 @@
-"""Memory350 collection with checkpoint-native flat-world DR and no payloads."""
+"""Memory350 collection with checkpoint-native flat-world DR."""
 from dataclasses import dataclass, fields
 import hashlib
 import json
@@ -19,7 +19,9 @@ from intact_tracking.rollout.online import (
 )
 
 
-def native_nominal_ids(num_envs, fraction, *, device='cpu'):
+def native_nominal_ids(num_envs, fraction, *, device='cpu', allow_endpoints=False):
+    if allow_endpoints and fraction in (0., 1.):
+        return torch.arange(num_envs if fraction == 1. else 0, device=device, dtype=torch.long)
     if not math.isfinite(fraction) or not 0 < fraction < 1:
         raise ValueError('Native context needs both nominal and DR worlds')
     count = math.ceil(num_envs * fraction)
@@ -40,7 +42,8 @@ class CapturedAction(SpTrackingJointPositionAction):
     """Observe the unchanged SP action chain after each physical target is set."""
     def __init__(self, cfg, env):
         super().__init__(cfg, env)
-        self.nominal_ids = native_nominal_ids(env.num_envs, cfg.nominal_fraction, device=env.device)
+        self.nominal_ids = native_nominal_ids(env.num_envs, cfg.nominal_fraction, device=env.device,
+                                              allow_endpoints=True)
         self.physical_target_trace = torch.zeros(env.num_envs, self._decimation, self.action_dim,
                                                 device=env.device)
 
@@ -83,7 +86,7 @@ def configure_native_environment(env_cfg, config):
     command.sampling_mode = 'uniform'
     command.rewind.enabled = False
     command.adaptive_bin_snapshot_interval_iterations = 0
-    return {'dr_profile': 'checkpoint_native_flat_v1', 'extra_payload': False,
+    result = {'dr_profile': 'checkpoint_native_flat_v1', 'extra_payload': False,
             'nominal_fraction_requested': config.nominal_fraction,
             'dr_parameter_nominal_probability': 0.,
             'original_events': {name: _event_contract(term) for name, term in env_cfg.events.items()},
@@ -92,6 +95,11 @@ def configure_native_environment(env_cfg, config):
             'physics_lifetime': 'one random physical prototype per world; motor gains fixed across motion resets',
             'motion_sampling': 'uniform', 'motion_exclusions_preserved': True,
             'terrain': 'flat only, explicitly selected by user'}
+    if getattr(config, 'heavy_payload', False):
+        from intact_tracking.memory350_heavy_dr import PROFILE, configure_heavy_payload
+        result.update(dr_profile=PROFILE, extra_payload=True,
+                      heavy_payload=configure_heavy_payload(env_cfg, config))
+    return result
 
 
 def install_native_runtime(rollout):
@@ -108,6 +116,10 @@ def install_native_runtime(rollout):
     rollout.force_pulse = NominalExcludedForcePulse(pulse_cfg.func, ids)
     pulse_cfg.func = rollout.force_pulse
     rollout.captures_physical_targets = True
+    if getattr(rollout.config, 'heavy_payload', False):
+        from intact_tracking.memory350_heavy_dr import EVENT
+        rollout.payload_configuration['heavy_payload']['runtime_audit'] = (
+            env.event_manager.get_term_cfg(EVENT).func.audit())
 
 
 def native_metric_schema(names, event_params, default_body_mass):
@@ -131,6 +143,14 @@ def native_metric_schema(names, event_params, default_body_mass):
                 raise ValueError(f'Unsupported native motor DR range: {name}')
             low, high = matches[0]
             group = 'joint_' + kind + '_rms'
+        elif kind in ('added_mass_kg', 'payload_com_offset') and event == 'stratified_limb_payload':
+            from intact_tracking.preview_protocol import LIMBS
+            limb = list(LIMBS).index(labels[0])
+            if kind == 'added_mass_kg':
+                low, high = 0., params['max_masses_kg'][limb]
+            else:
+                low, high = -params['com_half_width_m'], params['com_half_width_m']
+                group = f'payload_com_offset/{labels[0]}/xyz_rms'
         else:
             raise ValueError(f'Unknown causal DR coordinate: {name}')
         if not math.isfinite(low) or not math.isfinite(high) or high <= low:
@@ -141,7 +161,9 @@ def native_metric_schema(names, event_params, default_body_mass):
     for columns in groups.values():
         for i in columns:
             weights[i] = 1 / (len(groups) * len(columns))
-    return {'version': 2, 'profile': 'checkpoint_native_flat_v1', 'names': list(names),
+    heavy = any(n.startswith('stratified_limb_payload/') for n in names)
+    return {'version': 3 if heavy else 2,
+            'profile': 'checkpoint_native_flat_heavy_v1' if heavy else 'checkpoint_native_flat_v1', 'names': list(names),
             'lower': lower, 'upper': upper, 'coordinate_weights': weights, 'groups': groups,
             'normalization': 'range normalization, then sqrt(factor-balanced coordinate weight)',
             'distance': 'RMS across physical factors; each motor block contributes its own RMS',
@@ -180,7 +202,9 @@ class NativeDRTrackerRollout(FixedDRTrackerRollout):
                 'nominal_fraction_actual': len(ids)/self.num_envs,
                 'nominal_restore': self.nominal_restore_metrics,
                 'nominal_delay_zero': True, 'nominal_alpha_one': True, 'nominal_pulses_disabled': True,
-                'extra_payload': False, 'dr_metric_dimensions': self.dr_metric.shape[1],
+                'extra_payload': self.payload_configuration['extra_payload'],
+                'heavy_payload': self.payload_configuration.get('heavy_payload'),
+                'dr_metric_dimensions': self.dr_metric.shape[1],
                 'dr_metric_factors': list(self.dr_metric_schema['groups']),
                 'physical_targets': 'all four applied substeps recorded; mean target is the 29D predictor input',
                 'counterfactual': 'nominal B replays every recorded physical substep target',

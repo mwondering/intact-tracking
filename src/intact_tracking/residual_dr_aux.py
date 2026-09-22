@@ -7,27 +7,34 @@ import math
 import torch
 from torch import nn
 
+from intact_tracking.preview_protocol import LIMBS
+
 DR_TARGET_GROUP = "residual_dr_target"
 DR_HISTORY_WEIGHT_GROUP = "residual_dr_history_weight"
 DR_DIM = 92
 GROUPS = ("com_x", "com_y", "com_z", "friction", "kp", "kd", "armature")
 MAE_UNITS = ("m", "m", "m", "coefficient", "scale", "scale", "scale")
+PAYLOAD_GROUPS = tuple(f"payload_mass_{limb}" for limb in LIMBS) + tuple(
+    f"payload_com_{limb}_{axis}" for limb in LIMBS for axis in "xyz")
+PAYLOAD_MAE_UNITS = ("kg",) * 4 + ("m",) * 12
 
 
 def dr_aux_layout(schema, motor_weight=0.0):
-    """Bind coordinates by physical names; mass is deliberately not supervised."""
+    """Bind native/payload coordinates by name; torso mass remains excluded."""
     if not math.isfinite(motor_weight) or motor_weight < 0:
         raise ValueError("DR auxiliary motor weight must be finite and nonnegative")
     names = schema["names"]
-    if len(names) != DR_DIM or len(set(names)) != DR_DIM:
-        raise ValueError("DR auxiliary supervision requires 92 unique parameter names")
+    dimensions = len(names)
+    if dimensions not in (DR_DIM, DR_DIM + 16) or len(set(names)) != dimensions:
+        raise ValueError("DR auxiliary supervision requires 92 or 108 unique parameter names")
+    groups = GROUPS + (PAYLOAD_GROUPS if dimensions == DR_DIM + 16 else ())
     lower, upper = schema["lower"], schema["upper"]
-    if len(lower) != DR_DIM or len(upper) != DR_DIM or any(
+    if len(lower) != dimensions or len(upper) != dimensions or any(
         not math.isfinite(lo) or not math.isfinite(hi) or hi <= lo
         for lo, hi in zip(lower, upper, strict=True)
     ):
         raise ValueError("DR auxiliary schema requires finite, increasing physical ranges")
-    columns = {group: [] for group in (*GROUPS, "mass")}
+    columns = {group: [] for group in (*groups, "mass")}
     for index, name in enumerate(names):
         _, kind, *labels = name.split("/")
         if kind == "com_offset" and len(labels) == 2 and labels[0] == "torso_link" and labels[1] in ("x", "y", "z"):
@@ -38,29 +45,52 @@ def dr_aux_layout(schema, motor_weight=0.0):
             group = "friction"
         elif kind in ("kp_scale", "kd_scale", "armature_scale") and len(labels) == 1:
             group = kind.removesuffix("_scale")
+        elif kind == "added_mass_kg" and len(labels) == 1 and labels[0] in LIMBS:
+            group = f"payload_mass_{labels[0]}"
+        elif kind == "payload_com_offset" and len(labels) == 2 and labels[0] in LIMBS and labels[1] in "xyz":
+            group = f"payload_com_{labels[0]}_{labels[1]}"
         else:
             raise ValueError(f"Unsupported DR auxiliary parameter: {name}")
+        if group not in columns:
+            raise ValueError(f"DR auxiliary schema has unexpected payload parameter: {name}")
         columns[group].append(index)
     if any(len(columns[group]) != (29 if group in GROUPS[4:] else 1) for group in columns):
-        raise ValueError("Expected COM xyz, friction, one excluded mass and three 29-joint motor groups")
+        raise ValueError("Expected native COM/friction/mass/motor coordinates and, for 108 outputs, all 16 payload coordinates")
     weights = [1., 1., 1., 1., motor_weight, motor_weight, motor_weight]
+    # Each payload family (mass, COM x/y/z) has the same weight as one native
+    # group, divided equally over its four limbs. Log each limb separately.
+    if dimensions == DR_DIM + 16:
+        weights += [.25] * 16
     return columns, weights
 
 
 class DRAuxiliaryObjective(nn.Module):
     """Motor dimensions are averaged within groups, then groups are weighted."""
 
-    def __init__(self, schema, motor_weight=0.0):
+    def __init__(self, schema, motor_weight=0.0, *, payload_com_enabled=True):
         super().__init__()
         columns, weights = dr_aux_layout(schema, motor_weight)
-        self.supervised_groups = tuple(group for group, weight in zip(GROUPS, weights, strict=True) if weight > 0)
+        self.output_dim = len(schema["names"])
+        if not isinstance(payload_com_enabled, bool):
+            raise ValueError("payload_com_enabled must be boolean")
+        if not payload_com_enabled and self.output_dim != 108:
+            raise ValueError("Disabling payload COM requires the 108-coordinate heavy schema")
+        self.payload_com_enabled = payload_com_enabled
+        # Preserve the original normalization when dropping supervision. The
+        # remaining coordinates must not receive an additional renormalization.
+        self.normalization_denominator = sum(weights)
+        if not payload_com_enabled:
+            weights[-12:] = [0.] * 12
+        self.groups = tuple(group for group in columns if group != "mass")
+        self.mae_units = MAE_UNITS + (PAYLOAD_MAE_UNITS if self.output_dim == DR_DIM + 16 else ())
+        self.supervised_groups = tuple(group for group, weight in zip(self.groups, weights, strict=True) if weight > 0)
         # Exclude zero-weight groups before subtraction, so their outputs and
         # labels cannot contaminate losses/metrics through NaN * zero.
         active = [i for group in self.supervised_groups for i in columns[group]]
         self.register_buffer("active", torch.tensor(active), persistent=False)
-        pooling = torch.zeros(len(active), len(GROUPS))
+        pooling = torch.zeros(len(active), len(self.groups))
         offset = 0
-        for g, group in enumerate(GROUPS):
+        for g, group in enumerate(self.groups):
             if group not in self.supervised_groups:
                 continue
             width = len(columns[group])
@@ -68,13 +98,13 @@ class DRAuxiliaryObjective(nn.Module):
             offset += width
         self.register_buffer("pooling", pooling, persistent=False)
         weights = torch.tensor(weights)
-        self.register_buffer("weights", weights / weights.sum(), persistent=False)
+        self.register_buffer("weights", weights / self.normalization_denominator, persistent=False)
         ranges = torch.tensor(schema["upper"]) - torch.tensor(schema["lower"])
         self.register_buffer("ranges", ranges[active], persistent=False)
 
     def forward(self, prediction, target, history_weight):
-        if prediction.ndim != 2 or prediction.shape[-1] != DR_DIM or target.shape != prediction.shape:
-            raise ValueError("DR predictions and labels must have matching [batch, 92] shapes")
+        if prediction.ndim != 2 or prediction.shape[-1] != self.output_dim or target.shape != prediction.shape:
+            raise ValueError(f"DR predictions and labels must have matching [batch, {self.output_dim}] shapes")
         if history_weight.shape != (prediction.shape[0], 1):
             raise ValueError("DR history weights must have shape [batch, 1]")
         weight = history_weight.detach().to(prediction)
@@ -99,7 +129,7 @@ def dr_history_weight(memory):
 
 
 @torch.no_grad()
-def capture_dr_aux_targets(env, schema):
+def capture_dr_aux_targets(env, schema, *, allow_extra_parameters=False):
     """Capture actual post-restoration physics and verify checkpoint range semantics."""
     from intact_tracking.memory350_native_dr import native_metric_schema
     from intact_tracking.rollout.online import (
@@ -109,8 +139,11 @@ def capture_dr_aux_targets(env, schema):
     dr_aux_layout(schema)
     physical = _capture_privileged_dynamics_targets(env)
     names = list(physical.names)
-    if names != schema["names"]:
+    if names != schema["names"] and not allow_extra_parameters:
         raise ValueError("Environment DR label names/order differ from the context checkpoint")
+    if len(set(names)) != len(names) or not set(schema["names"]).issubset(names):
+        raise ValueError("Environment is missing required DR auxiliary parameters")
+    columns = [names.index(name) for name in schema["names"]]
     events = {name.split("/", 1)[0] for name in names}
     params = {name: env.event_manager.get_term_cfg(name).params for name in events}
     defaults = {}
@@ -121,9 +154,9 @@ def capture_dr_aux_targets(env, schema):
             defaults.update(zip(body_names, masses[ids].cpu().tolist(), strict=True))
     actual = native_metric_schema(names, params, defaults)
     for key in ("lower", "upper"):
-        if not torch.allclose(torch.tensor(actual[key]), torch.tensor(schema[key]), rtol=1e-6, atol=1e-8):
+        if not torch.allclose(torch.tensor(actual[key])[columns], torch.tensor(schema[key]), rtol=1e-6, atol=1e-8):
             raise ValueError(f"Environment DR {key} ranges differ from the context checkpoint")
-    values = physical.values.detach().float()
+    values = physical.values.detach().float()[:, columns]
     lower, upper = values.new_tensor(schema["lower"]), values.new_tensor(schema["upper"])
     targets = (values - lower) / (upper - lower)
     if not bool(torch.isfinite(targets).all()) or bool(((targets < -1e-4) | (targets > 1.0001)).any()):

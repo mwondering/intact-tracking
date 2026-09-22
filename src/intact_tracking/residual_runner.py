@@ -187,6 +187,34 @@ class ResidualOnPolicyRunner(MjlabOnPolicyRunner):
                 diagnostics["residual_action_rms"] / max(diagnostics["base_action_rms"], 1e-12))
         return diagnostics
 
+    def _release_update_cuda_cache(self) -> dict[str, float]:
+        if not self.cfg.get("release_cuda_cache_after_update", False):
+            return {}
+        if torch.device(self.device).type != "cuda":
+            return {}
+        # empty_cache returns only unused PyTorch blocks; live rollout,
+        # optimizer and model tensors are untouched. Without this handoff,
+        # an update can retain enough cached activations to starve Warp's
+        # independent allocator on the very next graph launch.
+        start = time.perf_counter()
+        with torch.cuda.device(self.device):
+            before = torch.cuda.memory_reserved()
+            peaks = ({"cuda_peak_allocated_gib": torch.cuda.max_memory_allocated() / 2**30,
+                      "cuda_peak_reserved_gib": torch.cuda.max_memory_reserved() / 2**30}
+                     if self.cfg.get("record_cuda_peak_memory", False) else {})
+            torch.cuda.empty_cache()
+            after = torch.cuda.memory_reserved()
+            allocated = torch.cuda.memory_allocated()
+            free, _ = torch.cuda.mem_get_info()
+        return {
+            **peaks,
+            "cuda_cache_released_gib": (before - after) / 2**30,
+            "cuda_reserved_after_release_gib": after / 2**30,
+            "cuda_allocated_after_release_gib": allocated / 2**30,
+            "cuda_free_after_release_gib": free / 2**30,
+            "cuda_cache_release_seconds": time.perf_counter() - start,
+        }
+
     def learn(self, num_learning_iterations: int | None, init_at_random_ep_len: bool = False) -> None:
         if init_at_random_ep_len:
             self.env.episode_length_buf = torch.randint_like(
@@ -231,6 +259,8 @@ class ResidualOnPolicyRunner(MjlabOnPolicyRunner):
             if self._collective_stop_requested():
                 break
             self._begin_adaptive_sampling_iteration(iteration)
+            if self.cfg.get("record_cuda_peak_memory", False) and torch.device(self.device).type == "cuda":
+                torch.cuda.reset_peak_memory_stats(self.device)
             start = time.time()
             with torch.inference_mode():
                 for _ in range(int(self.cfg["num_steps_per_env"])):
@@ -253,6 +283,9 @@ class ResidualOnPolicyRunner(MjlabOnPolicyRunner):
             loss_dict = self.alg.update()
             learn_time = time.time() - start
             loss_dict.update(self._policy_diagnostics(obs))
+            cache_metrics = self._release_update_cuda_cache()
+            loss_dict.update(cache_metrics)
+            learn_time += cache_metrics.get("cuda_cache_release_seconds", 0.)
             self.current_learning_iteration = iteration
             self.completed_learning_updates = iteration + 1
             checkpoint_evaluator = getattr(self, "checkpoint_evaluator", None)

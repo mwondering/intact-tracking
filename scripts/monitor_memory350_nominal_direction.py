@@ -89,6 +89,8 @@ def worker_processes(leader):
                 "intact_tracking.cli.forward_memory_nominal_direction_train",
                 "intact_tracking.cli.forward_memory_nominal_dr_rank_train",
                 "intact_tracking.cli.forward_memory_native_dr_train",
+                "intact_tracking.cli.forward_memory_proprio_native_train",
+                "intact_tracking.cli.forward_memory_proprio_heavy_train",
                 "intact_tracking.cli.forward_memory_nominal_dr_soft_train")):
             workers.append({k: v for k, v in identity.items() if k != "command"})
     return workers
@@ -140,8 +142,8 @@ def probe_trend(rows):
 
 
 class Monitor:
-    def __init__(self, root):
-        self.root, self.run = root, root / "stage1_8192"
+    def __init__(self, root, run=None):
+        self.root, self.run = root, run if run is not None else root / "stage1_8192"
         self.initial_anchor = json_file(self.run / "nominal_anchor.json")
         config_path = self.run / "run_config.json"
         self.initial_config = json_file(config_path) if config_path.exists() else None
@@ -202,6 +204,10 @@ class Monitor:
                 checks["dr_soft_schema_preserved"] = (
                     loss.get("dr_soft_version") == 1
                     and state.get("dr_metric_schema") == self.initial_config["dr_soft_contract"]["schema"])
+            if "heavy_payload_contract" in self.initial_config:
+                checks["heavy_payload_contract_preserved"] = (
+                    json.loads(json.dumps(state.get("heavy_payload_contract")))
+                    == self.initial_config["heavy_payload_contract"])
         result = {"update": state["update"], "optimizer_steps": state["optimizer_steps"],
                   "mtime": stat.st_mtime, "bytes": stat.st_size,
                   "anchor_sha256": digest, "checks": checks, "passed": all(checks.values())}
@@ -264,6 +270,7 @@ class Monitor:
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run-root", type=Path, required=True)
+    parser.add_argument("--output-dir", type=Path)
     parser.add_argument("--watch", action="store_true")
     parser.add_argument("--interval", type=float, default=30.)
     args = parser.parse_args()
@@ -273,7 +280,7 @@ def main():
     output.mkdir(exist_ok=True)
     with (output / "monitor.lock").open("a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        monitor = Monitor(args.run_root)
+        monitor = Monitor(args.run_root, args.output_dir)
         identity = process_identity(os.getpid())
         atomic_json(output / "process.json", {"pid": os.getpid(), "start_ticks": identity["start_ticks"],
                     "interval_seconds": args.interval, "watch": args.watch})

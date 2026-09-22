@@ -20,6 +20,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+deploy = ["onnx>=1.16", "onnxruntime>=1.18"]
 dev = ["pytest>=8.0", "ruff>=0.8"]
 
 [project.scripts]
@@ -28,6 +29,9 @@ intact-tracking-train-offline = "intact_tracking.cli.train:main"
 intact-tracking-collect = "intact_tracking.cli.collect:main"
 intact-tracking-residual-train = "intact_tracking.cli.residual_train:main"
 intact-tracking-residual-policy-train = "intact_tracking.cli.residual_policy_train:main"
+intact-tracking-heavy-baseline-train = "intact_tracking.cli.heavy_baseline_train:main"
+intact-tracking-heavy-baseline-eval = "intact_tracking.cli.heavy_baseline_eval:main"
+intact-tracking-heavy-baseline-export = "intact_tracking.cli.heavy_baseline_export:main"
 intact-tracking-model-gradient-residual-train = "intact_tracking.cli.model_gradient_residual_train:main"
 intact-tracking-forward-predictor-train = "intact_tracking.cli.forward_predictor_train:main"
 

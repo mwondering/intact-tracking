@@ -44,7 +44,9 @@ def worker_pids(parent, output):
             if int(fields[1]) != parent or fields[0] in ('Z', 'X', 'x'):
                 continue
             command = (entry/'cmdline').read_bytes().split(b'\0')
-            if b'intact_tracking.cli.memory350_proprio_native_policy_train' in command and str(output).encode() in command:
+            modules = (b'intact_tracking.cli.memory350_proprio_native_policy_train',
+                       b'intact_tracking.cli.memory350_proprio_heavy_policy_train')
+            if any(module in command for module in modules) and str(output).encode() in command:
                 result.append(int(entry.name))
         except (FileNotFoundError, ProcessLookupError):
             continue
@@ -74,15 +76,38 @@ def observe(root, *, stall_seconds=300, initialization_seconds=1200):
             issues.append({'nonfinite_update': row['completed_updates'], 'fields': invalid})
     loss = latest.get('loss', {})
     if rows:
-        for name in ('AuxDR/loss', 'residual_action_rms', 'residual_action_abs_max'):
+        if record.get('motion_sampling') == 'uniform':
+            observed_sampling = latest.get('motion_sampling', {})
+            if (observed_sampling.get('adaptive_enabled') is not False
+                    or observed_sampling.get('failure_rewind_enabled') is not False):
+                issues.append('uniform_training_sampling_contract_changed')
+        mode = record.get('latent_input_mode')
+        if mode in ('learned', 'zero'):
+            if loss.get('latent_input_is_zero') != float(mode == 'zero'):
+                issues.append('latent_input_mode_changed')
+            if mode == 'zero' and any(loss.get(key) != 0 for key in (
+                    'dynamics_latent_rms', 'latent_zero_action_delta_rms', 'latent_shuffle_action_delta_rms')):
+                issues.append('baseline_received_nonzero_latent')
+        expected_aux = record.get('dr_aux_coef', .05)
+        required = ('residual_action_rms', 'residual_action_abs_max')
+        if expected_aux > 0:
+            required += ('AuxDR/loss',)
+        elif loss.get('AuxDR/enabled') != 0 or 'AuxDR/loss' in loss:
+            issues.append('baseline_auxiliary_loss_enabled')
+        for name in required:
             if name not in loss:
                 issues.append('missing_metric:' + name)
         if loss.get('residual_output_bounded') != 0:
             issues.append('residual_bounding_enabled')
-        if abs(loss.get('AuxDR/coefficient', -1) - .05) > 1e-8:
+        if abs(loss.get('AuxDR/coefficient', -1) - expected_aux) > 1e-8:
             issues.append('auxiliary_coefficient_changed')
         if any(name.startswith(('AuxDR/kp_', 'AuxDR/kd_', 'AuxDR/armature_')) for name in loss):
             issues.append('excluded_motor_supervision_present')
+        if record.get('dr_aux_payload_targets') == 'mass':
+            if any(name.startswith('AuxDR/payload_com_') for name in loss):
+                issues.append('excluded_payload_com_supervision_present')
+            if expected_aux > 0 and sum(name.startswith('AuxDR/payload_mass_') for name in loss) != 8:
+                issues.append('missing_payload_mass_metrics')
         if loss.get('nominal_physics_max_error', 0) > 1e-6:
             issues.append('nominal_physics_changed')
         if latest.get('action_std', 0) <= 0:
@@ -107,8 +132,10 @@ def observe(root, *, stall_seconds=300, initialization_seconds=1200):
         'entropy', 'value', 'surrogate', 'AuxDR/loss', 'AuxDR/weighted_loss', 'AuxDR/history_weight_mean',
         'AuxDR/shared_gradient_ratio', 'AuxDR/policy_kl', 'residual_action_rms', 'residual_action_abs_max',
         'residual_to_base_rms_ratio', 'latent_shuffle_action_delta_rms', 'latent_zero_action_delta_rms',
+        'dynamics_latent_rms', 'latent_input_is_zero',
         'AuxDR/com_x_mae_m', 'AuxDR/com_y_mae_m', 'AuxDR/com_z_mae_m', 'AuxDR/friction_mae_coefficient',
     ) if name in loss}
+    selected.update({k:v for k,v in loss.items() if k.startswith('AuxDR/payload_')})
     return {'checked_at': now, 'status': 'needs_attention' if issues else 'warning' if warnings else 'healthy' if rows else 'initializing',
             'issues': issues, 'warnings': warnings, 'training_process': identity, 'worker_pids': workers,
             'process_record': reference['process_record'], 'output': str(output), 'completed_updates': latest.get('completed_updates', 0),

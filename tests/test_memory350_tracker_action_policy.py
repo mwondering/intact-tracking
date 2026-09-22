@@ -53,7 +53,8 @@ def models(tmp_path, monkeypatch):
             tracker_obs_groups=groups, residual_hidden_dims=(16, 8), initialization_seed=10128,
             **{"initial_action_std": .25, **actor_options})
         critic = TrackerActionCritic(obs, groups, "critic", 1, initial_checkpoint=None,
-                                    initialization_seed=20124, hidden_dims=(16, 8))
+                                    initialization_seed=20124, hidden_dims=(16, 8),
+                                    latent_input_mode=actor_options.get("latent_input_mode", "learned"))
         return actor, critic, obs
 
     return make

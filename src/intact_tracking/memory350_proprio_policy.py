@@ -1,5 +1,7 @@
 """Policy adapter for the noisy-proprio122 Memory350 input version."""
 
+import torch
+
 from intact_tracking.memory350_native_policy import NativePolicyWrapper, validate_context
 from intact_tracking.memory350_policy_env import Memory350PolicyWrapper
 from intact_tracking.memory350_proprio_inputs import (
@@ -17,7 +19,11 @@ def validate_proprio_context(state, profile):
 
 
 class ProprioNativePolicyWrapper(NativePolicyWrapper):
-    def __init__(self, env, clip_actions, checkpoint=None, *, dr_aux_schema=None, **kwargs):
+    def __init__(self, env, clip_actions, checkpoint=None, *, dr_aux_schema=None,
+                 dr_aux_allow_extra_parameters=False, latent_input_mode="learned", **kwargs):
+        if latent_input_mode not in ("learned", "zero"):
+            raise ValueError("latent_input_mode must be learned or zero")
+        self.latent_input_mode = latent_input_mode
         if checkpoint is not None and checkpoint.config.architecture_version != PROPRIO_ARCHITECTURE:
             raise ValueError("Noisy proprio inputs cannot be passed to the old truth71 encoder")
         validate_proprio_observations(env.unwrapped)
@@ -28,7 +34,15 @@ class ProprioNativePolicyWrapper(NativePolicyWrapper):
                 raise ValueError("DR auxiliary supervision requires encoder interaction history")
             # Native physics is static after nominal-world restoration and is
             # already audited by NativePolicyWrapper throughout training.
-            self._dr_aux_targets = capture_dr_aux_targets(self.unwrapped, dr_aux_schema)
+            self._dr_aux_targets = capture_dr_aux_targets(self.unwrapped, dr_aux_schema,
+                allow_extra_parameters=dr_aux_allow_extra_parameters)
+
+    def _encode(self):
+        if self.latent_input_mode == "zero":
+            # Retain identical history bookkeeping and auxiliary-loss validity.
+            # The frozen encoder forward is unnecessary for a constant input.
+            return torch.zeros(self.num_envs, 64, device=self.device)
+        return super()._encode()
 
     def _attach(self, obs):
         obs = super()._attach(obs)
@@ -50,5 +64,6 @@ class ProprioNativePolicyWrapper(NativePolicyWrapper):
     @property
     def latent_metrics(self):
         return {**Memory350PolicyWrapper.latent_metrics.fget(self),
+                "latent_input_is_zero": float(self.latent_input_mode == "zero"),
                 "context_proprio_dim": INPUT_CONTRACT["state_dim"],
                 "nominal_physics_max_error": self.unwrapped.native_policy_runtime_audit["last_parameter_audit_max_error"]}

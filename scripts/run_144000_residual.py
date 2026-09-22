@@ -18,7 +18,12 @@ CONTEXT_SHA256 = 'a799a059934acd27e1bea6924897087dec433787873c1a47e0638999c2e48e
 STAGE2 = RUN / 'stage2_proprio122_history5_tracker_action'
 
 
-def command_for(phase, output, *, resume=None):
+def command_for(phase, output, *, resume=None, reset_adaptive_sampling=False, wandb_name=None,
+                align_sampling_to_tracker=False):
+    if reset_adaptive_sampling and not resume:
+        raise ValueError('--reset-adaptive-sampling requires --resume')
+    if align_sampling_to_tracker and not resume:
+        raise ValueError('--align-sampling-to-tracker requires --resume')
     smoke = phase == 'smoke'
     source = json.loads((RUN/'source_identity.json').read_text())
     command = [str(ROOT/'.venv/bin/python'), '-B', '-u', '-m', 'torch.distributed.run',
@@ -37,7 +42,7 @@ def command_for(phase, output, *, resume=None):
                '--residual-output-mode', 'unbounded', '--residual-scale', '1.0',
                '--save-interval', '24' if smoke else '100',
                '--wandb-group', '144000_exp', '--wandb-name',
-               '144000_exp-residual-proprio122-u7179-history5-tracker-action-auxdr' + ('-smoke' if smoke else '')]
+               wandb_name or ('144000_exp-residual-proprio122-u7179-history5-tracker-action-auxdr' + ('-smoke' if smoke else ''))]
     if smoke:
         command += ['--motion-file', str(RUN/'smoke_motions/walk1_subject1.motion.npz'),
                     '--bounded-smoke', '--iterations', '25' if resume else '24']
@@ -45,6 +50,10 @@ def command_for(phase, output, *, resume=None):
         command += ['--motion-path', source['root'], '--until-user-stop']
     if resume:
         command += ['--resume', str(Path(resume).resolve())]
+    if reset_adaptive_sampling:
+        command += ['--reset-adaptive-sampling']
+    if align_sampling_to_tracker:
+        command += ['--align-sampling-to-tracker']
     return command
 
 
@@ -53,9 +62,20 @@ def main():
     parser.add_argument('--phase', choices=('smoke', 'train'), required=True)
     parser.add_argument('--attempt', default='initial')
     parser.add_argument('--resume', type=Path)
+    parser.add_argument('--reset-adaptive-sampling', action='store_true',
+                        help='Resume model/optimizer while restarting adaptive sampling from its priors')
+    parser.add_argument('--wandb-name', help='Display name for this training continuation')
+    parser.add_argument('--align-sampling-to-tracker', action='store_true',
+                        help='Restore original tracker rewind while retaining resumed adaptive statistics')
+    parser.add_argument('--export-onnx', action=argparse.BooleanOptionalAction, default=True,
+                        help='Export validated policy.onnx/JSON packages asynchronously on CPU (formal training)')
     parser.add_argument('--run-root', type=Path, default=STAGE2,
                         help='Experiment directory containing smoke, preflight and fresh PPO outputs')
     args = parser.parse_args()
+    if args.reset_adaptive_sampling and not args.resume:
+        parser.error('--reset-adaptive-sampling requires --resume')
+    if args.align_sampling_to_tracker and not args.resume:
+        parser.error('--align-sampling-to-tracker requires --resume')
     if not args.attempt.replace('_', '').isalnum():
         raise ValueError('Use an alphanumeric attempt name')
     root = args.run_root.resolve()
@@ -79,7 +99,9 @@ def main():
     cards = gpu_status(list(range(8)))
     if any(card['processes'] or card['free_mib'] < 60000 for card in cards):
         raise RuntimeError('All eight GPUs must be free before this stage starts')
-    command = command_for(args.phase, output, resume=args.resume)
+    command = command_for(args.phase, output, resume=args.resume,
+                          reset_adaptive_sampling=args.reset_adaptive_sampling, wandb_name=args.wandb_name,
+                          align_sampling_to_tracker=args.align_sampling_to_tracker)
     env = process_environment()
     env.update(CUDA_VISIBLE_DEVICES='0,1,2,3,4,5,6,7', OMP_NUM_THREADS='1', OPENBLAS_NUM_THREADS='1')
     cache = root/'runtime'
@@ -100,8 +122,18 @@ def main():
                'physical_gpus': list(range(8)), 'num_envs_per_rank': 256 if smoke else 8192,
                'started_at': time.time(), 'output': str(output), 'log': str(log),
                'initialization': 'resume' if args.resume else 'scratch', 'maximum_updates': 25 if args.resume and smoke else 24 if smoke else None,
+               'reset_adaptive_sampling': args.reset_adaptive_sampling,
+               'align_sampling_to_tracker': args.align_sampling_to_tracker,
                'wandb_id': env['WANDB_RUN_ID']}
     record.write_text(json.dumps(payload, indent=2)+'\n')
+    if not smoke and args.export_onnx:
+        from watch_memory350_onnx import launch_watcher
+        try:
+            export_process = launch_watcher(output, root/'monitor/onnx_export', child.pid, identity['start_ticks'])
+            payload['onnx_exporter_pid'] = export_process['pid']
+            record.write_text(json.dumps(payload, indent=2)+'\n')
+        except Exception as error:
+            print(f'ONNX exporter startup failed; training continues: {error}', flush=True)
     print(json.dumps({key: payload[key] for key in ('pid', 'physical_gpus', 'num_envs_per_rank', 'output', 'log')}))
 
 

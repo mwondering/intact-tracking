@@ -16,8 +16,10 @@ from intact_tracking.memory350_tracker_action_policy import (
 from intact_tracking.rollout.online import _capture_privileged_dynamics_targets
 
 
-def paired_environment(factory, **kwargs):
-    env = native.environment_factory(factory, **kwargs)
+def paired_environment(factory, *, physics_factory=None, **kwargs):
+    if physics_factory is None:
+        physics_factory = native.environment_factory
+    env = physics_factory(factory, **kwargs)
     env.native_paired_query = False
     pulse = env.event_manager.get_term_cfg("push_robot").func.source
     original_reset = pulse.reset

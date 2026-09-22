@@ -58,6 +58,12 @@ PPO_CLASS_NAME = "intact_tracking.limb_context_distributed:DistributedResidualPP
 ALLOWED_DR_PROFILES = (TRACKER_DR,)
 CONTEXT_SOURCE_DR_PROFILE = None
 TRAINING_START_PROFILE = None
+# Alternate conditioning providers reuse the physics/PPO lifecycle without
+# pretending to load a pretrained Memory350 encoder.
+CONTEXT_CHECKPOINT_REQUIRED = True
+METADATA_ADAPTER = None
+EMBED_TRACKER_WITHOUT_CONTEXT = False
+WANDB_TAGS = None
 RESIDUAL_WANDB_METRICS = {
     "residual_action_rms": "Residual/mean_rms",
     "residual_action_abs_mean": "Residual/mean_abs",
@@ -67,6 +73,13 @@ RESIDUAL_WANDB_METRICS = {
     "residual_target_rms_rad": "Residual/target_rms_rad",
     "residual_target_abs_max_rad": "Residual/target_abs_max_rad",
     "residual_output_bounded": "Residual/output_bounded",
+    "cuda_cache_released_gib": "Perf/cuda_cache_released_gib",
+    "cuda_reserved_after_release_gib": "Perf/cuda_reserved_after_release_gib",
+    "cuda_allocated_after_release_gib": "Perf/cuda_allocated_after_release_gib",
+    "cuda_free_after_release_gib": "Perf/cuda_free_after_release_gib",
+    "cuda_cache_release_seconds": "Perf/cuda_cache_release_seconds",
+    "cuda_peak_allocated_gib": "Perf/torch_peak_allocated_gib",
+    "cuda_peak_reserved_gib": "Perf/torch_peak_reserved_gib",
 }
 TRACKER_WANDB_GROUPS = (
     "Loss", "Policy", "Perf", "Train", "Episode", "Episode_Reward",
@@ -76,7 +89,7 @@ TRACKER_WANDB_GROUPS = (
 
 def tracker_wandb_metrics(record, *, rollout_steps):
     """Use SP/RSL's scalar names with the already pooled multi-rank values."""
-    payload = {key if key.startswith("AuxDR/") else f"Loss/{key}": value
+    payload = {key if key.split("/", 1)[0] in ("AuxDR", "Teacher", "WorldModel", "Adapter") else f"Loss/{key}": value
                for key, value in record["loss"].items()}
     duration = record["collect_seconds"] + record["learn_seconds"]
     payload.update({
@@ -89,6 +102,8 @@ def tracker_wandb_metrics(record, *, rollout_steps):
     for name in ("mean_reward", "mean_episode_length"):
         if record[name] is not None:
             payload[f"Train/{name}"] = record[name]
+    if "ppo_optimizer_steps" in record:
+        payload["Policy/optimizer_steps"] = record["ppo_optimizer_steps"]
     for key, value in record.get("episode_metrics", {}).items():
         # RSL preserves pre-grouped environment keys, adding Episode/ only to
         # unqualified names. Flattening under training/ alone loses these panels.
@@ -133,6 +148,12 @@ def build_parser():
     parser.add_argument("--residual-output-mode", choices=("bounded", "unbounded"),
                         help="Unbounded uses the raw MLP output, without tanh, scaling or clipping")
     parser.add_argument("--resume")
+    parser.add_argument("--reset-adaptive-sampling", action="store_true",
+                        help="On resume, keep model/optimizer state but reset adaptive statistics to priors")
+    parser.add_argument("--resume-uniform-sampling", action="store_true",
+                        help="Resume with uniform motion sampling, disabling rewind and discarding adaptive statistics")
+    parser.add_argument("--align-sampling-to-tracker", action="store_true",
+                        help="Resume legacy native PPO with the original tracker rewind, preserving sampler counts")
     parser.add_argument("--policy-precision", choices=POLICY_PRECISIONS,
                         help="Inherit checkpoint precision; legacy checkpoints use TF32")
     parser.add_argument("--training-terminations", choices=PROFILES,
@@ -218,6 +239,13 @@ def attach_json_logger(runner, output, distributed, wandb_logger=None):
 
     def log(**kw):
         losses = distributed.mean_scalars({k: float(v) for k, v in kw["loss_dict"].items()})
+        peak_names = [name for name in ("cuda_peak_allocated_gib", "cuda_peak_reserved_gib")
+                      if name in kw["loss_dict"]]
+        if peak_names:
+            peaks = torch.tensor([kw["loss_dict"][name] for name in peak_names], device=distributed.device)
+            if distributed.enabled:
+                torch.distributed.all_reduce(peaks, op=torch.distributed.ReduceOp.MAX)
+            losses.update(zip(peak_names, peaks.tolist(), strict=True))
         moments = torch.tensor([sum(runner.logger.rewbuffer), len(runner.logger.rewbuffer),
                                 sum(runner.logger.lenbuffer), len(runner.logger.lenbuffer)],
                                device=distributed.device, dtype=torch.float64)
@@ -237,6 +265,9 @@ def attach_json_logger(runner, output, distributed, wandb_logger=None):
                   "mean_episode_length": float(moments[2] / moments[3]) if moments[3] else None,
                   "episode_window_count_across_ranks": int(moments[1])}
         record["policy_precision"] = runner.residual_metadata.get("policy_precision", "tf32")
+        epochs, batches = getattr(runner.alg, "num_learning_epochs", None), getattr(runner.alg, "num_mini_batches", None)
+        if epochs is not None and batches is not None:
+            record["ppo_optimizer_steps"] = record["completed_updates"] * epochs * batches
         record["policy_fp32"] = record["policy_precision"] == "fp32"
         sampling = getattr(runner, "residual_metadata", {}).get("motion_sampling")
         terminations = getattr(runner, "residual_metadata", {}).get("training_terminations")
@@ -295,7 +326,24 @@ def attach_json_logger(runner, output, distributed, wandb_logger=None):
     runner.logger.log = log
 
 
+def validate_resume_models(old_train, train, args):
+    """Strict by default; experiment entry points may authorize a narrow transition."""
+    for key in ("actor", "critic", "algorithm", "obs_groups"):
+        if old_train[key] != train[key]:
+            raise ValueError(f"Resume changed {key}")
+    return None
+
+
 def _run(args, distributed):
+    reset_sampling = getattr(args, "reset_adaptive_sampling", False)
+    align_sampling = getattr(args, "align_sampling_to_tracker", False)
+    uniform_resume = getattr(args, "resume_uniform_sampling", False)
+    if uniform_resume and (not args.resume or args.motion_sampling != "uniform" or reset_sampling or align_sampling):
+        raise ValueError("--resume-uniform-sampling requires --resume, uniform sampling, and no adaptive reset/alignment")
+    if reset_sampling and (not args.resume or args.motion_sampling != "adaptive"):
+        raise ValueError("--reset-adaptive-sampling requires --resume and adaptive motion sampling")
+    if align_sampling and (not args.resume or args.motion_sampling != "adaptive"):
+        raise ValueError("--align-sampling-to-tracker requires --resume and adaptive motion sampling")
     if args.until_user_stop:
         args.iterations = None
     if args.iterations is not None and args.iterations <= 0:
@@ -303,7 +351,7 @@ def _run(args, distributed):
     for key in ("num_envs", "rollout_steps", "epochs", "mini_batches", "save_interval"):
         if getattr(args, key) <= 0:
             raise ValueError(f"{key} must be positive")
-    if (args.fusion in ("film", "concat")) != bool(args.context_checkpoint):
+    if CONTEXT_CHECKPOINT_REQUIRED and (args.fusion in ("film", "concat")) != bool(args.context_checkpoint):
         raise ValueError("Film/concat require a context checkpoint; baseline/constant do not")
     if args.episode_steps != EPISODE_STEPS or distributed.world_size != args.training_ranks:
         raise ValueError("Training must use the requested rank count and 1000-step episodes")
@@ -346,6 +394,11 @@ def _run(args, distributed):
     terminations = configure_training_terminations(prepared.env, source, args.training_terminations)
     sampling = configure_motion_sampling(prepared.env, args.motion_sampling,
                                          args.adaptive_after_update, resume_update)
+    if reset_sampling and sampling["active_mode"] != "adaptive":
+        raise ValueError("--reset-adaptive-sampling requires an active adaptive sampling phase")
+    if align_sampling and (sampling.get("sampling_contract") != "tracker_checkpoint_adaptive_v1"
+                           or sampling.get("reference_tracker_sha256") != tracker_hash):
+        raise ValueError("Sampling alignment requires the verified native tracker contract")
     if args.dr_sampling == "grid256_shared":
         sampling["scope"] = "motion/bin sampling only; 256 shared static DR profiles with {0,1,2,4}^4 limb loads"
     prepared.env.seed = rank_seed
@@ -382,7 +435,8 @@ def _run(args, distributed):
     context = (load_frozen_context_checkpoint(args.context_checkpoint, device=device,
                                               expected_tracker_sha256=tracker_hash)
                if args.context_checkpoint else None)
-    frozen_dependencies = {}
+    frozen_dependencies = ({"inference_bundle_version": BUNDLE_VERSION}
+                           if EMBED_TRACKER_WITHOUT_CONTEXT else {})
     if context is not None:
         context_meta = torch.load(args.context_checkpoint, map_location="cpu", weights_only=False)
         validate_context_dr(context_meta, CONTEXT_SOURCE_DR_PROFILE or args.dr_profile)
@@ -449,6 +503,8 @@ def _run(args, distributed):
             PROJECT_ROOT / "src/intact_tracking/residual_dr_aux.py",
             PROJECT_ROOT / "src/intact_tracking/residual_runner.py")},
     }
+    if METADATA_ADAPTER is not None:
+        METADATA_ADAPTER(metadata, args, previous)
     endpoint_evaluator = None
     if args.endpoint_eval_protocol:
         from intact_tracking.memory350_policy_checkpoint_eval import PeriodicEndpointEvaluator, digest
@@ -463,7 +519,14 @@ def _run(args, distributed):
         if old.get("dr_sampling", "independent_uniform") != args.dr_sampling:
             raise ValueError("Resume changed the DR sampling contract; start a separate experiment")
         validate_termination_resume(previous, terminations)
-        previous_sampling_mode = validate_sampling_resume(old, sampling, previous["completed_updates"])
+        previous_sampling_mode = validate_sampling_resume(
+            old, sampling, previous["completed_updates"], align_to_tracker=align_sampling,
+            switch_to_uniform=uniform_resume)
+        if align_sampling:
+            previous_rewind = OmegaConf.to_container(previous["cfg"].task.command.command.rewind, resolve=True)
+            previous_rewind["enabled"] = sampling["rewind"]["enabled"]
+            if previous_rewind != sampling["rewind"]:
+                raise ValueError("Sampling alignment changed tracker rewind probability or offsets")
         expected_resume_digest = state_digest(previous.get("rsl_rl", previous))
         for key in ("version", "fusion", "tracker_sha256", "context_sha256", "reward_contract", "initialization_protocol"):
             if old.get(key) != metadata[key]:
@@ -476,16 +539,22 @@ def _run(args, distributed):
         if old.get("distributed") != metadata["distributed"]:
             raise ValueError("Resume changed distributed training scale")
         old_train = OmegaConf.to_container(previous["cfg"].agent, resolve=True)
-        for key in ("actor", "critic", "algorithm", "obs_groups"):
-            if old_train[key] != train[key]:
-                raise ValueError(f"Resume changed {key}")
+        auxiliary_transition = validate_resume_models(old_train, train, args)
         metadata["resume_history"] = [*copy.deepcopy(old.get("resume_history", [])), {
             "checkpoint": str(Path(args.resume).resolve()), "checkpoint_sha256": _sha256(Path(args.resume)),
             "completed_updates": previous["completed_updates"], "unix_time": time.time(),
             "motion_sampling_from": previous_sampling_mode, "motion_sampling_to": sampling["active_mode"],
+            "tracker_sampling_alignment": ({"from": copy.deepcopy(old["motion_sampling"]),
+                                             "to": copy.deepcopy(sampling)} if align_sampling else None),
+            "adaptive_statistics": ("disabled_and_discarded" if sampling["active_mode"] == "uniform" else
+                                    "reset_to_priors" if reset_sampling else
+                                    "restore_from_checkpoint" if previous_sampling_mode == "adaptive" else
+                                    "initialize_from_priors"),
             "policy_precision_from": resolve_policy_precision(None, previous),
             "policy_precision_to": args.policy_precision,
             "model_optimizer_and_normalization_restored": True, "simulator_episodes_restarted": True}]
+        if auxiliary_transition is not None:
+            metadata["resume_history"][-1]["dr_auxiliary_transition"] = auxiliary_transition
         if endpoint_evaluator is not None:
             original = old.get("periodic_evaluation", {})
             from intact_tracking.memory350_policy_checkpoint_eval import resumed_evaluation_metadata
@@ -507,8 +576,12 @@ def _run(args, distributed):
         termination_audit = audit_runtime_terminations(env.termination_manager, terminations)
         metadata["training_termination_runtime_audits"] = distributed.all_gather_object(termination_audit)
         command = env.command_manager.get_term("motion")
-        if command.cfg.sampling_mode != sampling["active_mode"] or command.cfg.rewind.enabled:
+        if (command.cfg.sampling_mode != sampling["active_mode"]
+                or command.cfg.rewind.enabled != sampling["failure_rewind_enabled"]):
             raise ValueError("Runtime motion sampling differs from the recorded configuration")
+        if sampling.get("sampling_contract") in ("tracker_checkpoint_adaptive_v1", "tracker_checkpoint_uniform_v1"):
+            from intact_tracking.memory350_native_policy import audit_sampling
+            metadata["sampling_runtime_audits"] = distributed.all_gather_object(audit_sampling(command, sampling))
         expected = files[distributed.rank::distributed.world_size] if len(files) > 1 else files
         if not distributed.all_true(tuple(map(str, expected)) == command.motion_files):
             raise ValueError("Loaded rank shard differs from the full requested motion catalog")
@@ -533,12 +606,20 @@ def _run(args, distributed):
             raise ValueError("Distributed motion shards do not cover the full dataset")
         wrapped = (RslRlVecEnvWrapper(env, clip_actions=prepared.clip_actions) if args.fusion == "baseline"
                    else LimbContextWrapper(env, prepared.clip_actions, context))
+        if hasattr(wrapped, "physics_schema"):
+            metadata["physics_input_schema"] = copy.deepcopy(wrapped.physics_schema)
+            if args.resume and old.get("physics_input_schema") != metadata["physics_input_schema"]:
+                raise ValueError("Resume changed physical input names/ranges")
         _seed_everything(args.seed)
         cfg = memory_checkpoint_configuration(source, train, metadata)
         main_process_call(distributed, lambda: output.mkdir(parents=True, exist_ok=True))
         runner = ResidualOnPolicyRunner(wrapped, train, str(output), device,
                                        checkpoint_cfg=cfg, residual_metadata=metadata,
                                        frozen_dependencies=frozen_dependencies)
+        if hasattr(wrapped, "bind_policy"):
+            wrapped.bind_policy(runner.alg.actor)
+        if hasattr(runner.alg, "bind_environment"):
+            runner.alg.bind_environment(wrapped)
         if frozen_dependencies:
             runner.frozen_dependencies["frozen_tracker"] = make_tracker_bundle(
                 source, runner.alg.actor.tracker.state_dict(), source_path=tracker,
@@ -574,7 +655,6 @@ def _run(args, distributed):
             runner.alg.actor, runner.alg.critic, initial_obs, args.fusion)
         if args.resume:
             runner.load(args.resume, map_location=device)
-            runner.current_learning_iteration = runner.completed_learning_updates
             restored_digest = state_digest(runner.alg.save())
             if not distributed.all_true(restored_digest == expected_resume_digest):
                 raise ValueError("Model/optimizer/normalization restoration differs from the selected checkpoint")
@@ -582,11 +662,16 @@ def _run(args, distributed):
                                               "model_optimizer_state_sha256": restored_digest}
             metadata["resume_history"][-1]["restoration_audit"] = copy.deepcopy(metadata["resume_state_audit"])
             # Preserve the true original initialization audit across simulator restarts.
+            current_auxiliary_audit = metadata["input_audit"].get("dr_auxiliary")
             metadata["input_audit"] = copy.deepcopy(old["input_audit"])
+            if auxiliary_transition is not None:
+                metadata["input_audit"]["dr_auxiliary"] = copy.deepcopy(current_auxiliary_audit)
         sampler_checkpoint = SamplingCheckpoint(output, distributed, sampling)
         if args.resume:
-            restored_sampling = sampler_checkpoint.restore(runner, previous_sampling_mode)
+            restored_sampling = sampler_checkpoint.restore(runner, previous_sampling_mode,
+                                                           reset=reset_sampling, align_to_tracker=align_sampling)
             metadata["sampling_resume_audits"] = distributed.all_gather_object(restored_sampling)
+            metadata["resume_history"][-1]["sampling_audits"] = copy.deepcopy(metadata["sampling_resume_audits"])
         runner.checkpoint_state_preparer = sampler_checkpoint.prepare
         cfg = memory_checkpoint_configuration(source, train, metadata)
         runner.checkpoint_cfg, runner.residual_metadata = cfg, copy.deepcopy(metadata)
@@ -595,7 +680,7 @@ def _run(args, distributed):
             nonlocal wandb_logger
             wandb_logger = WandbLogger(enabled=True, is_main=True, project=args.wandb_project,
                 entity=args.wandb_entity, group=args.wandb_group, name=args.wandb_name or output.name,
-                output_dir=output, config=metadata, tags=("memory350", "residual", args.fusion))
+                output_dir=output, config=metadata, tags=WANDB_TAGS or ("memory350", "residual", args.fusion))
             wandb_logger.run.config.update({"policy_precision": args.policy_precision,
                 "policy_precision_audit": precision_audit,
                 "periodic_evaluation": metadata.get("periodic_evaluation"),
@@ -611,6 +696,13 @@ def _run(args, distributed):
         attach_json_logger(runner, output, distributed, wandb_logger)
         if not args.resume:
             main_process_call(distributed, lambda: runner.save(str(output / "checkpoint_initial.pt")))
+        elif reset_sampling or align_sampling or uniform_resume:
+            sampler_checkpoint.prepare(runner)
+            main_process_call(distributed, lambda: runner.save(str(output / "checkpoint_resume.pt")))
+        if args.resume:
+            # Saved snapshots keep the last completed iteration; the loop
+            # starts from the next one only after writing the resume snapshot.
+            runner.current_learning_iteration = runner.completed_learning_updates
 
         def stop(signum, _frame):
             runner.request_stop()
@@ -640,6 +732,14 @@ def _run(args, distributed):
             if final_grouped_agreement["static_bank_sha256"] != physics["grouped_rank_agreement"]["static_bank_sha256"]:
                 raise RuntimeError("Grid256 physics changed during PPO or episode resets")
         agreement = audit_rank_agreement(runner, distributed)
+        if hasattr(runner.alg, "world_model"):
+            digests = distributed.all_gather_object(state_digest({
+                "encoder": runner.alg.actor.history_encoder.state_dict(),
+                "world_model": runner.alg.world_model.state_dict(),
+                "optimizer": runner.alg.world_optimizer.state_dict()}))
+            if len(set(digests)) != 1:
+                raise RuntimeError("Distributed world-model parameters/optimizer diverged")
+            agreement["world_model_state_sha256"] = digests[0]
         stopped = not distributed.all_true(not runner.stop_requested)
         planned_transition = (not stopped and args.motion_sampling == "adaptive"
                               and sampling["active_mode"] == "uniform"

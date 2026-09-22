@@ -66,12 +66,14 @@ class WeakPairReplayBuffer(Memory350ReplayBuffer):
     interactions even after short histories are flushed into long memory.
     """
 
-    def __init__(self, *, weak_archive_slots=4, weak_archive_interval=200, **kwargs):
+    def __init__(self, *, weak_archive_slots=4, weak_archive_interval=200,
+                 weak_archive_device=None, **kwargs):
         super().__init__(**kwargs)
         if weak_archive_slots < 2 or weak_archive_interval < 1:
             raise ValueError("Weak archive needs at least two slots and a positive interval")
         self.weak_archive_slots = weak_archive_slots
         self.weak_archive_interval = weak_archive_interval
+        self.weak_archive_device = torch.device(weak_archive_device or self.device)
         self.weak_archive = {}
         self._weak_generator = torch.Generator(device=self.device)
         self._weak_generator.manual_seed(int(kwargs.get("seed", 0)) + 590117)
@@ -93,12 +95,23 @@ class WeakPairReplayBuffer(Memory350ReplayBuffer):
         lookup[ids] = torch.arange(count, device=self.device)
         self.weak_archive = {
             "env_ids": ids, "lookup": lookup,
-            "raw": torch.empty(count, slots, 350, self.memory.short.shape[-1], dtype=torch.float32, device=self.device),
+            "raw": torch.empty(count, slots, 350, self.memory.short.shape[-1],
+                               dtype=torch.float32, device=self.weak_archive_device),
             "next_slot": torch.zeros(count, dtype=torch.long, device=self.device),
             "last_capture": torch.full((count,), -self.weak_archive_interval, dtype=torch.long, device=self.device),
             **{name: torch.full((count, slots), -1, dtype=torch.long, device=self.device)
                for name in ("motion_id", "session", "collector_step", "excluded_until_chunk")},
         }
+
+    def _write_weak_raw(self, rows, slots, raw):
+        target = self.weak_archive['raw']
+        # Only storage placement changes. Copy float32 exactly; keep eligibility
+        # metadata and RNG on the collector device, with the same sampling order.
+        target[rows.to(target.device), slots.to(target.device)] = raw.to(target.device)
+
+    def _read_weak_raw(self, rows, slots):
+        source = self.weak_archive['raw']
+        return source[rows.to(source.device), slots.to(source.device)].to(self.device)
 
     def add_step(self, batch):
         count = super().add_step(batch)
@@ -122,7 +135,7 @@ class WeakPairReplayBuffer(Memory350ReplayBuffer):
         if not bool(short_valid.all() & long_valid.all()):
             raise RuntimeError("Weak positive snapshots must contain all 350 interactions")
         slots = archive["next_slot"][rows]
-        archive["raw"][rows, slots] = torch.cat((short, long.flatten(1, 2)), dim=1)
+        self._write_weak_raw(rows, slots, torch.cat((short, long.flatten(1, 2)), dim=1))
         archive["motion_id"][rows, slots] = batch["motion_id"][ids]
         archive["session"][rows, slots] = bank.session[ids]
         archive["collector_step"][rows, slots] = self.collector_step
@@ -149,7 +162,7 @@ class WeakPairReplayBuffer(Memory350ReplayBuffer):
             scores = torch.rand(valid.shape, device=self.device, generator=self._weak_generator).masked_fill(~valid, -1)
             slots = scores.argmax(1)
             pair_valid = valid.any(1)
-            raw = archive["raw"][safe_rows, slots].masked_fill(~pair_valid[:, None, None], 0)
+            raw = self._read_weak_raw(safe_rows, slots).masked_fill(~pair_valid[:, None, None], 0)
             motion = archive["motion_id"][safe_rows, slots]
             session = archive["session"][safe_rows, slots]
             gap = query_time - archive["collector_step"][safe_rows, slots]

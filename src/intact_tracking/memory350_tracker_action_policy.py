@@ -12,7 +12,7 @@ from intact_tracking.limb_context_policy import (
 )
 from intact_tracking.residual_policy import DYNAMICS_LATENT_GROUP, FrozenTrackerResidualActor
 from intact_tracking.residual_dr_aux import (
-    DR_DIM, DR_TARGET_GROUP, DR_HISTORY_WEIGHT_GROUP, GROUPS, MAE_UNITS,
+    DR_TARGET_GROUP, DR_HISTORY_WEIGHT_GROUP,
     DRAuxiliaryObjective,
 )
 
@@ -41,8 +41,12 @@ def _input(obs, name, width):
 class TrackerActionResidualActor(LimbContextResidualActor):
     def __init__(self, obs, obs_groups, obs_set, output_dim, *, fusion_mode="concat",
                  dynamics_latent_dim=LATENT_HISTORY_DIM, tracker_action_dim=TRACKER_ACTION_DIM,
-                 dr_aux_schema=None, dr_aux_motor_weight=0.0,
+                 dr_aux_schema=None, dr_aux_motor_weight=0.0, dr_aux_payload_com_enabled=True,
+                 latent_input_mode="learned",
                  **kwargs):
+        if latent_input_mode not in ("learned", "zero"):
+            raise ValueError("latent_input_mode must be learned or zero")
+        self.latent_input_mode = latent_input_mode
         if fusion_mode != "concat" or output_dim != tracker_action_dim:
             raise ValueError("Tracker-action policy requires concat and one tracker command per action")
         _input(obs, DYNAMICS_LATENT_GROUP, dynamics_latent_dim)
@@ -58,13 +62,14 @@ class TrackerActionResidualActor(LimbContextResidualActor):
         self.dr_aux_objective = None
         self.dr_aux_features = None
         if dr_aux_schema is not None:
-            self.dr_aux_objective = DRAuxiliaryObjective(dr_aux_schema, dr_aux_motor_weight)
+            self.dr_aux_objective = DRAuxiliaryObjective(dr_aux_schema, dr_aux_motor_weight,
+                                                       payload_com_enabled=dr_aux_payload_com_enabled)
             output = self.residual_mlp.base[-1]
             # Preserve the action/critic/environment RNG streams. A nonzero DR
             # head gives the shared trunk gradients even with the zero action head.
             with torch.random.fork_rng(devices=[]):
                 torch.random.default_generator.manual_seed(int(self.initialization_seed or 0) + 30001)
-                self.dr_aux_head = nn.Linear(output.in_features, DR_DIM)
+                self.dr_aux_head = nn.Linear(output.in_features, self.dr_aux_objective.output_dim)
                 nn.init.constant_(self.dr_aux_head.bias, 0.5)
             self.dr_aux_head.to(device=output.weight.device, dtype=output.weight.dtype)
             self.dr_aux_objective.to(device=output.weight.device)
@@ -103,6 +108,10 @@ class TrackerActionResidualActor(LimbContextResidualActor):
         return features, _input(obs, ACTION_GROUP, self.tracker_action_dim).to(features)
 
     def _residual_input(self, obs, tracker_features, base_action, *, latent_override=None):
+        if self.latent_input_mode == "zero":
+            # Enforce the ablation at the model boundary as well as in rollout
+            # observations, including minibatches, diagnostics and deployment.
+            latent_override = tracker_features.new_zeros((*tracker_features.shape[:-1], self.dynamics_latent_dim))
         value = super()._residual_input(obs, tracker_features, base_action,
                                         latent_override=latent_override)
         return torch.cat((value, base_action.to(tracker_features).detach()), -1)
@@ -110,7 +119,10 @@ class TrackerActionResidualActor(LimbContextResidualActor):
 
 class TrackerActionCritic(LimbContextCritic):
     def __init__(self, obs, *args, fusion_mode="concat", dynamics_latent_dim=LATENT_HISTORY_DIM,
-                 tracker_action_dim=TRACKER_ACTION_DIM, **kwargs):
+                 tracker_action_dim=TRACKER_ACTION_DIM, latent_input_mode="learned", **kwargs):
+        if latent_input_mode not in ("learned", "zero"):
+            raise ValueError("latent_input_mode must be learned or zero")
+        self.latent_input_mode = latent_input_mode
         if fusion_mode != "concat":
             raise ValueError("Tracker-action critic requires concat")
         _input(obs, DYNAMICS_LATENT_GROUP, dynamics_latent_dim)
@@ -125,6 +137,8 @@ class TrackerActionCritic(LimbContextCritic):
     def value_input(self, obs):
         features = self.obs_normalizer(self._flat_obs(obs))
         latent = _input(obs, DYNAMICS_LATENT_GROUP, self.dynamics_latent_dim).to(features)
+        if self.latent_input_mode == "zero":
+            latent = torch.zeros_like(latent)
         action = _input(obs, ACTION_GROUP, self.tracker_action_dim).to(features)
         return torch.cat((features, latent, action), -1)
 
@@ -142,13 +156,13 @@ class TrackerActionPPO(DistributedResidualPPO):
         if not math.isfinite(dr_aux_coef) or dr_aux_coef < 0:
             raise ValueError("DR auxiliary coefficient must be finite and nonnegative")
         self.dr_aux_coef = float(dr_aux_coef)
-        if (self.dr_aux_coef > 0) != (self.actor.dr_aux_head is not None):
+        if self.dr_aux_coef > 0 and self.actor.dr_aux_head is None:
             raise ValueError("Enable the DR actor head and a positive PPO DR coefficient together")
         if self.dr_aux_coef > 0:
             for key in (DR_TARGET_GROUP, DR_HISTORY_WEIGHT_GROUP):
                 if key not in self.storage.observations:
                     raise ValueError(f"DR auxiliary PPO requires rollout observation {key!r}")
-            self._dr_aux_stats = torch.zeros(20, device=self.device)
+            self._dr_aux_stats = torch.zeros(2 * len(self.actor.dr_aux_objective.groups) + 6, device=self.device)
             self._dr_aux_batches = 0
         # Allocate outside the rollout's inference_mode: update() clears these
         # counters after leaving that context.
@@ -200,12 +214,15 @@ class TrackerActionPPO(DistributedResidualPPO):
             self._dr_aux_stats.zero_()
             self._dr_aux_batches = 0
         result = super().update()
+        result.update({"AuxDR/enabled": float(self.dr_aux_coef > 0), "AuxDR/coefficient": self.dr_aux_coef})
         if self.dr_aux_coef > 0:
             if self.is_multi_gpu:
                 torch.distributed.all_reduce(self._dr_aux_stats)
             stats = self._dr_aux_stats
-            support, positive, count, kl, ppo_sq, aux_sq = stats[14:].tolist()
-            raw = float((stats[:7] @ self.actor.dr_aux_objective.weights).item()) / max(count, 1)
+            objective = self.actor.dr_aux_objective
+            groups = len(objective.groups)
+            support, positive, count, kl, ppo_sq, aux_sq = stats[2 * groups:].tolist()
+            raw = float((stats[:groups] @ objective.weights).item()) / max(count, 1)
             result.update({
                 "AuxDR/loss": raw,
                 "AuxDR/weighted_loss": self.dr_aux_coef * raw,
@@ -220,13 +237,13 @@ class TrackerActionPPO(DistributedResidualPPO):
                 "AuxDR/shared_gradient_ratio": math.sqrt(aux_sq / ppo_sq) if ppo_sq > 0 else 0.,
                 "AuxDR/shared_gradient_ratio_valid": float(ppo_sq > 0),
             })
-            mse, mae = (stats[:14] / max(support, 1e-12)).split(7)
-            for group, unit, error, absolute in zip(GROUPS, MAE_UNITS, mse.tolist(), mae.tolist(), strict=True):
+            mse, mae = (stats[:2 * groups] / max(support, 1e-12)).split(groups)
+            for group, unit, error, absolute in zip(objective.groups, objective.mae_units, mse.tolist(), mae.tolist(), strict=True):
                 if group not in self.actor.dr_aux_objective.supervised_groups:
                     continue
                 result[f"AuxDR/{group}_mse_normalized"] = error
                 result[f"AuxDR/{group}_mae_{unit}"] = absolute
-            self.actor.dr_aux_features = None
+        self.actor.dr_aux_features = None
         counts = getattr(self, "_motion_boundary_counts", None)
         if counts is not None:
             total, nonterminal, overlap, transitions = counts.tolist()
@@ -260,7 +277,9 @@ class TrackerActionPPO(DistributedResidualPPO):
 
 
 def configure_tracker_action_models(train, fusion, *, scratch_seed=None,
-                                    dr_aux_schema=None, dr_aux_coef=0.0, dr_aux_motor_weight=0.0):
+                                    dr_aux_schema=None, dr_aux_coef=0.0, dr_aux_motor_weight=0.0,
+                                    latent_input_mode=None, retain_dr_aux_head=False,
+                                    dr_aux_payload_com_enabled=None):
     if fusion != "concat":
         raise ValueError("This experiment uses direct concatenation")
     result = configure_context_models(train, fusion, scratch_seed=scratch_seed)
@@ -268,18 +287,25 @@ def configure_tracker_action_models(train, fusion, *, scratch_seed=None,
         result[name].update(
             class_name=f"intact_tracking.memory350_tracker_action_policy:{class_name}",
             dynamics_latent_dim=LATENT_HISTORY_DIM, tracker_action_dim=TRACKER_ACTION_DIM)
+        if latent_input_mode is not None:
+            if latent_input_mode not in ("learned", "zero"):
+                raise ValueError("latent_input_mode must be learned or zero")
+            result[name]["latent_input_mode"] = latent_input_mode
     if not math.isfinite(dr_aux_coef) or dr_aux_coef < 0:
         raise ValueError("DR auxiliary coefficient must be finite and nonnegative")
-    if dr_aux_coef > 0:
+    if dr_aux_coef > 0 or retain_dr_aux_head:
         if dr_aux_schema is None:
             raise ValueError("DR auxiliary training requires the native context checkpoint schema")
-        DRAuxiliaryObjective(dr_aux_schema, dr_aux_motor_weight)
+        DRAuxiliaryObjective(dr_aux_schema, dr_aux_motor_weight,
+                            payload_com_enabled=True if dr_aux_payload_com_enabled is None else dr_aux_payload_com_enabled)
         result["actor"].update(dr_aux_schema=dr_aux_schema, dr_aux_motor_weight=dr_aux_motor_weight)
+        if dr_aux_payload_com_enabled is not None:
+            result["actor"]["dr_aux_payload_com_enabled"] = dr_aux_payload_com_enabled
         result.setdefault("algorithm", {})["dr_aux_coef"] = dr_aux_coef
     return result
 
 
-def audit_tracker_action_models(actor, critic, obs, fusion, *, original_audit):
+def audit_tracker_action_models(actor, critic, obs, fusion, *, original_audit, training_dr_aux_coef=None):
     actor.populate_tracker_cache(obs)
     result = original_audit(actor, critic, obs, fusion)
     with torch.no_grad():
@@ -288,15 +314,20 @@ def audit_tracker_action_models(actor, critic, obs, fusion, *, original_audit):
         torch.testing.assert_close(action, expected, atol=0, rtol=0)
         actor_input = actor._residual_input(obs, features, action)
         critic_input = critic.value_input(obs)
+        if actor.latent_input_mode != critic.latent_input_mode:
+            raise ValueError("Actor and critic must share the latent input mode")
+        expected_latent = (torch.zeros_like(obs[DYNAMICS_LATENT_GROUP])
+                           if actor.latent_input_mode == "zero" else obs[DYNAMICS_LATENT_GROUP])
         torch.testing.assert_close(actor_input[:, features.shape[-1]:-TRACKER_ACTION_DIM],
-                                   obs[DYNAMICS_LATENT_GROUP], atol=0, rtol=0)
+                                   expected_latent, atol=0, rtol=0)
         torch.testing.assert_close(critic_input[:, critic.obs_dim:-TRACKER_ACTION_DIM],
-                                   obs[DYNAMICS_LATENT_GROUP], atol=0, rtol=0)
+                                   expected_latent, atol=0, rtol=0)
         for value in (actor_input, critic_input):
             torch.testing.assert_close(value[:, -TRACKER_ACTION_DIM:], action, atol=0, rtol=0)
         if any(p.requires_grad for p in actor.tracker.parameters()) or actor.tracker.training:
             raise RuntimeError("Tracker weights and normalization must remain frozen")
     result.update(
+        latent_input_mode=actor.latent_input_mode,
         latent_dimensions=LATENT_HISTORY_DIM, latent_frame_dimensions=LATENT_FRAME_DIM,
         latent_history_frames=LATENT_HISTORY_FRAMES,
         latent_history_order="oldest to newest; left zero padding; clear at episode/motion boundary",
@@ -309,13 +340,23 @@ def audit_tracker_action_models(actor, critic, obs, fusion, *, original_audit):
         tracker_action_normalization="raw command appended after original feature normalization",
         tracker_action_matches_actor_and_critic=True, tracker_frozen=True)
     if actor.dr_aux_head is not None:
+        objective = actor.dr_aux_objective
         result["dr_auxiliary"] = {
-            "shared_hidden_dim": actor.dr_aux_head.in_features, "output_dim": DR_DIM,
-            "groups": list(GROUPS), "mass_supervised": False,
-            "supervised_groups": list(actor.dr_aux_objective.supervised_groups),
-            "group_weights_normalized": actor.dr_aux_objective.weights.tolist(),
+            "shared_hidden_dim": actor.dr_aux_head.in_features, "output_dim": objective.output_dim,
+            "groups": list(objective.groups), "mass_supervised": False,
+            "torso_mass_supervised": False,
+            "supervised_groups": list(objective.supervised_groups) if training_dr_aux_coef != 0 else [],
+            "group_weights_normalized": objective.weights.tolist(),
+            "group_weight_normalization_denominator": objective.normalization_denominator,
             "normalization": "fixed physical range; no encoder distance weights",
             "history_weight": "available short steps plus valid archived steps, divided by 350",
             "targets_are_actor_inputs": False,
         }
+        if training_dr_aux_coef is not None:
+            result["dr_auxiliary"].update(
+                enabled=training_dr_aux_coef > 0, coefficient=training_dr_aux_coef,
+                active_coordinates=int(objective.active.numel()) if training_dr_aux_coef > 0 else 0,
+                payload_mass_supervised=objective.output_dim == 108 and training_dr_aux_coef > 0,
+                payload_com_supervised=objective.output_dim == 108 and objective.payload_com_enabled and training_dr_aux_coef > 0,
+                payload_mass_and_com_supervised=objective.output_dim == 108 and objective.payload_com_enabled and training_dr_aux_coef > 0)
     return result

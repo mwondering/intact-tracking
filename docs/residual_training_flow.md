@@ -1,5 +1,7 @@
 # Context-conditioned Forward-only 训练流程
 
+> **历史方案。** 本文记录早期统一 Forward-only Transformer；当前已确认的版本见 [最新定稿 Pipeline（2026-09-20）](final_pipeline_20260920.md)。
+
 当前入口只验证一个问题：一个统一 Transformer 能否根据历史 interaction、当前完整状态和
 未来 action，预测固定 nominal 环境中的未来状态变化。Backward Predictor、Residual Policy
 和 Tracking loss 已全部从活动模型、优化器与 checkpoint 中移除。

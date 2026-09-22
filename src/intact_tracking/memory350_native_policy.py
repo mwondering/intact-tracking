@@ -1,5 +1,5 @@
 """Frozen Memory350 residual PPO using the 144000 flat-world physics contract."""
-from dataclasses import dataclass, fields
+from dataclasses import asdict, dataclass, fields
 import hashlib
 from pathlib import Path
 
@@ -75,7 +75,8 @@ def environment_factory(factory, **kwargs):
         action = env.action_manager.get_term('joint_pos')
         if not isinstance(action, NativePolicyAction) or env.cfg.decimation != 4:
             raise TypeError('Native PPO needs four captured physical substeps')
-        ids = native_nominal_ids(env.num_envs, .1, device=env.device)
+        ids = native_nominal_ids(env.num_envs, env.cfg.actions['joint_pos'].nominal_fraction,
+                                device=env.device, allow_endpoints=True)
         restoration = _restore_nominal_physics(env, ids)
         motor = env.event_manager.get_term_cfg('motor_params_implicit').func
         # Compiled fields were restored; keep critic's cached parameter
@@ -123,6 +124,8 @@ def audit_native_runtime(env):
     if error != 0.:
         raise RuntimeError(f'Physical parameters changed across PPO episodes: {error}')
     env.native_policy_runtime_audit['last_parameter_audit_max_error'] = error
+    if hasattr(env, 'heavy_policy_payload'):
+        env.native_policy_runtime_audit['heavy_payload'] = env.heavy_policy_payload.audit()
     return dict(env.native_policy_runtime_audit)
 
 
@@ -143,11 +146,39 @@ def audit_physics(env, configuration):
 
 
 def configure_sampling(cfg, requested, after_update, completed_updates):
-    if requested != 'adaptive' or after_update != 0:
-        raise ValueError('This stage starts adaptive sampling at update zero')
+    if requested not in ('adaptive', 'uniform') or after_update != 0:
+        raise ValueError('Native sampling uses adaptive or uniform without a delayed phase change')
+    command = cfg.commands['motion']
+    source_rewind = asdict(command.rewind)
+    if requested == 'uniform':
+        source_rewind['enabled'] = False
     result = original_motion_sampling(cfg, requested, after_update, completed_updates)
+    # The legacy payload curriculum disables failure rewind. Native 144000 PPO
+    # must preserve the source sampler, including its failure-only retry branch.
+    for name, value in source_rewind.items():
+        setattr(command.rewind, name, value)
+    result.update(failure_rewind_enabled=command.rewind.enabled, rewind=source_rewind,
+                  sampling_contract=f'tracker_checkpoint_{requested}_v1',
+                  reference_tracker_sha256=TRACKER_SHA256)
     result['scope'] = 'motion/bin sampling only; 10% nominal and random native DR physics are allocated independently'
+    if requested == 'uniform':
+        result['statistics'] = 'Adaptive statistics are unused; no failure-weighted sampling or rewind'
     return result
+
+
+def audit_sampling(command, configuration):
+    from intact_tracking.limb_context_sampling import PARAMETERS
+    actual = {'active_mode': command.cfg.sampling_mode,
+              'adaptive_sampling': asdict(command.cfg.adaptive_sampling),
+              'parameters': {key: getattr(command.cfg, key) for key in PARAMETERS},
+              'failure_rewind_enabled': command.cfg.rewind.enabled,
+              'rewind': asdict(command.cfg.rewind)}
+    for name, value in actual.items():
+        if value != configuration[name]:
+            raise ValueError(f'Runtime tracker sampling changed {name}')
+    return {'passed': True, **actual, 'bin_width_steps': command.bin_width_steps,
+            'motion_count': command.motion.num_files,
+            'valid_motion_bins': command.num_valid_motion_bins}
 
 
 def resolve_profile(profile, previous=None):

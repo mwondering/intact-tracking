@@ -131,3 +131,20 @@ def test_weak_fields_are_microbatched_and_cosine_horizon_stays_8000():
 def test_invalid_weak_loss_configuration_fails(kwargs):
     with pytest.raises(ValueError):
         WeakPairLossConfig(**kwargs)
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason='Cross-device archive round trip requires CUDA')
+def test_cpu_archive_keeps_exact_gpu_histories_with_duplicate_and_reordered_reads():
+    replay = object.__new__(WeakPairReplayBuffer)
+    replay.device = torch.device('cuda:0')
+    replay.weak_archive = {'raw': torch.zeros(3, 4, 350, 273, device='cpu')}
+    generator = torch.Generator(device='cuda:0').manual_seed(717)
+    raw = torch.randn(3, 350, 273, generator=generator, device='cuda:0')
+    rows, slots = torch.tensor([2, 0, 1], device='cuda:0'), torch.tensor([1, 3, 0], device='cuda:0')
+    replay._write_weak_raw(rows, slots, raw)
+    assert replay.weak_archive['raw'].device.type == 'cpu'
+    order = torch.tensor([1, 2, 1, 0], device='cuda:0')
+    restored = replay._read_weak_raw(rows[order], slots[order])
+    assert restored.device == raw.device and restored.dtype == torch.float32
+    assert torch.equal(restored, raw[order])
+    assert not replay.weak_archive['raw'][:, 2].any()

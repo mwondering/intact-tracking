@@ -1,5 +1,7 @@
 # Residual PPO checkpoint 的冻结模型依赖
 
+> **最新定稿 Pipeline 的 checkpoint 格式。** 最终 `checkpoint_final.pt` 已保存，实际完成 6008 次更新，内嵌依赖校验通过；权重与运行记录见 [定稿文档](final_pipeline_20260920.md)。
+
 当前 proprio122/history5/tracker-action residual checkpoint 已可在标准推理入口中独立加载全部模型权重。冻结 context encoder、归一化统计、输入协议和 tracker 构建配置一同保存；tracker、residual 和 92 维 DR 解码头的权重仍位于原 actor state 中。
 
 ## 文件内容
@@ -21,7 +23,7 @@
 
 ## 当前训练与后续训练
 
-当前训练进程已经加载旧保存函数，因此使用 `scripts/embed_memory350_checkpoints.py` 在 CPU 上处理新保存的文件。自 `checkpoint_5200.pt` 起，保存完成后自动补齐内嵌依赖；已确认 `checkpoint_5200.pt`、`checkpoint_5300.pt` 完成。扫描间隔为 5 秒，加上读写校验时间；刚保存的文件可能短暂仍是旧格式。
+本次训练进程当时已经加载旧保存函数，因此使用 `scripts/embed_memory350_checkpoints.py` 在 CPU 上处理新保存的文件。自 `checkpoint_5200.pt` 起，保存完成后自动补齐内嵌依赖，最终 `checkpoint_final.pt` 和 `checkpoint_interrupted.pt` 也已完成。该补齐进程现已退出；运行时扫描间隔为 5 秒，加上读写校验时间，刚保存的文件可能短暂仍是旧格式。
 
 处理过程保留所有原有字段，对原 actor、critic、优化器、更新计数、配置及自适应采样状态做整体校验，写入临时文件后验证并原子替换。未重启正式训练，也未修改模型训练方式、超参数或更新上限。
 

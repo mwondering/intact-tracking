@@ -1,6 +1,30 @@
 # INTACT Tracking
 
-本仓库的正式路径是纯在线训练：使用仓库内的 MJLab 环境与冻结的 SPV5-2 tracker
+**最新定稿 Pipeline（2026-09-20，用户已确认）：** 冻结 SPV5-2A tracker + proprio122 Memory350 context encoder + 五帧 latent / tracker-action 条件 residual PPO + COM / 摩擦辅助监督。
+
+Method、复现配置和最终模型统一见 **[最新定稿 Pipeline](docs/final_pipeline_20260920.md)**。本次训练已结束，最终模型完成 6008 次更新；完整 checkpoint、ONNX、JSON 和部署 runtime 均已保存。
+
+后续按用户要求从该 checkpoint 续训，并将 adaptive sampling 统计重置为初始先验，见 [续训记录](docs/residual_resume_sampling_reset_20260920.md)。
+
+最新续训在第 7283 次更新后恢复了原 tracker 144000 的 failure rewind，并保留已有采样统计；采样参数、代码差分验证及 W&B 指标口径见 [adaptive sampling 对齐记录](docs/adaptive_sampling_parity_20260920.md)。
+
+该 PPO 续训现已按用户要求保存并停止于第 **13662** 次更新。新增 context 实验 **[144000-exp-heavy](docs/context_heavy_144000_20260920.md)** 沿用结构和 loss 系数，从零训练 encoder/predictor，在原 DR 上增加四肢负载质量与质心，使用完整过滤后数据集和每卡 16384 个主采集环境。实际启动状态及检查记录见 `runs/144000-exp-heavy/`。
+
+Heavy context 已保存并停止于 **8816** 次更新，后续固定使用该 encoder。[Heavy residual 最新续训](docs/heavy_residual_uniform_resume_20260921.md) 从两组各自的 `checkpoint_2000.pt` 恢复，使用 **uniform motion sampling**、关闭失败 rewind、丢弃旧 adaptive 统计，仍为每组 4 × **8192** 环境。latent 组保留 torso COM、摩擦和四肢负载质量共 **8** 维监督，总系数 **0.5**；baseline 使用全零 latent、辅助损失为 0。两组保持 108 维辅助头和原网络结构，覆盖完整过滤后的 220480 条 motion；HDR 与负载 COM 随机化保持不变。新启动状态及预测头检查见最新文档；[此前 adaptive 续训](docs/heavy_residual_resume2000_mass5x_20260921.md) 和[上一阶段配置](docs/heavy_residual_latent_baseline_plan_20260921.md) 保留作为历史记录。
+
+新增 [RMA teacher / Any2Track baseline](docs/heavy_baselines_implementation_20260921.md)，已实现模型、训练/续训、nominal/HDR 评测及 ONNX/JSON 导出。两者现统一采用 **uniform 连续训练**，关闭 failure rewind，不设 2000 轮重启或训练上限；HDR/PPO 设置不变，每组 4 × 8192 环境。实现依据见[原方案](docs/heavy_rma_any2track_baseline_plan_20260921.md)，最新协议与启动状态见[uniform 训练记录](docs/heavy_baselines_uniform_20260921.md)。
+
+[RMA teacher / latent / vanilla 同轮评测](docs/heavy_rma_latent_vanilla_eval_2300_20260921.md) 对齐三组 `checkpoint_2300.pt`，包含 nominal 与 10% nominal + 90% HDR 混合环境的 tracking 误差、成功率及配对检查；评测固定使用快照，后台训练继续运行。
+
+[各自最新模型评测](docs/heavy_latest_rma_latent_vanilla_eval_20260921.md) 使用 RMA teacher 2600、latent 4300、vanilla 5100，沿用同一批 motion 与 nominal / 混合 DR 协议，保留各自训练轮数及置信区间。
+
+[四组最新 checkpoint 汇总（2026-09-22）](docs/heavy_four_latest_eval_20260922.md) 补测 latent 9400、vanilla 11800、RMA teacher 8700 和 Any2Track 4600 的 nominal / 混合 DR 表现，包含成功率、共同轨迹 tracking 误差、置信区间与 CSV 结果。
+
+Vanilla 已于 2026-09-22 按用户要求保存并停止在 **12136** 次更新，最终 checkpoint 和 ONNX/JSON 已验证。本机 GPU **4–7** 已启动 [RMA student 蒸馏](docs/heavy_rma_student_implementation_20260922.md)：50 帧本体历史预测固定 teacher 的 64 维 embedding，仅训练 adaptation，完整 minibatch 更新、**不累积梯度**。四卡短流程、断点恢复和部署导出已验证；正式训练采用完整过滤数据集、每卡 8192 环境、uniform、无更新上限。Latent、RMA teacher 和 Any2Track 继续训练。
+
+## 历史方案：纯在线 INTACT
+
+下文保留早期纯在线 INTACT 的实现说明；当前定稿以以上文档为准。该历史路径使用仓库内的 MJLab 环境与冻结的 SPV5-2 tracker
 持续执行 rollout，transition 直接进入内存 causal replay；一旦凑齐完整训练 batch，立即
 更新 context-conditioned INTACT。过程中不生成或读取 `manifest.json`。环境构造、MDP
 terms、策略结构、G1 MJCF 与 mesh 均随本包安装；运行时不需要另一个源码仓库或额外的

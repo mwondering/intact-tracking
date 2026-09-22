@@ -79,6 +79,61 @@ def test_state_digest_detects_optimizer_and_normalizer_changes():
     assert state_digest(value) != state_digest(duplicate)
 
 
+def test_explicit_sampler_reset_ignores_old_files_and_restarts_ema(tmp_path, monkeypatch):
+    from intact_tracking.environment.mdp.multi_commands import MultiMotionCommand
+
+    command = SimpleNamespace(
+        cfg=SimpleNamespace(sampling_mode="adaptive", rewind=SimpleNamespace(enabled=False)),
+        motion_files=("a.npz", "b.npz"), _adaptive_ema_last_iteration=6007,
+        adaptive_prior_visit_count=1., adaptive_prior_failure_count=0.,
+        bin_valid_mask=torch.tensor([[True, True, False], [True, False, False]]),
+        _adaptive_visit_motion_ids=torch.tensor([0, 1]),
+        _adaptive_visit_bin_ids=torch.tensor([1, 0]),
+    )
+    for index, key in enumerate(STATE_FIELDS):
+        setattr(command, key, torch.full((2, 3), float(index + 3)))
+    model_state = {"weights": torch.tensor([3., 4.]),
+                   "optimizer": {"step": torch.tensor(6008.), "exp_avg": torch.tensor([.2, .3])}}
+    digest_before = state_digest(model_state)
+    runner = SimpleNamespace(completed_learning_updates=6008, alg=model_state,
+        loaded_motion_sampling_state={"ranks": [{"path": "/missing/old_statistics.pt"}]},
+        env=SimpleNamespace(unwrapped=SimpleNamespace(command_manager=SimpleNamespace(get_term=lambda _: command))))
+    dist = SimpleNamespace(rank=0, world_size=1, all_gather_object=lambda value: [value])
+    sampler = SamplingCheckpoint(tmp_path, dist, config(boundary=0))
+    with monkeypatch.context() as patch:
+        def reject_load(*args, **kwargs):
+            pytest.fail("An explicit sampler reset must not read old statistics")
+        patch.setattr(torch, "load", reject_load)
+        report = sampler.restore(runner, "adaptive", reset=True)
+    assert report["reset_to_priors"] and not report["restored"]
+    assert report["completed_updates"] == runner.completed_learning_updates == 6008
+    assert report["visit_prior_max_error"] == report["failure_prior_max_error"] == 0
+    assert runner.loaded_motion_sampling_state is None and runner.motion_sampling_state is None
+    assert state_digest(model_state) == digest_before
+    torch.testing.assert_close(command.bin_visit_count, command.bin_valid_mask.float())
+    for key in STATE_FIELDS[1:]:
+        assert not getattr(command, key).any()
+    assert command._adaptive_ema_last_iteration is None
+    assert command._adaptive_visit_motion_ids.tolist() == [0, 1]
+    assert command._adaptive_visit_bin_ids.tolist() == [1, 0]
+    # The next global update establishes a fresh EMA clock without applying
+    # thousands of iterations of decay or skipping the next new statistics.
+    MultiMotionCommand.begin_adaptive_sampling_iteration(command, 6008)
+    assert command._adaptive_ema_last_iteration == 6008
+    sampler.prepare(runner)
+    header = runner.motion_sampling_state["ranks"][0]
+    saved = torch.load(header["path"], weights_only=False)
+    assert saved["completed_updates"] == 6008
+    assert saved["ema_last_iteration"] == 6008
+    torch.testing.assert_close(saved["statistics"]["bin_visit_count"], command.bin_valid_mask.float())
+
+
+def test_sampler_reset_rejects_inactive_adaptive_phase(tmp_path):
+    sampler = SamplingCheckpoint(tmp_path, None, config(mode="uniform"))
+    with pytest.raises(ValueError, match="active adaptive"):
+        sampler.restore(None, "uniform", reset=True)
+
+
 def test_scheduler_requires_exact_checkpoint_for_planned_transition(tmp_path):
     path = Path(__file__).resolve().parents[1] / "scripts/run_limb_context_experiment.py"
     spec = importlib.util.spec_from_file_location("sampling_scheduler_test", path)

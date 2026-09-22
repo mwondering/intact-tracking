@@ -1,5 +1,7 @@
 # 纯在线 INTACT 训练流程与参数
 
+> **历史方案。** 本文记录早期 INTACT 四槽 actor 流程；当前已确认的版本见 [最新定稿 Pipeline（2026-09-20）](final_pipeline_20260920.md)。
+
 当前实现将四个原本容易混淆的时间尺度完全分开：
 
 - `policy_action_steps = 1`：actor 每次只输出当前一步 `u_t ∈ R^29`，这是固定架构语义；

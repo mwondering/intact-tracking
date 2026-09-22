@@ -1,5 +1,7 @@
 # Frozen-tracker residual PPO
 
+> **历史方案。** 本文的 100 帧 context、限幅 residual 与初始化设置属于早期基线；当前采用 proprio122 Memory350、无界 residual 和共享 DR 辅助头，见 [最新定稿 Pipeline（2026-09-20）](final_pipeline_20260920.md)。
+
 这一阶段直接回答一个问题：Forward Predictor 学到的 dynamics latent 能否帮助冻结的
 SPV5-2A tracker 获得更高的实际环境 reward。实现包含两个只相差 latent 输入的 residual PPO
 基线。
